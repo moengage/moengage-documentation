@@ -1,10 +1,12 @@
 openapi: 3.0.3
 info:
   title: MoEngage Email Subscription Management APIs
-  description: APIs for managing user email resubscription and opt-in status.
+  description: |
+    APIs for managing user email resubscription and opt-in status.
+    This suite of APIs allows you to update the email subscription and opt-in preferences for your users directly within the MoEngage platform, and optionally synchronize resubscription status with an external Email Service Provider (ESP).
   version: '1.0'
 servers:
-  - url: 'https://api-0{X}.moengage.com'
+  - url: https://api-0{X}.moengage.com
     description: MoEngage API Server
     variables:
       X:
@@ -12,9 +14,9 @@ servers:
         description: 'Your MoEngage Data Center (DC) number. Refer to MoEngage docs for your correct DC.'
 tags:
   - name: Resubscribe
-    description: Resubscribe users who previously unsubscribed.
+    description: Resubscribe users who previously unsubscribed, and optionally update the ESP suppression list.
   - name: Opt-in Management
-    description: Update user email opt-in status.
+    description: Update user email opt-in status and category preferences in MoEngage.
 security:
   - basicAuth: []
 paths:
@@ -24,21 +26,51 @@ paths:
         - Resubscribe
       summary: Bulk Resubscribe Users
       description: |
-        Resubscribes users who have previously unsubscribed on the MoEngage platform and (optionally) an external ESP platform (currently SendGrid).
-        Resets the unsubscribe flag to "false" for users on MoEngage.
-        If `update_esp` is true, makes a call to the specified ESP (SendGrid) to remove email addresses from their suppression list.
-        Rate Limit: 10 RPM, 14.4K requests/day, max 100 recipients per request.
+        This API allows you to resubscribe a batch of users who have previously unsubscribed on the MoEngage platform. It resets the unsubscribe flag to "false" for these users.
+        
+        If the optional `update_esp` field is set to **true**, MoEngage will also make a call to the specified Email Service Provider (ESP), currently **SendGrid**, to remove the email addresses from their suppression list, effectively resubscribing them on the ESP side as well.
       operationId: bulkResubscribeUsers
+      x-mint:
+        content: |
+          <Note type="warning">
+          This is an **Early Access** feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
+          </Note>
+          
+          ## Supported ESPs
+          The Resubscription API currently supports only **SendGrid**.
+          
+          ## Rate Limit
+          The rate limit is **10 RPM** (requests per minute). The allowed volume is **14.4K** requests per day, with a maximum payload size of **100** recipient email addresses per request.
       parameters:
         - name: MOE-APPKEY
           in: header
           required: true
           schema:
             type: string
-          description: 'This is the WORKSPACE ID of your MoEngage account. Found in Settings -> Account -> APIs -> WORKSPACE ID.'
+          description: |
+            This is the **WORKSPACE ID** of your MoEngage account.
+            
+            Find your Workspace ID at **Settings -> Account -> APIs -> WORKSPACE ID**.
           example: 'YOUR_WORKSPACE_ID_XXXX'
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [application/json]
+          description: Set the Content-Type header to `application/json` for this API.
+          example: application/json
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          description: |
+            The Basic Authentication header. It must contain the Base64-encoded string of your `USERNAME:PASSWORD` (Workspace ID and Data API Key).
+            
+            **Example**: `Basic Base64_ENCODED_APPKEY_APIKEY==`
       requestBody:
-        description: List of recipients to resubscribe.
+        description: List of recipients to resubscribe and ESP preference.
         required: true
         content:
           application/json:
@@ -54,7 +86,7 @@ paths:
               request_id: '636b77e6e2cf83277195fb60'
       responses:
         '202':
-          description: The request is submitted successfully.
+          description: The request has been successfully submitted for asynchronous processing.
           content:
             application/json:
               schema:
@@ -63,7 +95,7 @@ paths:
                 message: The request is submitted successfully.
                 response_id: SrTuWVlPsq
         '400':
-          description: Bad Request (e.g., missing fields, invalid format, too many recipients, invalid ESP settings).
+          description: Bad Request. Returned for issues like missing mandatory fields (e.g., `recipients`), invalid format, too many recipients (>100), or invalid ESP settings.
           content:
             application/json:
               schema:
@@ -106,15 +138,14 @@ paths:
                       err_code: InvalidInput
                 invalidEspSettings:
                   summary: Invalid Email Connector Settings
-                  description: Occurs if the configured ESP settings are incorrect when `update_esp` is true.
+                  description: Occurs if the configured ESP settings are incorrect or the ESP is not SendGrid when `update_esp` is true.
                   value:
-                    # FIXME: Example structure based on description, confirm actual response format
                     response_id: GENERATED_ID
                     error:
-                       message: Valid email settings not present
-                       err_code: InvalidSettings # FIXME: Confirm actual error code
+                        message: Valid email settings not present
+                        err_code: InvalidSettings # FIXME: Confirm actual error code
         '401':
-          description: Authorization Failure (e.g., header mismatch, key missing/invalid, auth type invalid).
+          description: Authorization Failure. Returned for issues like `MOE-APPKEY` header mismatch with Basic Auth username, missing Basic Auth credentials, or invalid authentication type.
           content:
             application/json:
               schema:
@@ -135,7 +166,7 @@ paths:
                       message: Password (APP_SECRET) is missing in the Basic Auth authorization.
                       err_code: AuthenticationMissing
         '405':
-          description: Method Not Allowed (e.g., using GET instead of POST).
+          description: Method Not Allowed. Returned when a method other than POST is used (e.g., GET).
           content:
             application/json:
               schema:
@@ -146,7 +177,7 @@ paths:
                   message: This API only supports the POST method. Kindly update the method and retry again.
                   err_code: MethodNotAllowed
         '415':
-          description: Unsupported Media Type (e.g., missing/invalid Content-Type header).
+          description: Unsupported Media Type. Returned when the `Content-Type` header is missing or invalid.
           content:
             application/json:
               schema:
@@ -157,7 +188,7 @@ paths:
                   message: The header 'Content-Type' is missing. Kindly provide the header 'Content-Type' and set it as 'application/json'
                   err_code: HeaderMissing
         '429':
-          description: Rate Limit Breach (10 RPM).
+          description: Rate Limit Breach. The request rate has exceeded the limit of 10 RPM.
           content:
             application/json:
               schema:
@@ -185,19 +216,49 @@ paths:
         - Opt-in Management
       summary: Update User Email Opt-in Preferences
       description: |
-        Updates the user's email opt-in status and category preferences in MoEngage after they submit the second confirmation through MoEngage consent-seeking emails.
-        Rate Limit: 1000 RPM, 360k per day.
+        Updates a user's overall email opt-in status and/or category-level subscription preferences within MoEngage.
+        This API is typically used after a user submits the second confirmation through MoEngage consent-seeking emails (Double Opt-in).
       operationId: updateEmailOptinPreferences
+      x-mint:
+        content: |
+          ## Rate Limit
+          The rate limit is **1000 RPM** (requests per minute) and **360K** requests per day.
+          
+          <Note>
+          If you use PII Tokenization for your emails, ensure you pass the user ID when calling the Email Opt-in Management API. Passing the email ID is ineffective in this case, as MoEngage does not store it.
+          
+          If you use PII Encryption to send emails, ensure you pass either the user ID or the decrypted email ID.
+          </Note>
       parameters:
         - name: MOE-APPKEY
           in: header
           required: true
           schema:
             type: string
-          description: 'This is the WORKSPACE ID of your MoEngage account. Found in Settings -> Account -> APIs -> WORKSPACE ID.'
+          description: |
+            This is the **WORKSPACE ID** (earlier APP ID) of your MoEngage account.
+            
+            Find your Workspace ID at **Settings -> Account -> APIs -> Workspace ID**.
           example: 'YOUR_WORKSPACE_ID_XXXX'
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [application/json]
+          description: Set the Content-Type header to `application/json` for this API.
+          example: application/json
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          description: |
+            The Basic Authentication header. It must contain the Base64-encoded string of your `USERNAME:PASSWORD` (Workspace ID and Data API Key).
+            
+            **Example**: `Basic Base64_ENCODED_APPKEY_APIKEY`
       requestBody:
-        description: User preference details.
+        description: The request body contains the user's email preference details encapsulated in a `user_preferences` object.
         required: true
         content:
           application/json:
@@ -214,7 +275,7 @@ paths:
                 channel: email
       responses:
         '200':
-          description: Your request has been processed successfully.
+          description: The request has been processed successfully.
           content:
             application/json:
               schema:
@@ -222,7 +283,7 @@ paths:
               example:
                 message: Your request has been processed successfully
         '400':
-          description: Bad Request (e.g., invalid data types, extra keys, invalid enums, missing id/email, invalid categories, user not found).
+          description: Bad Request. Returned when required parameters are missing, incorrect data types are used, invalid values are passed (e.g., invalid `opt_in_status`), or the user is not found.
           content:
             application/json:
               schema:
@@ -274,7 +335,7 @@ paths:
                         target: categories
                         message: Categories A, B, C are either invalid or not active in the Workspace. Please check the categories in the request.
         '401':
-          description: Unauthorized (Authentication failed, header mismatch, invalid/missing keys).
+          description: Unauthorized. Authentication failed (e.g., missing Authorization header, wrong Workspace ID, or wrong Data API Key).
           content:
             application/json:
               schema:
@@ -299,7 +360,7 @@ paths:
                         target: Data key
                         message: Data API key is wrong. Please provide correct Data API Key as password.
         '403':
-          description: Forbidden (Feature not enabled for the workspace).
+          description: Forbidden. Returned when the Email Opt-in Management feature is not enabled for the workspace.
           content:
             application/json:
               schema:
@@ -312,7 +373,7 @@ paths:
                     target: Email Opt-in Management
                     message: Email Opt-in Management feature not enabled for the workspace. Please reach out to MoEngage to get it enabled.
         '429':
-          description: Too Many Requests (Rate limit breached - 1000 RPM / 360k per day). No response body.
+          description: Too Many Requests. The request rate has exceeded the limit of 1000 RPM or 360K per day. No response body is returned.
           content: {}
         '500':
           description: Internal Server Error.
@@ -330,7 +391,10 @@ components:
     basicAuth:
       type: http
       scheme: basic
-      description: 'Basic Authentication using Workspace ID (username) and Data API Key (password) from MoEngage Dashboard > Settings > Account > APIs.'
+      description: |
+        Basic Authentication using **Workspace ID** (username) and **Data API Key** (password).
+        
+        Retrieve these from the MoEngage Dashboard > **Settings > Account > APIs**.
   schemas:
     # Resubscribe Schemas
     ResubscribeRequest:
@@ -345,17 +409,23 @@ components:
           items:
             type: string
             format: email
-          description: Email IDs of users who have resubscribed. Max 100 per request.
+          description: |
+            Email IDs of users who have resubscribed.
+            
+            **Note**: If an email address matches multiple profiles, all profiles will be marked as resubscribed (unsubscribe flag set to false) on the MoEngage dashboard.
           maxItems: 100
           example: ["john@example.com", "mike@example.com"]
         esp:
           type: string
-          description: Email Service Provider whose suppression list needs to be updated. Currently only supports SENDGRID.
+          description: 'Email Service Provider (ESP) whose suppression list needs to be updated. Currently, only **SENDGRID** is supported.'
           enum: [SENDGRID]
           example: SENDGRID
         update_esp:
           type: boolean
-          description: If true, MoEngage calls the ESP to remove email addresses from their suppression list. Defaults to false.
+          description: |
+            If **true**, MoEngage calls the ESP to remove the email addresses from their suppression list.
+            
+            The default value is **false** when not sent in the request payload.
           default: false
         request_id:
           type: string
@@ -363,29 +433,38 @@ components:
           example: '636b77e6e2cf83277195fb60'
     ResubscribeSuccessResponse:
       type: object
+      description: Success response body for the Bulk Resubscribe API (202 Accepted).
       properties:
         message:
           type: string
+          description: A brief description of the request status.
           example: The request is submitted successfully.
         response_id:
           type: string
+          description: Unique identifier for the response, present only when the request is successful.
           example: SrTuWVlPsq
     ResubscribeErrorResponse:
       type: object
+      description: Error response body for the Bulk Resubscribe API (4xx, 5xx).
       properties:
         response_id:
           type: string
+          description: Unique identifier for the response.
         error:
           type: object
+          description: Contains the error details.
           properties:
             message:
               type: string
+              description: A brief description of the error.
             err_code:
               type: string
+              description: The error code for the unsuccessful request.
 
     # Opt-in Management Schemas
     OptinRequest:
       type: object
+      description: The main wrapper object for the user preferences payload.
       required:
         - user_preferences
       properties:
@@ -393,23 +472,34 @@ components:
           $ref: '#/components/schemas/UserPreferences'
     UserPreferences:
       type: object
-      description: Contains the user's opt-in preferences. Must contain either customer_id or email_id.
+      description: |
+        Contains the user's opt-in preferences. Must contain either `customer_id` or `email_id`.
+        
+        **Note**: If both are passed, `email_id` is given the highest priority and all users with that email will be updated, unless the account configuration is changed by MoEngage support.
       required:
         - opt_in_status
         - channel
       properties:
         customer_id:
           type: string
-          description: Unique identifier for the user in MoEngage. Optional if email_id is provided.
+          description: Unique identifier for the user in MoEngage. Optional if `email_id` is provided.
           example: ID_uid
         email_id:
           type: string
           format: email
-          description: Email ID of the user. Optional if customer_id is provided. If only email_id is provided, all users with this email may be updated (contact MoEngage support to configure behavior).
+          description: |
+            Email ID of the user. Optional if `customer_id` is provided.
+            
+            If only `email_id` is provided, all users with this email may be updated (contact MoEngage support to configure behavior).
           example: john@example.com
         categories:
           type: object
-          description: Subscription status for defined categories. Keys are category names, values are boolean (true=subscribed). Invalid/inactive categories will cause the request to fail.
+          description: |
+            Subscription status for defined categories in your dashboard.
+            
+            Keys are category names, values are boolean (`true`=subscribed). If even one category is invalid/inactive, the entire request will fail.
+            
+            **Note**: If this is passed and all category values are `false`, the overall `opt_in_status` will be overridden to **OPTED_OUT** even if `DOUBLE_OPTED_IN` is passed.
           additionalProperties:
             type: boolean
           example:
@@ -417,45 +507,54 @@ components:
             category_2: false
         opt_in_status:
           type: string
-          description: The user's overall opt-in status. Case-insensitive. If all categories are false, this will be overridden to OPTED_OUT even if DOUBLE_OPTED_IN is passed.
+          description: The user's overall email opt-in status. This field is case-insensitive.
           enum: [DOUBLE_OPTED_IN, OPTED_OUT, OPT_IN_PENDING]
           example: DOUBLE_OPTED_IN
         channel:
           type: string
-          description: The channel for which the opt-in status applies. Currently only supports 'email'.
+          description: The channel for which the opt-in status applies. Currently, only **email** is supported.
           enum: [email]
           example: email
     OptinSuccessResponse:
       type: object
+      description: Success response body for the Opt-in Management API (200 OK).
       properties:
         message:
           type: string
+          description: The success message denoting the request was processed successfully.
           example: Your request has been processed successfully
     OptinErrorResponse:
       type: object
+      description: Detailed error response body for the Opt-in Management API (4xx).
       properties:
         error:
           type: object
           properties:
             code:
               type: string
+              description: The HTTP status code and text (e.g., '400 Bad Request').
               example: 400 Bad Request
             message:
               type: string
+              description: A brief message denoting the type of error.
               example: Request Data is invalid.
             details:
               type: object
+              description: Contains granular error information including the target field and a detailed error message.
               properties:
                 target:
                   type: string
+                  description: The field where the error occurred (e.g., `customer_id`).
                   example: customer_id
                 message:
                   type: string
+                  description: The details of the error message.
                   example: "Wrong data type was used for <customer_id>..."
     OptinError500Response:
-       type: object
-       properties:
-         error:
+      type: object
+      description: Error response body for Internal Server Error (500).
+      properties:
+        error:
           type: object
           properties:
             code:
