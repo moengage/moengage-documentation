@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: Cohort Sync API
+  description: >-
+    The MoEngage Cohort Sync API allows partners to synchronize cohorts or
+    audiences created in their ecosystem with MoEngage. It can add or remove
+    users from a custom segment.
+  version: 1.0.0
+servers:
+  - url: https://api-{dc}.moengage.com
+    description: MoEngage API Server
+    variables:
+      dc:
+        default: "01"
+        description: >-
+          The MoEngage Data Center (DC) your account is hosted on (e.g., 01,
+          02, 03).
+security:
+  - basicAuth: []
+tags:
+  - name: Cohort Sync
+    description: Operations to synchronize cohorts (custom segments) with MoEngage.
+paths:
+  /v1/integrations/cohortsync:
+    post:
+      tags:
+        - Cohort Sync
+      summary: Sync Cohort Members
+      description: Add or remove a list of users from a custom segment (cohort) in MoEngage.
+      parameters:
+        - in: header
+          name: MOE-APPKEY
+          required: true
+          schema:
+            type: string
+          description: >-
+            This is your MoEngage account's APP ID. You can find it at
+            Settings -> Account -> APIs -> App ID.
+      requestBody:
+        description: The cohort details and the members to add or remove.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CohortSyncRequest"
+            examples:
+              AddMembers:
+                summary: Add users to a cohort
+                value:
+                  action: "add_members"
+                  partner: "6HNBXFm7ZS"
+                  parameters:
+                    cohort_name: ".Partner_Name"
+                    cohort_id: "JKTAuqTRhC"
+                    cohort_description: "A cohort of users from a partner."
+                    members:
+                      - uid: "mm1UR87z4T"
+                      - uid: "AtCxliflui"
+              RemoveMembers:
+                summary: Remove users from a cohort
+                value:
+                  action: "remove_members"
+                  partner: "6HNBXFm7ZS"
+                  parameters:
+                    cohort_name: ".Partner_Name"
+                    cohort_id: "JKTAuqTRhC"
+                    cohort_description: "A cohort of users from a partner."
+                    members:
+                      - uid: "mm1UR87z4T"
+      responses:
+        "200":
+          description: >-
+            Success. This response is returned when the request is processed
+            successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CohortSyncSuccess"
+              example:
+                status: "success"
+                message: "Your request has been accepted and will be processed soon."
+        "400":
+          description: >-
+            Bad Request. This response is returned when the required
+            parameters (APP KEY, user_id, etc.) are missing from the request
+            or when the provided params are invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                MissingAttribute:
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "action"
+                      message: "action is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "sYsoPuzf"
+                MalformedJson:
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Could not decode the request body. The JSON was incorrect or not encoded as UTF-8."
+                      type: "Malformed JSON"
+                      request_id: "NphDCzWk"
+        "401":
+          description: >-
+            Authorization Failure. This response is returned when the
+            authorization fails due to incorrect APP KEY/ HTTP Auth Header
+            values.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "App Secret key mismatch. Please login to the dashboard to verify key"
+                  type: "Authentication required"
+                  request_id: "skSFWvtW"
+        "403":
+          description: >-
+            Account Suspended/Blocked Temporarily. This response is returned
+            when the user account is temporarily suspended or blocked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "Your account is suspended. Please contact MoEngage team."
+                  type: "BlockedClient"
+                  request_id: "ofHUEaEQ"
+        "413":
+          description: >-
+            Payload Limit Exceeded. This response is returned when the
+            payload size has exceeded the limit set (128KB).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "Payload can not exceed 128KB"
+                  type: "Payload too large"
+                  request_id: "VFzDwhwt"
+        "415":
+          description: >-
+            Unsupported media type. This response is returned when the header
+            “Content-Type” is not provided/is not supported.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "Content type is not supported"
+                  type: "Unsupported media type"
+                  request_id: "SgBQfKJh"
+        "429":
+          description: >-
+            Rate Limit Breach. This response is returned when the number of
+            requests per minute has exceeded the rate limit (300/min).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "Rate limits for customers exceeded. Please Try After Some Time"
+                  type: "Rate Limits Exceeded"
+                  request_id: "onqucLYL"
+        "500":
+          description: >-
+            Internal Server Error. This response is returned when the system
+            runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                status: "fail"
+                error:
+                  message: "An unexpected error was encountered while processing this request. Please contact MoEngage Team"
+                  type: "Server Error"
+                  request_id: "KovrwJiF"
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >-
+        Basic Authentication using your Workspace ID (from Settings ->
+        Account -> APIs -> Workspace ID) as the username and the Data API
+        Key (from Settings -> Account -> APIs -> API keys -> Data) as the
+        password.
+  schemas:
+    CohortSyncRequest:
+      type: object
+      required:
+        - action
+        - parameters
+      properties:
+        action:
+          type: string
+          description: >-
+            This field indicates whether users need to be added to the cohort
+            or removed from it.
+          enum:
+            - add_members
+            - remove_members
+        partner:
+          type: string
+          description: >-
+            This field indicates the name of the partner whose cohort is
+            being synced to MoEngage.
+          example: "6HNBXFm7ZS"
+        parameters:
+          $ref: "#/components/schemas/CohortParameters"
+    CohortParameters:
+      type: object
+      description: Contains the information about the cohort to be synced.
+      required:
+        - cohort_name
+        - cohort_id
+        - members
+      properties:
+        cohort_name:
+          type: string
+          description: >-
+            The name of the cohort. Note: Ensure your cohort name must start
+            with a period (.) and must not contain the restricted
+            characters |, *, ?, \, :, <, >, =, $, ".
+          example: ".Demo_Cohort"
+        cohort_id:
+          type: string
+          description: >-
+            The unique identifier for the cohort being synced to MoEngage.
+          example: "Demo_CohortID"
+        cohort_description:
+          type: string
+          description: A description for the cohort being synced to MoEngage.
+          example: "This is a Demo Cohort."
+        members:
+          type: array
+          description: >-
+            Contains the unique identifiers of the customers being added to
+            or removed from a Cohort in MoEngage.
+          items:
+            $ref: "#/components/schemas/CohortMember"
+    CohortMember:
+      type: object
+      required:
+        - uid
+      properties:
+        uid:
+          type: string
+          description: >-
+            The unique identifier (Unique User ID) for a customer who is to
+            be added or removed.
+          example: "mm1UR87z4T"
+    CohortSyncSuccess:
+      type: object
+      description: "Response body for a successful request."
+      properties:
+        status:
+          type: string
+          description: The status of the request.
+          example: "success"
+        message:
+          type: string
+          description: A message indicating the request was accepted.
+          example: "Your request has been accepted and will be processed soon."
+    ErrorResponse:
+      type: object
+      description: "Generic error response schema."
+      properties:
+        status:
+          type: string
+          description: The status of the request.
+          example: "fail"
+        error:
+          $ref: "#/components/schemas/ErrorDetails"
+    ErrorDetails:
+      type: object
+      description: Details of the error that occurred.
+      properties:
+        attribute:
+          type: string
+          description: The request attribute causing the error.
+          example: "action"
+        message:
+          type: string
+          description: A human-readable error message.
+          example: "action is not found in the payload"
+        type:
+          type: string
+          description: The type of error.
+          example: "MissingAttributeError"
+        request_id:
+          type: string
+          description: A unique ID for tracing the request.
+          example: "UkBwaUmU"
