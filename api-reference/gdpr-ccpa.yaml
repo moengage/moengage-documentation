@@ -1,9 +1,11 @@
 openapi: 3.0.3
 info:
   title: MoEngage GDPR / CCPA API
-  description: API to create or update user rights for GDPR / CCPA compliance, including erasing personal data.
+  description: |
+    API to create or update user rights for **GDPR** (General Data Protection Regulation) or **CCPA** (California Consumer Privacy Act) compliance, including the right to erase personal data.
   version: '1.0'
 servers:
+  # Updated server configuration based on best practice for API playground enablement.
   - url: 'https://api-0{X}.moengage.com/v1'
     description: MoEngage API Server
     variables:
@@ -12,7 +14,7 @@ servers:
         description: 'Your MoEngage Data Center (DC) number. Refer to MoEngage docs for your correct DC.'
 tags:
   - name: GDPR
-    description: Manage GDPR and CCPA data requests.
+    description: Manage user data requests for GDPR and CCPA compliance.
 security:
   - basicAuth: []
 paths:
@@ -20,26 +22,44 @@ paths:
     post:
       tags:
         - GDPR
-      summary: Submit GDPR/CCPA Request
-      description: 'Ensures all the rights of users are created or updated for GDPR / CCPA compliance. You can erase the personal data of specific users as defined under GDPR using this API.'
+      summary: Submit a GDPR/CCPA Data Request
+      description: |
+        This endpoint is used to submit a GDPR or CCPA request, such as a request for data erasure or data access.
+        
+        The API ensures that all the specified rights of users are created or updated for GDPR/CCPA compliance. The primary use case is to erase the personal data of specific users.
       operationId: submitGdprRequest
+      x-mint:
+        # Injecting supplementary content from the documentation (Rate Limits, Callouts, Notes).
+        content: |
+          ### Request Limitations
+          
+          <Note>
+          The maximum payload size is **100kb** (as per the requestBody description) or **128 KB** (as per the FAQ). To ensure robustness, we enforce the **100kb** limit.
+          </Note>
+          
+          <Warning>
+          **Important Note on Deletion:** Multiple users **cannot** be deleted using this API in a single payload. If an email ID associated with multiple users is passed for an erasure request, **all** associated users will be deleted.
+          </Warning>
       parameters:
         - name: Workspace_ID
           in: path
           required: true
           schema:
             type: string
-          description: 'The Workspace ID for your MoEngage account, available on the MoEngage Dashboard.'
+          description: |
+            The Workspace ID for your MoEngage account. This is required for routing the request.
           example: 'YOUR_WORKSPACE_ID_XXXX'
         - name: MOE-APPKEY
           in: header
           required: true
           schema:
             type: string
-          description: 'This is the workspace ID (earlier APP ID) of your MoEngage workspace.'
+          description: |
+            This is the MoEngage Workspace ID (formerly known as APP ID) sent in the header for authentication.
           example: 'YOUR_WORKSPACE_ID_XXXX'
       requestBody:
-        description: The GDPR/CCPA request. Max payload size is 100kb.
+        description: |
+          The GDPR/CCPA request payload, containing the type of request and the user identities. The maximum payload size is **100kb**.
         required: true
         content:
           application/json:
@@ -54,7 +74,7 @@ paths:
               api_version: '1.0'
       responses:
         '200':
-          description: Your request has been accepted and will be processed soon.
+          description: Successful request. Your request has been accepted and will be processed soon.
           content:
             application/json:
               schema:
@@ -64,17 +84,19 @@ paths:
                 message: Your request has been accepted and will be processed soon.
                 request_id: 'a7551968-d5d6-44b2-9831-815ac9017798'
         '400':
-          description: Bad Request. (e.g., malformed JSON, missing required fields).
+          description: Bad Request. The request was malformed (e.g., malformed JSON, missing required fields).
         '401':
-          description: Authentication Failure.
+          description: Authentication Failure. Check your Basic Auth credentials (Workspace ID and Data API Key).
         '413':
-          description: 'Payload Too Large. The request payload exceeds the 100kb limit.'
+          description: Payload Too Large. The request payload exceeds the 100kb limit.
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
-      description: 'Basic Authentication using Workspace ID (username) and Data API Key (password) from MoEngage Dashboard > Settings > Account > APIs.'
+      description: |
+        Basic Authentication using your **Workspace ID** (as the username) and a **Data API Key** (as the password).
+        Credentials can be found on the MoEngage Dashboard in the **Settings > Account > APIs** section.
   schemas:
     GdprRequest:
       type: object
@@ -83,31 +105,33 @@ components:
         - submitted_time
         - identities
         - api_version
+      description: The main object representing a GDPR or CCPA compliance request.
       properties:
         request_type:
           type: string
-          description: This is used to request for GDPR details or request to erase the GDPR details.
+          description: This field specifies the type of request, typically for data access or data erasure.
           example: erasure
         submitted_time:
           type: string
           format: date-time
-          description: This identifies the time when the request was sent (ISO 8601 format).
+          description: The time when the request was sent, formatted in **ISO 8601** format.
           example: '2018-10-05T15:00:00Z'
         identities:
           type: array
-          description: This provides the details of the user such as email address, phone number, and so on.
+          description: An array providing the details of the user(s) for the request (e.g., email address, phone number).
           items:
             $ref: '#/components/schemas/UserIdentity'
         api_version:
           type: string
-          description: This identifies the API version used to send the GDPR request.
+          description: The version of the GDPR API used to send this request.
           example: '1.0'
     UserIdentity:
       type: object
+      description: An object representing a user's identity detail.
       properties:
         identity_type:
           type: string
-          description: The type of user identifier.
+          description: The type of user identifier being provided.
           enum:
             - id
             - user_secondary_id
@@ -118,18 +142,21 @@ components:
           example: email
         identity_value:
           type: string
-          description: The value for the specified user identifier.
+          description: The actual value for the specified user identifier.
           example: johndoe@example.com
     GdprSuccessResponse:
       type: object
+      description: Standard successful response object for a submitted GDPR request.
       properties:
         status:
           type: string
           example: success
         message:
           type: string
+          description: A human-readable message confirming the request was accepted.
           example: Your request has been accepted and will be processed soon.
         request_id:
           type: string
           format: uuid
+          description: A unique ID generated for the submitted request.
           example: 'a7551968-d5d6-44b2-9831-815ac9017798'
