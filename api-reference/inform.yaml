@@ -36,31 +36,10 @@ paths:
       tags:
         - Transactional Alerts
       summary: Send Transactional Alert
-      description: Sends a transactional alert to a user on one or more channels using a pre-configured Alert ID or Alert Reference Name. Use the Live endpoint for production and the Test/Sandbox endpoint for testing.
-      x-mint: content: |
-        ### Payload Rules & Limits
-
-        <Note>
-        * At least one channel is mandatory in the API request.
-        * A maximum of two channels can be configured for an Alert.
-        * A maximum payload size of 100KB is allowed for `personalized_attributes`.
-        * The total size of all attachments must be less than 4 MB. You can attach up to 5 files.
-        </Note>
-
-        ### API Response Behavior
-
-        <Info>
-        Reach out to your Customer Success Manager to enable sending the channel-level details as part of your API response.
-        </Info>
-
-        Inform API works in two steps:
-        1.  A check is performed to verify if the API request received is valid.
-        2.  If valid, the second process is to resolve the content and send the message.
-
-        Response error codes are shared in a `wxyzab` format. See the error tables in the reference documentation for a full breakdown.
+      description: This API sends a transactional alert to a user on one or more channels using a pre-configured Alert ID or Alert Reference Name. Use the Live endpoint for production and the Test/Sandbox endpoint for testing.
       security:
         - basicAuth: []
-        - moeAppKey: []
+          moeAppKey: []
       requestBody:
         required: true
         description: The payload containing the alert identifier, transaction details, and recipient information for each channel.
@@ -72,51 +51,40 @@ paths:
               multiChannelWithPersonalization:
                 summary: Multi-Channel with Personalization
                 value:
-                  alert_id: '636b77e6e2cf83277195fb60'
-                  alert_reference_name: Demo_ID
-                  user_id: USER_12345
-                  transaction_id: TXN_987654321
-                  payloads:
-                    PUSH:
-                      recipient: '<push-token>'
-                      personalized_attributes:
-                        firstname: John
-                        orderid: ORD_554433
-                    EMAIL:
-                      recipient: john.doe@moengage.com
-                      personalized_attributes:
-                        firstname: John
-                        orderid: ORD_554433
+                  alert_id": "636b77e6e2cf83277195fb60"
+                  alert_reference_name": "Demo_ID"
+                  user_id": "USER_12345"
+                  transaction_id": "TXN_987654321"
+                  payloads":
+                    PUSH":
+                      recipient": "<push-token>"
+                      personalized_attributes":
+                        firstname": "John"
+                        orderid": "ORD_554433"
+                    EMAIL":
+                      recipient": "john.doe@moengage.com"
+                      personalized_attributes":
+                        firstname": "John"
+                        orderid": "ORD_554433"
               singleChannelNoPersonalization:
                 summary: Single Channel (SMS) without Personalization
                 value:
-                  alert_id: '636b77e6e2cf83277195fb60'
-                  alert_reference_name: Demo_ID
-                  user_id: USER_12345
-                  transaction_id: TXN_ABCDEF123
-                  payloads:
-                    SMS:
-                      recipient: '1234567890'
+                  alert_id": "636b77e6e2cf83277195fb60"
+                  alert_reference_name": "Demo_ID"
+                  user_id": "USER_12345"
+                  transaction_id": "TXN_ABCDEF123"
+                  payloads":
+                    SMS":
+                      recipient": "1234567890"
       responses:
         '200':
-          description: |
-            The request was successfully received and submitted for processing.
-
-            The response body contains the overall status and `request_id`. It may also contain channel-level status details, which could include individual errors.
-
-            **Note:** For errors in the channel-level payload (e.g., invalid recipient), the error information is present in the response body *if* enabled for your account, otherwise it is available in the logs on the dashboard.
+          description: Request has been received and processed. The response body contains the status for the overall request and for each individual channel, which may include channel-specific errors.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InformSuccessResponse'
         '400':
-          description: |
-            Bad Request. This response is returned in the following cases:
-            * The payload is empty or in an invalid JSON format.
-            * Invalid or missing `alert_id` or `alert_reference_name`.
-            * The `transaction_id` is missing or exceeds the 50-character limit.
-            * The payload contains channels that are not configured in the Alert.
-            * The Alert ID used is for an Alert that is paused, stopped, or archived.
+          description: Bad Request. Invalid payload format, incorrect JSON, invalid or missing Alert ID, or invalid channel configuration..
           content:
             application/json:
               schema:
@@ -134,8 +102,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/InformErrorResponse'
         '429':
-          description: >
-            Rate Limit Reached. The number of requests per minute has exceeded the allowed limit (default is 10,000 RPM).
+          description: Rate Limit Reached. The number of requests per minute has exceeded the allowed limit.
           content:
             application/json:
               schema:
@@ -146,30 +113,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InformErrorResponse'
+
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
-      description: |
-        The API request is authenticated through Basic Authentication, which uses your Workspace ID as the username and your Inform API Key as the password.
-
-        It sends a Base64-encoded string of `username:password` in the `Authorization` header.
-
-        You can obtain these details from the MoEngage Dashboard:
-        1.  Navigate to **Settings** -> **Account** -> **APIs**.
-        2.  **Username:** Copy the **Workspace ID (earlier app id)**.
-        3.  **Password:** Copy the **API key** from the **Inform** tile.
-      x-mint: content: |
-        <Warning>
-          Please **DO NOT** regenerate the API key unless there is a security breach. Once you generate a different API SECRET KEY and save it, API calls using the older SECRET KEY won't work.
-        </Warning>
+      description: This authentication parameter, used for access control, must be passed along with the request.
     moeAppKey:
       type: apiKey
       in: header
       name: MOE-APPKEY
-      description: >
-        This is the Workspace ID (or App ID) of your MoEngage account and needs to be passed along with the request. You can find your MoEngage APP ID in the MoEngage Dashboard API Settings.
+      description: This is the Workspace ID (or App ID) of your MoEngage account and needs to be passed along with the request. You can find your MoEngage APP ID in the MoEngage Dashboard API Settings.
+
   schemas:
     PayloadChannel:
       type: object
@@ -182,30 +138,19 @@ components:
         personalized_attributes:
           type: object
           additionalProperties: true
-          description: >
-            This field contains the personalized attributes for each channel configured for the Alert. This information is passed by the brand when invoking the Inform API Service.
+          description: A key-value map of attributes for personalizing the message template.
         sender_attributes:
           type: array
           items:
             type: string
-          description: >
-            A list of the API attributes used for evaluating which sender to be selected. If not passed, the alert will not be sent out.
+          description: A list of API attributes for evaluating which sender to use.
         personalized_attachments:
           type: object
           additionalProperties:
             type: string
             format: byte
-          description: |
-            A map where keys are attachment identifiers (defined in the template) and values are Base64-encoded strings of the attachment content.
+            description: 'A map where keys are attachment identifiers (defined in the template) and values are Base64-encoded strings of the attachment content.'
 
-            If email attachments are specified to be **Uploaded via API** during Alert creation, this field must be used.
-
-            **Example Format:**
-            ```json
-            {
-              "sample_attachment_key": "data:{extension_type};base64,{YOUR_BASE64_STRING_HERE}"
-            }
-            ```
     InformRequest:
       type: object
       required:
@@ -214,30 +159,19 @@ components:
       properties:
         alert_id:
           type: string
-          description: |
-            This field uniquely identifies the Alert to be sent. For the sandbox/test endpoint, use the Test Alert ID, and for the live endpoint, use the Live Alert ID.
-
-            Either this field or `alert_reference_name` is mandatory.
+          description: This field uniquely identifies the Alert to be sent to the user. For the staging endpoint, use the test alert id and for the live endpoint, use the alert id.
         alert_reference_name:
           type: string
-          description: >
-            This field is used to identify the Alert using your custom reference name. It can be used as an alternative to `alert_id`.
+          description: This field is used to identify the Alert using your reference Name and can be used to identify the alert as an alternative to Alert ID.
         user_id:
           type: string
-          description: |
-            This is the unique user identifier (e.g., Client ID) that you maintain.
-
-            Passing this information facilitates the mapping of channel events (like clicks, opens) back to the user profile associated with this `user_id` in MoEngage.
+          description: This is the unique user identifier information you maintain. This information should be passed in the request to facilitate the mapping of the channel events back to the user profile to which this user_id is associated in MoEngage. MoEngage stores this unique identifier as the Client ID in the user profile.
         transaction_id:
           type: string
-          maxLength: 50
-          description: |
-            A unique identifier (max 50 characters) for the transaction to support idempotency.
-
-            If a successful request is received, any subsequent request with the same `transaction_id` within 5 minutes will be rejected as a duplicate (409 Conflict).
+          description: This is the unique identifier denoting the transaction for which the Alert is being sent to the user. This information is maintained by the brand and is passed in the request. The maximum length allowed for this field is 50 characters. The Inform API supports idempotency using this parameter. If a request contains a transaction_id and is successful and another request with the same transaction ID is received within 5 minutes of the successful request, the new request would be deemed a duplicate one.
         payloads:
           type: object
-          description: An object where keys are the channel names (SMS, EMAIL, PUSH) and values contain the recipient and personalization data. At least one channel is required.
+          description: The payload contains the following channel-level information for all the configured channels:.
           properties:
             SMS:
               $ref: '#/components/schemas/PayloadChannel'
@@ -245,6 +179,7 @@ components:
               $ref: '#/components/schemas/PayloadChannel'
             PUSH:
               $ref: '#/components/schemas/PayloadChannel'
+
     ChannelStatus:
       type: object
       properties:
@@ -254,12 +189,13 @@ components:
           type: string
         status_code:
           type: integer
+
     InformSuccessResponse:
       type: object
       properties:
         message:
           type: string
-          example: 'Successfully Received'
+          example: "Successfully Received"
         request_id:
           type: string
         SMS:
@@ -268,15 +204,16 @@ components:
           $ref: '#/components/schemas/ChannelStatus'
         PUSH:
           $ref: '#/components/schemas/ChannelStatus'
+
     InformErrorResponse:
       type: object
       properties:
         message:
           type: string
-          example: 'Invalid Alert ID'
+          example: "Invalid Alert ID"
         err_code:
           type: string
-          example: 'BAD_REQUEST'
+          example: "BAD_REQUEST"
         status_code:
           type: integer
           example: 120002
