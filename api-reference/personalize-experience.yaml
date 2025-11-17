@@ -1,0 +1,484 @@
+openapi: 3.0.3
+info:
+  title: Personalize APIs
+  description: APIs for fetching and reporting on personalization experiences.
+  version: 1.0.0
+servers:
+  - url: https://sdk-{dc}.moengage.com/v1
+    description: MoEngage API Server
+    variables:
+      dc:
+        default: "01"
+        description: >-
+          The MoEngage Data Center (DC) your account is hosted on (e.g., 01,
+          02, 03).
+security:
+  - basicAuth: []
+tags:
+  - name: Experiences
+    description: Fetching personalization experiences and metadata.
+  - name: Events
+    description: Reporting events for analytics (e.g., clicks, impressions).
+paths:
+  /experiences/fetch:
+    post:
+      tags:
+        - Experiences
+      summary: Fetch Experience
+      description: >-
+        Use the Fetch endpoint to receive data on active personalization
+        experiences. MoEngage will evaluate targeting rules and in-session
+        attributes automatically and return the correct variation for the user.
+      parameters:
+        - in: header
+          name: MOE-APPKEY
+          required: true
+          schema:
+            type: string
+          description: >-
+            This is the Workspace ID of your MoEngage account and needs to be
+            passed along with the request.
+      requestBody:
+        description: Body to fetch experiences for a user.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExperienceFetchRequest"
+            examples:
+              FullExample:
+                value:
+                  identifiers:
+                    customer_id: "user@example.com"
+                    user_identifiers:
+                      u_em: "user@example.com"
+                      u_mb: "+1234567890"
+                  experience_key:
+                    - "homepage-banner"
+                    - "promo-widget"
+                  Custom_attribute: "utm_medium:email"
+                  DAY_OF_THE_WEEK: "Sunday"
+                  TIME_OF_THE_DAY: "19"
+                  USER_IP_ADDRESS: "127.0.0.1"
+                  USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+      responses:
+        "200":
+          description: >-
+            Success. This response is returned when the request is submitted to
+            MoEngage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceFetchResponse"
+              example:
+                experiences:
+                  new-serverside-experience:
+                    payload:
+                      Title:
+                        value: "Presenting MoEngage Server side personalization! "
+                        data_type: "string"
+                      Image:
+                        value: "https://cdn.pixabay.com/photo/2021/02/24/20/53/abstract-6047465_960_720.jpg"
+                        data_type: "string"
+                    experience_context:
+                      cid: "65eae5738ea5032b0ef60138_F_T_WP_AB_2_P_0_AU_42D"
+                      experience: "Server Side Experience"
+                      moe_locale_id: "<id>"
+                      moe_variation_id: "<id>"
+                      audience_name: "<audience name>"
+                      audience_id: "<id>"
+                      type: "Web Personalization"
+        "400":
+          description: >-
+            Bad Request. This response is returned in case the payload is
+            empty or invalid.
+        "401":
+          description: >-
+            Authorization Failed. This response is returned when the
+            authorization fails due to incorrect values for the APP KEY/
+            HTTP Auth Header.
+        "500":
+          description: >-
+            Internal Server error. This response is returned when the system
+            runs into an unexpected error.
+  /experiences/metadata:
+    post:
+      tags:
+        - Experiences
+      summary: Fetch Experience Metadata
+      description: >-
+        The Metadata API is used to fetch a list of currently Active,
+        Scheduled and Paused experiences within a workspace.
+      parameters:
+        - in: header
+          name: MOE-APPKEY
+          required: true
+          schema:
+            type: string
+          description: >-
+            This is the Workspace ID of your MoEngage account and needs to be
+            passed along with the request.
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+          description: >-
+            Filter experiences by status. Comma-separated list. Accepts
+            'Active', 'Paused', 'Scheduled'. If omitted, all statuses are
+            returned.
+          example: "Active,Paused"
+      responses:
+        "200":
+          description: Successful retrieval of metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceMetadataResponse"
+              example:
+                metadata:
+                  count: 3
+                  experiences:
+                    - experience_name: "Experience 1"
+                      experience_key: "experience-1"
+                      status: "Active"
+                    - experience_name: "Experience 2"
+                      experience_key: "experience-2"
+                      status: "Paused"
+                    - experience_name: "Experience-3"
+                      experience_key: "experience-3"
+                      status: "Scheduled"
+        "401":
+          description: Authorization Failed.
+        "500":
+          description: Internal Server error.
+  /experiences/events:
+    post:
+      tags:
+        - Events
+      summary: Report Experience Events
+      description: >-
+        Use this endpoint to report experience events, such as
+        'MOE_PERSONALIZATION_MESSAGE_SHOWN' and
+        'MOE_PERSONALIZATION_MESSAGE_CLICKED'.
+      parameters:
+        - in: header
+          name: MOE-APPKEY
+          required: true
+          schema:
+            type: string
+          description: >-
+            This is the Workspace ID of your MoEngage account and needs to be
+            passed along with the request.
+      requestBody:
+        description: An array of event elements to report.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExperienceEventRequest"
+            examples:
+              ImpressionEvent:
+                summary: Report Impression (Message Shown)
+                value:
+                  elements:
+                    - customer_id: "john@example.com"
+                      user_timezone_offset: 19800
+                      actions:
+                        - action: "MOE_PERSONALIZATION_MESSAGE_SHOWN"
+                          moe_event_uuid: "aa886712-4537-47c1-b126-2686efda2e26"
+                          event_time: 1725258666
+                          platform: "Web"
+                          attributes:
+                            cid: "66d55ae445921e4d35ae4368_F_T_WP_AB_2_P_0_AU_5A"
+                            experience: "Test Server side experience"
+                            moe_locale_id: "0"
+                            moe_variation_id: "2"
+                            audience_name: "All Users"
+                            audience_id: "5A"
+                            type: "Web Personalization"
+              ClickEvent:
+                summary: Report Click (Message Clicked)
+                value:
+                  elements:
+                    - customer_id: "john@example.com"
+                      user_timezone_offset: 19800
+                      actions:
+                        - action: "MOE_PERSONALIZATION_MESSAGE_CLICKED"
+                          moe_event_uuid: "bb997812-4537-47c1-b126-2686efda2e27"
+                          event_time: 1725258670
+                          platform: "Web"
+                          attributes:
+                            cid: "66d55ae445921e4d35ae4368_F_T_WP_AB_2_P_0_AU_5A"
+                            experience: "Test Server side experience"
+                            moe_locale_id: "0"
+                            moe_variation_id: "2"
+                            b_id: "Add to Cart"
+                            audience_name: "All Users"
+                            audience_id: "5A"
+                            type: "Web Personalization"
+      responses:
+        "200":
+          description: Success. The event was successfully submitted.
+        "400":
+          description: >-
+            Bad Request. This response is returned in case the payload is
+            empty or invalid.
+        "401":
+          description: >-
+            Authorization Failed. This response is returned when the
+            authorization fails.
+        "500":
+          description: >-
+            Internal Server error. This response is returned when the system
+            runs into an unexpected error.
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >-
+        Basic Authentication using your Workspace ID as the username and the
+        Personalize API Key as the password.
+  schemas:
+    ExperienceFetchRequest:
+      type: object
+      properties:
+        identifiers:
+          type: object
+          description: User identification object.
+          properties:
+            customer_id:
+              type: string
+              description: Unique identifier for the user mapped with ID field.
+              example: "john.doe@example.com"
+            user_identifiers:
+              type: object
+              description: Additional user identifiers like email or mobile.
+              properties:
+                u_em:
+                  type: string
+                  description: User Email
+                  example: "user@example.com"
+                u_mb:
+                  type: string
+                  description: Mobile Number
+                  example: "+1234567890"
+              additionalProperties: true
+        experience_key:
+          type: array
+          items:
+            type: string
+          description: >-
+            A list of experience keys to fetch. If empty, all experiences
+            for the user are returned.
+          example:
+            - "experience-1"
+            - "experience-2"
+        Custom_attribute:
+          type: string
+          description: >-
+            This field must contain the same value that has been used to
+            identify users using the In-session attribute Query Parameter.
+          example: "utm_medium:email"
+        DAY_OF_THE_WEEK:
+          type: string
+          description: >-
+            This field must contain the day of the week for evaluating
+            IN-session attribute-based experiences.
+          example: "Sunday"
+        TIME_OF_THE_DAY:
+          type: string
+          description: >-
+            This field must contain the time of the day (00-23) for
+            evaluating IN-session attribute-based experiences.
+          example: "19"
+        USER_IP_ADDRESS:
+          type: string
+          description: >-
+            This field must contain the user’s IP address to fetch
+            experiences for audiences segmented basis geo-location.
+          example: "192.168.1.1"
+        USER_AGENT:
+          type: string
+          description: >-
+            This field must contain the USER-AGENT HTTP header. Useful for
+            delivering experiences based on in-session attributes like Device
+            Type.
+          example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+    ExperienceFetchResponse:
+      type: object
+      properties:
+        experiences:
+          type: object
+          description: An object where each key is an experience_key.
+          additionalProperties:
+            $ref: "#/components/schemas/ExperiencePayload"
+    ExperiencePayload:
+      type: object
+      properties:
+        payload:
+          type: object
+          description: >-
+            This field contains a list of all the key-value pairs defined as
+            part of the experience.
+          additionalProperties:
+            type: object
+            properties:
+              value:
+                type: string
+                description: >-
+                  This field contains the value of the keys defined in the
+                  payload
+              data_type:
+                type: string
+                description: >-
+                  This field specifies the data type of the value of each key
+        experience_context:
+          type: object
+          description: >-
+            A JSON object to be used for reporting pageviews/impressions
+            and/or tracking clicks.
+          properties:
+            cid:
+              type: string
+            experience:
+              type: string
+            moe_locale_id:
+              type: string
+            moe_variation_id:
+              type: string
+            audience_name:
+              type: string
+            audience_id:
+              type: string
+            type:
+              type: string
+    ExperienceMetadataResponse:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            count:
+              type: integer
+              format: int32
+            experiences:
+              type: array
+              items:
+                type: object
+                properties:
+                  experience_name:
+                    type: string
+                  experience_key:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - Active
+                      - Paused
+                      - Scheduled
+    ExperienceEventRequest:
+      type: object
+      properties:
+        elements:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventElement"
+    EventElement:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          description: >-
+            Your brand provides this field... This is essential for event
+            mapping back to the user.
+        user_attributes:
+          type: object
+          description: >-
+            This field is used to update the details of a user... If the
+            customer_id does not exist, a new user will be created...
+          additionalProperties: true
+          example:
+            name: "John Doe"
+            first_name: "John"
+        user_timezone_offset:
+          type: integer
+          description: >-
+            The difference in time between UTC and the local system time...
+            in seconds. Example: 19800 for IST (UTC+0530).
+          example: 19800
+        actions:
+          type: array
+          description: >-
+            Multiple actions or events performed by a user can be grouped
+            together.
+          items:
+            $ref: "#/components/schemas/EventAction"
+    EventAction:
+      type: object
+      required:
+        - action
+        - moe_event_uuid
+        - event_time
+        - platform
+        - attributes
+      properties:
+        action:
+          type: string
+          description: This field identifies the action or the event performed by the user.
+          enum:
+            - MOE_PERSONALIZATION_MESSAGE_SHOWN
+            - MOE_PERSONALIZATION_MESSAGE_CLICKED
+        moe_event_uuid:
+          type: string
+          format: uuid
+          description: Unique identifier to be sent for each event to prevent duplication.
+          example: "aa886712-4537-47c1-b126-2686efda2e26"
+        event_time:
+          oneOf:
+            - type: integer
+              description: Epoch time in seconds.
+              example: 1725258666
+            - type: string
+              format: date-time
+              description: ISO 8601 string.
+          description: This field represents UTC time at which the event happened.
+        platform:
+          type: string
+          description: >-
+            The platform on which the user is shown the personalization
+            event.
+          enum:
+            - Android
+            - IOS
+            - Web
+            - TV
+            - Unknown
+        attributes:
+          type: object
+          description: >-
+            This field is the 'experience_context' sent as part of the
+            response to the Experience Fetch API request.
+          properties:
+            cid:
+              type: string
+            experience:
+              type: string
+            moe_locale_id:
+              type: string
+            moe_variation_id:
+              type: string
+            audience_name:
+              type: string
+            audience_id:
+              type: string
+            type:
+              type: string
+            b_id:
+              type: string
+              description: >-
+                This field can be used to uniquely identify click tracking
+                events on multiple elements on a page.
+              example: "Add to Cart"
+          additionalProperties: true
