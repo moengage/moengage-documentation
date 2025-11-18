@@ -62,16 +62,15 @@ paths:
           * Create a new user
           * Create new user property
           * Update existing user properties of users
-      description: "This API helps add or update users and user properties in MoEngage."
+      description: "Adds new users or updates properties of existing users in MoEngage."
       parameters:
         - name: Workspace_ID
           in: path
           required: true
-          description: 'The Workspace ID of your MoEngage account. Found in Settings > Account > APIs.'
+          description: 'This is the Workspace ID of your MoEngage account that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
           schema:
             type: string
             example: VJ0GSMESHMQA3L7WV1EEK3UR
-        # FIX: Added X-Forwarded-For header as requested
         - name: X-Forwarded-For
           in: header
           required: false
@@ -580,10 +579,23 @@ paths:
 
 components:
   securitySchemes:
+    # FIX: Updated description per user request
     basicAuth:
       type: http
       scheme: basic
-      description: Basic Authentication using Workspace ID as username and Data API Key as password.
+      description: |
+        This authentication parameter, used for access control, must be passed along with the request. The API request will be authenticated through Basic Authentication. Basic Authentication sends a Base64-encoded string containing your username and password with every API request. It encodes a 'username:password' string in Base64 and appends the encoded string with 'Basic '. This string is included in the authorization header as shown below:
+
+        `{"Authorization: Basic Base64_ENCODED_WORKSPACEID_APIKEY=="}`
+
+        The username and password details can be obtained from the MoEngage Dashboard. If you're using the API for the first time, follow these steps:
+        1. Navigate to **Settings -> Account -> APIs**.
+        2. Copy the following details:
+           * **Username:** Under Workspace ID (earlier app id), click the copy icon to copy the username.
+           * **Password:** In the **API keys** section, click the copy icon in the **Data** tile to copy the API key.
+
+        Use these details to authenticate the API requests.
+
   schemas:
     GenericSuccess:
       type: object
@@ -684,11 +696,15 @@ components:
       properties:
         type:
           type: string
-          description: 'Identifies the type of request. Must be "customer".'
+          description: 'This is used to identify the type of request. 
+                  Allowed Value: customer
+                  Example: "type": "customer"
+Note: This field is case-sensitive. Follow the case as in the example when passing the value in the request.'
           enum: [customer]
         customer_id:
           type: string
-          description: 'Unique identifier for the user. Not mandatory in Identity Resolution enabled workspaces.'
+          description: 'The unique identifier is used to identify/create a user in MoEngage. Please refer to this section for more information on customer_id.
+Not mandatory in Identity resolution enabled workspaces.'
         update_existing_only:
           type: boolean
           description: 'If true, only existing users will be updated; new users will not be created.'
