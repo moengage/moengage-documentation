@@ -46,7 +46,7 @@ servers:
           - '3'
 
 security:
-  - basicAuth: []
+  - Authentication: []
 
 paths:
   # SECTION 1: USER
@@ -57,6 +57,7 @@ paths:
       summary: Create or Update User
       x-mint:
         content: |
+          User API helps add or update users and user properties in MoEngage.
           
           **Use cases:**
           * Create a new user
@@ -67,7 +68,7 @@ paths:
         - name: Workspace_ID
           in: path
           required: true
-          description: 'This is the Workspace ID of your MoEngage account that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
+          description: 'The Workspace ID of your MoEngage account. Found in Settings > Account > APIs.'
           schema:
             type: string
             example: VJ0GSMESHMQA3L7WV1EEK3UR
@@ -579,8 +580,7 @@ paths:
 
 components:
   securitySchemes:
-    # FIX: Updated description per user request
-    basicAuth:
+    Authentication:
       type: http
       scheme: basic
       description: |
@@ -642,7 +642,7 @@ components:
 
     UserAttributes:
       type: object
-      description: A dictionary of user attributes to add or update.
+      description: A dictionary containing user attributes to add / update in the user profile.
       properties:
         u_n:
           type: string
@@ -696,19 +696,25 @@ components:
       properties:
         type:
           type: string
-          description: 'This is used to identify the type of request. 
-                  Allowed Value: customer
-                  Example: "type": "customer"
-Note: This field is case-sensitive. Follow the case as in the example when passing the value in the request.'
+          description: 'Identifies the type of request. Must be "customer".'
           enum: [customer]
         customer_id:
           type: string
-          description: 'The unique identifier is used to identify/create a user in MoEngage. Please refer to this section for more information on customer_id.
-Not mandatory in Identity resolution enabled workspaces.'
+          description: 'Unique identifier for the user. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/360060565292) enabled workspaces.'
+        # FIX: Updated description with detailed rich text logic per user request
         update_existing_only:
           type: boolean
-          description: 'If true, only existing users will be updated; new users will not be created.'
           default: false
+          description: |
+            This field should be passed in the request when only existing users in MoEngage should be updated.
+
+            **If this value is passed as true:**
+            1. Only those users for whom the customer_id from the request payload matches the customer identifier in MoEngage will be updated.
+            2. In case of new users (customer_id in the payload does not match any of the existing customer ids in your MoEngage account), they will not be created.
+
+            **If this value is passed as false:**
+            1. The user attributes will be updated with the values present in the payload for existing customers.
+            2. In case of new users (customer_id in the payload does not match any of the existing customer ids in your MoEngage account), a new customer will be created in the system with the details specified in the payload.
         attributes:
           $ref: '#/components/schemas/UserAttributes'
 
