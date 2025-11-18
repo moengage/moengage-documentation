@@ -123,13 +123,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericSuccess'
+              examples:
+                success_response:
+                  summary: Success Response
+                  value:
+                    status: "success"
+                    message: "Your request has been accepted and will be processed soon."
         '400':
           description: This response is returned when the required parameters are missing from the request, attributes are not found, and incorrect values are passed.
           content:
             application/json:
+              # FIX: Inline schema to customize descriptions for 400
               schema:
-                $ref: '#/components/schemas/GenericError'
-              # FIX: Added multiple examples for 400 error dropdown
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: 'The type or category of the error ("MissingAttributeError").'
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 missing_customer_id:
                   summary: Customer ID is missing in the payload
@@ -162,38 +187,226 @@ paths:
           description: This response is returned when the request does not have valid authentication credentials.
           content:
             application/json:
+              # FIX: Inline schema to customize descriptions for 401
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: 'The type or category of the error (e.g., Authentication required).'
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                auth_error:
+                  summary: Authorization errors
+                  value:
+                    status: "fail"
+                    error:
+                      message: "App Secret key mismatch. Please login to the dashboard to verify key"
+                      type: "Authentication required"
+                      request_id: "PVUDFisO"
+                missing_header:
+                  summary: Missing authentication header
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Authentication Header Required"
+                      type: "Authentication required"
+                      request_id: "PisPjGQQ"
         '403':
           description: This response is returned when your MoEngage account is suspended or blocked.
           content:
             application/json:
+              # FIX: Inline schema to customize descriptions for 403
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed.(e.g., Your account is suspended. Please contact MoEngage team.)"
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., BlockedClient, Account Suspended, Account Temporarily Suspended)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+              examples:
+                account_blocked:
+                  summary: Account is blocked
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is blocked. Please contact MoEngage team."
+                      type: "BlockedClient"
+                      request_id: "Block123"
+                account_suspended:
+                  summary: Account is suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is suspended. Please contact MoEngage team."
+                      type: "Account Suspended"
+                      request_id: "Susp123"
+                temp_suspended:
+                  summary: Account is temporarily suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is temporarily suspended due to payment issues."
+                      type: "Account Temporarily Suspended"
+                      request_id: "TempSusp123"
         '413':
           description: This response is returned when the payload size exceeds 128 KB.
           content:
             application/json:
+              # FIX: Inline schema for 413 to customize descriptions
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        # CUSTOM 413 TYPE DESCRIPTION
+                        description: "The type or category of the error (e.g., Payload too large)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+              examples:
+                payload_exceeded:
+                  summary: Payloads exceeding the size limit
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Payload size exceeds 128 KB"
+                      type: "PayloadTooLarge"
+                      request_id: "PLSize123"
         '415':
           description: This response is returned when the content type is not supported.
           content:
             application/json:
+              # FIX: Inline schema for 415 to customize descriptions
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        # CUSTOM 415 TYPE DESCRIPTION
+                        description: "The type or category of the error (e.g., Unsupported media type)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+              examples:
+                unsupported_media_type:
+                  summary: Unsupported media type
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Unsupported Media Type"
+                      type: "MediaTypeError"
+                      request_id: "MedType123"
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
             application/json:
+              # FIX: Inline schema for 429 to customize descriptions
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        # CUSTOM 429 TYPE DESCRIPTION
+                        description: "The type or category of the error (e.g., Rate Limits Exceeded)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+              examples:
+                rate_limit:
+                  summary: Rate limit breach
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Rate limit exceeded"
+                      type: "RateLimitError"
+                      request_id: "RateLim123"
         '500':
           description: This response is returned when the system runs into an unexpected error.
           content:
             application/json:
+              # FIX: Inline schema for 500 to customize descriptions
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        # CUSTOM 500 TYPE DESCRIPTION
+                        description: "The type or category of the error (e.g., Server Error)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+              # FIX: Added dropdown example for 500
+              examples:
+                unknown_error:
+                  summary: Unknown errors
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Internal Server Error"
+                      type: "ServerError"
+                      request_id: "ServErr123"
 
   /customers/export:
     post:
@@ -683,17 +896,16 @@ components:
           properties:
             message:
               type: string
-              example: App Secret key mismatch. Please login to the dashboard to verify key
+              description: "A descriptive error message explaining why the request failed."
             type:
               type: string
-              example: Authentication required
+              description: "The type or category of the error (e.g., MissingAttributeError)."
             request_id:
               type: string
-              example: PVUDFisO
+              description: "A unique identifier for the request, useful for debugging."
             attribute:
               type: string
-              description: The attribute in the payload that caused the error.
-              example: customer_id
+              description: "The attribute in the payload that caused the error."
 
     PlatformObject:
       type: object
