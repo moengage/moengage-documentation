@@ -118,19 +118,78 @@ paths:
                       active: "true"
       responses:
         '200':
-          description: Request accepted successfully.
+          description: This response is returned when the request is processed successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericSuccess'
         '400':
-          description: Bad Request - Missing parameters, invalid attributes, etc.
+          description: This response is returned when the required parameters are missing from the request, attributes are not found, and incorrect values are passed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericError'
+              # FIX: Added multiple examples for 400 error dropdown
+              examples:
+                missing_customer_id:
+                  summary: Customer ID is missing in the payload
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "customer_id"
+                      message: "customer_id is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "ZbPXtKFL"
+                empty_customer_id:
+                  summary: Customer ID is empty
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "customer_id"
+                      message: "customer_id can not be empty Unicode String"
+                      type: "MissingAttributeError"
+                      request_id: "VgjtLxTu"
+                array_field_error:
+                  summary: Array field error
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "addValueToArrayField"
+                      message: "Cannot add and remove 'first_name' at the same time"
+                      type: "ArrayFieldError"
+                      request_id: "WPDAbugh"
         '401':
-          description: Unauthorized - Invalid authentication credentials.
+          description: This response is returned when the request does not have valid authentication credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericError'
+        '403':
+          description: This response is returned when your MoEngage account is suspended or blocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericError'
+        '413':
+          description: This response is returned when the payload size exceeds 128 KB.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericError'
+        '415':
+          description: This response is returned when the content type is not supported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericError'
+        '429':
+          description: This response is returned when the number of requests has exceeded the rate limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericError'
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
           content:
             application/json:
               schema:
@@ -648,8 +707,13 @@ components:
 
     UserAttributes:
       type: object
-      # FIX: Removed the Note from here as it wasn't rendering correctly
-      description: "A dictionary containing user attributes to add / update in the user profile. The example below demonstrates setting a standard attribute 'name' alongside custom attributes like 'points', 'expiry_date', and 'super_user'."
+      description: |
+        A dictionary containing user attributes to add / update in the user profile.
+        For example, to track custom attributes of different data types like string, numeric, boolean, and date, pass the following payload where points are a number, expiry_date is a date type attribute, and super_user is a boolean attribute.
+
+        > **Note:**
+        > * "id", "_id", and "" keywords are blocked and not to be used as user attribute names.
+        > * You can not use "moe_" as a prefix while naming user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
       properties:
         u_n:
           type: string
@@ -700,7 +764,7 @@ components:
           enum: [customer]
         customer_id:
           type: string
-          description: 'Unique identifier for the user. Not mandatory in Identity Resolution enabled workspaces. If the [User Identity Resolution](https://help.moengage.com/hc/en-us/articles/24050999467284-Unified-Identity-Identity-Resolution) feature is enabled in your workspace, the attribute parameters in the payload must contain at least one of the identifiers you have activated in your workspace based on which users in MoEngage will be created, updated, or merged.'
+          description: 'Unique identifier for the user. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/360060565292) enabled workspaces.'
         update_existing_only:
           type: boolean
           default: false
