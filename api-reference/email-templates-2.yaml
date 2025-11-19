@@ -1,528 +1,389 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
-  title: MoEngage Email Template API
-  version: '1.0'
-  description: API for creating, updating, and searching Email templates within the MoEngage platform. Templates created via this API are compatible with the Custom HTML Editor.
-tags:
-  - name: Email Templates
-    description: Operations to manage email templates.
+  title: Email Templates API V2
+  version: 1.0.0
+  description: |
+    The Email Templates API allows you to create, update, and search for email templates within MoEngage. 
+    
+    These templates can be edited in the Froala editor (custom HTML editor) on the MoEngage Dashboard.
+
 servers:
-  - url: 'https://api-0{dc}.moengage.com/v1.0'
-    description: Custom Templates API Server (v1.0)
+  - url: https://api-0{dc}.moengage.com/v1.0
+    description: MoEngage API Server
     variables:
       dc:
-        default: '1'
-        description: 'Your MoEngage Data Center (DC). Can be 1, 2, 3, etc.'
-        enum:
-          - '1'
-          - '2'
-          - '3'
-          - '4'
-  - url: 'https://api-{dc}.moengage.com/v2'
-    description: Email Templates API Server (v2)
-    variables:
-      dc:
-        default: '01'
-        description: 'Your MoEngage Data Center (DC). Can be 01, 02, 03, etc.'
-        enum:
-          - '01'
-          - '02'
-          - '03'
-          - '04'
-security:
-  - basicAuth: []
-  - moeAppKey: []
+        default: "1"
+        description: "Your Data Center number (e.g., 1, 2, 3). You can find this in your MoEngage Dashboard URL or settings."
 
-paths:
-  /custom-templates/email:
-    post:
-      tags:
-        - Email Templates
-      summary: Create Email Template (v1.0)
-      description: The Create Email Template  API can be used to create an email template in MoEngage. This API helps you upload templates created outside the MoEngage ecosystem to MoEngage and use them for campaign creation. The uploaded templates can be edited in the Froala editor (custom HTML editor) on the MoEngage Dashboard.
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
-        description: The details of the email template to be created.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEmailTemplateRequestV1'
-            example:
-              basic_details:
-                subject: "Welcome to Our Newsletter!"
-                email_content: "<html><body><h1>Welcome!</h1></body></html>"
-                thumbnail_url: "https://example.com/thumbnail.jpg"
-                sender_name: "Your Brand"
-              meta_info:
-                created_by: "john.doe@example.com"
-                template_id: "welcome_email_2025"
-                template_name: "Welcome Email Template"
-                template_version: "1"
-      responses:
-        '200':
-          description: Template created successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  external_template_id:
-                    type: string
-                    format: uuid
-                    description: The unique ID assigned to the newly created template by MoEngage.
-                    example: "d05a44f0-a7cf-471a-bcb6-63054800a367"
-        '400':
-          description: Bad Request. The request is invalid due to missing fields, duplicate `template_id` and `template_version`, or other validation errors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-        '401':
-          description: Authentication Failure.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-        '429':
-          description: Rate limit breached (100 RPM) or template quota exceeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-    put:
-      tags:
-        - Email Templates
-      summary: Update Email Template (v1.0)
-      description: Updates an existing email template by specifying its `external_template_id`.
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
-        description: The updated details for the email template.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEmailTemplateRequestV1'
-            example:
-              external_template_id: "d05a44f0-a7cf-471a-bcb6-63054800a367"
-              update_campaigns: false
-              basic_details:
-                subject: "Welcome to Our Newsletter! (Updated)"
-                email_content: "<html><body><h1>An Updated Welcome!</h1></body></html>"
-                thumbnail_url: "https://example.com/thumbnail.jpg"
-                sender_name: "Your Brand Inc."
-              meta_info:
-                template_name: "Welcome Email Template V2"
-                updated_by: "jane.doe@example.com"
-                template_version: "2"
-      responses:
-        '200':
-          description: Template updated successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  external_template_id:
-                    type: string
-                    format: uuid
-                    description: The unique ID of the updated template.
-                    example: "d05a44f0-a7cf-471a-bcb6-63054800a367"
-        '400':
-          description: Bad Request. Invalid `external_template_id` or other request data validation errors.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-        '5XX':
-          description: Internal Server Error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-
-  /custom-templates/email/search:
-    post:
-      tags:
-        - Email Templates
-      summary: Search Email Templates (v1.0)
-      description: Searches and retrieves a list of email templates based on specified filter criteria.
-      security:
-        - basicAuth: []
-      requestBody:
-        required: true
-        description: Search filters for finding email templates. An empty body will fetch all templates. Pagination is mandatory after November 15, 2025.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SearchEmailTemplateRequestV1'
-      responses:
-        '200':
-          description: Search successful. Returns a list of templates.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SearchEmailTemplateResponseV1'
-        '400':
-          description: Bad Request. Invalid field values in the search criteria.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV1'
-
-  /email-templates:
-    post:
-      tags:
-        - Email Templates
-      summary: Create Email Template (v2)
-      description: Creates a new email template in MoEngage.
-      security:
-        - basicAuth: []
-        - moeAppKey: []
-      requestBody:
-        required: true
-        description: Details for the new email template.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmailTemplatePayloadV2'
-      responses:
-        '200':
-          description: Request processed. The status in the response body indicates success or failure.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateUpdateSuccessResponseV2'
-    get:
-      tags:
-        - Email Templates
-      summary: Get All Email Templates (v2)
-      description: Fetches a paginated list of all email templates in the account.
-      security:
-        - basicAuth: []
-        - moeAppKey: []
-      parameters:
-        - name: page
-          in: query
-          required: true
-          description: The page number to fetch. Each page returns up to 20 templates.
-          schema:
-            type: integer
-            default: 1
-      responses:
-        '200':
-          description: Successfully retrieved the list of templates.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetAllTemplatesResponseV2'
-
-  /email-templates/{template_id}:
-    get:
-      tags:
-        - Email Templates
-      summary: Get a Specific Email Template (v2)
-      description: Fetches a single email template by its unique ID.
-      security:
-        - basicAuth: []
-        - moeAppKey: []
-      parameters:
-        - name: template_id
-          in: path
-          required: true
-          description: The unique identifier of the template.
-          schema:
-            type: string
-            example: "63f30792c66ddcaac2ef9109"
-      responses:
-        '200':
-          description: Successfully retrieved the template details.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetSpecificTemplateResponseV2'
-
-  /bulk/email-templates:
-    put:
-      tags:
-        - Email Templates
-      summary: Bulk Create or Update Email Templates (v2)
-      description: Creates or updates up to 50 email templates in a single request. An object with an `id` field will be treated as an update, otherwise it will be a create.
-      security:
-        - basicAuth: []
-        - moeAppKey: []
-      requestBody:
-        required: true
-        description: An array of up to 50 email template objects.
-        content:
-          application/json:
-            schema:
-              type: array
-              maxItems: 50
-              items:
-                $ref: '#/components/schemas/BulkTemplateObject'
-            example:
-              - name: "New_Bulk_Template"
-                html: "<html><body><p>New content</p></body></html>"
-                source: "Bulk API"
-              - id: "645a2bd910e0307e6d7f7717"
-                name: "Updated_Coupon_Template"
-                html: "<html><body><p>Updated content</p></body></html>"
-                source: "Bulk API"
-                updated_by": "jane.doe@example.com"
-      responses:
-        '200':
-          description: Bulk request processed. The response body details which templates were created and updated, and which failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BulkResponseV2'
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
-      description: Basic Authentication using Workspace ID as username and the appropriate API key as password.
-    moeAppKey:
-      type: apiKey
-      in: header
-      name: MOE-APPKEY
-      description: Your MoEngage Workspace ID.
+      description: |
+        Basic Authentication using your Workspace ID (Username) and API Key (Password).
+        Header format: `Authorization: Basic <Base64_ENCODED_WORKSPACEID_APIKEY>`
 
   schemas:
-    ErrorResponseV1:
+    # Reusable Error Schema
+    ErrorResponse:
       type: object
       properties:
         error:
           type: object
           properties:
-            code: { type: string, example: "400 Bad Request" }
-            message: { type: string, example: "Duplicate - template_id and template_version" }
+            code:
+              type: string
+              description: A brief explanation of the error (e.g., "400 Bad Request").
+            message:
+              type: string
+              description: Description of why the request failed.
+            request_id:
+              type: string
+              description: Unique identifier for the request.
             details:
               type: array
               items:
                 type: object
                 properties:
-                  code: { type: string, example: "InvalidValue" }
-                  target: { type: string, example: "Duplicate - template_id and template_version" }
-                  message: { type: string, example: "template_id:BasicTemplate1 template_version:1 is already present." }
-            request_id: { type: string, example: "cLCcgLQj" }
+                  code:
+                    type: string
+                  target:
+                    type: string
+                  message:
+                    type: string
 
-    CreateEmailTemplateRequestV1:
-      type: object
-      required: [basic_details, meta_info]
-      properties:
-        basic_details:
-          type: object
-          required: [email_content, subject, thumbnail_url, sender_name]
-          properties:
-            email_content: { type: string, description: "HTML content of the email." }
-            subject: { type: string }
-            attachments: { type: array, items: { type: string, format: uri } }
-            thumbnail_url: { type: string, format: uri }
-            sender_name: { type: string }
-            preview_text: { type: string }
-        meta_info:
-          type: object
-          required: [created_by, template_id, template_name, template_version]
-          properties:
-            created_by: { type: string }
-            template_id: { type: string }
-            template_name: { type: string }
-            template_version: { type: string }
-            locale: { type: string }
-            variation: { type: integer }
-            group_id: { type: string }
-
-    UpdateEmailTemplateRequestV1:
-      type: object
-      required: [external_template_id, basic_details, meta_info]
-      properties:
-        external_template_id: { type: string, format: uuid }
-        update_campaigns: { type: boolean, default: false }
-        update_latest_version: { type: boolean, default: false }
-        basic_details:
-          $ref: '#/components/schemas/CreateEmailTemplateRequestV1/properties/basic_details'
-        meta_info:
-          type: object
-          required: [template_name, updated_by]
-          properties:
-            template_name: { type: string }
-            updated_by: { type: string, format: email }
-            template_version: { type: string }
-            communication_type: { type: string, enum: [Engage, Inform] }
-            message_type: { type: string, enum: [marketing, transactional] }
-
-    SearchEmailTemplateRequestV1:
-      type: object
-      properties:
-        page: { type: integer, description: "Mandatory after Nov 15, 2025." }
-        entries: { type: integer, maximum: 15, description: "Mandatory after Nov 15, 2025." }
-        template_name: { type: string }
-        template_source: { type: array, items: { type: string, enum: [API, MOENGAGE] } }
-        template_version: { type: string }
-        template_id: { type: string }
-        template_type: { type: array, items: { type: string, enum: [CUSTOM, PRE_BUILT] } }
-        created_by: { type: array, items: { type: string, format: email } }
-        updated_by: { type: array, items: { type: string, format: email } }
-        sort_params:
-          type: array
-          items:
-            type: object
-            properties:
-              template_name: { type: string, enum: [ASCENDING, DESCENDING] }
-              last_modified_date: { type: string, enum: [ASCENDING, DESCENDING] }
-              last_modified_by: { type: string, enum: [ASCENDING, DESCENDING] }
-        external_template_ids:
-          type: array
-          items:
-            type: object
-            properties:
-              external_template_id: { type: string, format: uuid }
-              version: { type: integer }
-        group_id: { type: string }
-        is_grouped_response: { type: boolean }
-        is_count_required: { type: boolean }
-
-    SearchEmailTemplateResponseV1:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              external_template_id: { type: string, format: uuid }
-              version: { type: integer }
-              basic_details: { $ref: '#/components/schemas/CreateEmailTemplateRequestV1/properties/basic_details' }
-              meta_info: { $ref: '#/components/schemas/CreateEmailTemplateRequestV1/properties/meta_info' }
-              created_by: { type: string }
-              created_at: { type: string, format: date-time }
-              updated_by: { type: string }
-              updated_at: { type: string, format: date-time }
-
-    EmailTemplatePayloadV2:
-      type: object
-      required: [name, html, source]
-      properties:
-        name: { type: string, minLength: 5, maxLength: 50, pattern: '^[a-zA-Z0-9_ ]*$' }
-        html: { type: string }
-        subject: { type: string }
-        attachments: { type: array, items: { type: string, format: uri } }
-        sender_name: { type: string }
-        source: { type: string }
-        updated_by: { type: string }
-
-    BulkTemplateObject:
+    # Reusable Basic Details Object
+    BasicDetails:
       type: object
       required:
-        - name
-        - html
-        - source
+        - email_content
+        - subject
+        - thumbnail_url
+        - sender_name
       properties:
-        id:
+        email_content:
           type: string
-          description: If provided, this template will be updated. If omitted, a new template will be created.
-        name:
-          type: string
-          minLength: 5
-          maxLength: 50
-          pattern: '^[a-zA-Z0-9_ ]*$'
-          description: The name for the template. Alphanumeric and underscores only.
-        html:
-          type: string
-          description: The full HTML content of the email. Must include `<html>` and `<body>` tags.
+          description: The HTML content of the email.
         subject:
           type: string
-          description: The subject line for the email.
+          description: The subject line of the email campaign.
         attachments:
           type: array
-          maxItems: 10
+          description: |
+            Array of URLs to be included as attachments. 
+            * Max 10 attachments.
+            * Only valid URLs (https).
+            * Max size 6MB per file, 20MB total.
+            * forbidden extensions: .dmg, .exe, .xls, .ddl, .class, .obj, .int, .gnt, .o, .so, .lbr, .net
           items:
             type: string
             format: uri
-          description: A list of public URLs for attachments. Total size should be less than 20MB.
+        thumbnail_url:
+          type: string
+          description: Image URL used to generate a preview in the Dashboard.
         sender_name:
           type: string
-          description: The 'From' name displayed to the recipient.
-        source:
+          description: The name displayed in the recipient's inbox.
+        preview_text:
           type: string
-          description: The source of the template creation, e.g., the name of your internal tool or partner.
+          description: Text that appears below the subject line in the inbox.
+
+    # Reusable Meta Info Object
+    MetaInfo:
+      type: object
+      required:
+        - template_id
+        - template_name
+        - template_version
+        - created_by
+      properties:
+        template_id:
+          type: string
+          description: Unique ID for the template (generated by you).
+        template_name:
+          type: string
+          description: Name of the template.
+        template_version:
+          type: string
+          description: Version string of the template (generated by you).
+        created_by:
+          type: string
+          description: Email ID or identifier of the creator.
         updated_by:
           type: string
-          description: Identifier (e.g., email) of the user creating or updating the template.
+          description: Email ID or identifier of the updater.
+        locale:
+          type: string
+          description: Locale associated with the template (e.g., from MoEngage Advanced Settings).
+        variation:
+          type: integer
+          description: Variation of the template (Max 5 variations).
+        group_id:
+          type: string
+          description: |
+            Group ID. 
+            * **Parent**: Not required (external_template_id acts as group_id).
+            * **Child**: Pass the Group ID of the parent.
 
-    CreateUpdateSuccessResponseV2:
-      type: object
-      properties:
-        status: { type: string, example: "success" }
-        data:
-          type: object
-          properties:
-            id: { type: string }
-            msg: { type: string }
+security:
+  - basicAuth: []
 
-    GetAllTemplatesResponseV2:
-      type: object
-      properties:
-        status: { type: string, example: "success" }
-        data:
-          type: object
-          properties:
-            templates:
-              type: array
-              items:
+tags:
+  - name: Email Templates
+    description: Manage custom email templates.
+
+paths:
+  /custom-templates/email:
+    post:
+      summary: Create Email Template
+      description: |
+        Upload email templates created outside the MoEngage ecosystem. These templates can be used for campaign creation and edited via the Froala editor.
+      tags:
+        - Email Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - basic_details
+                - meta_info
+              properties:
+                basic_details:
+                  $ref: '#/components/schemas/BasicDetails'
+                meta_info:
+                  $ref: '#/components/schemas/MetaInfo'
+            examples:
+              parent_template:
+                summary: Parent Template Example
+                value:
+                  basic_details:
+                    subject: "Email_Subject"
+                    email_content: "<!DOCTYPE html><html><head><title>My Short HTML</title></head><body><h1>Hello, World!</h1><p>This is a simple HTML example.</p></body></html>"
+                    thumbnail_url: "https://example.com/thumbnail.jpg"
+                    sender_name: "Sender_Name"
+                    preview_text: "Preview_text"
+                    attachments: []
+                  meta_info:
+                    created_by: "john.doe@example.com"
+                    template_id: "template_id_1"
+                    template_name: "template_name"
+                    template_version: "1.0"
+                    locale: "en_US"
+                    variation: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
                 type: object
                 properties:
-                  template_id: { type: string }
-                  template_name: { type: string }
-                  is_archived: { type: boolean }
-                  builder_supported: { type: boolean }
-                  editor: { type: string }
-                  created_date: { type: string, format: date-time }
-                  updated_at: { type: string, format: date-time }
-                  updated_by: { type: string }
-            no_of_templates: { type: integer }
+                  external_template_id:
+                    type: string
+                    description: Unique template ID corresponding to the successful creation.
+              examples:
+                success:
+                  value:
+                    external_template_id: "d05a44f0-a7cf-471a-bcb6-63054800a367"
+        '400':
+          description: Bad Request (Missing parameters, duplicates, invalid data)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authorization Failure
+        '429':
+          description: Rate Limit Breach (Limit is 100 RPM)
+    
+    put:
+      summary: Update Email Template
+      description: |
+        Update an existing email template by specifying its `external_template_id`. 
+        You can choose to update active campaigns or create a new version.
+      tags:
+        - Email Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - external_template_id
+                - basic_details
+                - meta_info
+              properties:
+                external_template_id:
+                  type: string
+                  description: The unique identifier generated during template creation.
+                update_campaigns:
+                  type: boolean
+                  default: false
+                  description: |
+                    If `true`, updates all campaigns currently using this template to the new version.
+                    If `false`, a new version is created but existing campaigns remain unchanged.
+                update_latest_version:
+                  type: boolean
+                  description: If `true`, does not create a new version but updates the content of the current version.
+                basic_details:
+                  $ref: '#/components/schemas/BasicDetails'
+                meta_info:
+                  $ref: '#/components/schemas/MetaInfo'
+            examples:
+              update_template:
+                summary: Update Template Example
+                value:
+                  basic_details:
+                    email_content: "<html>...updated content...</html>"
+                    subject: "Test subject"
+                    attachments: []
+                    thumbnail_url: "https://example.com/image.jpg"
+                    sender_name: "Test sender"
+                    preview_text: "Sample preview text"
+                  meta_info:
+                    template_name: "test_template"
+                    updated_by: "user1@moengage.com"
+                    template_version: "2.0"
+                  update_campaigns: false
+                  external_template_id: "d05a44f0-a7cf-471a-bcb6-63054800a367"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  external_template_id:
+                    type: string
+        '400':
+          description: Bad Request (Invalid template ID, missing values)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-    GetSpecificTemplateResponseV2:
-      type: object
-      properties:
-        status: { type: string, example: "success" }
-        template_id: { type: string }
-        template_name: { type: string }
-        subject: { type: string }
-        template_content: { type: string }
-        attachments:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string }
-              name: { type: string, format: uri }
-              type: { type: string }
-              fileType: { type: string }
-              url: { type: string, format: uri }
-        source: { type: string }
-        sender_name: { type: string }
-        editor: { type: string }
-        created_date: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-        updated_by: { type: string }
-
-    BulkResponseV2:
-      type: object
-      properties:
-        status: { type: string, example: "success" }
-        data:
-          type: object
-          properties:
-            new_templates:
-              type: array
-              items:
-                type: string
-            updated_templates:
-              type: array
-              items:
-                type: string
+  /custom-templates/email/search:
+    post:
+      summary: Search Email Template
+      description: |
+        Look up email templates created in your MoEngage account.
+        
+        **Note:** Mandatory pagination applies. Calls must include `page` and `entries`.
+      tags:
+        - Email Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page:
+                  type: integer
+                  description: Page number of results to fetch.
+                entries:
+                  type: integer
+                  description: Number of templates per page (Max 15).
+                template_name:
+                  type: string
+                  description: Partial search allowed.
+                template_source:
+                  type: array
+                  items:
+                    type: string
+                  example: ["API", "MOENGAGE"]
+                template_version:
+                  type: string
+                template_id:
+                  type: string
+                template_type:
+                  type: array
+                  items:
+                    type: string
+                    enum: [CUSTOM, PRE_BUILT]
+                created_by:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                updated_by:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                group_id:
+                  type: string
+                  description: Group ID of the parent template.
+                is_grouped_response:
+                  type: boolean
+                  description: If true, fetches only default template data and stats.
+                is_count_required:
+                  type: boolean
+                  description: If true, returns total count to support UI pagination.
+                sort_params:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [ASCENDING, DESCENDING]
+                external_template_ids:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      external_template_id:
+                        type: string
+                      version:
+                        type: integer
+            examples:
+              search_filter:
+                summary: Search with Filters
+                value:
+                  page: 1
+                  entries: 10
+                  template_name: "SALE"
+                  template_source: ["API"]
+                  template_type: ["CUSTOM"]
+                  sort_params: 
+                    - last_modified_date: "DESCENDING"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        external_template_id:
+                          type: string
+                        version:
+                          type: integer
+                        basic_details:
+                          $ref: '#/components/schemas/BasicDetails'
+                        meta_info:
+                          $ref: '#/components/schemas/MetaInfo'
+                        created_by:
+                          type: string
+                        created_at:
+                          type: string
+                        updated_by:
+                          type: string
+                        updated_at:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
