@@ -405,7 +405,6 @@ paths:
         content: |
           The 'dc' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number (value of X) and replace the value of 'X' in the URL by referring to the DC and API endpoint mapping.
       description: Fetches user profile data for one or more specified users.
-      # FIX: Added Workspace_ID as a query parameter (correcting the path definition)
       parameters:
         - name: Workspace_ID
           in: query
@@ -429,11 +428,67 @@ paths:
               $ref: '#/components/schemas/GetUserRequest'
       responses:
         '200':
-          description: Successfully retrieved user data.
+          description: This response is returned when the request is processed successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetUserResponse'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    # FIX: Updated status description
+                    description: "This field contains the status of the request and specifies whether the request was successful. Supported values are : \"success\", \"failure\""
+                    example: success
+                  type:
+                    type: string
+                    # FIX: Updated type description
+                    description: "This field denotes the fetch type. Supported values are: \"export_users\"."
+                    example: export_users
+                  data:
+                    type: object
+                    # FIX: Added complex description for data
+                    description: |
+                      This field contains the list of users who were not found in MoEngage and returns the data specified for the list of users who were found in MoEngage.
+                      
+                      This is the structure:
+                      ```json
+                      {
+                          "users_not_found": [
+                              {
+                                  "identifier_type": "customer_id",
+                                  "identifier": "<customer_id>"
+                              }
+                          ],
+                          "users": [
+                              {
+                                  "user_attributes": {
+                                      "<list of user attributes>"
+                              } 
+                              }
+                          ]
+                      }
+                      ```
+                    properties:
+                      users_not_found:
+                        type: array
+                        # FIX: Added description for users_not_found
+                        description: "An array of JSON Objects that contains the list of users who were not found in MoEngage."
+                        items:
+                          $ref: '#/components/schemas/IdentifierObject'
+                      users:
+                        type: array
+                        # FIX: Added description for users
+                        description: "Contains the user_attributes specified in the request for each user in specified in the request."
+                        items:
+                          type: object
+                          properties:
+                            user_attributes:
+                              type: object
+                              additionalProperties: true
+                              example:
+                                last_name: Doe
+                                customer_id: john_doe
+                                id: 62e79fb15ada55x123g987bu
         '400':
           description: Bad Request.
           content:
@@ -1005,28 +1060,27 @@ components:
         identifier_type:
           type: string
           enum: [customer_id, id]
-          description: '`customer_id` is the ID in the User Profile, `id` is the MoEngageID.'
+          description: This field specifies the identifier type. Identifier types can either be customer_id (ID field in the User Profile) or id (the MoEngageID of the user in the User Profile).
+          example: customer_id
         identifier:
           type: string
-          description: The unique identifier value.
+          description: This field specifies the unique identifier that identifies the user.
+          example: 12345moe
 
     GetUserRequest:
       type: object
       properties:
-        data:
-          type: object
-          properties:
-            identifiers:
-              type: array
-              description: 'Array of user identifiers to fetch. Max 20 users per request.'
-              items:
-                $ref: '#/components/schemas/IdentifierObject'
-            user_fields_to_export:
-              type: array
-              items:
-                type: string
-              description: 'Specific user fields to export. If omitted, all exportable attributes are returned.'
-              example: ["last_name", "customer_id", "name"]
+        identifiers:
+          type: array
+          description: This field is used to specify the identifiers for the users for whom the data needs to be fetched.
+          items:
+            $ref: '#/components/schemas/IdentifierObject'
+        user_fields_to_export:
+          type: array
+          items:
+            type: string
+          description: This field is used to specify the fields that need to be fetched for the user specified in Identifiers. Tracked standard user attributes and custom attributes can be fetched using this API. For the list of tracked standard attributes in MoEngage, refer to [User Attributes](#user-attributes).
+          example: ["last_name", "customer_id", "name"]
 
     GetUserResponse:
       type: object
