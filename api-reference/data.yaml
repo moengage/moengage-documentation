@@ -28,22 +28,27 @@ servers:
     variables:
       dc:
         default: '1'
-        description: 'Your MoEngage Data Center (DC). Can be 1, 2, 3, 4, etc.'
+        description: 'Your MoEngage Data Center (DC). Can be 1, 2, 3, 4,5, 6. '
         enum:
           - '1'
           - '2'
           - '3'
           - '4'
+          - '5'
+          - '6'
   - url: 'https://fileimports-data-api-0{dc}.moengage.com/v1.0/data'
     description: MoEngage File Imports API Server
     variables:
       dc:
         default: '1'
-        description: 'Your MoEngage Data Center (DC). Can be 1, 2, 3, etc.'
+        description: 'Your MoEngage Data Center (DC). Can be 1, 2, 3, 4, 5, 6.'
         enum:
           - '1'
           - '2'
           - '3'
+          - '4'
+          - '5'
+          - '6'
 
 security:
   - Authentication: []
@@ -66,14 +71,12 @@ paths:
 
           ### Array Support
           If you want to pass an attribute in an array, the appropriate syntax for that is: "Array_attributeName":["abc","123"],
-          ### Rate Limit
-          The rate limit is 20 users per payload and 1000 users per minute.
       description: "This API helps add or update users and user properties in MoEngage."
       parameters:
         - name: Workspace_ID
           in: path
           required: true
-          description: 'This is your Workspace ID of MoEngage that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
+          description: 'This is the Workspace ID of your MoEngage account that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
           schema:
             type: string
             example: VJ0GSMESHMQA3L7WV1EEK3UR
@@ -418,12 +421,14 @@ paths:
       x-mint:
         content: |
           The 'dc' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number (value of X) and replace the value of 'X' in the URL by referring to the DC and API endpoint mapping.
+          ### Rate Limit
+          The rate limit is 20 users per payload and 1000 users per minute.
       description: Fetches user profile data for one or more specified users.
       parameters:
         - name: Workspace_ID
           in: query
           required: true
-          description: 'The Workspace ID of your MoEngage account. Found in Settings > Account > APIs.'
+          description: 'This is the Workspace ID of your MoEngage account that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
           schema:
             type: string
             example: VJ0GSMESHMQA3L7WV1EEK3UR
@@ -810,12 +815,36 @@ paths:
       tags:
         - User
       summary: Merge Users
-      description: Merges two user profiles into a single profile.
+      x-mint:
+        content: |
+          The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number (value of X) and replace the value of ‘X’ in the URL by referring to the DC and API endpoint mapping.
+          
+          **Types of user merging in MoEngage**
+          * Default or normal merge
+            * MoEngage merges users with the same ID 
+            * Happens automatically, and no action is required from your side.
+          * Manual merge 
+            * MoEngage merges users having different IDs
+            * Does not happen automatically; the Merge User API needs to be called with the list of users to be merged along with their IDs.
+          <Warning>
+           * User Merging is a complex functionality and, if misused, can lead to data integrity issues. If the data passed to the API is incorrect, resulting in a merge of two unintended users, MoEngage will not be able to recover/rectify the data. The retained user would have erroneous data, and segmentation queries would not provide the right results.
+           * MoEngage does not support transitive/canonical merging. For example, if user A is merged to B (A ->B) and then user B is merged to C (B ->C), in this scenario, events of user A are not moved to user C.
+           * The Merge User API is not functional in workspaces where the [Identity Resolution](https://help.moengage.com/hc/en-us/articles/24050999467284-Unified-Identity-Identity-Resolution) feature is enabled.
+           * If you are updating the [Unique Identifier](https://developers.moengage.com/hc/en-us/articles/4404440336148-Tracking-User-Attributes) for a user, use the User Merge API at least 2 hours after you have updated the Unique Identifier.
+           * Ensure that the data passed to the API is accurate. We recommend you test the merging starting with a small batch of users, such as 1, 5, 10, 20, 50, etc. Verify the merged data and users before proceeding with a bulk update.
+          </Warning>
+          **Terms to Know**
+           * Retained User- This is the user that is retained in the system. The merged user’s attributes and associated devices are mapped to the retained user post-merge. Reachability calculation is done for the retained user based on the devices. All of the user attributes of the merged user are moved to the retained user. If an attribute is present for the retained user and the same attribute is not for the merged user, the attribute is retained for the retained user.
+           * Merged user- All the data of this user will merge into the retained user. Merged users will be deleted after 30 days of inactivity. If MoEngage receives any event or user property for the merged user after the merging activity, the merged user will not be deleted. The following happens in MoEngage post-user merging: 
+             * In the user profile, all events of the last 30 days are moved from the merged user to the retained user.
+             * Segmentation and campaign have moved all of the data from merged user to retained user.
+
+      description: The Merge User API merges two users in MoEngage based on their ID. ID is a client-defined identifier for a user. This API can be used when multiple profiles have been created for a single user. For example, a user registered once with a mobile number and once with an email id can be merged. Duplicate users created due to integration or tech issues can also be merged.
       parameters:
-        - name: app_id
+        - name: Workspace_ID
           in: query
           required: true
-          description: The Workspace ID of your MoEngage account.
+          description: 	This is the Workspace ID of your MoEngage account that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.
           schema:
             type: string
       requestBody:
@@ -1335,7 +1364,7 @@ components:
           enum: [customer]
         customer_id:
           type: string
-          description: 'The unique identifier is used to identify/create a user in MoEngage. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/24050999467284-Unified-Identity-Identity-Resolution) enabled workspaces. ' 
+          description: 'The unique identifier is used to identify/create a user in MoEngage. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/24050999467284-Unified-Identity-Identity-Resolution) enabled workspaces If the User Identity Resolution feature is enabled in your workspace, the attribute parameters in the payload must contain at least one of the identifiers you have activated in your workspace based on which users in MoEngage will be created, updated, or merged. ' 
         update_existing_only:
           type: boolean
           default: false
@@ -1419,7 +1448,7 @@ components:
       properties:
         merge_data:
           type: array
-          description: A list of user pairs to merge.
+          description: This field contains the list of UID pairs of the users who are to be merged .
           items:
             type: object
             properties:
