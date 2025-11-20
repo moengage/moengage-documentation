@@ -57,24 +57,23 @@ paths:
       summary: Create or Update User
       x-mint:
         content: |
-          User API helps add or update users and user properties in MoEngage.
+          The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number (value of X) and replace the value of ‘X’ in the URL by referring to the DC and API endpoint mapping.
           
           **Use cases:**
           * Create a new user
           * Create new user property
           * Update existing user properties of users
 
-          <Note>
-          **Note:**
-          * "id", "_id", and "" keywords are blocked and not to be used as user attribute names.
-          * You can not use "moe_" as a prefix while naming user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
-          </Note>
-      description: "Adds new users or updates properties of existing users in MoEngage."
+          ### Array Support
+          If you want to pass an attribute in an array, the appropriate syntax for that is: "Array_attributeName":["abc","123"],
+          ### Rate Limit
+          The rate limit is 20 users per payload and 1000 users per minute.
+      description: "This API helps add or update users and user properties in MoEngage."
       parameters:
         - name: Workspace_ID
           in: path
           required: true
-          description: 'The Workspace ID of your MoEngage account. Found in Settings > Account > APIs.'
+          description: 'This is your Workspace ID of MoEngage that has to be passed along with the request. You can find your Workspace ID at Settings > Account > APIs > Workspace ID.'
           schema:
             type: string
             example: VJ0GSMESHMQA3L7WV1EEK3UR
@@ -246,6 +245,9 @@ paths:
                       request_id:
                         type: string
                         description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 account_blocked:
                   summary: Account is blocked
@@ -293,6 +295,9 @@ paths:
                       request_id:
                         type: string
                         description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 payload_exceeded:
                   summary: Payloads exceeding the size limit
@@ -301,7 +306,7 @@ paths:
                     error:
                       message: "Payload size exceeds 128 KB"
                       type: "PayloadTooLarge"
-                      request_id: "PLSize123"
+                      request_id: "VFzDwhwt"
         '415':
           description: This response is returned when the content type is not supported.
           content:
@@ -324,6 +329,9 @@ paths:
                       request_id:
                         type: string
                         description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 unsupported_media_type:
                   summary: Unsupported media type
@@ -332,7 +340,7 @@ paths:
                     error:
                       message: "Unsupported Media Type"
                       type: "MediaTypeError"
-                      request_id: "MedType123"
+                      request_id: "SgBQfKJh"
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -355,6 +363,9 @@ paths:
                       request_id:
                         type: string
                         description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 rate_limit:
                   summary: Rate limit breach
@@ -363,7 +374,7 @@ paths:
                     error:
                       message: "Rate limit exceeded"
                       type: "RateLimitError"
-                      request_id: "RateLim123"
+                      request_id: "onqucLYL"
         '500':
           description: This response is returned when the system runs into an unexpected error.
           content:
@@ -386,6 +397,9 @@ paths:
                       request_id:
                         type: string
                         description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
               examples:
                 unknown_error:
                   summary: Unknown errors
@@ -394,7 +408,7 @@ paths:
                     error:
                       message: "Internal Server Error"
                       type: "ServerError"
-                      request_id: "ServErr123"
+                      request_id: "KovrwJiF"
 
   /customers/export:
     post:
@@ -436,17 +450,14 @@ paths:
                 properties:
                   status:
                     type: string
-                    # FIX: Updated status description
                     description: "This field contains the status of the request and specifies whether the request was successful. Supported values are : \"success\", \"failure\""
                     example: success
                   type:
                     type: string
-                    # FIX: Updated type description
                     description: "This field denotes the fetch type. Supported values are: \"export_users\"."
                     example: export_users
                   data:
                     type: object
-                    # FIX: Added complex description for data
                     description: |
                       This field contains the list of users who were not found in MoEngage and returns the data specified for the list of users who were found in MoEngage.
                       
@@ -471,13 +482,11 @@ paths:
                     properties:
                       users_not_found:
                         type: array
-                        # FIX: Added description for users_not_found
                         description: "An array of JSON Objects that contains the list of users who were not found in MoEngage."
                         items:
                           $ref: '#/components/schemas/IdentifierObject'
                       users:
                         type: array
-                        # FIX: Added description for users
                         description: "Contains the user_attributes specified in the request for each user in specified in the request."
                         items:
                           type: object
@@ -489,18 +498,312 @@ paths:
                                 last_name: Doe
                                 customer_id: john_doe
                                 id: 62e79fb15ada55x123g987bu
+              examples:
+                success_response:
+                  summary: Success Response
+                  value:
+                    status: "success"
+                    type: "export_users"
+                    data:
+                      users_not_found:
+                        - identifier_type: "customer_id"
+                          identifier: "john_doe"
+                      users:
+                        - user_attributes:
+                            last_name: "Doe"
+                            customer_id: "john_doe"
+                            name: "John"
+                            custom_user_attr: 12345
+                            id: "62e79fb15ada55x123g987bu"
         '400':
-          description: Bad Request.
+          description: "This response is returned when the required parameters APP KEY, user_id, and so on are missing from the request or when the provided params are invalid."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: "The type or category of the error (\"MissingAttributeError, Malformed JSON, LimitBreached\")."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                missing_identifiers:
+                  summary: Identifiers are missing in the request
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "identifiers"
+                      message: "identifiers is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "UkBwaUmU"
+                data_missing:
+                  summary: Data is missing in the request
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "data"
+                      message: "data is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "DataMiss2"
+                incorrect_json:
+                  summary: JSON is incorrect in the request
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Could not decode the request body. The JSON was incorrect or not encoded as UTF-8."
+                      type: "Malformed JSON"
+                      request_id: "NphDCzWk"
+                limit_exceeded:
+                  summary: Users exceeds the allowed limit in the request
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "users"
+                      message: "max limit allowed is 20"
+                      type: "LimitBreached"
+                      request_id: "LimitX4"
         '401':
           description: Unauthorized.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericError'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: 'The type or category of the error (e.g., Authentication required).'
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                auth_error:
+                  summary: Authorization errors
+                  value:
+                    status: "fail"
+                    error:
+                      message: "App Secret key mismatch. Please login to the dashboard to verify key"
+                      type: "Authentication required"
+                      request_id: "PVUDFisO"
+                missing_header:
+                  summary: Missing authentication header
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Authentication Header Required"
+                      type: "Authentication required"
+                      request_id: "PisPjGQQ"
+        '403':
+          description: This response is returned when your MoEngage account is suspended or blocked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed.(e.g., Your account is suspended. Please contact MoEngage team.)"
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., BlockedClient, Account Suspended, Account Temporarily Suspended)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                account_blocked:
+                  summary: Sample response for when your account is blocked
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is suspended. Please contact MoEngage team."
+                      type: "BlockedClient"
+                      request_id: "ofHUEaEQ"
+                account_suspended:
+                  summary: Sample response for when your account is suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is suspended. Please contact MoEngage team."
+                      type: "Account Suspended"
+                      request_id: "gqJvCNYu"
+                temp_suspended:
+                  summary: Sample response for when your account is temporarily suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is temporarily suspended. Please contact MoEngage team."
+                      type: "Account Temporarily Suspended"
+                      request_id: "ssSJjoyD"
+        '413':
+          description: This response is returned when the payload size exceeds 128 KB.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., Payload too large)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                payload_exceeded:
+                  summary: Payloads exceeding the size limit
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Payload size exceeds 128 KB"
+                      type: "PayloadTooLarge"
+                      request_id: "VFzDwhwt"
+        '415':
+          description: This response is returned when the content type is not supported.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., Unsupported media type)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                unsupported_media_type:
+                  summary: Unsupported media type
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Unsupported Media Type"
+                      type: "MediaTypeError"
+                      request_id: "SgBQfKJh"
+        '429':
+          description: This response is returned when the number of requests has exceeded the rate limit.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., Rate Limits Exceeded)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                rate_limit:
+                  summary: Rate limit breach
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Rate limit exceeded"
+                      type: "RateLimitError"
+                      request_id: "onqucLYL"
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        description: "A descriptive error message explaining why the request failed."
+                      type:
+                        type: string
+                        description: "The type or category of the error (e.g., Server Error)."
+                      request_id:
+                        type: string
+                        description: "A unique identifier for the request, useful for debugging."
+                      attribute:
+                        type: string
+                        description: "The attribute in the payload that caused the error."
+              examples:
+                unknown_error:
+                  summary: Unknown errors
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Internal Server Error"
+                      type: "ServerError"
+                      request_id: "KovrwJiF"
 
   /customer/merge:
     post:
@@ -1028,11 +1331,11 @@ components:
       properties:
         type:
           type: string
-          description: 'Identifies the type of request. Must be "customer".'
+          description: 'This is used to identify the type of request. This field is case-sensitive. Follow the case as in the example when passing the value in the request.'
           enum: [customer]
         customer_id:
           type: string
-          description: 'Unique identifier for the user. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/360060565292) enabled workspaces.'
+          description: 'The unique identifier is used to identify/create a user in MoEngage. Not mandatory in [Identity Resolution](https://help.moengage.com/hc/en-us/articles/24050999467284-Unified-Identity-Identity-Resolution) enabled workspaces. ' 
         update_existing_only:
           type: boolean
           default: false
