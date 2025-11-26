@@ -273,7 +273,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OptinErrorResponse'
+                $ref: '#/components/schemas/OptinError400Response'
               examples:
                 invalidDataType:
                   summary: Invalid Data Type
@@ -325,7 +325,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OptinErrorResponse'
+                $ref: '#/components/schemas/OptinError401Response'
               examples:
                 missingAuthHeader:
                   summary: Missing Authorization Header
@@ -350,7 +350,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OptinErrorResponse'
+                $ref: '#/components/schemas/OptinError403Response'
               example:
                 error:
                   code: 403 Forbidden
@@ -360,7 +360,10 @@ paths:
                     message: Email Opt-in Management feature not enabled for the workspace. Please reach out to MoEngage to get it enabled.
         '429':
           description: Too Many Requests. The request rate has exceeded the limit of 1000 RPM or 360K per day. No response body is returned.
-          content: {}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptinError429Response'
         '500':
           description: Internal Server Error.
           content:
@@ -524,9 +527,9 @@ components:
           type: string
           description: The success message denoting the request was processed successfully.
           example: Your request has been processed successfully
-    OptinErrorResponse:
+    OptinError400Response:
       type: object
-      description: Detailed error response body for the Opt-in Management API (4xx).
+      description: This response is returned when the required parameters are missing from the request, attributes are not found, or incorrect values are passed.
       properties:
         error:
           type: object
@@ -551,6 +554,62 @@ components:
                   type: string
                   description: The details of the error message.
                   example: "Wrong data type was used for <customer_id>..."
+    OptinError401Response:
+      type: object
+      description: This response is returned when the request does not have valid authentication credentials.
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: The HTTP status code and text (e.g., '401 Unauthorized').
+              example: 401 Unauthorized
+            message:
+              type: string
+              description: A brief message denoting the type of error.
+              example: Invalid API Key provided.
+            details:
+              type: object
+              description: Contains granular error information including the target field and a detailed error message.
+              properties:
+                target:
+                  type: string
+                  description: The authentication scheme or header.
+                  example: Authorization Header
+                message:
+                  type: string
+                  description: The details of the error message.
+                  example: "Authentication failed due to missing or invalid credentials."
+    OptinError403Response:
+      type: object
+      description: This response is returned when the Email Opt-in Management feature is not enabled for the workspace.
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: The HTTP status code and text (e.g., '403 Forbidden').
+              example: 403 Forbidden
+            message:
+              type: string
+              description: A brief message denoting the type of error.
+              example: Feature not enabled for workspace.
+            details:
+              type: object
+              description: Contains granular error information including the target field and a detailed error message.
+              properties:
+                target:
+                  type: string
+                  description: The resource or feature that is forbidden.
+                  example: Email Opt-in Management
+                message:
+                  type: string
+                  description: The details of the error message.
+                  example: "Access to the Email Opt-in Management API is forbidden. Please enable the feature in your workspace settings."
+    OptinError429Response:
+      description: Too Many Requests. The rate limit has been exceeded. There is no response body for this error.
     OptinError500Response:
       type: object
       description: Error response body for Internal Server Error (500).
