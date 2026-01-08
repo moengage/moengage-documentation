@@ -1,0 +1,80 @@
+---
+title: "Campaign Stats and Reports Overview"
+description: "Fetch real-time campaign performance statistics and download detailed campaign reports programmatically."
+---
+
+## Overview
+The MoEngage Campaign Stats and Reports API allows you to monitor your marketing performance outside of the MoEngage Dashboard. Use these endpoints to retrieve real-time platform-level statistics or generate downloadable reports for long-term analysis.
+
+
+
+## Stats & Reports API Endpoints
+This suite is divided into two primary functional areas:
+- [Get Campaign Stats](/api-reference/stats/get-stats) - Retrieve real-time performance metrics (clicks, impressions, conversions) at a platform level.
+- [Download Campaign Report](/api-reference/stats/download-report) - Directly download campaign data files for specified date ranges.
+
+## Comparison of Capabilities
+| Feature | Campaign Stats API | Campaign Report API |
+|---------|--------------------|---------------------|
+| **Data Recency** | Real-time | Historical (Date Range) |
+| **Output Format** | JSON | ZIP/GZIP File |
+| **Batch Limit** | 10 Campaigns per call | 90 Days date range |
+| **Primary Use** | Live Monitoring/Dashboards | Deep-dive Analysis/Audits |
+
+## Technical Constraints
+<Note>
+**Rate Limits & Availability:**
+- **Stats API**: Limited to **100 requests per minute** per workspace.
+- **Report Retention**: Generated reports are available for download for **7 days** before they expire.
+</Note>
+
+<Note>
+**Date Range Restrictions:**
+- When fetching stats, the difference between `start_date` and `end_date` must not exceed **30 days**.
+- When generating reports, you can request data for a maximum range of **90 days**.
+</Note>
+
+## Authentication
+Authentication methods vary between the two service types:
+
+### For Campaign Stats (Basic Auth)
+Navigate to **Settings > Account > APIs** to find your credentials:
+1. **Username**: Use your **Workspace ID**.
+2. **Password**: Use your **Campaign Report** API Key.
+
+### For Campaign Reports (Header Signature)
+
+The Report API requires a custom `Signature` header generated via:
+`SHA256(Api_ID + "|" + FILENAME + "|" + SECRET_KEY)`
+
+## FAQs
+
+### Campaign Statistics
+<AccordionGroup>
+  <Accordion title="How many campaigns can I query in a single Stats request?">
+    You can pass up to **10 campaign IDs** in the `campaign_ids` array per API call. If you need data for more campaigns, utilize the `offset` and `limit` parameters to paginate through your results.
+  </Accordion>
+  <Accordion title="What is the difference between TOTAL and UNIQUE metrics?">
+    The `metric_type` parameter allows you to toggle your view. **TOTAL** counts every occurrence (e.g., three clicks by one user), while **UNIQUE** counts the number of distinct users who performed the action.
+  </Accordion>
+  <Accordion title="Can I fetch stats for a specific locale or variation?">
+    Yes. The response object is nested by Platform > Locale > Variation, allowing you to see granular performance for A/B tests and localized content.
+  </Accordion>
+</AccordionGroup>
+
+### Campaign Reports
+<AccordionGroup>
+  <Accordion title="Why did my report download fail with a 400 error?">
+    This typically happens if the `FILENAME` provided is incorrect, the report was created more than 7 days ago (expired), or the `APP_ID` in the path does not match your credentials.
+  </Accordion>
+  <Accordion title="Can I fetch reports for periodic campaigns?">
+    Yes, the Report API supports both one-time and periodic campaigns. Ensure the filename matches the specific instance you wish to download.
+  </Accordion>
+  <Accordion title="How do I verify if my signature implementation is correct?">
+    Verify that your concatenation uses the pipe character (`|`) exactly as shown: `APPID|FILENAME|SECRETKEY`. Ensure the resulting string is encoded in UTF-8 before hashing with SHA256.
+  </Accordion>
+</AccordionGroup>
+
+## Postman Collections
+Test your integration and verify your signature logic using our Postman collection.
+[View Postman Collection →](https://www.postman.com/moengage-dev/workspace/api-docs/)
