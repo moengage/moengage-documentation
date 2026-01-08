@@ -1,29 +1,45 @@
 openapi: 3.0.3
 info:
   title: MoEngage Campaign Stats and Reports API
-  description: API for fetching detailed campaign stats and downloading campaign reports.
+  description: |
+    The Stats API allows you to fetch detailed campaign stats synchronized in real time. 
+    The Campaign Report API allows you to download campaign reports for any specific date range.
   version: '1.0'
 servers:
-  - url: 'https://api-0{X}.moengage.com/core-services/v1'
-    description: MoEngage Core Services API Server (for Stats)
+  - url: 'https://api-0{dc}.moengage.com'
+    description: MoEngage API Server
     variables:
-      X:
+      dc:
         default: '1'
-        description: 'Your MoEngage Data Center (DC) number. Refer to MoEngage docs for your correct DC.'
-  - url: 'https://api.moengage.com'
-    description: MoEngage Campaign Reports API Server
+        description: |
+          Your MoEngage Data Center number (e.g., 1, 2, 3). 
+          Refer to the [Data Center and API endpoint mapping page](https://help.moengage.com/hc/en-us/articles/360057030512-Data-Centers-in-MoEngage#01G5DQVXGT2KZMXTJPF77QPJ25).
 tags:
   - name: Stats
     description: Fetch detailed, real-time campaign statistics.
   - name: Campaign Reports
     description: Download campaign report files.
 paths:
-  /campaign-stats:
+  /core-services/v1/campaign-stats:
     post:
       tags:
         - Stats
       summary: Get Campaign Stats
-      description: This API allows you to fetch detailed campaign stats synchronized in real time. This API fetches data at the platform level and provides data for all types of campaigns. 
+      description: |
+        This API fetches data at the platform level and provides data for all types of campaigns.
+        
+        The API request will be authenticated through Basic Authentication. You can obtain the username (Workspace ID) and password (API Key) details from the MoEngage Dashboard.
+      x-mint:
+        content: |
+          <Note>
+            **Rate Limit**: This API provides all version stats, and the call rate is limited to **100 API calls per minute** per workspace.
+          </Note>
+
+          ### Authentication Details
+          
+          Navigate to **Settings > Account > APIs** in your dashboard.
+          1. **Username**: Under **Workspace ID**, click the copy icon.
+          2. **Password**: In the **API keys** section, copy the **Campaign report** API key.
       operationId: getCampaignStats
       security:
         - basicAuth: []
@@ -33,27 +49,29 @@ paths:
           required: true
           schema:
             type: string
-          description: 'This is the workspace ID (earlier APP ID) of your MoEngage workspace. Found in Settings -> Account -> APIs -> Workspace ID.'
+          description: |
+            This is the workspace ID (earlier APP ID) of your MoEngage workspace.
+            Found in **Settings -> Account -> APIs -> Workspace ID**.
           example: 'YOUR_WORKSPACE_ID_XXXX'
       requestBody:
         $ref: '#/components/requestBodies/CampaignStatsRequest'
       responses:
         '200':
-          description: Successful response containing campaign stats.
+          description: Successful response.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignStatsResponse'
               examples:
-                android-push-stats:
-                  summary: Example for Android Push
+                stats-response:
+                  summary: Sample Response
                   value:
-                    response_id: 'abc'
+                    response_id: "string"
                     total_campaigns: 1
                     current_page: 1
                     total_pages: 1
                     data:
-                      '66e933029ff25f3322d8279d':
+                      "66e933029ff25f3322d8279d":
                         - platforms:
                             android:
                               locales:
@@ -71,7 +89,7 @@ paths:
                                         sent_rate: 100
                                         failure_rate: 0
                                       conversion_goal_stats:
-                                        'Goal 1':
+                                        "Goal 1":
                                           conversions: 0
                                           cvr: 0
                                           uplift: 0
@@ -87,7 +105,7 @@ paths:
                                       failure_breakdown: {}
                                     campaign_control_group:
                                       conversion_goal_stats:
-                                        'Goal 1':
+                                        "Goal 1":
                                           conversions: 0
                                           cvr: 0
                                           uplift: 0
@@ -97,7 +115,7 @@ paths:
                                         user_removed_due_to_campaing_control_group: 1
                                     global_control_group:
                                       conversion_goal_stats:
-                                        'Goal 1':
+                                        "Goal 1":
                                           conversions: 0
                                           cvr: 0
                                           uplift: 0
@@ -105,79 +123,93 @@ paths:
                                         reachable_users_in_segment: 0
                                       failure_breakdown:
                                         user_removed_due_to_global_control_group: 1
-                email-stats:
-                  summary: Example for Email
-                  value:
-                    response_id: abc
-                    total_campaigns: 1
-                    current_page: 1
-                    total_pages: 1
-                    data:
-                      '6763f09a1f53871780a63623':
-                        - platforms:
-                            EMAIL:
-                              locales:
-                                all_locale:
-                                  variations:
-                                    all_variations:
-                                      performance_stats:
-                                        attempted: 338095
-                                        sent: 330285
-                                        open: 138131
-                                        delivered: 321226
-                                        click: 51
-                                        unsubscribe: 135
-                                        complaint: 1
-                                        hard_bounce: 4
-                                        soft_bounce: 9071
-                                        bounce: 9075
-                                        failed: 5695
-                                        ctr: 0.02
-                                        open_rate: 38.18
-                                        delivery_rate: 97.26
-                                        ctor: 0.03
-                                        unsub_rate: 0.04
-                                        bounce_rate: 2.75
-                                        complaints_rate: 0
-                                        sent_rate: 97.69
-                                        failure_rate: 1.68
-                                      conversion_goal_stats:
-                                        'Order Confirmation Status':
-                                          goal_name: 'Goal 1'
-                                      delivery_funnel:
-                                        sent: 330285
-                                        user_with_email: 338095
-                                        user_with_email_after__h_b: 333017
-                                        user_after_duplicate_removal: 330285
-                                        after_invalid_removal: 330285
-                                        after_fc: 330285
-                                        delivered: 321226
-                                      failure_breakdown:
-                                        'bounces,__unsubscribes,__complaints_removed': 5078
-                                        duplicate__emails_removed: 617
-                                    global_control_group:
-                                      conversion_goal_stats:
-                                        'Order Confirmation Status':
-                                          goal_name: 'Goal 1'
-                                      delivery_funnel: {}
-                                      failure_breakdown:
-                                        users_removed_due_to__global__control__group: 2100
         '400':
-          $ref: '#/components/responses/Error400Stats'
+          description: |
+            **Bad request**
+            Possible issues include duplicates, invalid data types, or missing mandatory attributes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseSimple'
+              example:
+                title: "Invalid Field Value"
+                description: "app_key - Some of the field values are invalid: app_key : None"
+                code: "wUcwPRZF"
         '401':
-          $ref: '#/components/responses/Error401Stats'
+          description: |
+            **Unauthorized**
+            This response is returned upon unauthorized request. Provide appropriate authentication credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseSimple'
+              example:
+                title: "Authentication required"
+                description: "Invalid identity information found."
+                code: "wUcwPRZF"
         '403':
-          $ref: '#/components/responses/Error403Stats'
+          description: |
+            **Forbidden**
+            This response is returned when our account does not have access to the campaign stats management features.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseSimple'
+              example:
+                title: "Forbidden Request"
+                description: null
+                code: "kmqLuuHM"
         '429':
-          $ref: '#/components/responses/Error429Stats'
+          description: |
+            **Too many requests**
+            This response is returned when the number of requests per minute has exceeded the rate limit.
         '500':
-          $ref: '#/components/responses/Error500Stats'
+          description: |
+            **Internal server error**
+            This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseSimple'
+              example:
+                title: "Server Error"
+                description: "An unexpected error was encountered while processing this request. Please contact MoEngage Team"
+                code: "jDTGSxjd"
+
   /campaign_reports/rest_api/{APP_ID}/{FILENAME}:
     get:
       tags:
         - Campaign Reports
       summary: Download Campaign Report
-      description: 'Download a campaign report file. The API uses a custom Signature header for authentication, generated by hashing (SHA256) a combination of your API_ID, the FILENAME, and your SECRET_KEY.'
+      description: |
+        Campaign Report API lets you download campaign reports for any specific date range. You can fetch reports for one-time and periodic campaigns.
+        
+        **Important**: Successful API requests automatically download the report file.
+      x-mint:
+        content: |
+          ### Generating the Signature
+          A unique signature must be passed in the headers to verify the caller's authenticity. 
+          
+          The signature is `SHA256(Api_ID + "|" + FILENAME + "|" + SECRET_KEY)`.
+
+          ```python
+          # SAMPLE IMPLEMENTATION IN PYTHON
+          from hashlib import sha256
+          Api_ID = "YOUR-APP-ID"
+          FILENAME = "Report_-_test_20210217.zip"
+          SECRET_KEY = "YOUR-SECRET-KEY"
+          Signature_Key = Api_ID + "|" + FILENAME + "|" + SECRET_KEY
+          # Now Signature is hexdigest of sha256 of Signature_Key
+          Signature = sha256(Signature_Key.encode('utf-8')).hexdigest()
+          ```
+
+          <Warning>
+          **Expiry**: The generated reports will expire in **7 days** from the date of creation.
+          </Warning>
+          
+          <Note>
+          **Max Range**: You can generate reports for up to **90 days**.
+          </Note>
       operationId: downloadCampaignReport
       security:
         - apiKeySignature: []
@@ -187,25 +219,37 @@ paths:
           required: true
           schema:
             type: string
-          description: 'Your MoEngage App ID (Workspace ID).'
+          description: |
+            Your MoEngage App ID (Workspace ID). Can be fetched from **Settings > Account > APIs**.
           example: 'YOUR-APP-ID'
         - name: FILENAME
           in: path
           required: true
           schema:
             type: string
-          description: 'The name of the report file to download (e.g., Report_-_test_20210217.zip).'
+          description: |
+            The name of the report file to download. It is a combination of report name, generation date, and file format.
+            Example: `Report_test_20210217.zip`
           example: 'Report_-_test_20210217.zip'
+        - name: Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 'A custom signature generated by SHA256(Api_ID + "|" + FILENAME + "|" + SECRET_KEY).'
+          example: '80300f554f9dc88cdc7d64c6c06f4de580b27a2afcc396816d1ec3a8d1c09579'
       responses:
         '200':
-          description: Successful API request. The report file is returned.
+          description: Successful API request automatically downloads the report file.
           content:
             application/gzip:
               schema:
                 type: string
                 format: binary
         '400':
-          description: 'Bad Request. Invalid report file name, file name format, report is older than 7 days, or incorrect App Id.'
+          description: |
+            **Bad Request**
+            Reasons: Invalid Report file name, requested report is older than 7 days, or incorrect App Id.
           content:
             application/json:
               schema:
@@ -217,17 +261,19 @@ paths:
               schema:
                 type: object
                 description: Empty body.
+
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
-      description: 'Basic Authentication using Workspace ID (username) and Campaign Report API Key (password) from MoEngage Dashboard > Settings > Account > APIs.'
+      description: 'Basic Authentication using Workspace ID (username) and Campaign Report API Key (password).'
     apiKeySignature:
       type: apiKey
       in: header
       name: Signature
-      description: 'A custom signature generated by SHA256(Api_ID + "|" + FILENAME + "|" + SECRET_KEY).'
+      description: 'Custom SHA256 Signature.'
+
   requestBodies:
     CampaignStatsRequest:
       description: Request body to fetch campaign stats.
@@ -240,67 +286,24 @@ components:
             with-campaign-ids:
               summary: With Campaign IDs
               value:
-                request_id: 'abc'
+                request_id: "abc"
                 campaign_ids:
-                  - 6643773d4fe37fe7a10b718e
-                  - 6645fbae1101e4c6611b15c7
-                  - 67c1cfc8c1b46a5ad5022de7
-                start_date: '2024-12-22'
-                end_date: '2024-12-23'
-                attribution_type: VIEW_THROUGH
-                metric_type: TOTAL
+                  - "6643773d4fe37fe7a10b718e"
+                  - "6645fbae1101e4c6611b15c7"
+                  - "67c1cfc8c1b46a5ad5022de7"
+                start_date: "2024-12-22"
+                end_date: "2024-12-23"
+                attribution_type: "VIEW_THROUGH"
+                metric_type: "TOTAL"
             without-campaign-ids:
               summary: Without Campaign IDs
               value:
-                request_id: 'abc'
-                start_date: '2024-12-22'
-                end_date: '2024-12-23'
-                attribution_type: VIEW_THROUGH
-                metric_type: TOTAL
-  responses:
-    Error400Stats:
-      description: 'Bad Request. Possible issues include duplicates, invalid data types, or missing mandatory attributes.'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponseSimple'
-          example:
-            title: Invalid Field Value
-            description: 'app_key - Some of the field values are invalid: app_key : None'
-            code: wUcwPRZF
-    Error401Stats:
-      description: 'Unauthorized. Provide appropriate authentication credentials.'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponseSimple'
-          example:
-            title: Authentication required
-            description: Invalid identity information found.
-            code: wUcwPRZF
-    Error403Stats:
-      description: 'Forbidden. Your account does not have access to this feature.'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponseSimple'
-          example:
-            title: Forbidden Request
-            description: null
-            code: kmqLuuHM
-    Error429Stats:
-      description: 'Too many requests. The number of requests per minute has exceeded the rate limit (100 API calls/min/workspace).'
-      content: {}
-    Error500Stats:
-      description: 'Internal Server Error. The system ran into an unexpected error.'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponseSimple'
-          example:
-            title: Server Error
-            description: An unexpected error was encountered while processing this request. Please contact MoEngage Team
-            code: jDTGSxjd
+                request_id: "abc"
+                start_date: "2024-12-22"
+                end_date: "2024-12-23"
+                attribution_type: "VIEW_THROUGH"
+                metric_type: "TOTAL"
+
   schemas:
     CampaignStatsRequest:
       type: object
@@ -313,26 +316,26 @@ components:
       properties:
         request_id:
           type: string
-          description: A request ID created by the user to track API calls.
+          description: This field shows the request ID created by a user. Helps to know the API calls made by the client.
         campaign_ids:
           type: array
           items:
             type: string
-          description: A list of campaign IDs (up to 10 max per call).
+          description: This field shows the campaign IDs created, up to 10 max per call.
           maxItems: 10
         start_date:
           type: string
           format: date
-          description: The start date of the campaign in YYYY-MM-DD format.
+          description: This field shows the start date of the campaign in YYYY-MM-DD format.
           example: '2024-12-22'
         end_date:
           type: string
           format: date
-          description: 'The campaign''s end date in YYYY-MM-DD format. The range between start and end dates should not exceed 30 days.'
+          description: This field shows the campaign's end date in YYYY-MM-DD format. The days between the start and end dates should not exceed 30 days.
           example: '2024-12-23'
         attribution_type:
           type: string
-          description: The attribution type for conversion stats.
+          description: This field shows the attribution type that should be picked to show conversion stats.
           enum:
             - VIEW_THROUGH
             - CLICK_THROUGH
@@ -341,19 +344,23 @@ components:
             - CLICK_CONVERSIONS
         offset:
           type: integer
-          description: The position of a record in a dataset (for pagination). Default is 0.
+          description: |
+            This field shows the position of a record in a dataset. 
+            The default value for the number of campaigns to skip is 0. 
+            For example, set the offset to 50 to see the data from page 51.
           default: 0
         limit:
           type: integer
-          description: The maximum number of campaigns to return. Default is 10, max is 10.
+          description: This field shows the maximum number of campaigns displayed on a page. The default and max limit is up to 10 campaigns.
           default: 10
           maximum: 10
         metric_type:
           type: string
-          description: Whether to show total or unique values for metrics.
+          description: This field shows the total or unique values of all the metrics.
           enum:
             - TOTAL
             - UNIQUE
+
     CampaignStatsResponse:
       type: object
       properties:
@@ -362,48 +369,54 @@ components:
           description: The response ID, which is the same as the request ID passed in the payload.
         total_campaigns:
           type: integer
-          description: The total number of campaigns requested in the payload.
+          description: This field indicates the total number of campaigns that are requested in the payload.
         current_page:
           type: integer
-          description: The current page number.
+          description: This field indicates the current page number.
         total_pages:
           type: integer
-          description: The total number of pages.
+          description: This field indicates the total page. It is equal to the total campaigns, which is limited to 10 for each call and 10 to be displayed for each page.
         data:
           type: object
-          description: 'A map where each key is a Campaign ID. The value is an array of campaign stat objects.'
+          description: This object contains the campaign stats. Keys are Campaign IDs.
           additionalProperties:
             type: array
             items:
               $ref: '#/components/schemas/CampaignStatsDetails'
+
     CampaignStatsDetails:
       type: object
       properties:
         platforms:
           $ref: '#/components/schemas/Platforms'
+    
     Platforms:
       type: object
-      description: 'An object where keys are platform names (e.g., "android", "EMAIL", "WEB").'
+      description: 'This field indicates the platforms where the user has engaged with your communication (e.g., ANDROID, IOS, WEB, MWEB, UNKNOWN).'
       additionalProperties:
         $ref: '#/components/schemas/PlatformStats'
+
     PlatformStats:
       type: object
       properties:
         locales:
           $ref: '#/components/schemas/Locales'
+
     Locales:
       type: object
-      description: 'An object where keys are locale names (e.g., "all_locales").'
+      description: This field indicates the details of the locales configured.
       additionalProperties:
         $ref: '#/components/schemas/LocaleStats'
+
     LocaleStats:
       type: object
       properties:
         variations:
           $ref: '#/components/schemas/Variations'
+
     Variations:
       type: object
-      description: Stats broken down by variation and control groups.
+      description: This object contains details of the variations of your locale.
       properties:
         all_variations:
           $ref: '#/components/schemas/VariationDetails'
@@ -411,9 +424,9 @@ components:
           $ref: '#/components/schemas/VariationDetails'
         global_control_group:
           $ref: '#/components/schemas/VariationDetails'
+
     VariationDetails:
       type: object
-      description: Contains all stats for a specific variation or control group.
       properties:
         performance_stats:
           $ref: '#/components/schemas/PerformanceStats'
@@ -423,53 +436,72 @@ components:
           $ref: '#/components/schemas/DeliveryFunnel'
         failure_breakdown:
           $ref: '#/components/schemas/FailureBreakdown'
+
     PerformanceStats:
       type: object
-      description: Campaign performance metrics.
+      description: This object shows your campaign's performance metrics.
       properties:
         attempted:
           type: integer
+          description: Number of communication attempts made.
         sent:
           type: integer
+          description: Number of communications sent.
         failed:
           type: integer
+          description: Number of communications that failed to reach customers.
         bounced:
           type: integer
+          description: Number of communications bounced.
         impression:
           type: integer
+          description: Number of times your communication appeared to the user.
         click:
           type: integer
+          description: Number of times your users clicked the message.
         opened:
           type: integer
+          description: Number of communications opened by the user.
         delivered:
           type: integer
+          description: Number of communications delivered to the customer.
         read:
           type: integer
+          description: Number of customers who read your communications.
         closed_click:
           type: integer
+          description: Number of messages closed by your customers.
         unsubscribe:
           type: integer
+          description: Number of customers who have unsubscribed.
         ctr:
           type: number
           format: double
+          description: 'Click-Through Rate: (Clicks / Impressions).'
         delivery_rate:
           type: number
           format: double
+          description: Rate of delivery to customers.
         read_rate:
           type: number
           format: double
+          description: 'UniqueRead / uniqueDelivered * 100.'
         successfully_synced:
           type: integer
         sent_rate:
           type: number
           format: double
+          description: 'Sent / attempted * 100.'
         failure_rate:
           type: number
           format: double
+          description: '(attempted - sent) / attempted * 100.'
         eligible_users:
           type: integer
+          description: Number of eligible users.
         complaint:
           type: integer
+          description: Count of complaints registered.
         hard_bounce:
           type: integer
         soft_bounce:
@@ -480,6 +512,7 @@ components:
         ctor:
           type: number
           format: double
+          description: Click-through open rate.
         unsub_rate:
           type: number
           format: double
@@ -489,25 +522,30 @@ components:
         complaints_rate:
           type: number
           format: double
+
     ConversionGoalStats:
       type: object
-      description: 'A map where keys are conversion goal names (e.g., "Goal 1").'
+      description: This object shows the conversion goal stats of your campaign.
       additionalProperties:
         $ref: '#/components/schemas/ConversionGoal'
+
     ConversionGoal:
       type: object
-      description: Stats for a specific conversion goal.
       properties:
         goal_name:
           type: string
         conversions:
           type: integer
+          description: Number of conversions.
         cvr:
           type: number
           format: double
+          description: Conversion rate.
         uplift:
           type: number
           format: double
+          description: Percentage change in performance metrics.
+        # Additional fields from large sample response
         total:
           type: integer
         unique:
@@ -520,9 +558,10 @@ components:
           type: number
         gcg_uplift:
           type: number
+
     DeliveryFunnel:
       type: object
-      description: Funnel metrics for message delivery.
+      description: This object shows the delivery stats of your campaign.
       properties:
         reachable_users_in_segment:
           type: integer
@@ -542,7 +581,6 @@ components:
           type: integer
         after_invalid_removal:
           type: integer
-        # Email-specific fields from sample
         total_user_in_segment:
           type: integer
         user_with_email:
@@ -555,14 +593,15 @@ components:
           type: integer
         delivered:
           type: integer
+
     FailureBreakdown:
       type: object
-      description: 'A map where keys are failure reasons (e.g., "duplicate__emails_removed").'
+      description: This object shows the failure breakdown of your campaign.
       additionalProperties:
         type: integer
+
     ErrorResponseSimple:
       type: object
-      description: Standard error response for the Stats API.
       properties:
         title:
           type: string
@@ -571,9 +610,9 @@ components:
           nullable: true
         code:
           type: string
+
     ErrorResponseCampaignReport:
       type: object
-      description: Standard error response for the Campaign Report API 400 error.
       properties:
         error:
           type: object
