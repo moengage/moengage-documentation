@@ -27,6 +27,34 @@ paths:
         - Cohort Sync
       summary: Sync Cohort Members
       description: Add or remove a list of users from a custom segment (cohort) in MoEngage.
+      x-mint:
+        content: |
+          ## Overview
+          The MoEngage Cohort Sync API allows partners to synchronize cohorts or audiences created in their ecosystem directly with MoEngage.
+
+          ### Key Functions
+          The API facilitates the following operations:
+          * **Create Custom Segments:** Automatically creates a custom segment (Audience) in MoEngage that can be utilized for marketing campaigns.
+          * **Manage Membership:** Adds or removes lists of users belonging to a custom segment.
+          * **Dynamic Updates:** Updates existing segments dynamically, ensuring marketing campaigns engage the latest set of users during the next scheduled run.
+
+          > **Important:** The Cohort Sync API **only matches users already present in MoEngage** based on the User ID (`uid`) provided in the request. **This API does not create new users.**
+
+          ### Benefits
+          * **Direct Integration:** Enables segment creation via direct server-to-server calls without requiring separate CSV files or hosting URLs.
+          * **Efficiency:** Ideal for segment operations involving smaller subsets of users.
+
+          ## User Resolution
+          The Cohort Sync API resolves existing users in MoEngage based on predefined user identifiers:
+          * **Identifier:** We primarily rely on the **User ID** (`uid`) provided in the request payload.
+          * **Matching:** This must match the Unique User ID set in MoEngage (typically available for registered or logged-in users).
+          * **Profile Association:** Each Unique User ID corresponds to a single user profile. Even if a user is logged in across multiple devices, the devices are associated with that single user profile.
+
+          ## Rate Limits
+          Please adhere to the following limits:
+          * **Frequency:** 300 requests per minute.
+          * **Payload Structure:** One payload per request (each payload can contain multiple UIDs).
+          * **Size Limit:** The payload size cannot exceed **128KB**.
       parameters:
         - in: header
           name: MOE-APPKEY
@@ -89,7 +117,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
-                MissingAttribute:
+                MissingIdentifiers:
+                  summary: Identifiers missing in request
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "identifiers"
+                      message: "identifiers is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "UkBwaUmU"
+                MissingData:
+                  summary: Data missing in request
+                  value:
+                    status: "fail"
+                    error:
+                      attribute: "data"
+                      message: "data is not found in the payload"
+                      type: "MissingAttributeError"
+                      request_id: "zAsmTigV"
+                MissingAction:
+                  summary: Action missing in request
                   value:
                     status: "fail"
                     error:
@@ -98,6 +145,7 @@ paths:
                       type: "MissingAttributeError"
                       request_id: "sYsoPuzf"
                 MalformedJson:
+                  summary: JSON is incorrect
                   value:
                     status: "fail"
                     error:
@@ -113,12 +161,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "fail"
-                error:
-                  message: "App Secret key mismatch. Please login to the dashboard to verify key"
-                  type: "Authentication required"
-                  request_id: "skSFWvtW"
+              examples:
+                AppSecretMismatch:
+                  summary: App Secret Key Mismatch
+                  value:
+                    status: "fail"
+                    error:
+                      message: "App Secret key mismatch. Please login to the dashboard to verify key"
+                      type: "Authentication required"
+                      request_id: "skSFWvtW"
+                MissingAuthHeader:
+                  summary: Missing Authentication Header
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Authentication Header Required"
+                      type: "Authentication required"
+                      request_id: "PiSPjGQQ"
+                AppKeyMismatch:
+                  summary: App Key Mismatch
+                  value:
+                    status: "fail"
+                    error:
+                      message: "App key mismatch in params and authentication"
+                      type: "Authentication Mismatch"
+                      request_id: "yEujHykb"
         "403":
           description: >-
             Account Suspended/Blocked Temporarily. This response is returned
@@ -127,12 +194,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "fail"
-                error:
-                  message: "Your account is suspended. Please contact MoEngage team."
-                  type: "BlockedClient"
-                  request_id: "ofHUEaEQ"
+              examples:
+                BlockedClient:
+                  summary: Account Blocked
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is suspended. Please contact MoEngage team."
+                      type: "BlockedClient"
+                      request_id: "ofHUEaEQ"
+                AccountSuspended:
+                  summary: Account Suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is suspended. Please contact MoEngage team."
+                      type: "Account Suspended"
+                      request_id: "gqJvCNYu"
+                AccountTemporarilySuspended:
+                  summary: Account Temporarily Suspended
+                  value:
+                    status: "fail"
+                    error:
+                      message: "Your account is temporarily suspended. Please contact MoEngage team."
+                      type: "Account Temporarily Suspended"
+                      request_id: "ssSJjoyD"
         "413":
           description: >-
             Payload Limit Exceeded. This response is returned when the
