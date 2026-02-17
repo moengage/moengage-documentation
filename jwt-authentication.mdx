@@ -1,0 +1,133 @@
+---
+title: "JWT Authentication"
+---
+
+## Overview
+
+JWT (JSON Web Token) authentication is a standard method for securely verifying user identity. By implementing JWT authentication, you add a critical layer of security to your data collection process with MoEngage.
+
+The feature ensures that the data sent on behalf of your identified users is authentic and is not tampered with. This security is achieved by requiring a token that is cryptographically signed by your own server, which prevents unauthorized users from impersonating your legitimate users.
+
+<Check>
+  Before you begin the implementation, ensure you meet the following requirements:
+
+  - Your application must use the MoEngage Android SDK version **14.04.00** or higher to access the JWT authentication feature.
+  - You must have access to your MoEngage dashboard to manage public keys and configure the feature's enforcement settings.
+</Check>
+
+The following diagram illustrates the interaction between your application, your server, the MoEngage SDK, and the MoEngage server:
+
+![Nextttt](/images/nextttt.jpeg)
+
+## Integration
+
+Perform the following to integrate JWT authentication into your Android application:
+
+### Step 1: Enable JWT Authentication
+
+You can enable JWT authentication during [SDK initialization](https://developers.moengage.com/hc/en-us/articles/4401984811796) [Placeholder_Link] by configuring the **_NetworkAuthorizationConfig_** property on the **_MoEngage.Builder_** object.
+
+<CodeGroup>
+
+```kotlin Kotlin
+ val builder = MoEngage.Builder(application, , )
+ .configureNetworkRequest(NetworkRequestConfig(networkAuthorizationConfig = NetworkAuthorizationConfig(isJwtEnabled = true)))
+  MoEngage.initialiseDefaultInstance(builder.build())
+```
+
+
+```java Java
+MoEngage.Builder builder = new MoEngage.Builder(application, , )
+.configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)));
+MoEngage.initialiseDefaultInstance(builder.build());
+```
+
+</CodeGroup>
+
+### Step 2: Pass the JWT to the SDK
+
+Your application is responsible for managing the JWT lifecycle. The recommended flow is to fetch a token upon user login and pass the token to the SDK. You should also check if the token has expired on subsequent app launches and fetch a new one if necessary. 
+
+Use the [**_MoECoreHelper.passAuthenticationDetails()_**](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-e-core-helper/pass-authentication-details.html) [Placeholder_Link] to provide the token to the SDK.
+
+<CodeGroup>
+
+```kotlin Kotlin
+val data = AuthenticationData.Jwt(, )
+MoECoreHelper.passAuthenticationDetails(context, data)
+```
+
+
+```java Java
+AuthenticationData data = new AuthenticationData.Jwt(, );
+MoECoreHelper.INSTANCE.passAuthenticationDetails(application.getApplicationContext(), data);
+```
+
+</CodeGroup>
+
+### Step 3: Handle Authentication Errors
+
+To handle token validation errors that the MoEngage server returns, you must register an error listener. The SDK invokes this listener when an authentication error occurs, which allows your application to fetch and provide a new token.
+
+<CodeGroup>
+
+```kotlin Kotlin
+val authErrorListener = OnAuthenticationError { error -
+  when (error.data) {
+    is ErrorData.Jwt - {
+       // Handle JWT authentication error
+       val errorData = error.data as ErrorData.Jwt
+       val jwtError = errorData.code
+       val message = errorData.message
+       // Take appropriate action based on the jwtError
+    }
+  }
+}
+// Register listener after SDK initialization
+MoECoreHelper.registerAuthenticationListener(authErrorListener)
+```
+
+
+```java Java
+OnAuthenticationError errorListener = new OnAuthenticationError() {
+  @Override
+  public void onError(@NonNull AuthenticationError error) {
+      switch (error.getType()) {
+	 case JWT:
+	      ErrorData.Jwt jwtError = (ErrorData.Jwt) error.getData();
+	      // Handle JWT error
+	      JwtError jwtErrorType = jwtError.getCode();
+	      String message = jwtError.getMessage();
+	      // Take action based on jwtErrorType
+	      break;
+	}
+   }
+};
+// Register listener after SDK initialization
+MoECoreHelper.INSTANCE.registerAuthenticationListener(errorListener);
+```
+
+</CodeGroup>
+
+### Step 3: Handle Authentication Errors
+
+Register the [**_OnAuthenticationError_**](https://moengage.github.io/android-api-reference/core/com.moengage.core.model.authentication/[android-jvm]-on-authentication-error/index.html) [Placeholder_Link] listener in a global scope, such as the **_onCreate()_** of your Application class, to ensure your application always receives callbacks.
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoECoreHelper.registerAuthenticationListener(authErrorListener)
+```
+
+
+```java Java
+MoECoreHelper.INSTANCE.registerAuthenticationListener(errorListener);
+```
+
+</CodeGroup>
+
+<Info>
+  - If an API request fails due to an authentication error, the SDK will not retry the request until your application provides a new token.
+  - After 10 consecutive authentication failures in a single session, the SDK will stop attempting to sync data until the next session begins. This counter resets after any successful sync.
+  - Upon user logout, if a data sync fails due to a JWT error, the pending data will be deleted, and no retry will be attempted.
+</Info>
