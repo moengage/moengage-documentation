@@ -1,0 +1,70 @@
+---
+title: "Custom Proxy Domain - Android"
+---
+
+In today's privacy-focused digital landscape, many users employ ad blockers or private DNS services. These tools often block network requests to known third-party domains, including analytics and engagement platforms. When these requests are blocked, you lose critical data visibility, and your users may not receive in-app messages or push notifications.
+
+To ensure reliable campaign delivery, MoEngage offers the **Custom Proxy Domain** feature. This allows you to route MoEngage SDK traffic through a subdomain of your own primary domain (e.g., `data.yourcompany.com`). Because the traffic appears as first-party communication, it bypasses common ad-blocking lists.
+
+## Onboarding Process
+
+Setting up a Custom Proxy Domain requires a one-time DNS delegation process between your team and MoEngage.
+
+<Info>
+  Before updating your SDK code, you must complete the DNS delegation setup. For a detailed guide on picking a domain and configuring NS records, refer to [DNS Delegation](https://help.moengage.com/hc/en-us/articles/45199793953300-DNS-Delegation-for-Custom-Subdomains). [Placeholder_Link]
+</Info>
+
+### Step 1: Choose a Subdomain
+
+Select a subdomain that is short and does not contain keywords typically flagged by filters (for example, avoid "tracking", "ads", or "moengage").
+
+### Step 2: Request DNS Delegation
+
+Reach out to your MoEngage Customer Success Manager (CSM) or [raise a support ticket](https://help.moengage.com) [Placeholder_Link] to initiate the request. Provide your chosen subdomain.
+
+### Step 3: Configure NS Records
+
+MoEngage will provide you with four Name Server (NS) records. You must add these records to your DNS provider's configuration for the chosen subdomain.
+
+## Implementation
+
+Once the DNS delegation is verified, update your SDK initialization logic. The SDK will dynamically rewrite all MoEngage endpoints (API calls and CDN assets) to use your custom proxy domain.
+
+### Update MoEngage Configuration
+
+<CodeGroup>
+
+```kotlin Kotlin
+import com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.config.DomainConfig
+import com.moengage.core.config.NetworkRequestConfig
+
+val moEngage = MoEngage.Builder(application, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(
+        NetworkRequestConfig(DomainConfig("CUSTOM_DOMAIN"))
+    )
+    .build()
+MoEngage.initialiseDefaultInstance(moEngage)
+```
+
+
+```java Java
+import com.moengage.core.DataCenter;
+import com.moengage.core.MoEngage;
+import com.moengage.core.config.DomainConfig;
+import com.moengage.core.config.NetworkRequestConfig;
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(new NetworkRequestConfig(new DomainConfig("CUSTOM_DOMAIN")))
+    .build();
+MoEngage.initialiseDefaultInstance(moEngage);
+```
+
+</CodeGroup>
+
+## Best Practices and Validation
+
+1. **Domain Selection:** Keep your subdomain string short (5-8 characters).
+2. **Network Logs:** Verify that requests start with your custom subdomain (e.g., `sdk-01.data.example.com`).
+3. **Asset Loading:** Ensure images in campaigns load correctly.
