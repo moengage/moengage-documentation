@@ -1,0 +1,129 @@
+---
+title: "Track Events"
+---
+
+<Info>
+  SDK adheres to the MoEngage FUP policies. For more information, refer to the [Fair Usage Policy](https://help.moengage.com/hc/en-us/articles/24151864954644-Fair-Usage-Policy-FUP#h_01HQSMZVQWT2KYP0PY1P8GQMRM).[Placeholder_Link]
+</Info>
+
+Tracking events is how you record any actions your users perform, along with any properties that describe the action. Every trackEvent call records a single user action. We recommend that you make your event names human-readable so that everyone on your team can know what they mean instantly.
+
+You can track an event using trackEvent with the event name and its characteristics (attributes/properties).
+
+Every event has 2 attributes, action name, and key, value pairs which represent additional information about the action. Add all the additional information which you think would be useful for segmentation while creating campaigns. For eg., the following code tracks a purchase event of a product. We are including attributes like amount, quantity, a category that describes the event we are tracking.
+
+<CodeGroup>
+
+```Kotlin Kotlin
+val properties = Properties()
+    properties
+        // tracking integer
+        .addAttribute("quantity", 2)
+        // tracking string
+        .addAttribute("product", "iPhone")
+        // tracking date
+        .addAttribute("purchaseDate", Date())
+        // tracking double
+        .addAttribute("price", 5999.99)
+        // tracking location
+        .addAttribute("userLocation", GeoLocation(40.77, 73.98))
+        // tracking JSONArray 
+        .addAttribute("jsonArrayAttr", JSONArray(listOf(1, 2, 3)))
+        // tracking JSONObject
+        .addAttribute("jsonObjectAttr", JSONObject().put("name", "value"))
+MoEAnalyticsHelper.trackEvent(context, "Purchase", properties)
+```
+
+
+```Java Java
+Properties properties = new Properties();
+    properties
+         // tracking integer
+        .addAttribute("quantity", 2)
+        // tracking string
+        .addAttribute("product", "iPhone")
+        // tracking Date
+        .addAttribute("purchaseDate", new Date())
+        // tracking double
+        .addAttribute("price", 5999.99)
+        // tracking location
+        .addAttribute("userLocation", new Geolocation(40.77, 73.98))
+        // tracking JSONObject
+        .addAttribute("jsonObjectAttr", new JSONObject())
+        // tracking JSONArray
+        .addAttribute("jsonArrayAttr", new JSONArray());
+MoEAnalyticsHelper.INSTANCE.trackEvent(context, "Purchase", properties);
+```
+
+</CodeGroup>
+
+context - context instance, change the name accordingly.
+
+Ensure that you are tracking event attributes without changing the data types. For example, in the purchase event, amount and quantity are tracked in numeric form. MoEngage detects the data type automatically unless you explicitly specify it as a String. MoEngage supports the following data types: String, Integer, Long, Double, Float, Boolean, Date, GeoLocation, JSON Object, and JSON Array. If any other data type is passed, MoEngage will reject the payload.
+
+The SDK by default tracks a certain set of commonly used events, make sure you use those events instead of tracking similar events again. Refer to the [documentation](https://help.moengage.com/hc/en-us/articles/360043067671-Default-Android-SDK-#Default-Events-Tracked:) [Placeholder_Link] to know more about the default events tracked by the SDK.
+
+Having unique timestamps for events is crucial to maintain accurate and reliable data. Please ensure that events do not share the same timestamp down to the millisecond level.
+
+# Analytics
+
+MoEngage SDK version 9.7.01 and later tracks user session and application traffic source.
+
+For more information, refer to [Sessions in MoEngage Analytics](https://help.moengage.com/hc/en-us/articles/360031402891-Understanding-Sessions-in-MoEngage-Analytics) and [Source Analysis in MoEngage Analytics](https://help.moengage.com/hc/en-us/articles/360031146052-Source-Analysis-in-MoEngage-Analytics). [Placeholder_Link]
+
+User session tracking provides the flexibility to selectively mark events as non-interactive.
+
+## Non-interactive event
+
+Events that do not affect the session duration calculation in MoEngage Analytics are marked as Non-Interactive events.
+
+The following are considered non-interactive events:
+
+- Do not start a new session, even when the app is in the foreground
+- Do not extend the session
+- Do not have information on source and session
+
+An event is marked as non-interactive using the setNonIteractive() in the PayloadBuilder provided by the SDK to build event attributes.
+
+For example,
+
+<CodeGroup>
+
+```Kotlin Kotlin
+val properties = Properties()
+properties.addAttribute("quantity", 2)
+    .addAttribute("product", "iPhone")
+    .addAttribute("purchaseDate", Date())
+    .addAttribute("price", 5999.99)
+    .addAttribute("currency", "dollar")
+    .addAttribute("jsonObjectAttr", JSONObject().put("name", "value"))
+    .addAttribute("jsonArrayAttr", JSONArray(listOf(1, 2, 3)))
+    .setNonInteractive()
+MoEAnalyticsHelper.trackEvent(context, "Purchase", properties)
+```
+
+
+```Java Java
+Properties properties = new Properties();
+properties.addAttribute("quantity", 2)
+    .addAttribute("product", "iPhone")
+    .addAttribute("purchaseDate", new Date())
+    .addAttribute("price", 5999.99)
+    .addAttribute("currency", "dollar")
+    .addAttribute("jsonObjectAttr", new JSONObject())
+    .addAttribute("jsonArrayAttr", new JSONArray())
+    .setNonInteractive();
+MoEAnalyticsHelper.INSTANCE.trackEvent(context, "Purchase", properties);
+```
+
+</CodeGroup>
+
+For more information, refer to [MoEAnalyticsHelper#trackEvent](https://moengage.github.io/android-api-reference/core/com.moengage.core.analytics/[android-jvm]-mo-e-analytics-helper/track-event.html) [Placeholder_Link] and [Properties](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-properties/index.html).[Placeholder_Link]
+
+# Track Custom Event for Exit Intent
+
+MoEngage SDK optionally notifies the application whenever the goes to the background. The application can track the custom event in this callback for exit intent. To get notified implement the [AppBackgroundListener](https://moengage.github.io/android-api-reference/core/com.moengage.core.listeners/-app-background-listener/index.html). [Placeholder_Link] Register the listener in the _onCreate()_ of your Application class using _MoECallbacks.getInstance().addAppBackgroundListener()_.
+
+<Info>
+  You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
+</Info>
