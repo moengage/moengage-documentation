@@ -1,0 +1,192 @@
+---
+title: "Track User Attributes"
+---
+
+User Attributes are pieces of information you know about a user. They could be demographics like age or gender, account-specific like plan, or whether a user has seen a particular A/B test variation. User attributes are a customer identity you can reference throughout the customer’s lifetime.
+
+# Identifying Users
+
+For SDK versions below 13.6.00 refer to [this document](https://developers.moengage.com/hc/en-us/articles/35545508515220).[Placeholder_Link]
+
+Setting identifiers is important to:
+
+- To tie user behavior across platforms, i.e., iOS, Android, Web, etc.
+- This is to ensure unnecessary or stale users are not created.
+- To identify users across installs/re-installs.
+
+## Single Identifier
+
+Call the API below to pass the identifier on to the MoEngage SDK.
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoEAnalyticsHelper.identifyUser(context, "identifier")
+```
+
+
+```java Java
+MoEAnalyticsHelper.INSTANCE.identifyUser(context, "identifier");
+```
+
+</CodeGroup>
+
+_Note_: This method is a replacement for the deprecated **_setUniqueId()_**. If you are using **_setUniqueId()_** in your application, consider replacing it with **_identifyUser()_**
+
+## Multiple Identifiers
+
+If your application has multiple identifiers using which you identify a user you can pass all the identifiers to the SDK using the below API
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoEAnalyticsHelper.identifyUser(
+    context,
+    mapOf("identifierName1" to "identifierValue1", "identifierName2" to "identifierValue2")
+)
+```
+
+
+```java Java
+Map<String, String> identifiers = new HashMap<String, String>() {{
+    put("identifierName1", "identifierValue1");
+    put("identifierName2", "identifierValue2");
+}};
+MoEAnalyticsHelper.INSTANCE.identifyUser(context, identifiers);
+```
+
+</CodeGroup>
+
+<Info>
+  **Updates to SDK functions for User Identification and Session Management**
+
+  - **Forced Logout:** The MoEngage SDK no longer automatically logs out the previous user when a new user is detected on the device. Logout should now be explicitly called for workspaces enabled with Identity resolution to avoid data corruption.
+  - **SetUniqueID:** `identifyUser` function supports multiple identifiers, which replaces the need of using `SetUniqueID` function for user identification. Note that `SetUniqueID` is marked for removal in the future releases of SDK versions - it is important to use `identifyUser` instead especially if you are using Identity resolution in your workspace.
+  - **SetAlias:** For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When `identifyUser` function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
+
+  If you call the `identifyUser` function without logging out, then the existing logged-in user's ID is updated.
+</Info>
+
+If you call `identifyUser()` multiple times with different identifier names, the SDK will append this identifier to the already set identifiers.
+
+Refer to our help [document](https://help.moengage.com/hc/en-us/articles/24050999467284-User-Identity-Management) [Placeholder_Link] to learn more about the feature.
+
+## Logout
+
+The application needs to notify the MoEngage SDK whenever the user is logged out of the application. Call the API whenever the user is logged out of the application to notify the SDK.
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoECoreHelper.logoutUser(context)
+```
+
+
+```java Java
+MoECoreHelper.INSTANCE.logoutUser(context);
+```
+
+</CodeGroup>
+
+If the application is registering for a push token, it should pass the new push token to MoEngage SDK after the user logs out. For more information about passing push tokens, refer to [Push Configuration for Android SDK](https://developers.moengage.com/hc/en-us/articles/360061216011). [Placeholder_Link]
+
+# Tracking User Attributes
+
+The SDK provides APIs to track commonly tracked user attributes like First Name, Last Name, Email-Id, etc. Please use the provided methods for tracking these attributes.
+
+For more information on supported data types and data tracking policies, please refer to [Data Tracking Policies](https://help.moengage.com/hc/en-us/articles/360037314991#h_01H9QNZ61VNHSMFQC28MAZJXS9). [Placeholder_Link]
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoEAnalyticsHelper.setFirstName()
+MoEAnalyticsHelper.setLastName()
+MoEAnalyticsHelper.setUserName()
+MoEAnalyticsHelper.setLocation()
+MoEAnalyticsHelper.setGender()
+MoEAnalyticsHelper.setMobileNumber()
+MoEAnalyticsHelper.setBirthDate()
+MoEAnalyticsHelper.setEmailId()
+```
+
+
+```java Java
+MoEAnalyticsHelper.INSTANCE.setFirstName();
+MoEAnalyticsHelper.INSTANCE.setLastName();
+MoEAnalyticsHelper.INSTANCE.setUserName();
+MoEAnalyticsHelper.INSTANCE.setLocation();
+MoEAnalyticsHelper.INSTANCE.setGender();
+MoEAnalyticsHelper.INSTANCE.setMobileNumber();
+MoEAnalyticsHelper.INSTANCE.setBirthDate();
+MoEAnalyticsHelper.INSTANCE.setEmailId();
+```
+
+</CodeGroup>
+
+For setting other User Attributes, use the generic method **setUserAttribute(key, value).** Supported types for attribute value are `String`, `int`, `double`, `num`, `bool`, `List<int>`, `List<String>`, `List<double>` & `List<num>`.
+
+<CodeGroup>
+
+```kotlin Kotlin
+// Tracking a String Attribute
+MoEAnalyticsHelper.setUserAttribute(context,"locality", "SF")
+// Tracking a Date Attribute
+MoEAnalyticsHelper.setUserAttribute(context,"signedUpOn", Date())
+// Tracking a location attribute
+MoEAnalyticsHelper.setUserAttribute(context,"lastLocation", GeoLocation(40.77, 73.98))
+// Tracking Array Attributes
+MoEAnalyticsHelper.setUserAttribute(context,"int_array",arrayOf<Int>(1,2,3))
+MoEAnalyticsHelper.setUserAttribute(context,"string_array",arrayOf<String>("English","French"))
+MoEAnalyticsHelper.setUserAttribute(context,"double_array",arrayOf<Double>(40.0,20.0))
+MoEAnalyticsHelper.setUserAttribute(context,"json_array", JSONArray(listOf(1, 2, 3)))      
+MoEAnalyticsHelper.setUserAttribute(context,"json_object", JSONObject().put("key", "value"))
+```
+
+
+```java Java
+// Tracking a String Attribute
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"locality", "SF");
+// Tracking a Date Attribute
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "signedUpOn", new Date());
+// Tracking a location attribute
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"lastLocation", new GeoLocation(40.77, 73.98));
+// Tracking Array Attributes    
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"int_array",new int[]{1,2,3});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"string_array",new String[]{"English","French"});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"double_array",new double[]{1.5,2.5});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"json_array", new JSONArray());
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"json_object", new JSONObject());
+```
+
+</CodeGroup>
+
+For more information about the detailed list of user attributes, refer to the [API reference](https://moengage.github.io/android-api-reference/core/com.moengage.core.analytics/[android-jvm]-mo-e-analytics-helper/index.html).[Placeholder_Link]
+
+## Reserved keywords for User Attributes
+
+Below is the list of keys that should not be used when tracking user attributes.
+
+- `USER_ATTRIBUTE_UNIQUE_ID`
+- `USER_ATTRIBUTE_USER_EMAIL`
+- `USER_ATTRIBUTE_USER_MOBILE`
+- `USER_ATTRIBUTE_USER_NAME`
+- `USER_ATTRIBUTE_USER_GENDER`
+- `USER_ATTRIBUTE_USER_FIRST_NAME`
+- `USER_ATTRIBUTE_USER_LAST_NAME`
+- `USER_ATTRIBUTE_USER_BDAY`
+- `USER_ATTRIBUTE_NOTIFICATION_PREF`
+- `USER_ATTRIBUTE_OLD_ID`
+- `MOE_TIME_FORMAT`
+- `MOE_TIME_TIMEZONE`
+- `USER_ATTRIBUTE_DND_START_TIME`
+- `USER_ATTRIBUTE_DND_END_TIME`
+- `MOE_GAID`
+- `INSTALL`
+- `UPDATE`
+- `MOE_ISLAT`
+- `status`
+- `user_id`
+
+<Info>
+  You cannot use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
+</Info>
