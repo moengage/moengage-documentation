@@ -1,0 +1,134 @@
+---
+title: "Push Display Handled by Application"
+---
+
+<Warning>
+  This section is only required for very advanced use cases where the application needs to handle the push display on the client side. We believe that the customization provided in [Advanced Push Configuration](https://developers.moengage.com/hc/en-us/articles/4403449633428) [Placeholder_Link] should solve most of your use-cases. Refer to this document only if your use-cases cannot be satisfied by the customizations provided in the [Advanced Push Configuration](https://developers.moengage.com/hc/en-us/articles/4403449633428) [Placeholder_Link] section.
+</Warning>
+
+If the push notification display is handled by the application we need some help from the application to show Push Campaign statistics namely Impressions and Clicks.
+
+# Tracking Notification Impressions
+
+The application needs to notify the SDK if a push from the MoEngage Platform is received via Firebase Cloud Messaging(FCM). SDK provides a helper API [isFromMoEngagePlatform()](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/-mo-e-push-helper/is-from-mo-engage-platform.html) [Placeholder_Link] to check whether push is received from the MoEngage Platform or not. Use this API to check if the received push is from the MoEngage Platform and call [logNotificationReceived()](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/-mo-e-push-helper/log-notification-received.html) [Placeholder_Link] to track notification impressions.
+
+<CodeGroup>
+
+```kotlin Kotlin
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(pushPayload)) {
+   MoEPushHelper.getInstance().logNotificationReceived(context, pushPayload)
+}
+```
+
+
+```java Java
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(pushPayload)) {
+   MoEPushHelper.getInstance().logNotificationReceived(context, pushPayload);
+}
+```
+
+</CodeGroup>
+
+# Tracking Notification Clicks
+
+After the notification is clicked application needs to notify the SDK that a notification is clicked for the SDK to track notification clicks. For SDK to track notification clicks and user sessions accurately, ensure:
+
+- The Push payload received from FCM is added as extras to the Pending intent
+- The [logNotificationClick()](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/-mo-e-push-helper/log-notification-click.html) [Placeholder_Link] API is called from **onCreate()** of your Activity which is inflated on notification click.
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoEPushHelper.getInstance().logNotificationClick(applicationContext, intent)
+```
+
+
+```java Java
+MoEPushHelper.getInstance().logNotificationClick(getApplicationContext(), getIntent());
+```
+
+</CodeGroup>
+
+# Background Update Template (Manual Approach)
+
+<Info>
+  - **SDK version**: The self-handled notification check is supported starting from Android SDK version **14.06.00**.
+  - **Payload information**: For more information on the payload structure and available keys, refer to [Background Update Template](https://help.moengage.com/hc/en-us/articles/4415622460948-Push-Templates#h_01HCM6A9GPQWGQBKTQ7504CZAK).[Placeholder_Link]
+</Info>
+
+<Check>
+  If you are using a custom `PushMessageListener`,MoEngage recommends using the SDK Callback approach where impressions are tracked automatically. Refer to the [Callback Customization](https://developers.moengage.com/hc/en-us/articles/4403449633428-Callbacks-and-Customisation#01J46CGM570RXM96A1E0H9TBDH) [Placeholder_Link] section for more details.
+</Check>
+
+Use this approach if you have a custom Firebase Messaging Service and wish to manually intercept the MoEngage payload. When handling manually, **you must manually track notification impressions**.
+
+<CodeGroup>
+
+```kotlin Kotlin
+override fun onMessageReceived(remoteMessage: RemoteMessage) {
+val payload = remoteMessage.data
+
+// Step 1: Check if the push is from MoEngage platform
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(payload)) {
+
+    // Step 2: Check if it's a self-handled notification
+    if (MoEPushHelper.getInstance().isSelfHandledNotification(payload)) {
+        // Log impression manually for self-handled pushes
+        MoEPushHelper.getInstance().logNotificationReceived(applicationContext, payload)
+        
+        // Handle Display of notification or custom logic here
+        return
+    } else {
+        // For non-self-handled, pass to SDK for default handling
+        MoEFireBaseHelper.getInstance().passPushPayload(applicationContext, payload)
+    }
+}
+
+}
+```
+
+
+```java Java
+@Override
+public void onMessageReceived(RemoteMessage remoteMessage) {
+Map<String, String> payload = remoteMessage.getData();
+
+// Step 1: Check if the push is from MoEngage platform
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(payload)) {
+
+    // Step 2: Check if it's a self-handled notification
+    if (MoEPushHelper.getInstance().isSelfHandledNotification(payload)) {
+        // Log impression manually for self-handled pushes
+        MoEPushHelper.getInstance().logNotificationReceived(getApplicationContext(), payload);
+        
+        // Handle Display of notification or custom logic here
+        return;
+    } else {
+        // For non-self-handled, pass to SDK for default handling
+        MoEFireBaseHelper.getInstance().passPushPayload(getApplicationContext(), payload);
+    }
+}
+
+}
+```
+
+</CodeGroup>
+
+# Callback for push delivered by Push Amp
+
+Push-Amp notification is not delivered via FCM, it is delivered directly via MoEngage. You need to set up a callback for receiving payload for messages/campaigns.
+
+### Steps:
+
+1. Setup a callback for notification received. For more information, refer to the [notification received callback documentation](https://developers.moengage.com/hc/en-us/articles/4403449633428-Advanced-Push-Configuration#notification-received-callback-0-3).[Placeholder_Link]
+2. Mark notification as not required. This step is important, if not implemented correctly end-user might end up with two notifications. For more information, refer to the [notification received callback documentation](https://developers.moengage.com/hc/en-us/articles/4403449633428-Advanced-Push-Configuration#notification-received-callback-0-3).[Placeholder_Link]
+
+In this case, **isNotificationRequired()** should always return false.
+
+# Handling re-direction for push delivered by Push Amp+
+
+Whenever campaigns are delivered using Push Amp+ due to a technical limitation push display cannot be handled by the application. The application gets a callback only once the user clicks on the notification. For more information about how to register for push redirection callback, refer to the [notification clicked callback documentation](https://developers.moengage.com/hc/en-us/articles/4403449633428-Advanced-Push-Configuration#notification-clicked-callback-0-4).[Placeholder_Link]
+
+# Related Documents
+
+[MoEngage Andriod Push Handling Samples](https://github.com/moengage/Android-Sample/tree/app_handling_push)[Placeholder_Link]
