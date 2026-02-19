@@ -1,0 +1,171 @@
+---
+title: "Push token registration and Display"
+---
+
+You must complete two mandatory steps to get push notifications working.
+
+1. Push token registration - Registration for Push and generating push tokens.
+2. Push display - Receiving the Push payload from Firebase Cloud Messaging(FCM) service and showing the notification on the device.
+
+We recommend you let MoEngage handle both steps as it eases the integration process also MoEngage SDK has a built-in retry mechanism to handle token registration failure due to FCM downtime or network issues.
+
+The SDK also supports cases where your application manages the token registration and receives the notification payload.
+
+To support both use cases, this article is broken down into two major sections:
+
+- **Push token registration and display by MoEngage SDK** - Integration steps required for MoEngage SDK to handle Push token registration and display.
+- **Push token registration and payload received by the Application** - Integration steps required for your application to handle Push token registration and receiving notification payload.
+
+First, we will look at the integration steps needed if **MoEngage SDK** handles Push token registration and display. Refer to [this section](https://developers.moengage.com/hc/en-us/articles/5339876445972-Configuring-FCM#01H8KNNGEZW51C5W5PSDSJ5EBR) [Placeholder_Link] for the integration steps required if **the app** handles push token registration and receives the notification payload.
+
+# Push token registration and display by MoEngage SDK
+
+<Warning>
+  **Critical**
+
+  - When the SDK handles token registration, use firebase-messaging **23.0.0** or higher.
+  - At any point, your application manifest file should have only one service with intent filter com.google.firebase.MESSAGING_EVENT. If there is more than one service, only the first service will receive the callback, and MoEngage SDK might never receive the Push Payload, resulting in poor delivery rates.
+</Warning>
+
+Add the following code to the manifest file so that MoEngage SDK will receive the notification:
+
+<CodeGroup>
+
+```AndroidManifest.xml AndroidManifest.xml
+<service android:name="com.moengage.firebase.MoEFireBaseMessagingService"
+      android:exported="false">
+    <intent-filter>
+         <action android:name="com.google.firebase.MESSAGING_EVENT" />
+    </intent-filter>
+</service>
+```
+
+</CodeGroup>
+
+The following steps are optional; use them only if you have the use cases.
+
+## Token Callback - Access to push token (optional)
+
+You might want to get access to the push token that MoEngage registered on behalf of your application. When MoEngage SDK handles push registration, it optionally provides a callback to the application whenever a new token is registered or refreshed.
+
+To get the token callback, implement the [_TokenAvailableListener_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.listener/%5Bandroid-jvm%5D-token-available-listener/index.html?query=fun%20interface%20TokenAvailableListener) [Placeholder_Link] and register for the callback using [_MoEFireBaseHelper.getInstance().addTokenListener()_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/add-token-listener.html)_. _[Placeholder_Link]
+
+We recommend you add the callbacks in the **_onCreate()_** of the Application class since these callbacks can be triggered even when the application is in the background.
+
+## Push display for Non-MoEngage Payloads (optional)
+
+Your App might want to handle notifications that aren't from MoEngage. If you use the receiver provided by the SDK in your application's manifest file, the SDK provides a callback in case a push payload is received for any other server apart from the MoEngage Platform.
+
+To get a callback, implement the [_NonMoEngagePushListener_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase.listener/-non-mo-engage-push-listener/index.html) [Placeholder_Link] and register for the callback using [_MoEFireBaseHelper.getInstance().addNonMoEngagePushListener_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/add-non-mo-engage-push-listener.html).[Placeholder_Link]
+
+We recommend you add the callbacks in the **_onCreate()_** of the Application class since these callbacks can be triggered even when the application is in the background.
+
+# Push token registration and payload received by the Application
+
+Skip this section if already letting MoEngage SDK handle push token registration and display.
+
+By default, MoEngage SDK attempts to register for a push token. If your application handles push token registration, you must opt out of MoEngage SDK's token registration.
+
+## How to opt-out of MoEngage Push token registration?
+
+To opt out of MoEngage's token registration mechanism, disable token registration using [_configureFCM()_](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/configure-fcm.html) [Placeholder_Link] API while configuring FCM in the [_MoEngage.Builder_](%20https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/index.html) [Placeholder_Link] as described
+
+<CodeGroup>
+
+```Kotlin Kotlin
+val moEngage = MoEngage.Builder(this, "XXXXXXXX")
+    	.configureNotificationMetaData(NotificationConfig(R.drawable.small_icon, R.drawable.large_icon, R.color.notiColor, null, true, isBuildingBackStackEnabled = false, isLargeIconDisplayEnabled = true))
+    .configureFcm(FcmConfig(false))
+    .build()
+MoEngage.initialiseDefaultInstance(moEngage)
+```
+
+
+```Java Java
+MoEngage moEngage = new MoEngage.Builder(this, "XXXXXXXXXX")
+    .configureNotificationMetaData(new NotificationConfig(R.drawable.small_icon, R.drawable.large_icon, R.color.notiColor, "sound", true, true, true))
+    .configureFcm(new FcmConfig(false))
+    .build();
+MoEngage.initialiseDefaultInstance(moEngage);
+```
+
+</CodeGroup>
+
+## Pass the Push Token To MoEngage SDK
+
+Your application must pass the Push Token received from FCM to the MoEngage SDK for the MoEngage platform to send out push notifications to the device.\
+Use the [passPushToken()](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/pass-push-token.html) [Placeholder_Link] API to pass the push token to the MoEngage SDK.
+
+<CodeGroup>
+
+```Kotlin Kotlin
+MoEFireBaseHelper.getInstance().passPushToken(applicationContext,token)
+```
+
+
+```Java Java
+MoEFireBaseHelper.getInstance().passPushToken(getApplicationContext(), token);
+```
+
+</CodeGroup>
+
+<Info>
+  Ensure the token is passed to MoEngage SDK whenever the push token is refreshed and updated on the application. Passing the token on the application update is important for migration to the MoEngage Platform.
+</Info>
+
+## Passing the Push payload to the MoEngage SDK
+
+Even though you have your receiver to receive the notification payloads, you must pass messages from MoEngage platform to MoEngage SDK to render push notifications, especially rich push notifications. In that case, pass the payload to MoEngage SDK using the following method.
+
+To pass the push payload to the MoEngage SDK call the [_passPushPayload()_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/pass-push-payload.html) [Placeholder_Link] API from the _onMessageReceived()_ in the Firebase receiver.\
+Before passing the payload to the MoEngage SDK you should check if the payload is from the MoEngage platform using the [_isFromMoengagePlatfrom()_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/-mo-e-push-helper/is-from-mo-engage-platform.html) [Placeholder_Link] helper API provided by the SDK.
+
+<CodeGroup>
+
+```Kotlin Kotlin
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(remoteMessage.data)){
+    MoEFireBaseHelper.getInstance().passPushPayload(applicationContext, remoteMessage.data)
+ }else{
+    // your app's business logic to show notification
+ }
+```
+
+
+```Java Java
+if (MoEPushHelper.getInstance().isFromMoEngagePlatform(remoteMessage.getData())) {
+    MoEFireBaseHelper.Companion.getInstance().passPushPayload(getApplicationContext(), remoteMessage.getData());
+ }else{
+    // your app's business logic to show notification
+ }
+```
+
+</CodeGroup>
+
+ 
+
+# Rich Landing
+
+A rich landing page can open a web URL inside the app via a push campaign. Irrespective of who handles the push token registration and display, this step is needed to show rich landing pages using the MoEngage platform.
+
+<Info>
+  The XML code mentioned below is included in the new SDK version, but you can still use it to change the parent activity of MoEActivity if needed.
+</Info>
+
+To use a rich landing page, you need to add the below code in the **AndroidManifest.xml**
+
+<CodeGroup>
+
+```XML XML
+<activity
+  android:name="com.moe.pushlibrary.activities.MoEActivity"
+  android:label="[ACTIVITY_NAME]"
+  android:parentActivityName="[PARENT_ACTIVITY_NAME]" >
+</activity>
+```
+
+</CodeGroup>
+
+| Parameter              | Description                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| [ACTIVITY_NAME]        | Replace with the name you want to appear on your rich landing page. |
+| [PARENT_ACTIVITY_NAME] | Replace with the parent activity name that you want.                |
