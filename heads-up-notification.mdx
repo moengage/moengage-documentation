@@ -1,0 +1,54 @@
+---
+title: "Heads Up Notification"
+---
+
+## **Overview**
+
+<Info>
+  **Notification Channel Setup**
+
+  Heads-up notifications are supported only through Android notification channels. Please refer to the official documentation for the creation of the [notification channels](https://developer.android.com/develop/ui/views/notifications/channels) [Placeholder_Link]. On Android devices using API levels under 26, the configuration won't be applied, as notification channels that need this setting weren't available until API level 26.
+
+  The Notification channel should have **IMPORTANCE_HIGH** for heads-up notifications, and the same channel ID should be configured in the MoEngage dashboard.
+</Info>
+
+ 
+
+## Configuration
+
+In MoEngage Android version **13.06.00**, a new flag **isDirectPostingForHeadsUpEnabled** has been added in the **NotificationConfig**. If you are using HeadsUp Notification, we strongly recommend you pass the **isDirectPostingForHeadsUpEnabled** flag as true while initializing SDK. By default, it will be false. 
+
+For more information about API reference for all the possible options, refer to [NotificationConfig](https://moengage.github.io/android-api-reference/core/com.moengage.core.config/[android-jvm]-notification-config/index.html).[Placeholder_Link]
+
+Use the [_configureNotificationMetaData()_](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/configure-notification-meta-data.html) [Placeholder_Link] to transfer the configuration to the SDK.
+
+<CodeGroup>
+
+```Kotlin Kotlin
+val moEngage = MoEngage.Builder(this, "XXXXXXXX")
+    .configureNotificationMetaData(NotificationConfig(smallIcon = R.drawable.small_icon, largeIcon = R.drawable.large_icon, isDirectPostingForHeadsUpEnabled = true))
+    .build()
+MoEngage.initialiseDefaultInstance(moEngage)
+```
+
+
+```Java Java
+MoEngage moEngage = new MoEngage.Builder(this, "XXXXXXXXXX")
+    .configureNotificationMetaData(new NotificationConfig(R.drawable.small_icon,R.drawable.large_icon,R.color.notiColor,isMultipleNotificationEnabled,true))
+    .build();
+MoEngage.initialiseDefaultInstance(moEngage);
+```
+
+</CodeGroup>
+
+## HeadsUp Notification Behaviour
+
+If **isDirectPostingForHeadsUpEnabled** is true, SDK will use a direct posting mechanism to post Rich content directly if it's a high-priority channel. So the floating heads-up notification view will be shown for 5-8 seconds if it is not interacted with. On Android versions prior to API level 26, the flag will be ignored by default, and it will use the re-posting mechanism by default.
+
+Otherwise, if **isDirectPostingForHeadsUpEnabled** is false, it will use the existing reposting mechanism, where text is posted first, and once media assets are downloaded,  rich content is posted. This is to ensure at least some content is shown to the user immediately when the notification is received and to maintain a good impression rate. If this is the case, a heads-up window will get dismissed within few seconds due to reposting.
+
+## Non-Headsup Notification Behaviour
+
+For notifications with channel ID having channel importance other than **IMPORTANCE_HIGH**, SDK will be using the reposting mechanism by default.
+
+Please refer to the [user guide](https://help.moengage.com/hc/en-us/articles/34998473340948-Heads-Up-Notifications) [Placeholder_Link] to understand more about the heads-up notification behavior and OEM limitations.
