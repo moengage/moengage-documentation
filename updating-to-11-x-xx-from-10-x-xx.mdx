@@ -1,0 +1,86 @@
+---
+title: "Updating to 11.x.xx from 10.x.xx"
+description: ""
+---
+
+# Behavioral Changes
+
+* Target SDK version bumped to API level 29
+* Starting SDK version `11.0.00` Geofence is not included when `moe-android-sdk` is added in the application. Refer to the [Location triggered Push](https://developers.moengage.com/hc/en-us/articles/4403443036564) documentation to integrate and use the Geofence module.
+* SDK has been re-packaged to have clear separation for internal files and exposed classes. Any class with the package name `com.moengage.*.internal.*` should not be used. APIs in these classes can be updated/removed without prior notice and should not be used by integrating applications.
+* InApp is no longer shown via Activity lifecycle callbacks. To show in-app `showInApp()` should be called in the Activity or Fragment. Refer to the [In-App NATIV](https://developers.moengage.com/hc/en-us/articles/4403652537492) documentation for more details.
+* Source and Target Compatibility Updated to Java 8. Enable Java 8 in your application if not done already.
+* In this release, we have updated the hosts used by the SDK. In case you have whitelisted MoEngage endpoints in the network configuration of your application update the endpoints. Refer to the [Network Security Configuration](https://developers.moengage.com/hc/en-us/articles/4401984811796) to know more.
+* SDK no longer tracks location by default.
+
+# Update Removed APIs
+
+In version `11.0.00`, we have removed many of the APIs which were long deprecated. If you are still using the deprecated APIs you have to update to the new APIs. Below is a table mapping the equivalents of the removed APIs. Some of the APIs might not have an alternate API as the functionality might have been handled internally or no longer supported.
+
+| Then | Now |
+| --- | --- |
+| PushHandler#handlePushPayload   (Context, Bundle) | MoEFireBaseHelper#passPushPayload   (Context, Bundle) |
+| PushHandler#handlePushPayload   (Context, Map) | MoEFireBaseHelper#passPushPayload   (Context, Map) |
+| MoEFireBaseHelper#setOnNonMoEngage   PushReceivedListener   (OnNonMoEngagePushReceivedListener) | MoEFireBaseHelper#add   EventListener(FirebaseEventListener) |
+| PushManager#refreshToken(Context, String) | MoEFireBaseHelper#passPushToken   (Context, String) |
+| PushManager#setMessageListener(Object) | MoEPushHelper#setMessageListener   (PushMessageListener) |
+| MoEngageNotificationUtils#isFrom   MoEngagePlatform(Context, Bundle) | MoEPushHelper#isFromMoEngagePlatform   (Bundle) |
+| MoEngageNotificationUtils#isFromMoEngagePlatform   (Context, Map) | MoEPushHelper#isFromMoEngagePlatform   (Map) |
+| PushMessageListener#onCreateNotification(Context, Bundle, ConfigurationProvider) | PushMessageListener#onCreateNotification   (Context, NotificationPayload) |
+| PushManager#getPushHandler() | NA |
+| MoEPushHelper#handlePushPayload   (Context, Map) | Use `passPushPayload()`    of each push module. |
+| MoEPushHelper#handlePushPayload   (Context, Bundle) | Use `passPushPayload()`    of each push module. |
+| MoEngage.Builder#optOutBackgroundSync() | MoEngage.Builder#configureDataSync   (DataSyncConfig) |
+| MoEngage.Builder.optOutPeriodicFlush() | MoEngage.Builder#configureDataSync   (DataSyncConfig) |
+| MoEngage.Builder.setFlushInterval(long interval) | MoEngage.Builder#configureDataSync   (DataSyncConfig) |
+| MoEngage.Builder.optOutLocationTracking() | NA |
+| MoEngage.Builder.optOutGeofenceBackgroundSync() | MoEngage.Builder#configureGeofence   (GeofenceConfig) |
+| MoEngage.Builder.enableBackgroundLocationFetch() | NA |
+| MoEngage.Builder.enableLocationServices() | MoEngage.Builder#configureGeofence   (GeofenceConfig) |
+| MoEngage.Builder.optOutRealTime   TriggerBackgroundSync() | MoEngage.Builder#configureRealTimeTrigger   (RttConfig) |
+| MoEngage.Builder.redirectDataToRegion   (DATA\_REGION) | MoEngage.Builder#setDataCenter   (DataCenter) |
+| MoEngage.Builder#optOutDefaultInAppDisplay() | NA |
+| MoEngage.Builder#optOutActivityTracking(List) | MoEngage.Builder#configureTrackingOptOut   (TrackingOptOutConfig) |
+| MoEngage.Builder#optOutGAIDCollection() | MoEngage.Builder#configureTrackingOptOut   (TrackingOptOutConfig) |
+| MoEngage.Builder#optOutAndroidIdCollection() | MoEngage.Builder#configureTrackingOptOut   (TrackingOptOutConfig) |
+| MoEngage.Builder#optOutCarrierNameCollection() | MoEngage.Builder#configureTrackingOptOut   (TrackingOptOutConfig) |
+| MoEngage.Builder#optOutDeviceAttributeCollection() | MoEngage.Builder#configureTrackingOptOut   (TrackingOptOutConfig) |
+| MoEngage.Builder.setNotificationType() | MoEngage.Builder#configure   NotificationMetaData(NotificationConfig) |
+| MoEngage.Builder#setDateFormatForCard   (String) | MoEngage.Builder#configureCards   (CardConfig) |
+| MoEngage.Builder#setEmptyInboxImageForCard   (int) | MoEngage.Builder#configureCards   (CardConfig) |
+| MoEngage.Builder#setPlaceHolderImageForCard   (int) | MoEngage.Builder#configureCards   (CardConfig) |
+| MoEHelper#trackEvent(String) | MoEHelper#trackEvent   (String, Properties) |
+| MoEHelper#trackEvent(String, JSONObject) | MoEHelper#trackEvent(String, Properties) |
+| MoEHelper#trackEvent(String, Map) | MoEHelper#trackEvent(String, Properties) |
+| MoEHelper#setUserAttribute(String, String, String) | MoEHelper#setUserAttribute(String, Date) |
+| MoEHelper#setGender(String) | MoEHelper#setGender(UserGender) |
+| MoEHelper#fetchDeviceTriggersIfRequired() | MoERttHelper#syncTriggers(Context) |
+| MoEHelper#registerAppBackgroundListener   (OnAppBackgroundListener) | MoECallbacks#addAppBackgroundListener   (OnAppBackgroundListener) |
+| MoEHelper#unregisterAppBackgroundListener() | MoECallbacks#removeAppBackgroundListener   (OnAppBackgroundListener) |
+| MoEHelper#setOnLogoutCompleteListener   (OnLogoutCompleteListener) | MoECallbacks#addLogoutCompleteListener   (OnLogoutCompleteListener) |
+| MoEHelper#removeLogoutCompleteListener() | MoECallbacks#removeLogoutListener   (OnLogoutCompleteListener) |
+
+# APIs Deprecated in 11.0.00
+
+In version `11.0.00` we have deprecated a few APIs to improve performance and better support in the future. Below is the list of deprecated APIs and their alternatives, please update to the latest methods.
+
+| Then | Now |
+| --- | --- |
+| MoEngage.Builder   #setNotificationLargeIcon(int) | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationSmallIcon(int) | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationColor(int) | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationTone(String) | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#enableMultiple   NotificationInDrawer(boolean) | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#optOutBackStackBuilder() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#optOutNotificationLargeIcon() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#enableLogsForSignedBuild() | MoEngage.Builder#configureLogs   (LogConfig) |
+| MoEngage.Builder#enableLogs(int) | MoEngage.Builder#configureLogs   (LogConfig) |
+| MoEngage.Builder#enablePushKit   TokenRegistration() | MoEngage.Builder#configurePushKit   (PushKitConfig) |
+| MoEngage.Builder#enableSegmentIntegration() | MoEngage.Builder#enablePartnerIntegration   (IntegrationPartner) |
+| MoEHelper#setUniqueId(double) | MoEHelper#setUniqueId(String) |
+| MoEHelper#setUniqueId(float) | MoEHelper#setUniqueId(String) |
+| MoEHelper#setUniqueId(int) | MoEHelper#setUniqueId(String) |
+| MoEHelper#setUniqueId(long) | MoEHelper#setUniqueId(String) |
+| MoEHelper#setAlias(double) | MoEHelper#setAlias(String) |
+| MoEHelper#setAlias(float) | MoEHelper#setAlias(String) |
+| MoEHelper#setAlias(int) | MoEHelper#setAlias(String) |
