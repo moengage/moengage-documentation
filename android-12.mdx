@@ -1,0 +1,127 @@
+---
+title: "Android 12"
+description: ""
+---
+
+Android 12 is a major version update of the Android Operating System, a yearly release cycle. The major release changes are detailed in the [Android Official Release Notes](https://developer.android.com/about/versions/12/release-notes).
+
+The following are the major behavior changes impacting the MoEngage Platform or MoEngage Android SDK.
+
+ The changes are divided into two parts. First, that affects all the applications and the second that affect only the applications targeting Android 12.
+
+# Behavior changes: all apps
+
+The following behavior changes apply to all apps running on Android 12, regardless of **targetSdkVersion**.
+
+## Web intent resolution
+
+Android 12 (API level 31) and later, a generic web intent resolves to an activity in your app, only if your app is approved for the specific domain contained in that web intent. If your app is not approved for the domain, the web intent resolves to the user's default browser app instead.
+
+Apps get approval by doing one of the following:
+
+* Verify the domain using the [Android App Links](https://developer.android.com/about/versions/12/web-intent-resolution#android-app-links).
+* Manually [associate your app with the domain](https://developer.android.com/about/versions/12/web-intent-resolution#request-user-associate-app-with-domain) in system settings by the user.
+
+For more information, refer to [Android Web Intent documentation](https://developer.android.com/about/versions/12/web-intent-resolution).
+
+## How does it affect you?
+
+If you are using **http(s)** deep links in your campaigns (Push/InApp/Cards) and the links are not configured as [App Links](https://developer.android.com/training/app-links) in your application, users would be navigated to the browser on devices running Android 12.
+
+## How to fix it?
+
+MoEngage recommends that you configure App Links in your application. Alternatively, edit the campaigns to update the links, if you already have app schema deep-links (example **example://gizmos**) configured in your application for the same activities.
+
+# Behavior changes: Apps targeting Android 12
+
+The following behavior changes apply exclusively to apps that are targeting Android 12 or later, that is **targetSdkVersion** is set to API level 31 or above.
+
+## Pending intents mutability
+
+If your app targets Android 12, specify the mutability of each [PendingIntent](https://developer.android.com/reference/android/app/PendingIntent) object that your app creates. The additional requirement improves your app security.
+
+For more information, refer to [Android release notes](https://developer.android.com/about/versions/12/behavior-changes-12#pending-intent-mutability).
+
+## How does it affect you?
+
+If your application **targetSdkVersion** is 31 and not updated to the latest version of MoEngage SDK (**11.4.00**or later), push notifications would not be displayed on Android 12 devices.
+
+## How to fix it?
+
+Update to the latest MoEngage SDK (**11.4.00** or later) along with the update of **targetSdkVersion** to API level 31.
+
+## Custom notifications
+
+Android 12 changes the appearance and behavior of fully [custom notifications](https://developer.android.com/training/notify-user/custom-notification). Previous versions of custom notifications used the entire notification area and provide layouts and styles. This resulted in anti-patterns confusing users or cause layout compatibility issues on different devices.
+
+For apps targeting Android 12, notifications with custom content views will no longer use the full notification area instead, the system defined standard template is applied.
+
+## How does it affect you?
+
+If your application **targetSdkVersion** is 31 and the **rich-notification** version is either **2.2.01** or previous versions, templates are displayed as truncated or broken on Android 12 devices.
+
+## How to fix it?
+
+Update the rich-notification version to the latest version(2.3.00 or later). MoEngage has temporarily disabled templates when the application **targetSdkVersion** is 31 and the device is running Android 12.
+
+MoEngage support for templates with the new specifications for Android 12 will be available in future releases.
+
+# Changes in backup and restore
+
+Backup and restore functionality is changed for apps that run on and target Android 12 (API level 31). Android backup and restore have two forms:
+
+* **Cloud backups:** User data is stored in the Google Drive of the user for restoring data on that device or a new device.
+* **Device-to-device (D2D) transfers:** User data is sent directly to the new device of the user from the older device of the user by using a cable.
+
+For more information on how data is backed up and restored, refer to [Back up user data with Auto Backup](https://developer.android.com/guide/topics/data/autobackup) and [Back up key-value pairs with Android Backup Service](https://developer.android.com/guide/topics/data/keyvaluebackup).
+
+## D2D transfer functionality changes
+
+For apps running on and targeting Android 12 and higher:
+
+* Specifying **android:allowBackup:"false"**  does disable backups to Google Drive, but doesn’t disable D2D transfers for the app.
+* [Specifying include and exclude rules](https://developer.android.com/guide/topics/data/autobackup#IncludingFiles) with the XML configuration mechanism no longer affects D2D transfers, though it still affects Google Drive backups. To specify rules for D2D transfers, you must use the new configuration format.
+
+# New include and exclude format
+
+Apps running on and targeting Android 12 and later use a different XML configuration format. The new format differentiates between Google Drive backup and D2D transfer by specifying include and exclude rules separately for cloud backups and for D2D transfer.
+
+Optionally, you can also use the new format to specify rules for backup, in which case the old configuration is ignored.
+
+<CodeGroup>
+``` XML
+<data-extraction-rules>
+  <cloud-backup [disableIfNoEncryptionCapabilities="true|false"]>
+    ...
+    <include domain=["file" | "database" | "sharedpref" | "external" |
+                        "root"] path="string"/>
+    ...
+    <exclude domain=["file" | "database" | "sharedpref" | "external" |
+                        "root"] path="string"/>
+    ...
+  </cloud-backup>
+  <device-transfer>
+    ...
+    <include domain=["file" | "database" | "sharedpref" | "external" |
+                        "root"] path="string"/>
+    ...
+    <exclude domain=["file" | "database" | "sharedpref" | "external" |
+                        "root"] path="string"/>
+    ...
+  </device-transfer>
+</data-extraction-rules>
+```
+
+</CodeGroup>
+
+## How does it affect you?
+
+If your application **targetSdkVersion** is 31, the backup includes MoEngage SDK identifiers backed up and restored after re-install. The restoration of the identifier results in your data being corrupted and the user not being reachable using push notifications.
+
+## How to fix it?
+
+Ensure to add the configuration in the updated format. For more information, refer to [Exclude MoEngage Storage File from Auto Backup](https://developers.moengage.com/hc/en-us/articles/4401999257236#exclusion-for-api-level-31-or-above-0-2).
+
+<Info>
+While updating the SDK version, please check the compatibility of additional modules and update them accordingly.
+</Info>
