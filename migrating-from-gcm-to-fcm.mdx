@@ -1,0 +1,102 @@
+---
+title: "Migrating from GCM to FCM"
+description: ""
+---
+
+As of April 10, 2018, Google has deprecated GCM. The GCM server and client APIs are deprecated and will be removed as soon as April 11, 2019. Migrate GCM apps to Firebase Cloud Messaging (FCM), which inherits the reliable and scalable GCM infrastructure, plus many new features.
+
+# Migrate the GCM Client library to FCM Client Library
+
+## Import your GCM project as a Firebase project
+
+1. In the Firebase console, select Add Project.
+2. Select your GCM project from the list of existing Google Cloud projects, and select Add Firebase.
+3. In the Firebase welcome screen, select Add Firebase to your Android App.
+4. Provide your package name and SHA-1, and select Add App. A new google-services.json file for your Firebase app is downloaded.
+5. Select Continue and follow the detailed instructions for adding the Google Services plugin in Android Studio.
+
+## Switch to FCM in the app-level build.gradle
+
+Add the latest version of the Firebase SDK.
+
+<CodeGroup>
+``` Groovy
+dependencies {
+  compile "com.google.firebase:firebase-messaging:15.0.0"
+}
+```
+
+</CodeGroup>
+
+## Edit your app's manifest
+
+If you have the below declaration in your Manifest remove it.
+
+<CodeGroup>
+``` XML
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+<permission android:name="<your-package-name>.permission.C2D_MESSAGE"
+            android:protectionLevel="signature" />
+<uses-permission android:name="<your-package-name>.permission.C2D_MESSAGE" />
+
+...
+
+<receiver
+    android:name="com.google.android.gms.gcm.GcmReceiver"
+    android:exported="true"
+    android:permission="com.google.android.c2dm.permission.SEND" >
+    <intent-filter>
+        <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        <category android:name="com.example.gcm" />
+    </intent-filter>
+</receiver>
+```
+
+</CodeGroup>
+
+Refer to the [official migration guide](https://developers.google.com/cloud-messaging/android/android-migrate-fcm) for more details.
+
+# Migrate MoEngage library from GCM to FCM
+
+The [latest version](https://developers.moengage.com/hc/en-us/articles/4403896795540) of the MoEngage SDK ships with the Firebase dependency.
+
+## Using SDK version 8.x.x or above
+
+If you are using SDK version 8.0.00 or above, then you are already using the FCM library of MoEngage, provided you have not removed it as mentioned below.
+
+<CodeGroup>
+``` Groovy
+compile ('com.moengage:moe-android-sdk:8.5.00'){
+    exclude group: 'com.moengage', module: 'moe-push-firebase'
+  }
+compile 'com.moengage:moe-push-gcm:2.0.04'
+```
+
+</CodeGroup>
+
+If you are using something like the above change it as below
+
+<CodeGroup>
+``` Groovy
+dependencies {
+    compile 'com.moengage:moe-android-sdk:8.5.00'
+}
+```
+
+</CodeGroup>
+
+# Using SDK version 7.x.x
+
+MoEngage SDK version 7.x.x uses the GCM library by default. To use the FCM library, you need to exclude the GCM library and add the FCM library as mentioned below.
+
+<CodeGroup>
+``` Groovy
+dependencies {
+  compile ('com.moengage:moe-android-sdk:7.7.16'){
+    exclude group: 'com.moengage', module: 'moe-push-gcm'
+  }
+  compile 'com.moengage:moe-push-firebase:1.1.02'
+}
+```
+
+</CodeGroup>
