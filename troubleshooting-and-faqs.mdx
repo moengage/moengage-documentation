@@ -1,0 +1,364 @@
+---
+title: "Troubleshooting and FAQs"
+---
+
+In this article, we will address some common questions and some troubleshooting steps.
+
+## How To Use the MoEngage SDK Logger?
+
+SDKLogger will help you debug the MoEngage Android SDK implementation issues. You don't have to share the builds with our support team. You can just replicate the issue with the SDKlogger switched on, and share the session id with us for further help. We estimate that this logger will help us reduce the resolution times by about 2 days on an average.
+
+ 
+
+<Info>
+  The MoEngage SDK logger is supported from the following SDK versions:
+
+  - Android SDK 13.04.00
+  - React Native SDK 10.3.0
+  - Flutter SDK 9.0.0
+  - Capacitor SDK 5.0.0
+  - Cordova SDK 9.0.0
+</Info>
+
+To use the MoEngage SDK logger, refer to [How To Use the MoEngage SDK Logger?](https://developers.moengage.com/hc/en-us/articles/31417431781012-How-To-Use-the-MoEngage-SDK-Logger)
+
+## How to enable MoEngage SDK to debug logs for signed/unsigned builds?
+
+In order to see the verbose level logs, kindly add verbose log config in the initilisation.
+
+<CodeGroup>
+
+```Kotlin
+
+val moEngage = MoEngage.Builder(this, "YOUR_APP_ID")
+         .configureLogs(LogConfig(LogLevel.VERBOSE, true))
+         .build()
+```
+
+
+```Java
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID")
+              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+              .build();
+```
+
+
+```React Native
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID")
+              .configureLogs(LogConfig(LogLevel.VERBOSE, true))
+```
+
+
+```Flutter
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID")
+              .configureLogs(LogConfig(LogLevel.VERBOSE, true))
+```
+
+</CodeGroup>
+
+<Warning>
+  Ensure to remove the above lines before the application is pushed to production.
+</Warning>
+
+ 
+
+## Why can't I see data on the dashboard?
+
+If you don't see data on the dashboard check if you have implemented the below steps correctly
+
+- Initialize the SDK correctly. For more information about initialization verification, refer to [SDK Initialization](https://developers.moengage.com/hc/en-us/articles/4401984811796).
+- Verify if you checking in the right environment.
+
+Test/Debug Build --\> Data flows to Test environment\
+Signed/Live Build --\> Data flows to Live environment.
+
+## How to use Contextual InApps in React Nativ?
+
+## How to use Contextual InApps for specific screens in the Flutter application?
+
+## Why are events visible on test environment but not on the live environment?
+
+If the data is visible on the Test environment and not in the Live environment, most likely you are using a test/debug build.\
+The SDK detects whether the build is a debug/test build or a signed build. Based on the type of build data is sent to the respective environment.
+
+Test/Debug Build --\> Data flows to Test environment\
+Signed/Live Build --\> Data flows to Live environment.
+
+## How does the SDK decide whether data should be sent to Test/Live Environment?
+
+SDK detects the build type of the installed application and the basis that it decides whether data should be sent to the Test/Live Environment of the MoEngage Platform.
+
+| Build Type | Environment |
+| ---------- | ----------- |
+| Debug      | Test        |
+| Signed     | Live        |
+
+ 
+
+## Why is lifecycle-process library important?
+
+MoEngage SDK relies on lifecycle-process library for some key features like data syncing, inapps etc. Refer to [this](https://developers.moengage.com/hc/en-us/articles/44622788607892) document to add the androidx libraries needed for lifecyle-process. If the features like in apps or data tracking aren't working as expected there are couple of troubleshooting steps we need to perform. 
+
+1. Check the MoEngage SDK logs and confirm that there is no exception related to the lifecycle process library.
+2. Check your manifest file and ensure you aren't removing the Initialisation provider. You can read more here to properly handle the initialization provider [here](https://developer.android.com/jetpack/androidx/releases/lifecycle#2.4.0)
+
+## Why is my App receiving the blank Push Notifications?
+
+Blank push notifications can come up because of the following reasons :
+
+1. Push from multiple servers not handled: Blank push notification if you don't handle push received from different servers correctly. Make sure the app does not try to show a notification if the notification is from MoEngage. For more information, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011).
+2. Custom Handling of notification: In case the app is doing some custom handling of notification make sure that silent push(used for uninstall ) is handled by the app.
+
+## How to delete a notification from your inbox?
+
+To delete a notification from Inbox, refer to [Notification Center](https://developers.moengage.com/hc/en-us/articles/4403878923284-Notification-Cente).
+
+## Why are multiple notifications shown for one campaign?
+
+Multiple Notifications can show up only if both the App and MoEngage SDK try to display the notification. If the payload is from MoEngage the App should pass the payload to the MoEngage SDK and not take any other action on it.\
+For more information, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011).
+
+## How to fix multiple receivers?
+
+Multiple receivers are the scenario where the manifest contains multiple services with the intent filters: **com.google.firebase.MESSAGING_EVENT**\
+Ideally, your manifest file should contain only one service with the above intent filter. For more information, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011).
+
+## Why does sending push fail?
+
+Sending push can fail because of the following reasons :
+
+1. No Active device token - Push token not passed to MoEngage SDK or refresh token not passed. For more information about how to pass push tokens, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011). 
+2. Not Registered - The application has been uninstalled hence cannot send push. Please re-install the application and try.
+3. Mismatch Sender Id - The sender id and Server key provided are from different GCM/FCM projects. Please check the sender id and Server key. In the case of an FCM project sender-id is part of the `google-services.json` file.
+4. Invalid Registration - The format of the push token passed is not correct. Please check the token passing logic.
+
+## Why push is not visible even after it was successfully sent?
+
+The following are the possible reasons for the push not being shown even after it was successfully sent :
+
+- Push Payload not passed to MoEngage - This can happen when the app has its own push receiver and has not passed the payload to the MoEngage SDK. For more information, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011).
+- Internet Connectivity - Please check your internet connectivity on the device. We would recommend you to toggle the network connection once and try.
+- Device-Specific Issue - Some of the OEMs force stop the app when the application is removed from the recent/overview screen. Please ensure the application is running in the background.
+- Build does not belong to the correct environment - The SDK detects whether the build is a debug/test build or a signed build. Based on the type of build data is sent to the respective environment.
+- Small icon not added - To post a notification small icon is mandatory. Please make sure you have added the meta-data required for push notification. For more information, refer to [Push Notification](https://developers.moengage.com/hc/en-us/articles/360061216011).
+
+Test/Debug Build --\> Use Test Environment to send notifications to your device.\
+Signed/Live Build --\> Use Live Environment to send notifications to your device.
+
+## Why push is visible but clicks are not recorded?
+
+The following are the reasons for click events not being recorded with MoEngage :
+
+1. Push Payload not passed to SDK - The push payload is consumed by the application and the application takes care of showing push. This is based on the type of library you are using to pass the payload to MoEngage SDK.
+2. Data not synced to MoEngage Server - Click attribution data would be sent to the MoEngage server only when the application is sent to the background. Please make sure that the application is sent to the background and wait for a couple of minutes.
+
+## Why do we recommend letting MoEngage SDK handle push registration?
+
+Push token registration is very important for sending push notifications.\
+Push registration consists of two things - Token Registration and Refreshing Token\
+Token registration can fail due to poor internet connection or null returned by the registration API. In such cases, one should retry registering for a push after an exponential backoff time rather than waiting for the next app to open.\
+Refresh Token can be missed out because of some OEM level customizations. Many Chinese OEMs force stops the app once it is removed from the recent. This results in missing token refresh callbacks.\
+MoEngage SDK has fallbacks to overcome the above issue. Hence, we suggest using MoEngage's Push Registration mechanism.\
+MoEngage SDK provides a callback using which the app can get the push token. For more information, refer to [Push Registration by MoEngage](https://developers.moengage.com/hc/en-us/articles/360061216011).
+
+## Android Vitals says MoEAlarmReceiver is causing excessive wake-ups. Why is MoEngage using Alarms and waking up devices?
+
+Android Vitals report all alarms used by the app. Generally, alarms are used to trigger background tasks like downloading/uploading data to the server, which wakes up the CPU if the device is in an idle state and causes battery drain.\
+MoEngage SDK MoEAlarmReceiver is used to send tracked events and attributes to the MoEngage Server. This alarm is triggered within 3-5 seconds after the application goes to the background. Since the CPU does not sleep so quickly no additional battery drain is done here.\
+Our SDK intentionally delays this sync by 3-5 seconds to ensure data accuracy due to certain customizations done by OEMs without the delay data accuracy becomes a problem.
+
+## How can you get extras after redirection?
+
+All the extra parameters passed along while campaign creation will be a part of the bundle extras if the activity is inflated via the activity name. If the activity is inflated using a deep link URL all extras will be a part of the query params of the URL.
+
+## What is a token drop and how to fix it?
+
+For more information, refer to the [How to fix Token Drop?](https://developers.moengage.com/hc/en-us/articles/4403887185556-How-to-fix-Token-Drop-)
+
+## Failed resolution of: Landroidx/lifecycle/ProcessLifecycleOwner
+
+<CodeGroup>
+
+```Java
+java.lang.NoClassDefFoundError: Failed resolution of: Landroidx/lifecycle/ProcessLifecycleOwner;
+        at com.moe.pushlibrary.MoEHelper.r(:1005)
+        at com.moengage.core.MoEngage.a(:210)
+```
+
+</CodeGroup>
+
+If you are seeing the above stack trace you have missed out on adding the `androidx.lifecycle:lifecycle-process` dependency in your application.\
+Add the `androidx.lifecycle:lifecycle-process` and the issue should be fixed. You can refer to the [SDK Integration](https://developers.moengage.com/hc/en-us/articles/44622788607892) documentation to know more about the dependencies required by the SDK.
+
+## Why are some of the components marked as `export=true` in the case of Xiaomi Push? Is it a security concern?
+
+The following components need the flag export=true, otherwise, it will affect the basic push function:
+
+`com.xiaomi.mipush.sdk.PushMessageHandler`
+
+- On clicking the notification in the notification bar, before jumping to the app UI interface, the SDK first parses the intent content through PushMessageHandler and execute startActivity() to jump;
+- The intent content is encrypted, and the forged intent cannot penetrate the decryption link, and there is no security problem;
+
+`com.xiaomi.push.service.receivers.NetworkStatusReceiver`
+
+- Receives system network change broadcast, notify and change the long connection status; because it is a system broadcast, there is no need to worry about the broadcast being forged;
+
+`com.moengage.mi.MoEMiPushReceiver`
+
+- Receives the result callback of registration, set an alias, subscribe, and other interfaces;
+- Added permission protection, intent encryption protection, forged intents cannot penetrate the decryption link, and there is no security problem.
+
+## Will initializing the SDK on the main thread affect my application start-up time?
+
+No, the initialization API is The initialization approximately around 10-15 milliseconds on average. Refer to the [SDK Performance](https://developers.moengage.com/hc/en-us/articles/4414072599700) document for more details.
+
+## Why MoEngage SDK is using setAllowFileAccess(true) in WebView settings?
+
+MoEngage SDK uses WebView to load and display HTML InApps. Whenever **_MoEInAppHelper.getInstance().showInApp(context)_** is called, SDK downloads the dynamic Images, CSS & Other files used in the HTML InApps and stores them in the internal app storage, to load these assets into WebView from local storage setAllFileAccess(true) is needed.
+
+## How can we disable/enable JavaScript in WebView?
+
+By default, JavaScript usage is enabled in WebView.
+
+<CodeGroup>
+
+```Kotlin
+configureJavascriptUsage(JavaScriptConfig(isJavaScriptEnabled))
+```
+
+
+```Java
+import static com.moengage.core.MoESdkStateHelper.configureJavascriptUsage;
+    
+configureJavascriptUsage(new JavaScriptConfig(isJavaScriptEnabled));
+```
+
+</CodeGroup>
+
+<Warning>
+  If you disable the JavaScript usage in WebView then RichLanding URLs & Html InApp may not render correctly on the device.
+</Warning>
+
+## Why SDK initialization should be done on the main thread inside the onCreate() of the Application class?
+
+In general, any SDK should be initialized before any API/method of the SDK is called. MoEngage SDK is no different, before calling any API of the MoEngage SDK it is important that the SDK is initialized. If the SDK is not initialized Any data passed is the called API would be rejected by the SDK or if any API is expected to return data it would return **_null_** or default values(like false or -1). 
+
+For ease of implementation, we recommend the application initializes the MoEngage SDK in the **_onCreate()_** of the Application class. When we say in the onCreate() on the main thread we suggest synchronously not inside any callback etc. By initializing the SDK this way you can always ensure the SDK is initialized and ready for use anywhere in the application irrespective of the previous state. The Android system invokes \*\*\*onCreate()\*\*\*as one of the first few things on process creation. Hence initializing it in the \*\*\*onCreate()\*\*\*ensures SDK is always initialized and ready to process any events or campaigns.
+
+This is especially important for cases when the application is in the killed state and a Push Campaign is sent to the user(the battery optimizations done by the OS and OEMs apps are killed within an hour or so of non-usage).
+
+We understand that application start-up time is very important and if the SDK takes time to initialize it could affect the application experience. The initialization time of the SDK is minimum, refer to the [performance matrix](https://developers.moengage.com/hc/en-us/articles/4414072599700-SDK-Performance) to know more. We are continuously working on improving this further.
+
+#### Alternatively,
+
+Given any constraints, you cannot initialize the SDK in the \*\*\*onCreate()\*\*\*please ensure the SDK is initialized before any SDK API is called example, \*\*\*passPushPayload(), trackEvent(),\*\*\*etc.
+
+If the SDK is not initialised method call would not be processed resulting in data being discarded or lower campaign delivery. SDK provides an API [isSdkInitialised()](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]is-sdk-initialised.html?query=fun%20isSdkInitialised\(\):%20Boolean) to check whether the SDK is initialized or not, use the API to check if the initialization is done and initialize if required.
+
+If you are not initializing the SDK in the \*\*\*onCreate()\*\*\*of the Application class please ensure implementing the [IntentPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core.listeners/[android-jvm]-intent-pre-processing-listener/index.html) and registering this listener using the [registerPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-e-core-helper/register-pre-processing-listener.html) in the **_onCreate()_** and initialize the SDK in the **_onIntentRecieved()_** of the interface. This is important to process notification clicks when the application is in the killed state.
+
+## How can I stack the notifications?
+
+By default, Android replaces your old notification with a new one. If you want to show stacked notifications to the user, you can enable isMultipleNotificationInDrawerEnabled = true in the notification config during SDK initialization. Please refer to the [notification config](https://moengage.github.io/android-api-reference/core/com.moengage.core.config/[android-jvm]-notification-config/index.html) for additional options.
+
+## Should I stop GeoFencing once the app goes to the background?
+
+MoEngage uses system triggers to detect the location of the user and when the user exits or enters the geofence. So, it's not advised to call to stop the geofence monitoring method when the app goes in the background. But if your business doesn't want to monitor in specific cases the geofence changes, then you can call to stop geofence monitoring. MoEngage doesn't additionally poll to detect the location changes of the user, so the battery isn't affected if you don't stop geofence monitoring on the App.
+
+## Why is Timer Notification not working?
+
+Ensure that you have added rich notification dependency and more importantly you need to add the following line in the manifest file. Please check the documentation [here](https://developers.moengage.com/hc/en-us/articles/4403408116884-Push-Templates#01H8KSGSRA4F34SDG4ZFY6NSDB).
+
+<uses-permission android:name="android.permission.SCHEDULE\_EXACT\_ALARM" />
+
+Starting Android 14, you need to get explicit alarm permission from the customer, read more about it [here](https://developers.moengage.com/hc/en-us/articles/4403408116884-Push-Templates#h_01GC889AZ05PXD9A06VNC7N1EB).
+
+## How can I add custom sound for push notifications?
+
+From Android O, you can create a notification channel to which a custom sound can be added. However, you must do three things before you can get custom sounds for your notifications.
+
+1. Add a custom channel to your app.
+2. Add a sound to this custom channel.
+3. Add the channel name in the MoEngage dashboard and use it while sending notifications.
+
+We are providing the code for creating a custom channel and adding sound here.
+
+<CodeGroup>
+
+```Kotlin
+
+private fun createCustomNotificationChannel(channelName: String) {
+   val channel = NotificationChannel(channelName, channelName, NotificationManager.IMPORTANCE_HIGH)
+
+   val soundUri = Uri.parse("android.resource://" + App.application?.packageName + "/" + R.raw.sound_file)
+
+// sound_file will be added in the App's code
+
+   soundUri?.let {
+       val audioAttributes = AudioAttributes.Builder()
+           .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+           .setUsage(AudioAttributes.USAGE_ALARM)
+           .build()
+
+       channel.setSound(soundUri, audioAttributes)
+   }
+
+   val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+   manager.createNotificationChannel(channel)
+}
+```
+
+</CodeGroup>
+
+## FAQs on the GAID policy changes.
+
+### Which of the MoEngage SDK versions comply with the GAID policy changes?
+
+| Android          | ReactNative | Flutter | Cordova | Unity | Capacitor | Segment |
+| ---------------- | ----------- | ------- | ------- | ----- | --------- | ------- |
+| 11.6.2 & \>12.2+ | 7.4.1       | 4.2.0   | 7.3.3   | 2.3.0 | 1.0.2     | 6.2.0   |
+
+### What is the GAID policy?
+
+For information on the GAID policy, refer [here](https://help.moengage.com/hc/en-us/articles/7457641031828-Android-Advertising-ID-Tracking#what-is-the-policy--0-1).
+
+### As a MoEngage client, how does the GAID policy impact me?
+
+Please go through “**How does it affect my app?**” [here](https://help.moengage.com/hc/en-us/articles/7457641031828-Android-Advertising-ID-Tracking#what-is-the-policy--0-1).
+
+### How do I track GAID?
+
+Firstly, update the MoEngage SDK to a corresponding version of your framework. Note that you will need explicit consent from the user on GAID tracking.
+
+### Can I be on a version \<11.6 if I am not tracking GAID?
+
+No. When you try updating your app in the play store, Google flags your application for non compliance of the MoEngage SDK version. We recommend an update to the latest version of MoEngage SDK.
+
+### Can I be on \<11.6 if I am not updating my app in the play store?
+
+For now you can be on \<11.6.2. However, If and when Google starts scanning all the apps for invalid versions of SDK, they might flag your application for non compliance of the SDK version.
+
+### What are the reasons for rejection and what should I do If my application gets rejected/warned by the Google Play store at the time of publishing?
+
+We encourage developers (and others more broadly) to make sure they've addressed non-production tracks as well. Developers who receive a notification should ensure all active versions of the app in either track, production or non-production (Internal / Closed / Open testing), have moved off the non-aligned SDK version or removed the SDK. Developers can also resolve the issue by deactivating any tracks that contain an active version of the app that has not addressed the issue during new submission.
+
+Share these standard step-by-step instructions to update a non-compliant version of an APK with developers.
+
+ 1. Navigate to your Play Console.
+ 2. Select the app.
+ 3. Navigate to App bundle explorer.
+ 4. Select the violating APK/app bundle's App version at the top right dropdown menu, and make a note of which releases they are under.
+ 5. Go to the track with the violation.\
+    It will be one of these: Internal / Closed / Open testing or Production.
+ 6. Click Create new release near the top right of the page(You may need to click Manage track first).\
+    If the release with the violating APK is in a draft state, discard the release.
+ 7. Add the new version of app bundles or APKs.\
+    Make sure the non-compliant version of app bundles or APKs is under the Not included section of the current release.
+ 8. Click Save. This saves changes made to your release.
+ 9. When you've finished preparing your release, select Review release, and then proceed to roll out the release to 100%.
+10. If the violating APK is released to multiple tracks, repeat steps 5-9 in each track.
+
+For a more comprehensive overview, publishers can check out [this page](https://support.google.com/googleplay/android-developer/answer/9859348?hl=en&ref_topic=7072031) for detailed guidance on how to prepare and roll out a release.
