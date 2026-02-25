@@ -1,0 +1,128 @@
+---
+title: "Updating to 12.x.xx from 11.x.xx"
+description: ""
+---
+
+# Behavioral Changes
+
+* Build Configuration updated to the following
+	+ compileSdk 30
+	+ minSdk 21
+	+ targetSdk 30
+* Starting from SDK version 12.0.00 following features are not integrated by default when adding moe-android-sdk as a dependency. If you are using these features refer to their respective integration document and make update the dependencies.
+	+ [InApp](https://developers.moengage.com/hc/en-us/articles/4403652537492-In-App-NATIV)
+	+ [Push Amplification](https://developers.moengage.com/hc/en-us/articles/4650416409876)
+	+ [Device Trigger](https://developers.moengage.com/hc/en-us/articles/4649815712532)
+* APIs to initialize the SDK now throws [*IllegalStateException*](https://developer.android.com/reference/java/lang/IllegalStateException) in case App-id is null or empty.
+
+## External Library Version updates
+
+* androidx.core:core 1.3.1 --> 1.6.0
+* androidx.appcompat:appcompat 1.2.0 --> 1.3.1
+* androidx.lifecycle:lifecycle-process 2.2.0 --> 2.4.0
+* com.google.firebase:firebase-messaging 22.0.0 --> 23.0.0
+* Kotlin Standard Library 1.4.20 --> 1.6.0
+
+# Update Removed initialization APIs
+
+| Then | Now |
+| --- | --- |
+| MoEngage.Builder#optOutInAppOnActivity() | MoEngage.Builder#configureInApps   (InAppConfig) |
+| MoEngage.Builder#optOutNavBar() | MoEngage.Builder#configureInApps   (InAppConfig) |
+| MoEngage.Builder#optOutBackStackBuilder() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#enableMultipleNotificationInDrawer() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationTone() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationColor() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationSmallIcon() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#setNotificationLargeIcon() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#optOutNotificationLargeIcon() | MoEngage.Builder#configureNotificationMetaData   (NotificationConfig) |
+| MoEngage.Builder#optOutTokenRegistration() | MoEngage.Builder#configureFcm   (FcmConfig) |
+| MoEngage.Builder#setSenderId() | Support removed for sender id |
+| MoEngage.Builder#configureMiPush(String, String, Boolean) | MoEngage.Builder#configureMiPush   (MiPushConfig) |
+| MoEngage.Builder#enablePushKitTokenRegistration() | MoEngage.Builder#configurePushKit   (PushKitConfig) |
+| MoEngage.Builder#enableLogsForSignedBuild() | MoEngage.Builder#configureLogs   (LogConfig) |
+| MoEngage.Builder#enableLogs() | MoEngage.Builder#configureLogs   (LogConfig) |
+| MoEngage.Builder#enableSegmentIntegration() | MoEngage.Builder#enablePartnerIntegration   (IntegrationPartner) |
+# Update removed methods in the core module
+
+| Then | Now |
+| --- | --- |
+| MoECallbacks#addLogoutCompleteListener   (OnLogoutCompleteListener) | MoECoreHelper#addLogoutCompleteListener   (OnLogoutCompleteListener) |
+| MoECallbacks#removeLogoutListener   (OnLogoutCompleteListener) | MoECoreHelper#removeLogoutListener   (OnLogoutCompleteListener) |
+| MoECallbacks#addAppBackgroundListener   (AppBackgroundListener) | MoECoreHelper#addAppBackgroundListener   (AppBackgroundListener) |
+| MoECallbacks#removeAppBackgroundListener   (AppBackgroundListener) | MoECoreHelper#removeAppBackgroundListener   (AppBackgroundListener) |
+| MoEHelper#registerActivityLifecycle() | Support Removed |
+| MoEHelper#unregisterLifecycleCallbacks() | Support Removed |
+| MoEHelper#registerProcessLifecycleObserver() | Support Removed |
+| MoEHelper#unRegisterProcessLifecycleObserver() | Support Removed |
+| MoEHelper#trackEvent   (String, PayloadBuilder) | MoEAnalyticsHelper#trackEvent   (String, Properties) |
+| MoEHelper#syncInteractionDataNow() | MoECoreHelper#syncInteractionData() |
+| MoEHelper#setAppContext   (List) | MoEInAppHelper#setInAppContext   (Set) |
+| MoEngage#enableSdk(Context) | enableSdk(Context) or   MoESdkStateHelper#enableSdk(Context) |
+| MoEngage#disableSdk(Context) | disableSdk(Context) or   MoESdkStateHelper#disableSdk(Context) |
+| MoEngage#optOutDataTracking(Context, boolean) | enableDataTracking(Context)/disableDataTracking(Context)   or MoESdkStateHelper#enableDataTracking(Context)/   MoESdkStateHelper#disableDataTracking(Context) |
+| MoEngage#optOutPushNotification(Context, boolean) | Support Removed |
+| MoEngage#optOutInAppNotification(Context, boolean) | Support Removed |
+| MoEngage#initialise(MoEngage, Boolean) | MoEngage#initialiseDefaultIstance   (MoEngage, SdkState) |
+| MoEngage#initialise(MoEngage) | MoEngage#initialiseDefaultIstance   (MoEngage) |
+# Changes in Push
+
+* Support for Notification tone dropped
+* [*NotificationPayload*](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.model/-notification-payload/index.html)restructured for easier use.
+* Methods removed or replaced
+
+| Then | Now |
+| --- | --- |
+| PushMessageListener#onHandleRedirection() | PushMessageListener#onNotificationClick() |
+| MoEPushHelper#setMessageListener   (PushMessageListener) | MoEPushHelper#registerMessageListener   (PushMessageListener) |
+## Change in Firebase Messaging
+
+*FirebaseEventListener* removed, instead use the following callbacks
+
+* [*TokenAvailableListener*](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.listener/-token-available-listener/index.html) for getting the push token whenever it is generated.
+* [*NonMoEngagePushListener*](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase.listener/-non-mo-engage-push-listener/index.html) for getting the callback whenever a push is received which is not from MoEngage Server.
+* Following methods removed are removed *MoEFireHelper*
+	+ setEventListener(FirebaseEventListener)
+	+ addEventListener(FirebaseEventListener)
+
+Instead, use the methods provided for adding TokenAvailableListener and NonMoEngagePushListener.
+
+## Change in HMS Push Kit
+
+*PushKitEventListener* removed, instead use the following callbacks
+
+* [*TokenAvailableListener*](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.listener/-token-available-listener/index.html) for getting the push token whenever it is generated.
+* [*NonMoEngagePushListener*](https://moengage.github.io/android-api-reference/hms-pushkit/com.moengage.hms.pushkit.listener/-non-mo-engage-push-listener/index.html) for getting the callback whenever a push is received which is not from MoEngage Server.
+* Following methods removed are removed *MoEPushKitHelper*
+	+ setEventListener(PushKitEventListener)
+	+ addEventListener(PushKitEventListener)
+
+Refer to the [Configuring HMS Push Kit](https://developers.moengage.com/hc/en-us/articles/4403466195732) documentation to know more about how to set the listener.
+
+# Changes in InApp
+
+InAppMessageListener removed instead use the following callbacks
+
+* *OnClickActionListener* for in-app click callback.
+* [*SelfHandledAvailableListener*](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-self-handled-available-listener/index.html) for callbacks when Self handled campaigns are available.
+* [*InAppLifeCycleListener*](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-in-app-life-cycle-listener/index.html) for in-app lifecycle callbacks like shown, dismiss.
+
+Refer to the [InApp](https://developers.moengage.com/hc/en-us/articles/4403652537492) documentation to know more on how to set the listener.
+
+Methods removed from *MoEInAppHelper*
+
+| Then | Now |
+| --- | --- |
+| MoEInAppHelper#getSelfHandledInApp(Context) | MoEInAppHelper#getSelfHandledInApp(Context, SelfHandledAvailableListener) |
+# Changes in Inbox
+
+Below are method signature changes
+
+| Then | Now |
+| --- | --- |
+| OnMessagesAvailableListener#onMessagesAvailable   (List) | OnMessagesAvailableListener#onMessagesAvailable   (InboxData) |
+| UnClickedCountListener#onCountAvailable   (Long) | UnClickedCountListener#onCountAvailable   (UnClickedCountData) |
+| MoEInboxHelper#fetchMessagesByTag()   returns List | MoEInboxHelper#fetchMessagesByTag()   returns InboxData |
+| MoEInboxHelper#fetchAllMessages()   returns List | MoEInboxHelper#fetchAllMessages()   returns InboxData |
+| MoEInboxHelper#getUnClickedMessagesCount()   returns Long | MoEInboxHelper#fetchAllMessages()   returns UnClickedCountData |
+| OnMessageClickListener#onMessageClick   (InboxMessage) | OnMessageClickListener#onMessageClick   (MessageClickData) |
