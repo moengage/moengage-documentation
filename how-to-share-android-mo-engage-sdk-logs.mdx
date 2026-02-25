@@ -1,0 +1,153 @@
+---
+title: "How to share Android MoEngage SDK logs"
+---
+
+Sometimes, our support team will ask for logs as the first step to resolve the issue faster. Logs can help us and in some cases you quickly identify the issue and share the exact solution to a problem. 
+
+In this document, we list a few steps that you can execute to share the MoEngage SDK logs with the MoEngage support team.
+
+ 
+
+ 
+
+## Enable debug logs
+
+MoEngage SDK logs are best read in verbose format, which prints almost all the steps the SDK takes at any given time. You must first enable verbose-level logging by following this documentation and changing the initialization code a bit.
+
+<CodeGroup>
+
+```Kotlin
+
+val moEngage = MoEngage.Builder(this, "YOUR_Workspace_ID")
+         .configureLogs(LogConfig(LogLevel.VERBOSE, true))
+         .build()
+```
+
+
+```Java
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID")
+              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+              .build();
+```
+
+
+```React Native
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID")
+              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+```
+
+
+```Flutter
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID")
+              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+```
+
+</CodeGroup>
+
+<Warning>
+  Ensure to remove the above lines before the application is pushed to production.
+</Warning>
+
+ 
+
+## Android Studio
+
+We will list the steps for sharing logs in Android Studio here, but similar steps apply to other IDEs.
+
+1. First, connect your device to your laptop/PC.
+2. Open Android Studio and click on Logcat.
+
+   <Frame>
+     ![Image1](/images/image1.png)
+   </Frame>
+3. Type MoE in the search field to filter only MoEngage logs(Please make sure the device is showing in device details and the correct device is shown)
+
+   <Frame>
+     ![Image3 1](/images/image3-1.png)
+   </Frame>
+   <Frame>
+     ![Image5](/images/image5.png)
+   </Frame>
+4. MoEnage SDK-related logs should look like something shown in the picture below.
+
+   <Frame>
+     ![Image4](/images/image4.png)
+   </Frame>
+5. Copy the required lines or all lines in the Logcat, paste them on a text file, and share the file with MoEngage support team.
+
+## Essential Logs
+
+When browsing the logs, you can search for a few keywords to understand what is happening with the various services that MoEngage offers. Please note that verbose logs for MoEngage SDK has to be enabled for keywords to show up.
+
+### Data tracking
+
+ 
+
+![Datatracking](/images/datatracking.png)
+
+ 
+
+**Search string** - sdk/report
+
+**Occurrence** - You can see this string multiple times, and this log gets printed when the app is gone to the background and killed state. There are other cases when this log can be printed, but we will stick to these two conditions for now as we can easily perform background or kill actions. This line is seen 3 seconds after the app goes into the background or killed state.
+
+**Description**
+
+This log line indicates that the API call has been made to MoEngage servers and has succeeded. This API call is dependent on the proper integration of the lifecycle process. You might not see this line when the app goes into the background or killed state if the lifecycle observer isn't properly registered. Troubleshooting article - [How to debug lifecycle issues](https://developers.moengage.com/hc/en-us/articles/4403843909396-Troubleshooting-and-FAQs#01HXXFEHBQ4YW8NHTV0QRV58N0).
+
+ 
+
+### Push Token
+
+![Pushtoken](/images/pushtoken.png)
+
+**Search string** - push_id
+
+**Occurrence** - This string **push_id** can be seen in sdk/report API call as part of the params. There are other cases when push_id is sent to MoEngage servers, but since we can easily take the app to background state, we are mentioning only this case here.
+
+**Description**
+
+If this parameter is present and not empty, it indicates that the push token was properly acquired by MoEngage SDK and synced with MoEngage backend servers. You might not see push_id or empty value if there are problems with your FCM project setup. Please go through the [push integration](https://developers.moengage.com/hc/en-us/articles/360061216011-Push-Configuration#01GRNPZWD9S26Y33ZRPT3AEVZT) steps properly.
+
+ 
+
+### InApps - Sync
+
+![Sync](/images/sync.png)
+
+ 
+
+**Search string** - inapp/live and find get the line that has getResponse()
+
+**Occurrence** - When the app is opened from the killed state. There are other cases when this API call is made, but we can easily kill the app and open it to see this call, so we are mentioning only this case here.
+
+**Description**
+
+This log line indicates that MoEngage SDK has made an API call to its backend servers to fetch the valid InApps or Nudges for the user. This API call is essential for InApps or Nudges to work as expected and depends on properly registering the lifecycle process. If you don't see this call once you open the app from killed state, go through the troubleshooting article here - [How to debug lifecycle issues.](https://developers.moengage.com/hc/en-us/articles/4403843909396-Troubleshooting-and-FAQs#01HXXFEHBQ4YW8NHTV0QRV58N0)
+
+ 
+
+### InApps - display not shown
+
+![Display](/images/display.png)
+
+ 
+
+**Search string** - Cannot show
+
+**Occurrence** - This string can be seen when the MoEngage SDK can't show the InApp.
+
+**Description**
+
+This log line indicates that Inpps aren't shown to the user, and the reason for not showing the InApp is also mentioned at the end of the log line.
+
+ 
+
+### Exceptions
+
+![Exceptions](/images/exceptions.png)
+
+While browsing through MoEngage SDK logs, you might encounter error/exception logs, as shown in the above image. It's important to ensure no such logs for smoother integration of MoEngage SDK. Kindly contact our team via support tickets to identify the fix for these issues. We are also listing some common exceptions and their fixes [here](https://developers.moengage.com/hc/en-us/articles/26475085345940-Troubleshooting-Exceptions).
