@@ -1,0 +1,250 @@
+---
+title: "Moving from Manifest to Code based Integration"
+description: ""
+---
+
+We have deprecated integration on MoEngage SDK via Manifest configuration/tags.  
+In the latest integration, you need to initialize the SDK in the `onCreate()` of the application class of your app. Below are the metadata flags you need to remove and equivalent APIs you need to call in the `onCreate()` of your application class.  
+If you are already initializing the SDK via code in your Application class you can ignore this.
+
+# Adding App Id
+
+## Then
+
+```
+<!-- MANDATORY FIELD: APP ID AS SEEN ON MOENGAGE DASHBOARD APP SETTINGS PAGE -->
+<meta-data
+    android:name="APP_ID"
+    android:value="XXXXXXXXX" />
+```
+
+## Now
+
+```
+// this is the instance of the application class and "XXXXXXXXXXX" is the Workspace ID from the dashboard.
+MoEngage moEngage = new MoEngage.Builder(this, "XXXXXXXXXXX")
+            .build();
+MoEngage.initialise(moEngage);
+```
+
+# Adding Lifecycle Callbacks
+
+## Then
+
+```
+MoEHelper.getInstance(getApplicationContext()).autoIntegrate(this);
+```
+
+## Now
+
+Remove the above line from your Application class.
+
+# Adding meta tags to manifest for push notifications
+
+## Then
+
+```
+<!-- MANDATORY FIELD: SENDER ID , i.e. THE PROJECT NUMBER AS MENTIONED ON GOOGLE CLOUD CONSOLE PROJECTS PAGE -->
+<meta-data
+    android:name="SENDER_ID"
+    android:value="id:XXXXXXXXXXXX" />
+
+<!-- MANDATORY FIELD: THE NOTIFICATION SMALL ICON WHICH WILL BE USED TO SET TO NOTIFICATIONS POSTED -->
+<meta-data
+    android:name="NOTIFICATION_ICON"
+    android:value="@drawable/ic_launcher" />
+
+<!-- MANDATORY FIELD: THE NOTIFICATION LARGE ICON WHICH WILL BE USED TO SET TO NOTIFICATIONS POSTED -->
+<meta-data
+   android:name="NOTIFICATION_LARGE_ICON"
+   android:value="@drawable/large_icon" />
+```
+
+## Now
+
+```
+MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXXX")
+            .setSenderId("xxxxxxx") // required only if you are using GCM.
+            .setNotificationSmallIcon(R.drawable.icon)
+            .setNotificationLargeIcon(R.drawable.ic_launcher)
+            .build();
+MoEngage.initialise(moEngage);
+```
+
+# Adding meta tags to Skip GCM Registration
+
+## Then
+
+```
+<meta-data
+    android:name="SKIP_GCM_REGISTRATION"
+    android:value="true" />
+```
+
+## Now
+
+```
+        new MoEngage.Builder(this, "XXXXXXXXXX")
+            .setSenderId("xxxxxxx") // required only if you are using GCM.
+            .setNotificationSmallIcon(R.drawable.icon)
+            .setNotificationLargeIcon(R.drawable.ic_launcher)
+            .optOutTokenRegistration()
+            .build();
+MoEngage.initialise(moEngage);
+```
+
+# Showing Multiple Notifications at one go
+
+## Then
+
+```
+<!-- OPTIONAL FIELD: THE NOTIFICATION TYPE WHICH WILL BE USED, SINGLE OR MULTIPLE. DEFAULT BEHAVIOR IS SINGLE -->
+<meta-data
+    android:name="NOTIFICATION_TYPE"
+    android:value="@integer/notification_type_multiple" />
+```
+
+## Now
+
+```
+MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXXX")
+            .setSenderId("xxxxxxx") // required only if you are using GCM.
+            .setNotificationSmallIcon(R.drawable.icon)
+            .setNotificationLargeIcon(R.drawable.ic_launcher)
+            .setNotificationType(R.integer.notification_type_multiple)
+            .build();
+MoEngage.initialise(moEngage);
+```
+
+# Setting notification Color
+
+## Then
+
+```
+<color name="moe_notification_color">[hex code of color]</color>
+```
+
+## Now
+
+```
+MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXXX")
+            .setSenderId("xxxxxxx") // required only if you are using GCM.
+            .setNotificationSmallIcon(R.drawable.icon)
+            .setNotificationLargeIcon(R.drawable.ic_launcher)
+            .setNotificationColor(R.color.colorAccent)
+            .build();
+MoEngage.initialise(moEngage);
+```
+
+# Opt-out BackStack creation for Notification
+
+## Then
+
+```
+PushManager.getInstance().optoutBackStackBuilder(true);
+```
+
+## Now
+
+```
+    MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXX")
+            .optOutBackStackBuilder()
+            .build();
+    MoEngage.initialise(moEngage);
+```
+
+# Opt-out activity tracking
+
+## Then
+
+```
+<activity
+    android:name=".SplashScreen"
+    android:label="@string/app_name">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+    <meta-data
+        android:name="OPT_OUT_TRACKING"
+        android:value="true"/>
+</activity>
+```
+
+## Now
+
+```
+ArrayList<Class> trackingOptOut = new ArrayList<>();
+trackingOptOut.add(SettingsActivity.class);
+
+MoEngage moEngage =
+    new MoEngage.Builder(this, "XXXXXXXXXXX")
+        .setTrackingOptOut(trackingOptOut)
+        .build();
+MoEngage.initialise(moEngage);
+```
+
+# Opt-out NavBar
+
+## Then
+
+```
+InAppManager.getInstance().optOutNavBar(this,true);
+```
+
+## Now
+
+```
+    MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXXX")
+            .optOutNavBar()
+            .build();
+    MoEngage.initialise(moEngage);
+```
+
+# Opt-out Activity from showing InApp
+
+## Then
+
+```
+<activity
+ android:name="[your_activity]">
+  <meta-data
+    android:name="showInApp"
+    android:value="false" />
+</activity>
+```
+
+## Now
+
+```
+ArrayList<Class> inAppOptOut = new ArrayList<>();
+inAppOptOut.add(MainActivity.class);
+MoEngage moEngage =
+    new MoEngage.Builder(this, "XXXXXXXXXX")
+        .setInAppOptOut(inAppOptOut)
+        .build();
+MoEngage.initialise(moEngage);
+```
+
+# Opt-out of MoEngage extras in Deeplink
+
+## Then
+
+```
+PushManager.getInstance().optOutMoEngageExtras(true);
+```
+
+## Now
+
+```
+    MoEngage moEngage =
+        new MoEngage.Builder(this, "XXXXXXXXXXXX")
+            .optOutMoEngageExtras()
+            .build();
+    MoEngage.initialise(moEngage);
+```
