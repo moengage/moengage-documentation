@@ -1,0 +1,191 @@
+---
+title: "Personalize SDK"
+---
+
+# Overview
+
+The MoEngage Personalize SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls. This allows you to fetch and track personalized campaign information directly through a streamlined interface bridging your native iOS and Android layers.
+
+<Tip>
+  **Prerequisite**
+
+  Before you can fetch personalized experiences, ensure the core MoEngage SDK has been initialized in your application. For more information, refer to Flutter SDK Initialization.
+</Tip>
+
+# Integrating MoEngage Personalization
+
+To add MoEngage Personalize SDK to your application, edit the application's **pubspec.yaml** file and add the below dependency to it:
+
+<CodeGroup>
+
+```yaml pubspec.yaml wrap
+[Placeholder]
+```
+
+</CodeGroup>
+
+**_\$latestVersion_** refers to the latest version of the plugin.
+
+Post including the dependency, run **_flutter pub get_** command in the terminal to install the dependency.
+
+After installing the plugin, use the following platform-specific configuration.
+
+<Info>
+  This plugin is dependent on **moengage\_flutter** plugin. Make sure you have installed the **moengage\_flutter** plugin as well. Refer to the [documentation](/developer-guide/flutter-sdk/sdk-integration/sdk-installation/framework-dependency) for the same.
+</Info>
+
+<Tabs>
+  <Tab title="Android">
+  Add the following dependency in the _app/build.gradle_ file.
+    <CodeGroup>
+
+    ```json build.gradle wrap
+    [Placeholder]
+    ```
+
+    </CodeGroup>
+
+    replace **\$sdkVersion** with the appropriate SDK version. Minimum supported version X.X.X.
+  </Tab>
+  <Tab title="iOS">
+  In the case of iOS, the native dependency is part of the Personalize Flutter SDK itself, so there is no need to include any additional dependency in your Podfile for supporting Personalization.
+  </Tab>
+</Tabs>
+
+# Implementation Workflow
+
+The Personalize helper for Flutter is designed to simplify the retrieval and interaction with dynamic, personalized content. Below is a breakdown of the workflow and code placeholders.
+
+## 1. Fetch Meta Experience
+
+Before fetching any specific payload or experience, you must invoke the metadata call. This step provides the SDK with the necessary configuration and context to accurately process subsequent requests.
+
+<CodeGroup>
+
+</CodeGroup>
+
+The success callback/promise resolves with an `ExperienceCampaignsMetadata` object containing all necessary metadata for campaign execution. The rejection contains the failure reason and an optional message to identify the specific reason for the request's failure.
+
+Always call the metadata fetch first to initialize core configurations based on the desired experience status.
+
+## 2. Fetch Personalized Content
+
+Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
+
+<Info>
+  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can fetch these keys using the fetchExperiencesMeta call.
+</Info>
+
+<CodeGroup>
+
+```javascript Flutter wrap
+// [Placeholder: Fetch Single Experience Payload]
+
+
+
+
+// [Placeholder: Fetch Multiple Experiences Payload]
+```
+
+</CodeGroup>
+
+You can fetch:
+
+- **Single Experiences**: Retrieve a specific payload using a single string key.
+- **Bulk Experiences**: Retrieve multiple payloads at once by passing an array of strings.
+
+Use Cases:
+
+**Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
+
+## 3. Track Impressions
+
+To accurately measure campaign performance, you must track user interactions after rendering the personalized content on the UI.
+
+### 3a. Track Impressions for Experience Campaigns
+
+Use these methods to log "Impressions" when the UI renders the content.
+
+<CodeGroup>
+
+```javascript Flutter wrap
+
+
+// [Placeholder: Track a single experience impression]
+
+
+
+
+// [Placeholder: Track multiple experience impressions]
+```
+
+</CodeGroup>
+
+### 3b. Track Impressions for Offering Campaigns
+
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content. The SDK provides dedicated tracking functions that accept offering-specific attributes.
+
+<CodeGroup>
+
+```javascript Flutter wrap
+
+
+
+
+// [Placeholder: Track a single offering impression]
+
+
+
+
+// [Placeholder: Track multiple offering impressions]
+```
+
+</CodeGroup>
+
+## 4. Track Clicks
+
+### 4a. Track Clicks for Experience Campaigns
+
+Use these methods to log "Clicks" when the user interacts with the UI element.
+
+<CodeGroup>
+
+```javascript Flutter wrap
+// [Placeholder: Track a click for an experience campaign]
+```
+
+</CodeGroup>
+
+### 4b. Track Clicks for Offering Campaigns
+
+For interactions with specific items (such as a product recommendation or a coupon) contained within an offering campaign:
+
+<CodeGroup>
+
+```javascript Flutter wrap
+// [Placeholder: Track a click for an offering campaign]
+```
+
+</CodeGroup>
+
+<Info>
+  You can use these Offering-specific functions only if the data is part of an offering payload. For all other experience data, use the standard experience shown/clicked functions.
+</Info>
+
+# FAQs
+
+<Accordion title="Does the SDK handle UI rendering?">
+  No. The SDK returns raw JSON payloads. You are responsible for parsing the data and building the UI components (e.g., Views, Images, or Carousels).
+</Accordion>
+
+<Accordion title="Does the SDK cache images or videos?">
+  No. The SDK does not download or cache media assets. Use standard media loading libraries to handle images, videos, or fonts referenced in the JSON.
+</Accordion>
+
+<Accordion title="Is there a limit on how many experiences I can fetch?">
+  Yes. You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
+</Accordion>
+
+<Accordion title="What happens if a fetch request is made while the device is offline and no valid cache is available?">
+  The SDK returns an empty payload along with a standardized error code (e.g., NETWORK\_ERROR).
+</Accordion>
