@@ -13,7 +13,7 @@ This guide outlines how you can integrate the MoEngage WebSDK into ChatGPT custo
 <Tip>
   **Prerequisites**
 
-  Before beginning the integration,  Ensure you have:
+  Before beginning the integration, ensure you have:
 
   - **ChatGPT Plus, Pro, or Business Account:** Required to enable Developer Mode and create custom apps/MCP connections.
   - **MoEngage Credentials:** Your MoEngage App ID and Data Center (DC) allocation.
@@ -96,7 +96,6 @@ When a user provides a prompt to ChatGPT (e.g., "Order a XYZ product"), ChatGPT 
 Once the widget catches the postMessage from the MCP server, set up a dispatcher function to handle these incoming commands, update the UI, and trigger the appropriate MoEngage SDK wrapper functions.
 
 ```shellscript NPM
-
 ```
 
 ## 6. Track Events and Identify Users
@@ -106,7 +105,9 @@ With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event t
 - Custom Events: When UI interactions occur (either via direct user clicks in the iframe or via ChatGPT prompts processed by the MCP), call your trackEvent function.
 - OSM Dismissals: Because OSMs render custom DOM IDs, users must interact directly with the widget UI to accurately track dismissals or clicks.
 
-💡 Tip: Shared Execution Path\*\* The integration is designed so that both manual UI interactions (like clicking an "Add to Cart" button) and Chat commands (via MCP) ultimately execute the exact same underlying JavaScript functions. The chat interface does not track events directly; it uses MCP to call the widget, which then fires the standard tracking events.
+<Info>
+  The integration is designed so that both manual UI interactions (such as clicking an "Add to Cart" button) and Chat commands (via MCP) ultimately execute the same underlying JavaScript functions. The chat interface does not track events directly; it uses MCP to call the widget, which then fires the standard tracking events.
+</Info>
 
 # Test and Verify Integration
 
@@ -120,21 +121,35 @@ To ensure the integration works as expected:
 
 # FAQs
 
-**Q: How do Chat commands interact with the UI widget?** A: Chat commands do not interact with the UI directly. Instead, the chat passes the intent to the MCP server. The MCP server processes this and sends a result back. The application then uses a `handle_tool_result` function to parse the MCP output and call the corresponding public JavaScript function on the widget.
+<AccordionGroup>
+  <Accordion title="How do Chat commands interact with the UI widget?">
+    Chat commands do not interact with the UI directly. Instead, the chat passes the intent to the MCP server. The MCP server processes this and sends a result back. The application then uses a `handle_tool_result` function to parse the MCP output and call the corresponding public JavaScript function on the widget.
+  </Accordion>
 
-**Q: Does the Chat/MCP integration automatically track events to MoEngage?** A: No. The chat interface cannot track events on its own. Behind the scenes, the developer maps the MCP commands to trigger standard SDK tracking functions. For example, if a user asks the chat to "add product," the MCP server tells the widget to execute the action, and the widget is responsible for calling the `track_event` function.
+  <Accordion title="Does the Chat/MCP integration automatically track events to MoEngage?">
+    No. The chat interface cannot track events on its own. Behind the scenes, the developer maps the MCP commands to trigger standard SDK tracking functions. For example, if a user asks the chat to "add product," the MCP server tells the widget to execute the action, and the widget is responsible for calling the `track_event` function.
+  </Accordion>
 
-**Q: How do I dismiss an On-Site Message (OSM) via a chat command?** A: OSMs use custom IDs, you cannot dismiss them globally without context. You expose a public tool/function specifically for dismissing OSMs, and the chat command passes the specific OSM ID to that function to close it successfully.
+  <Accordion title="How do I dismiss an On-Site Message (OSM) via a chat command?">
+    OSMs use custom IDs, you cannot dismiss them globally without context. You expose a public tool/function specifically for dismissing OSMs, and the chat command passes the specific OSM ID to that function to close it successfully.
+  </Accordion>
 
-**Q: Which MoEngage public functions are supported via the Chat Tools?** A: You create hooks/tools to access almost all global public functions. The most commonly used tools exposed to the chat interface include:
+  <Accordion title="Which MoEngage public functions are supported via the Chat Tools? ">
+    You create hooks/tools to access almost all global public functions. The most commonly used tools exposed to the chat interface include:
 
-- `track_event` (with custom attributes)
-- `track_page_view`
-- `identify_user` (First name, last name, phone, gender, etc.)
-- `set_user_attribute`
-- `get_user`
-- `logout`
+    - `track_event` (with custom attributes)
+    - `track_page_view`
+    - `identify_user` (First name, last name, phone, gender, etc.)
+    - `set_user_attribute`
+    - `get_user`
+    - `logout`
+  </Accordion>
 
-**Q: How do marketers create campaigns if URL-based segmentation is blocked in the sandbox?** A: Marketers shift from URL-based segmentation to event-triggered campaigns. While they cannot target users based on the URL they view in the sandbox, they set OSMs and campaigns to trigger when specific custom events (e.g., `page_viewed`, `item_added`) are fired by the tools.
+  <Accordion title="How do marketers create campaigns if URL-based segmentation is blocked in the sandbox?">
+    Marketers shift from URL-based segmentation to event-triggered campaigns. While they cannot target users based on the URL they view in the sandbox, they set OSMs and campaigns to trigger when specific custom events (e.g., `page_viewed`, `item_added`) are fired by the tools.
+  </Accordion>
 
-**Q: What is the prerequisite for setting up these custom Chat tools?** A: Before registering the app with the MCP server or creating custom chat hooks, you install and initialize the standard MoEngage Web SDK within your project (e.g., your React application).
+  <Accordion title="What is the prerequisite for setting up these custom Chat tools?">
+    Before registering the app with the MCP server or creating custom chat hooks, you install and initialize the standard MoEngage Web SDK within your project (e.g., your React application).
+  </Accordion>
+</AccordionGroup>
