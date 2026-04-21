@@ -28,10 +28,10 @@ Before implementing the SDK code, configure your custom GPT environment to recog
 
 ## Step 1: Enable Developer Mode
 
-1. Go to: [https://chatgpt.com](https://chatgpt.com)
-2. Click your profile icon (bottom-left) and select **Settings → Beta Features**.
-3. Toggle **Developer Mode** ON.
-4. Enable **Allow MCP Connections**. _(Note: Developer mode is only available in Plus/Pro/Business plans)._
+1. Navigate to  [https://chatgpt.com](https://chatgpt.com).
+2. Click your profile icon and select **Settings → Beta Features**.
+3. Turn on the  **Developer Mode** toggle.
+4. Enable **Allow MCP Connections**.  
 
 ## Step 2: Register App with ChatGPT
 
@@ -77,8 +77,109 @@ Initialize the SDK before your React component mounts. You will inject your MoEn
 
 Create a custom wrapper hook (`useMoEngage.js`) to cleanly manage initialization and expose SDK methods throughout your widget.
 
-```shellscript NPM
-npm install @moengage/web-sdk
+```javascript useMoEngage Hook
+import { useEffect, useRef, useCallback } from 'react';
+import * as moengage from '@moengage/web-sdk';
+
+export default function useMoEngage() {
+  const initRef = useRef(false);
+  const sdkReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+    // You can directly use app_id or dataCenter.
+    const appId = window.__MOENGAGE_APP_ID__;
+    const dataCenter = window.__MOENGAGE_DATA_CENTER__;
+
+    if (!appId || !dataCenter) {
+      console.warn('[MoEngage] Missing credentials');
+      return;
+    }
+
+    // Initialize SDK
+    moengage.initialize({
+      appId,
+      cluster: getCluster(dataCenter),  // Maps dc_0 → DC_1, etc
+      env: 'LIVE',
+      logLevel: 0,  // No console logs in production
+    });
+
+    // Poll until SDK ready (max 10 iterations × 500ms = 5s)
+    let attempts = 0;
+    const poll = setInterval(() => {
+      if (window.Moengage?.onsite) {
+        clearInterval(poll);
+        sdkReadyRef.current = true;
+        moengage.trackEvent('app_opened', { source: 'widget' });
+      }
+      if (++attempts >= 10) clearInterval(poll);
+    }, 500);
+
+    return () => clearInterval(poll);
+  }, []);
+
+  // Wrapped callbacks safe for dependency arrays
+  const trackEvent = useCallback((name, props = {}) => {
+    if (!window.Moengage) {
+      console.warn('[MoEngage] SDK not ready');
+      return;
+    }
+    try {
+      moengage.trackEvent(name, props);
+    } catch (err) {
+      console.error('[MoEngage] trackEvent error:', err);
+    }
+  }, []);
+
+  const identifyUser = useCallback((userObj) => {
+    if (!window.Moengage) return;
+    try {
+      moengage.add_unique_user_id(userObj.uid);
+      if (userObj.attrs) {
+        Object.entries(userObj.attrs).forEach(([k, v]) => {
+          moengage.add_user_attribute(k, v);
+        });
+      }
+    } catch (err) {
+      console.error('[MoEngage] identifyUser error:', err);
+    }
+  }, []);
+
+  const setEmailId = useCallback((email) => {
+    if (!window.Moengage) return;
+    try {
+      moengage.setEmailId(email);
+    } catch (err) {
+      console.error('[MoEngage] setEmailId error:', err);
+    }
+  }, []);
+
+  const setUserAttribute = useCallback((name, value) => {
+    if (!window.Moengage) return;
+    try {
+      moengage.add_user_attribute(name, value);
+    } catch (err) {
+      console.error('[MoEngage] setUserAttribute error:', err);
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    if (!window.Moengage) return;
+    try {
+      moengage.logoutUser();
+    } catch (err) {
+      console.error('[MoEngage] logout error:', err);
+    }
+  }, []);
+
+  return { trackEvent, identifyUser, setEmailId, setUserAttribute, logout };
+}
+
+function getCluster(dc) {
+  const map = { dc_1: 'DC_1', dc_2: 'DC_2', dc_3: 'DC_3', dc_4: 'DC_4', dc_5: 'DC_5', dc_6: 'DC_6' };
+  return map[dc] || 'DC_1';
+}
 ```
 
 ## 4. Register MCP Tools for ChatGPT AI
@@ -95,15 +196,33 @@ When a user provides a prompt to ChatGPT (e.g., "Order a XYZ product"), ChatGPT 
 
 Once the widget catches the postMessage from the MCP server, set up a dispatcher function to handle these incoming commands, update the UI, and trigger the appropriate MoEngage SDK wrapper functions.
 
-```shellscript NPM
+```javascript handleToolResult
+const handleToolResult = useCallback((result) => {
+  // Normalize response envelope (handles multiple nesting levels)
+  let data = result?.structuredContent || 
+             result?.result?.structuredContent || 
+             result?.content?.structuredContent || 
+             result;
+
+  switch (data.action) {
+    case 'update_cart':
+      syncCart(data.cart);
+      moe.trackEvent('item_added_to_cart', {...});
+      break;
+    case 'moe_track_event':
+      moe.trackEvent(data.eventName, data.properties);
+      break;
+    // ... 15+ more cases
+  }
+}, [cart, clearCart, moe, syncCart]);
 ```
 
 ## 6. Track Events and Identify Users
 
 With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event tracking becomes a seamless part of your widget's interactive flow.
 
-- Custom Events: When UI interactions occur (either via direct user clicks in the iframe or via ChatGPT prompts processed by the MCP), call your trackEvent function.
-- OSM Dismissals: Because OSMs render custom DOM IDs, users must interact directly with the widget UI to accurately track dismissals or clicks.
+- **Custom Events**: When UI interactions occur (either via direct user clicks in the iframe or via ChatGPT prompts processed by the MCP), call your trackEvent function.
+- **OSM Dismissals**: Because OSMs render custom DOM IDs, users must interact directly with the widget UI to accurately track dismissals or clicks.
 
 <Info>
   The integration is designed so that both manual UI interactions (such as clicking an "Add to Cart" button) and Chat commands (via MCP) ultimately execute the same underlying JavaScript functions. The chat interface does not track events directly; it uses MCP to call the widget, which then fires the standard tracking events.
