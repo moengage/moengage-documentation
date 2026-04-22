@@ -19,7 +19,8 @@ To add MoEngage Personalize SDK to your application, edit the application's **pu
 <CodeGroup>
 
 ```yaml pubspec.yaml wrap
-[Placeholder]
+dependencies:
+moengage_personalize: 1.0.0
 ```
 
 </CodeGroup>
@@ -28,29 +29,19 @@ To add MoEngage Personalize SDK to your application, edit the application's **pu
 
 Post including the dependency, run **_flutter pub get_** command in the terminal to install the dependency.
 
-After installing the plugin, use the following platform-specific configuration.
-
 <Info>
   This plugin is dependent on **moengage\_flutter** plugin. Make sure you have installed the **moengage\_flutter** plugin as well. Refer to the [documentation](/developer-guide/flutter-sdk/sdk-integration/sdk-installation/framework-dependency) for the same.
 </Info>
 
-<Tabs>
-  <Tab title="Android">
-  Add the following dependency in the _app/build.gradle_ file.
-    <CodeGroup>
+## Initialize Personalize
 
-    ```json build.gradle wrap
-    [Placeholder]
-    ```
+After installing the plugin, initialize the MoEngage Personalize module using the following configuration.
 
-    </CodeGroup>
+```dart Dart
+import 'package:moengage_personalize/moengage_personalize.dart';
 
-    replace **\$sdkVersion** with the appropriate SDK version. Minimum supported version X.X.X.
-  </Tab>
-  <Tab title="iOS">
-  In the case of iOS, the native dependency is part of the Personalize Flutter SDK itself, so there is no need to include any additional dependency in your Podfile for supporting Personalization.
-  </Tab>
-</Tabs>
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+```
 
 # Implementation Workflow
 
@@ -62,9 +53,22 @@ Before fetching any specific payload or experience, you must invoke the metadata
 
 <CodeGroup>
 
+```dart Dart
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// Create a list with the desired experience statuses
+final statuses = [ExperienceStatus.active];
+
+personalize.fetchExperiencesMeta(statuses)
+    .then((metadata) => print(metadata))
+    .catchError((e) => print(e));
+```
+
 </CodeGroup>
 
-The success callback/promise resolves with an `ExperienceCampaignsMetadata` object containing all necessary metadata for campaign execution. The rejection contains the failure reason and an optional message to identify the specific reason for the request's failure.
+The returned `Future` resolves with an `ExperienceCampaignsMetadata` object containing all necessary metadata for campaign execution. The `catchError` handler receives a `PersonalizeError` with a `code` and `message` identifying the reason for failure.
 
 Always call the metadata fetch first to initialize core configurations based on the desired experience status.
 
@@ -78,13 +82,23 @@ Once metadata is fetched, you can retrieve the actual personalized payloads. You
 
 <CodeGroup>
 
-```javascript Flutter wrap
-// [Placeholder: Fetch Single Experience Payload]
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
 
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
+final experienceKeys = ['sample_experience_key_returned_in_meta_call'];
+final attributes = <String, String>{};
 
+// 1. Fetching a single experience
+personalize.fetchExperience('home_banner', attributes: attributes)
+    .then((result) => print('Single Experience: $result'))
+    .catchError((e) => print(e));
 
-// [Placeholder: Fetch Multiple Experiences Payload]
+// 2. Fetching multiple experiences
+personalize.fetchExperiences(experienceKeys, attributes: attributes)
+    .then((result) => print('Multiple Experiences: $result'))
+    .catchError((e) => print(e));
 ```
 
 </CodeGroup>
@@ -108,15 +122,15 @@ Use these methods to log "Impressions" when the UI renders the content.
 
 <CodeGroup>
 
-```javascript Flutter wrap
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
 
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
-// [Placeholder: Track a single experience impression]
+// campaigns is a list of ExperienceCampaign objects received from fetchExperiences
+final List<ExperienceCampaign> campaigns = [/* campaign objects */];
 
-
-
-
-// [Placeholder: Track multiple experience impressions]
+personalize.experiencesShown(campaigns);
 ```
 
 </CodeGroup>
@@ -127,17 +141,15 @@ Use these methods to log "Impressions" when the UI renders the content.
 
 <CodeGroup>
 
-```javascript Flutter wrap
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
 
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
+// List of offering payload dicts for a specific offering campaign
+final List<Map<String, dynamic>> offeringPayloads = [/* offering payload dicts */];
 
-
-// [Placeholder: Track a single offering impression]
-
-
-
-
-// [Placeholder: Track multiple offering impressions]
+personalize.offeringsShown(offeringPayloads);
 ```
 
 </CodeGroup>
@@ -150,8 +162,15 @@ Use these methods to log "Clicks" when the user interacts with the UI element.
 
 <CodeGroup>
 
-```javascript Flutter wrap
-// [Placeholder: Track a click for an experience campaign]
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// campaign is a single ExperienceCampaign object
+final ExperienceCampaign campaign = /* campaign object */;
+
+personalize.experienceClicked(campaign);
 ```
 
 </CodeGroup>
@@ -162,8 +181,18 @@ For interactions with specific items (such as a product recommendation or a coup
 
 <CodeGroup>
 
-```javascript Flutter wrap
-// [Placeholder: Track a click for an offering campaign]
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// campaign is a single ExperienceCampaign object
+final ExperienceCampaign campaign = /* campaign object */;
+
+// Map containing offering details for a specific offering campaign
+final Map<String, dynamic> offeringPayload = {/* offering payload */};
+
+personalize.offeringClicked(campaign, offeringPayload);
 ```
 
 </CodeGroup>
