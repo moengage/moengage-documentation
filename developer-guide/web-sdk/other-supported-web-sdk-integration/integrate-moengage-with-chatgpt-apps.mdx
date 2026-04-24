@@ -31,9 +31,12 @@ This guide outlines how to integrate the MoEngage Web SDK into ChatGPT  applicat
 
 # Implementation Steps
 
-## 1. Install the MoEngage WebSDK
 
-Both NPM and Standard WebSDK integration methods are supported. This guide focuses on the NPM WebSDK integration.
+## 1. Get the MoEngage integration file
+
+Copy the [moengage.js](https://github.com/moengage/webSDK-sample/tree/master/moe-chatgpt-app/src/client/hooks/useMoEngage.js) file from our ChatGPT apps integration repository  to your project. This file contains all the necessary MoEngage SDK configuration and helper functions.
+
+## 2. Install dependencies
 
 Run the following command in your project directory:
 
@@ -41,11 +44,11 @@ Run the following command in your project directory:
 npm install @moengage/web-sdk
 ```
 
-## 2. Configure CSP Domain Whitelisting
+## 3. Configure CSP Domain Whitelisting
 
 The ChatGPT widget runs inside a strict internal iframe sandbox, standard CSP headers block the application by default. You must explicitly whitelist the CSP URL in your MCP server configuration. Ensure you whitelist both the MoEngage URLs (Base URLs, tracking endpoints, and OSM delivery URLs) and the sandbox URLs in your `connect-src` and `script-src` directives to prevent the browser from blocking requests.
 
-## 3. Initialize the SDK and Inject Credentials
+## 4. Initialize the SDK and Inject Credentials
 
 Initialize the SDK before your React component mounts. You will inject your MoEngage App ID and Data Center credentials into the widget HTML or environment variables.
 
@@ -156,15 +159,6 @@ function getCluster(dc) {
 }
 ```
 
-## 4. Register MCP Tools for ChatGPT AI
-
-To allow the ChatGPT AI to understand and utilize MoEngage capabilities, register specific tools on your MCP server. Create custom tools that map to MoEngage functionalities. For example:
-
-- `track_event`: Tracks a custom interaction.
-- `identify_user`: Sets a unique user ID and custom attributes (First Name, Last Name, etc.).
-- `track_page_view`: Manually logs a page/screen view.
-
-When a user provides a prompt to ChatGPT (e.g., "Order a XYZ product"), ChatGPT communicates with the MCP server, determines which tool to use, and executes the bridge connection to your widget.
 
 ## 5. Handle Tool Results (handleToolResult)
 
@@ -202,50 +196,6 @@ With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event t
   The integration is designed so that both manual UI interactions (such as clicking an "Add to Cart" button) and Chat commands (via MCP) ultimately execute the same underlying JavaScript functions. The chat interface does not track events directly; it uses MCP to call the widget, which then fires the standard tracking events.
 </Info>
 
-# Test and Verify Integration
-
-To ensure the integration works as expected:
-
-1. **Verify Initialization:** Open the ChatGPT widget and check the network tab. Ensure calls to MoEngage domains succeed and are not blocked by CSP errors.
-2. **Test Custom Events:** Interact with the UI natively and via ChatGPT text prompts (e.g., ask the AI to open a specific menu item). Check the MoEngage dashboard to confirm the custom events log in real-time.
-3. **Verify User Profiles:** Trigger the identification tool and check if user attributes (name, phone number, etc.) update properly in the MoEngage system.
-4. **Test Ad Blockers:** Ensure that events successfully record even if standard browser extensions or blockers are active.
-5. **Test Trigger-based OSMs:** Create a test OSM triggered by a specific custom event. Execute the event in the ChatGPT app and verify the OSM displays correctly within the widget iframe.
-
-# FAQs
-
-<AccordionGroup>
-  <Accordion title="How do Chat commands interact with the UI widget?">
-    Chat commands do not interact with the UI directly. Instead, the chat passes the intent to the MCP server. The MCP server processes this and sends a result back. The application then uses a `handle_tool_result` function to parse the MCP output and call the corresponding public JavaScript function on the widget.
-  </Accordion>
-
-  <Accordion title="Does the Chat/MCP integration automatically track events to MoEngage?">
-    No. The chat interface cannot track events on its own. The developer maps the MCP commands to trigger standard SDK tracking functions. For example, if a user asks the chat to "add product," the MCP server tells the widget to execute the action, and the widget is responsible for calling the `track_event` function.
-  </Accordion>
-
-  <Accordion title="How do I dismiss an On-Site Message (OSM) via a chat command?">
-    OSMs use custom IDs, you cannot dismiss them globally without context. You expose a public tool/function specifically for dismissing OSMs, and the chat command passes the specific OSM ID to that function to close it successfully.
-  </Accordion>
-
-  <Accordion title="Which MoEngage public functions are supported via the Chat Tools? ">
-    You can create hooks/tools to access almost all global public functions. The most commonly used tools exposed to the chat interface include:
-
-    - `track_event` (with custom attributes)
-    - `track_page_view`
-    - `identify_user` (First name, last name, phone, gender, etc.)
-    - `set_user_attribute`
-    - `get_user`
-    - `logout`
-  </Accordion>
-
-  <Accordion title="How do marketers create campaigns if URL-based segmentation is blocked in the sandbox?">
-    Marketers must shift from URL-based segmentation to event-triggered campaigns. While they cannot target users based on the URL they view in the sandbox, they can set OSMs and campaigns to trigger when specific custom events (e.g., `page_viewed`, `item_added`) are fired by the tools.
-  </Accordion>
-
-  <Accordion title="What is the prerequisite for setting up these custom Chat tools?">
-    Before registering the app with the MCP server or creating custom chat hooks, you must install and initialize the standard MoEngage Web SDK within your project (e.g., your React application).
-  </Accordion>
-</AccordionGroup>
 
 # Sample Application
 
