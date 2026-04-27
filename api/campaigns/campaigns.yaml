@@ -90,6 +90,8 @@ components:
         - campaign_content
         - segmentation_details
         - scheduling_details
+        - delivery_controls
+        - advanced
       properties:
         request_id:
           type: string
@@ -921,6 +923,40 @@ components:
           minItems: 1
           maxItems: 10
           example: ["camp_abc123", "camp_def456"]
+
+    # ==================== Global Control Group Request ====================
+    GlobalControlGroupRequest:
+      type: object
+      description: Request to add or remove users from the Global Control Group (GCG).
+      required:
+        - request_id
+        - file_url
+        - action_type
+        - updated_by
+      properties:
+        request_id:
+          type: string
+          description: Unique identifier of the request to update the Global Control Group.
+          example: "{{request_id}}"
+        file_url:
+          type: string
+          format: uri
+          description: |
+            Publicly accessible URL of the CSV file for processing. The file must contain a single column named `uid` followed by the respective user IDs in new rows. The file must be under 300 MB and downloadable without authentication.
+
+            **Note:** Currently, only publicly accessible Amazon S3 URLs are supported.
+          example: "https://example.csv"
+        action_type:
+          type: string
+          enum:
+            - add
+            - remove
+          description: The operation to perform on users in the Global Control Group.
+        updated_by:
+          type: string
+          format: email
+          description: The email ID of the user initiating the update.
+          example: "john.doe@xyz.com"
 
     # ==================== Get Child Campaigns Request ====================
     GetChildCampaignsRequest:
@@ -2514,6 +2550,17 @@ components:
             
             **Optional** if custom_template_id is provided.
           example: "<!DOCTYPE html><html><head></head><body><p>Hello {{UserAttribute['First Name']}}</p></body></html>"
+        email_editor:
+          type: string
+          enum:
+            - Froala Editor
+            - Ace Editor
+          description: |
+            The HTML editor used for the email campaign.
+            
+            - **Required** if you want to create the campaign using the `Ace Editor`.
+            - **Optional** if you want to use the default `Froala Editor`.
+          example: "Ace Editor"
         custom_template_id:
           type: string
           description: |
@@ -3492,7 +3539,7 @@ paths:
           description: |
             The unique ID of the campaign to update.
             
-            You can fetch the campaign ID using the [Get Campaign Details API](https://developers.moengage.com/hc/en-us/articles/27896777540756) by filtering with campaign name, channel, or other criteria.
+            You can fetch the campaign ID using the [Get Campaign Details API](/api/get-campaign-details/search-campaigns) by filtering with campaign name, channel, or other criteria.
           schema:
             type: string
           example: "camp_abc123xyz"
@@ -4363,3 +4410,80 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  /global-control-group/users:
+    put:
+      operationId: update_global_control_group
+      summary: Update Global Control Group
+      description: |
+        This API adds or removes users from the Global Control Group (GCG) in MoEngage. Provide a publicly accessible CSV of user IDs and specify whether to add or remove those users.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 10 RPM.
+
+          <Note>
+            - One file-processing request must complete before the next API call is accepted.
+            - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
+            - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
+            - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
+            - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
+          </Note>
+      tags:
+        - Update Campaigns
+      parameters:
+        - $ref: '#/components/parameters/MOE-APPKEY'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalControlGroupRequest'
+            examples:
+              add_users:
+                summary: Add Users
+                value:
+                  request_id: "{{request_id}}"
+                  file_url: "https://example.csv"
+                  action_type: "add"
+                  updated_by: "john.doe@xyz.com"
+              remove_users:
+                summary: Remove Users
+                value:
+                  request_id: "{{request_id}}"
+                  file_url: "https://example.csv"
+                  action_type: "remove"
+                  updated_by: "john.doe@xyz.com"
+      responses:
+        '204':
+          description: No Content - The request was processed successfully. There is no response body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          description: Internal Server Error - An unexpected error occurred while processing this request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                        description: A short title for the error.
+                      description:
+                        type: string
+                        description: A detailed, human-readable explanation of the error.
+                      code:
+                        type: string
+                        description: Internal error code, if provided.
+              example:
+                error:
+                  title: "Server Error"
+                  description: "An unexpected error was encountered while processing this request. Please contact Moengage team"
+                  code: "<code>"
