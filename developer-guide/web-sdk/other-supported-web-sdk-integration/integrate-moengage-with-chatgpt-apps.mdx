@@ -37,13 +37,56 @@ Copy the [moengage.js](https://github.com/moengage/webSDK-sample/tree/master/moe
 
 Run the following command in your project directory:
 
-```shellscript NPM
+```shellscript NPM wrap
 npm install @moengage/web-sdk
 ```
 
 ## 3. Configure CSP Domain Whitelisting
 
-The ChatGPT widget runs inside a strict internal iframe sandbox, standard CSP headers block the application by default. You must explicitly whitelist the CSP URL in your MCP server configuration. Ensure you whitelist both the MoEngage URLs (Base URLs, tracking endpoints, and OSM delivery URLs) and the sandbox URLs in your `connect-src` and `script-src` directives to prevent the browser from blocking requests.
+The ChatGPT widget runs inside a strict internal iframe sandbox, standard CSP headers block the application by default. You must explicitly whitelist the CSP URL in your MCP server configuration.
+
+Ensure you whitelist both the MoEngage URLs (Base URLs, tracking endpoints, and OSM delivery URLs) and the sandbox URLs in your `connect-src` and `script-src` directives to prevent the browser from blocking requests.
+
+Ensure that you whitelist the following endpoints for smooth integration.
+
+**script-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+- [**https://app-cdn.moengage.com/**](https://app-cdn.moengage.com/)
+
+**image-src:**
+
+- [**https://moe-email-campaigns.s3.amazonaws.com/**](https://moe-email-campaigns.s3.amazonaws.com/)
+- [**https://image.moengage.com/**](https://image.moengage.com/)
+- [**https://image-eu.moengage.com/**](https://image-eu.moengage.com/)
+- [**https://image-ap1.moengage.com/**](https://image-ap1.moengage.com/)
+- [**https://image-04.moengage.com/**](https://image-04.moengage.com/)
+- [**https://image-06.moengage.com/**](https://image-06.moengage.com/)
+- [**https://image.moengage.com/all-campaign-images-moe-dc-100/**](https://image.moengage.com/all-campaign-images-moe-dc-100/)
+
+**connect-src:**
+
+- [**https://sdk-01.moengage.com/**](https://sdk-01.moengage.com/)
+- [**https://sdk-02.moengage.com/**](https://sdk-02.moengage.com/)
+- [**https://sdk-03.moengage.com/**](https://sdk-03.moengage.com/)
+- [**https://sdk-04.moengage.com/**](https://sdk-04.moengage.com/)
+- [**https://sdk-06.moengage.com/**](https://sdk-06.moengage.com/)
+
+**frame-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+
+**style-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+- [**https://app-cdn.moengage.com/**](https://app-cdn.moengage.com/)
+- [**https://fonts.bunny.net/**](https://fonts.bunny.net/)
+
+**font-src:**
+
+- [**https://fonts.bunny.net/**](https://fonts.bunny.net/)
+
+You will get the error `Refused to connect to https://\*\*\*.moengage.com/\*\*\*\* because it violates the following Content Security Policy directive.` If you do not whitelist the URLs.
 
 ## 4. Initialize the SDK and Inject Credentials
 
@@ -158,9 +201,16 @@ function getCluster(dc) {
 
 ## 5. Handle Tool Results (handleToolResult)
 
-Once the widget catches the postMessage from the MCP server, set up a dispatcher function to handle these incoming commands, update the UI, and trigger the appropriate MoEngage SDK wrapper functions.
+The `handleToolResult` callback acts as the central event dispatcher. MoEngage SDK methods can be triggered in two ways:
 
-```javascript handleToolResult
+- Direct UI Interaction:  user clicks or interacts directly via UI elements.
+- Chat Commands: user issues a prompt via the Model Context Protocol (MCP).
+
+Use the `handleToolResult` callback to catch incoming postMessage commands from the MCP server and route them to the appropriate MoEngage SDK wrapper functions.
+
+<CodeGroup>
+
+```javascript Direct UI Interaction
 const handleToolResult = useCallback((result) => {
   // Normalize response envelope (handles multiple nesting levels)
   let data = result?.structuredContent || 
@@ -180,6 +230,12 @@ const handleToolResult = useCallback((result) => {
   }
 }, [cart, clearCart, moe, syncCart]);
 ```
+
+```text Chat Commands
+[PLACEHOLDER]
+```
+
+</CodeGroup>
 
 <Info>
   With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event tracking becomes a seamless part of your widget's interactive flow.
