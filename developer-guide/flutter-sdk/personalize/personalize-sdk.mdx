@@ -1,11 +1,11 @@
 ---
 title: "Personalize SDK"
-description: "Learn how to integrate the MoEngage Personalize SDK for React Native to fetch personalized content, handle offering campaigns, and track performance."
+description: "Learn how to integrate the MoEngage Personalize SDK for Flutter to fetch personalized content, handle offering campaigns, and track performance."
 ---
 
 # Overview
 
-The MoEngage Personalize SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls. This allows you to fetch and track personalized campaign information directly through a streamlined interface bridging your native iOS and Android layers.
+The MoEngage Personalize SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls. 
 
 <Tip>
   **Prerequisite**
@@ -18,7 +18,7 @@ The MoEngage Personalize SDK provides a secure framework for delivering personal
 Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
 
 1. **Dashboard Configuration:** A marketer creates an Experience Campaign in the MoEngage dashboard and assigns it a unique `experienceKey` (e.g., `home_banner`). They configure the specific JSON payload to be returned for different user segments.
-2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user. This step initializes the internal SDK configuration and must always be executed first.
+2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user. 
 3. **The Fetch Call :** Your application calls `fetchExperience` or `fetchExperiences` with a specific key to retrieve the actual payload. The SDK uses the metadata gathered in Step 2 to accurately resolve and return this request.
 
 # Integrating MoEngage Personalization
@@ -75,8 +75,8 @@ final personalize = MoEngagePersonalize('YOUR_APP_ID');
 final statuses = [ExperienceStatus.active];
 
 personalize.fetchExperiencesMeta(statuses)
-    .then((metadata) => print(metadata))
-    .catchError((e) => print(e));
+    .then((metadata) => print(metadata)) // add logic here to process the metadata
+    .catchError((e) => print(e)); // add logic for fallback/error handling
 ```
 
 </CodeGroup>
@@ -116,6 +116,31 @@ personalize.fetchExperiences(experienceKeys, attributes: attributes)
 
 </CodeGroup>
 
+### Fetch Single Experience
+
+<CodeGroup>
+
+```dart Dart wrap
+personalize.fetchExperience('home_banner', attributes: attributes)
+    .then((result) => print('Single Experience: $result'))
+    .catchError((e) => print(e));
+
+```
+
+</CodeGroup>
+
+### Fetch Multiple Experience
+
+<CodeGroup>
+
+```dart Dart wrap
+personalize.fetchExperiences(experienceKeys, attributes: attributes)
+    .then((result) => print('Multiple Experiences: $result'))
+    .catchError((e) => print(e));
+```
+
+</CodeGroup>
+
 The returned `Future` resolves with an `ExperienceCampaignsResult` object. On success, the result contains two fields:
 
 - `experiences` — successfully resolved ExperienceCampaign objects
@@ -125,16 +150,18 @@ Throws [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize
 
 You can fetch:
 
-- **Single Experiences**: Retrieve a specific payload using a single string key.
-- **Bulk Experiences**: Retrieve multiple payloads at once by passing an array of strings.
+- **Single Experiences**: Retrieve a single experience using for a single experience key.
+- **Bulk Experiences**: Retrieve multiple experiences by passing array of experience keys.
 
 Use Cases:
 
 **Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
 
+To accurately measure campaign performance, you must track user interactions after rendering the personalized content on the UI.
+
 ## 3. Track Impressions
 
-To accurately measure campaign performance, you must track user interactions after rendering the personalized content on the UI.
+An impression is logged when a campaign or experience is successfully rendered and shown to the user.
 
 ### 3a. Track Impressions for Experience Campaigns
 
@@ -148,6 +175,7 @@ import 'package:moengage_personalize/moengage_personalize.dart';
 final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
 // campaigns is a list of ExperienceCampaign objects received from fetchExperiences
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
 final List<ExperienceCampaign> campaigns = [/* campaign objects */];
 
 personalize.experiencesShown(campaigns);
@@ -157,7 +185,13 @@ personalize.experiencesShown(campaigns);
 
 ### 3b. Track Impressions for Offering Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content. The SDK provides dedicated tracking functions that accept offering-specific attributes.
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes).
+Before tracking, it is important to understand how to handle offering payloads within your application:
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key (e.g., "custom_offering_key": { ... }).
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
 
 <CodeGroup>
 
@@ -188,6 +222,7 @@ import 'package:moengage_personalize/moengage_personalize.dart';
 final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
 // campaign is a single ExperienceCampaign object
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
 final ExperienceCampaign campaign = /* campaign object */;
 
 personalize.experienceClicked(campaign);
@@ -207,6 +242,7 @@ import 'package:moengage_personalize/moengage_personalize.dart';
 final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
 // campaign is a single ExperienceCampaign object
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
 final ExperienceCampaign campaign = /* campaign object */;
 
 // Map containing offering details for a specific offering campaign
@@ -233,16 +269,8 @@ personalize.offeringClicked(campaign, offeringPayload);
 
 # FAQs
 
-<Accordion title="Does the SDK handle UI rendering?">
-  No. The SDK returns raw JSON payloads. You are responsible for parsing the data and building the UI components (e.g., Views, Images, or Carousels).
-</Accordion>
-
-<Accordion title="Does the SDK cache images or videos?">
-  No. The SDK does not download or cache media assets. Use standard media loading libraries to handle images, videos, or fonts referenced in the JSON.
-</Accordion>
-
-<Accordion title="Is there a limit on how many experiences I can fetch?">
-  Yes. You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
+<Accordion title="How many experiences I can fetch?">
+  You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
 </Accordion>
 
 <Accordion title="What happens if a fetch request is made while the device is offline and no valid cache is available?">
