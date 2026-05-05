@@ -1,0 +1,147 @@
+---
+title: "Custom Formula Ranking Strategy"
+---
+
+Custom Formula is a ranking strategy available in Decision Policies that replaces a single-variable ranking signal with a weighted combination of multiple parameters. You choose which parameters matter and assign a percentage weight to each. The engine multiplies each parameter score by its weight, sums the results, and ranks all eligible Offerings for every customer accordingly.\
+The result is a ranking that reflects both what is strategically important to your business and what is personally relevant to each customer — recalculated in real time, without manual intervention.
+
+Custom Formula = (Attribute 1 score × Weight%) \+ (Attribute 2 score × Weight%) \+ … \+ (Performance score × Weight%) \+ (Priority score × Weight%)
+
+# How it compares to other ranking strategies
+
+MoEngage offers three ranking strategies in Decision Policies. Understanding when each one fits helps you choose the right approach or combine them across different policies.
+
+|  | Manual priority | Merlin AI | Custom formula |
+| :-: | :-: | :-: | :-: |
+| How ranking works | Author assigns a rank (100, 90, 80…) to each offering manually | AI learns from clicks and conversions to find the best-performing offering for each user | Marketer defines a weighted formula combining Offering attributes, performance, and priority |
+| Who sets the score | Author | Algorithm (learns over time) | Marketer defines weights; engine calculates score per user at runtime |
+| Personalisation | None — same rank for all users | Implicit — learns aggregate patterns across users | Explicit — score changes per user based on their profile (via dynamic attributes) |
+| Business goal control | High — author fully controls rank | Low — optimises for engagement/conversion, not specific business goals | High — marketer decides how much weight each goal carries |
+| Responds to strategy shifts | Manually — re-rank all offerings | Gradually — model needs time to relearn | Immediately — adjust weight in the Decision Policy; all Offerings re-rank instantly |
+| Best for | Small, stable catalogs with clear priority | Large catalogs where engagement is the primary goal | When business value AND user relevance both need to influence ranking |
+| Requires Offering Attributes | No | No | Yes |
+| Limitation | Does not account for customer intent or business value trade-offs | Cannot protect high-value, low-CTR Offerings from being buried | Requires upfront configuration of attributes and weights |
+
+<Note>
+  **Information**
+
+  Manual Priority does not account for the customer. Merlin AI does not protect high-value, low-CTR offerings. Custom Formula is the only strategy that lets you simultaneously express what an Offering is worth to the business and how relevant it is to this specific customer.
+</Note>
+
+# Parameters available in Custom Formula
+
+A Custom Formula can include up to 5 dynamic parameters in addition to static parameters. Parameters fall into two categories.
+
+## **Dynamic parameters — Offering Attributes**
+
+These are attributes you configure under **Settings** \> **Offering Decisioning** \> **Offering Attributes**. You can include up to 5 offering attributes — Fixed Value, Dynamic Value, or a mix — as parameters in a formula.
+
+**Fixed Value attributes** capture the strategic importance of the Offering itself. The score is set by the author at Offering creation time and is the same for every customer. Examples: business objective, margin tier, campaign urgency.
+
+**Dynamic Value attributes** capture relevance to the individual customer. The score is calculated at decisioning time by matching the offer's associated value against the customer's live MoEngage profile. Examples: category affinity, churn propensity, purchase recency.
+
+## **Static parameters**
+
+Two built-in parameters are always available regardless of attribute configuration:
+
+- **Offering Performance** — the historical Click-Through Rate (CTR) or Conversion Rate (CVR) of the offer.
+- **Offering Priority** — the manual priority rank assigned to the Offering (1 to 100). The priority number itself becomes the base score.
+
+<Note>
+  All weights across all selected parameters must sum to exactly 100%. The formula builder will prevent saving if the total is not 100.
+</Note>
+
+# How to set up Custom Formula ranking
+
+**Before you begin**
+
+If you have not yet set up attributes, navigate to **Settings** \> **Offering Decisioning** \> **Offering Attributes** and create at least one attribute before proceeding. Refer to the [Create offering attributes](/user-guide/decisioning/offer-decisioning/offerings/create-offering-attribute) guide for instructions.
+
+**Step 1 — Create or edit a Decision Policy**
+
+Navigate to the Decision Policy you want to configure, or create a new one. In the Ranking Strategy section, select **Custom Formula** from the available options.
+
+<Frame>
+  ![Ranking Strategy](/images/ranking-strategy.png)
+</Frame>
+
+**Step 2 — Add parameters**
+
+Click **Add offering attribute (0/5)** in the Custom Formula builder. You can add:
+
+- Any offering attributes you have configured (Fixed Value or Dynamic Value)
+- Offering Performance (CTR or CVR)
+- Offering Priority
+
+You can add up to 5 parameters in total. If the Add Parameter button is disabled, you have reached the maximum.
+
+<Frame>
+  ![Add Attribute](/images/add-attribute.png)
+</Frame>
+
+**Step 3 — Assign weights**
+
+For each parameter, enter a weight percentage. Weights represent how much each parameter contributes to the final score. All weights must sum to exactly 100%.
+
+**Example weight configuration**
+
+- Business Objective (Fixed Value attribute) — 40%
+- User Intent / Category Affinity (Dynamic Value attribute) — 30%
+- Offering Performance (CTR) — 20%
+- Offering Priority — 10%
+
+<Frame>
+  ![Assign Weightage](/images/assign-weightage.png)
+</Frame>
+
+**Step 4 — Save and publish**
+
+Once all weights sum to 100%, save the Decision Policy. The Custom Formula becomes active immediately for all Offerings within that policy. You do not need to edit individual Offerings — the engine uses the formula to score and rank them automatically for each customer.
+
+**How the score calculation works**
+
+When a customer qualifies for multiple Offerings in a Decision Policy, the engine calculates a Custom Score for each eligible Offering and ranks them in descending order. The highest-scoring Offering is shown to the customer.
+
+**Calculation formula**
+
+Custom Score  =\
+ (Attribute 1 Score × Weight%)  \+\
+ (Attribute 2 Score × Weight%)  \+  …  \+\
+ (Performance Score × Weight%)  \+\
+ (Priority Score × Weight%)
+
+**Worked example**
+
+A Decision Policy contains two offers: Offering A (iPhone launch) and Offering B (phone case). The formula is configured with the weights shown above. Customer X has "Electronics" as their primary category affinity; Customer Y does not have an electronics affinity.
+
+**Scores for Customer X:**
+
+| Parameter | Weight | Offering A score | Offering B score | Weighted contribution |
+| :-: | :-: | :-: | :-: | :-: |
+| Business Objective (Fixed) | 40% | 90 | 75 | 35.00 (90 × 0.40)  \|  30.00 (75 × 0.40) |
+| User Intent (Dynamic) | 30% | 100 | 0 | 30.00 (100 × 0.30)  \|  0.00 (0 × 0.30) |
+| Offering Performance (CTR) | 20% | 60 | 80 | 12.00 (60 × 0.20)  \|  16.00 (80 × 0.20) |
+| Offering Priority | 10% | 70 | 70 | 7.00 (70 × 0.10)  \|  7.00 (70 × 0.10) |
+| Total Custom Score | 100% |  |  | Offering A: 84.00  \|  Offering B: 53.00 |
+
+**Result for Customer X**
+
+Offering A scores 84.00, Offering B scores 53.00. Offering A is ranked first — the iPhone launch is shown to Customer X despite having a lower CTR than the phone case, because the business objective weight and the matched category affinity score more than compensate.
+
+For Customer Y, whose category affinity does not match Electronics, the User Intent score for Offering A would be 0 instead of 100. Offering A's total score would drop to 54.00 (35 \+ 0 \+ 12 \+ 7), and the ranking would shift accordingly — all without any changes to the Offerings or the policy.
+
+# What happens when two offerings have the same score?
+
+If two or more Offerings in a Decision Policy calculate to the same Custom Score for a given customer, the engine applies a sequential tie-breaking logic to determine which Offering is ranked first:
+
+| Step | Condition | Logic |
+| :-: | :-: | :-: |
+| 1 | Earliest end date & time | The Offering expiring soonest wins — it is more time-critical. |
+| 2 | Earliest start date & time (if end dates match) | Among equally expiring offers, the one that went live first wins. |
+| 3 | Random selection (if start & end dates match) | One Offering is chosen at random. |
+
+# Next Steps
+
+- To configure the Offering Attributes used by this strategy, refer to [Managing Offering Attributes](/user-guide/decisioning/offer-decisioning/offerings/managing-offering-attributes).
+- To learn how to create a Decision Policy, refer to [Create Decision Policy](/user-guide/decisioning/offer-decisioning/decision-policy/create-decision-policy).
+- To assign Offering Attributes to your offerings, refer to [Create Offerings](/user-guide/decisioning/offer-decisioning/offerings/create-offering).
