@@ -23,7 +23,7 @@ Before writing any code, it is helpful to understand the three moving parts of t
 
 # Integrating MoEngage Personalization
 
-To add MoEngage Personalize SDK to your application, edit the application's **pubspec.yaml** file and add the below dependency to it:
+To add MoEngage's Personalize SDK to your project, edit the application's **pubspec.yaml** file and use the command below.
 
 <CodeGroup>
 
@@ -62,7 +62,7 @@ The Personalize helper for Flutter is designed to simplify the retrieval and int
 
 ## 1. Fetch Meta Experience
 
-Before fetching any specific payload or experience, you must invoke the metadata call. This step provides the SDK with the necessary configuration and context to accurately process subsequent requests.
+Before fetching any specific payload or experience, you must invoke the metadata call. Prefetching the metadata helps you optimize the experience fetch. On the app side, you can use the metadata to identify the right personalized content for the current UI state and fetch only the relevant content instead of all the content in the application.
 
 <CodeGroup>
 
@@ -83,14 +83,12 @@ personalize.fetchExperiencesMeta(statuses)
 
 The returned `Future` resolves with an [`ExperienceCampaignsMetadata`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) object containing all necessary metadata for campaign execution. The `catchError` handler receives a [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) with a `code` and `message` identifying the reason for failure.
 
-Always call the metadata fetch first to initialize core configurations based on the desired experience status.
-
 ## 2. Fetch Personalized Content
 
 Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
 
 <Info>
-  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can fetch these keys using the fetchExperiencesMeta call.
+  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can find this key in the `ExperienceCampaignMeta` object of the `ExperienceCampaignsMetadata` returned on successful metadata fetch.
 </Info>
 
 <CodeGroup>
@@ -100,30 +98,20 @@ import 'package:moengage_personalize/moengage_personalize.dart';
 
 final personalize = MoEngagePersonalize('YOUR_APP_ID');
 
-final experienceKeys = ['sample_experience_key_returned_in_meta_call'];
+// additional attributes you want to pass for the experience.
 final attributes = <String, String>{};
-
-// 1. Fetching a single experience
-personalize.fetchExperience('home_banner', attributes: attributes)
-    .then((result) => print('Single Experience: $result'))
-    .catchError((e) => print(e));
-
-// 2. Fetching multiple experiences
-personalize.fetchExperiences(experienceKeys, attributes: attributes)
-    .then((result) => print('Multiple Experiences: $result'))
-    .catchError((e) => print(e));
 ```
 
 </CodeGroup>
 
 ### Fetch Single Experience
 
-- **Single Experiences**: Retrieve a single experience using for a single experience key.
+- **Single Experiences**: Retrieve a single experience using a single experience key.
 
 <CodeGroup>
 
 ```dart Dart wrap
-personalize.fetchExperience('home_banner', attributes: attributes)
+personalize.fetchExperience('<experience_key>', attributes: attributes)
     .then((result) => print('Single Experience: $result'))
     .catchError((e) => print(e));
 ```
@@ -132,7 +120,7 @@ personalize.fetchExperience('home_banner', attributes: attributes)
 
 ### Fetch Multiple Experience
 
-- **Bulk Experiences**: Retrieve multiple experiences by passing array of experience keys.
+- **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
 
 <CodeGroup>
 
@@ -159,7 +147,7 @@ To accurately measure campaign performance, you must track user impressions afte
 
 ## 3. Notify SDK on Showing the Experience (Track Impressions)
 
-An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user. 
+An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
 
 To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
 
