@@ -27,7 +27,7 @@ Before writing any code, it is helpful to understand the three moving parts of t
 
 # Integrate MoEngage Personalization
 
-To add MoEngage Personalize SDK to your application run the below command from a terminal.
+To add MoEngage's Personalize SDK to your project, use the command below.
 
 ```shellscript Shell
 npm install react-native-moengage-personalize
@@ -39,7 +39,7 @@ The Personalize helper for React Native is designed to simplify the retrieval an
 
 ## 1. Fetch Meta Experience
 
-Before fetching any specific payload or experience, you must invoke the metadata call. This step provides the SDK with the necessary configuration and context to accurately process subsequent requests.
+Before fetching any specific payload or experience, you must invoke the metadata call. Prefetching the metadata helps you optimize the experience fetch. On the app side, you can use the metadata to identify the right personalized content for the current UI state and fetch only the relevant content instead of all the content in the application.
 
 <CodeGroup>
 
@@ -54,33 +54,30 @@ ExperienceStatus.ACTIVE,
 ];
 
 personalize.fetchExperiencesMeta(status)
-.then(metadata => console.log(metadata)) // add logic here to process the metadata
-.catch(error => console.error(error)); // add logic for fallback/error handling
+.then(metadata => // add logic here to process the metadata) 
+.catch(error => // add logic for fallback/error handling); 
 ```
 
 </CodeGroup>
 
 The returned object is a Promise that holds the [`ExperienceCampaignsMetadata` ](/developer-guide/react-native-sdk/personalize/personalize-data-payload)object, containing all necessary metadata for campaign execution. The rejection contains the [`FailureReason`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) and an optional message to identify the specific reason for the request's failure.
 
-Always call the metadata fetch first to initialize core configurations based on the desired experience status.
 
 ## 2. Fetch Personalized Content
 
 Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
 
 <Info>
-  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can fetch these keys using the fetchExperiencesMeta call.
+  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can find this key in the `ExperienceCampaignMeta` object of the `ExperienceCampaignsMetadata` returned on successful metadata fetch.
 </Info>
 
 <CodeGroup>
 
 ```javascript React Native wrap
-// this is an optional step
 import ReactMoEngagePersonalize, { ExperienceStatus } from "react-native-moengage-personalize";
 
 const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
-
-const experienceKeys = ["sample_experience_key_returned_in_meta_call"];
+// additional attributes you want to pass for the experience.
 const attributes = {};
 ```
 
@@ -88,13 +85,13 @@ const attributes = {};
 
 ### Fetch Single Experience
 
-- **Single Experience**: Retrieve a single experience using for a single experience key.
+- **Single Experience**: Retrieve a single experience using a single experience key.
 
 <CodeGroup>
 
 ```javascript React Native wrap
 
-personalize.fetchExperience("home_banner", attributes)
+personalize.fetchExperience(<experience_key>, attributes)
 .then(result => console.log("Single Experience:", result))
 .catch(error => console.error(error));
 ```
@@ -103,12 +100,12 @@ personalize.fetchExperience("home_banner", attributes)
 
 ### Fetch Multiple Experiences
 
-- **Bulk Experiences**: Retrieve multiple experiences by passing array of experience keys.
+- **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
 
 <CodeGroup>
 
 ```javascript React Native wrap
-
+const experienceKeys = [<experience_key1>, <experience_key2>];
 personalize.fetchExperiences(experienceKeys, attributes)
 .then(result => console.log("Multiple Experiences:", result))
 .catch(error => console.error(error));
