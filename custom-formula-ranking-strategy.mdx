@@ -5,7 +5,7 @@ title: "Custom Formula Ranking Strategy"
 Custom Formula is a ranking strategy available in Decision Policies that replaces a single-variable ranking signal with a weighted combination of multiple parameters. You choose which parameters matter and assign a percentage weight to each. The engine multiplies each parameter score by its weight, sums the results, and ranks all eligible Offerings for every customer accordingly.\
 The result is a ranking that reflects both what is strategically important to your business and what is personally relevant to each customer — recalculated in real time, without manual intervention.
 
-Custom Formula = (Attribute 1 score × Weight%) \+ (Attribute 2 score × Weight%) \+ … \+ (Performance score × Weight%) \+ (Priority score × Weight%)
+Custom Score  = (Attribute 1 Score × Weight %) + (Attribute 2 Score × Weight %) + ... + (Attribute N Score × Weight %) + (Performance Score × Weight %) + (Priority Score × Weight %)
 
 # How it compares to other ranking strategies
 
@@ -48,7 +48,7 @@ Two built-in parameters are always available regardless of attribute configurati
 - **Offering Priority** — the manual priority rank assigned to the Offering (1 to 100). The priority number itself becomes the base score.
 
 <Note>
-  All weights across all selected parameters must sum to exactly 100%. The formula builder will prevent saving if the total is not 100.
+  All weights across all selected parameters must sum to exactly 100%. 
 </Note>
 
 # How to set up Custom Formula ranking
@@ -70,8 +70,9 @@ Navigate to the Decision Policy you want to configure, or create a new one. In t
 Click **Add offering attribute (0/5)** in the Custom Formula builder. You can add:
 
 - Any offering attributes you have configured (Fixed Value or Dynamic Value)
-- Offering Performance (CTR or CVR)
-- Offering Priority
+  - For Fixed Value attributes, you'll have to choose one of the options from the dropdown.
+- Offering Performance (Click-Through-Rate or Conversion Rate)
+- Offering Priority score
 
 You can add up to 5 parameters in total. If the Add Parameter button is disabled, you have reached the maximum.
 
@@ -85,8 +86,9 @@ For each parameter, enter a weight percentage. Weights represent how much each p
 
 **Example weight configuration**
 
-- Business Objective (Fixed Value attribute) — 40%
-- User Intent / Category Affinity (Dynamic Value attribute) — 30%
+- Business Goal: Increase gross margin (Fixed Value attribute) — 40%
+  - Business goal is the name of the Fixed value attribute. Increase gross margin is one of the options.
+- User preferred category (Dynamic Value attribute) — 30%
 - Offering Performance (CTR) — 20%
 - Offering Priority — 10%
 
@@ -104,31 +106,53 @@ When a customer qualifies for multiple Offerings in a Decision Policy, the engin
 
 **Calculation formula**
 
-Custom Score  =\
- (Attribute 1 Score × Weight%)  \+\
- (Attribute 2 Score × Weight%)  \+  …  \+\
- (Performance Score × Weight%)  \+\
- (Priority Score × Weight%)
+Custom Score  = (Attribute 1 Score × Weight %) + (Attribute 2 Score × Weight %) + ... + (Attribute N Score × Weight %) + (Performance Score × Weight %) + (Priority Score × Weight %)
 
 **Worked example**
 
-A Decision Policy contains two offers: Offering A (iPhone launch) and Offering B (phone case). The formula is configured with the weights shown above. Customer X has "Electronics" as their primary category affinity; Customer Y does not have an electronics affinity.
+- A Decision Policy contains two offerings: Offering A (New iPhone launch) and Offering B (Discount on Apparel). The policy is configured with the attributes and weights listed above in Step 3. 
+- Offering configuration
+  - Offering A
+    - 1 Fixed value: **Business goal** with 2 options: 
+      - Option 1: **Increase gross margin** ; Score: 90
+      - Option 2: **Reduce customer churn** ; Score: 10
+    - 1 Dynamic value attribute: **User preferred category**
+      - Option: **Electronics**
+  - Offering B
+    - 1 Fixed value: **Business goal** with 2 options: 
+      - Option 1: **Increase gross margin** ; Score: 75
+      - Option 2: **Reduce customer churn** ; Score: 25
+    - 1 Dynamic value attribute: **User preferred category**
+      - Option:  **Fashion**
+- A user "Ross" has "Electronics" as their primary category affinity; User "Rachel" has "Fashion" as their primary category affinity.
 
-**Scores for Customer X:**
+**Scores for Ross:**
 
 | Parameter | Weight | Offering A score | Offering B score | Weighted contribution |
 | :-: | :-: | :-: | :-: | :-: |
-| Business Objective (Fixed) | 40% | 90 | 75 | 35.00 (90 × 0.40)  \|  30.00 (75 × 0.40) |
-| User Intent (Dynamic) | 30% | 100 | 0 | 30.00 (100 × 0.30)  \|  0.00 (0 × 0.30) |
+| Business goal - Increase gross margin (Fixed) | 40% | 90 | 75 | 36.00 (90 × 0.40)  \|  30.00 (75 × 0.40) |
+| User preferred category (Dynamic) | 30% | 100 | 0 | 30.00 (100 × 0.30)  \|  0.00 (0 × 0.30) |
 | Offering Performance (CTR) | 20% | 60 | 80 | 12.00 (60 × 0.20)  \|  16.00 (80 × 0.20) |
 | Offering Priority | 10% | 70 | 70 | 7.00 (70 × 0.10)  \|  7.00 (70 × 0.10) |
-| Total Custom Score | 100% |  |  | Offering A: 84.00  \|  Offering B: 53.00 |
+| Total Custom Score | 100% |  |  | Offering A: 85.00  \|  Offering B: 53.00 |
 
-**Result for Customer X**
+**Result for Ross**
 
-Offering A scores 84.00, Offering B scores 53.00. Offering A is ranked first — the iPhone launch is shown to Customer X despite having a lower CTR than the phone case, because the business objective weight and the matched category affinity score more than compensate.
+Offering A scores 85.00, Offering B scores 53.00. Offering A is ranked first — the iPhone launch is shown to Customer X despite having a lower CTR than the Apparel offer.
 
-For Customer Y, whose category affinity does not match Electronics, the User Intent score for Offering A would be 0 instead of 100. Offering A's total score would drop to 54.00 (35 \+ 0 \+ 12 \+ 7), and the ranking would shift accordingly — all without any changes to the Offerings or the policy.
+**Scores for Rachel:**
+
+| Parameter | Weight | Offering A score | Offering B score | Weighted contribution |
+| :-: | :-: | :-: | :-: | :-: |
+| Business goal - Increase gross margin (Fixed) | 40% | 90 | 75 | 36.00 (90 × 0.40)  \|  30.00 (75 × 0.40) |
+| User preferred category (Dynamic) | 30% | 100 | 0 | 0.00 (0 × 0.30)  \|  30.00 (100 × 0.30) |
+| Offering Performance (CTR) | 20% | 60 | 80 | 12.00 (60 × 0.20)  \|  16.00 (80 × 0.20) |
+| Offering Priority | 10% | 70 | 70 | 7.00 (70 × 0.10)  \|  7.00 (70 × 0.10) |
+| Total Custom Score | 100% |  |  | Offering A: 55.00  \|  Offering B: 83.00 |
+
+**Result for Customer Y**
+
+Offering A scores 55.00, Offering B scores 83.00. Offering B is ranked first — the Discount on Apparel is shown to Customer Y.
 
 # What happens when two offerings have the same score?
 
