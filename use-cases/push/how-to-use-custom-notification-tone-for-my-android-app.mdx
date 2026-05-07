@@ -1,0 +1,113 @@
+---
+title: "How to Use Custom Notification Tone for My Android App"
+---
+
+# Introduction
+
+In the realm of push notifications, the initial objective is to capture the user's attention. Android's Notification Channels enable app developers to categorize their notifications, allowing users to tailor the notifications to their preferences. Creating a notification channel permits the setting of specific visual and auditory features.You can achieve this with the use of custom sounds and other Android methods.
+
+In this article, we will learn how to incorporate a custom notification tone for your Android app.
+
+<Info>
+  You need help of your Developer to achieve this.
+</Info>
+
+# Create a Notification Channel with Custom Auditory and Visual Settings
+
+Perform the following steps:
+
+1. Get a reference to the NotificationManager.\
+   Before you can create a notification channel, you will need a reference to the NotificationManager:
+   <CodeGroup>
+   ```ruby Code wrap
+   NotificationManager notificationManager = getSystemService(NotificationManager.class);
+   ```
+   </CodeGroup>
+2. Create a notification channel.
+   <CodeGroup>
+   ```ruby Code wrap
+   String channelId = "my_channel_id";
+   CharSequence channelName = "My Channel";
+   int importance = NotificationManager.IMPORTANCE_HIGH; // Set the importance level
+   NotificationChannel notificationChannel = new NotificationChannel(channelId, channelName, importance);
+   ```
+   </CodeGroup>
+3. Set auditory properties.\
+   You can set custom sounds and vibration patterns for:
+   - **Sound**:
+     <CodeGroup>
+     ```ruby Code wrap
+     // Define an audio attribute
+     AudioAttributes audioAttributes = new AudioAttributes.Builder()
+     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+     .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+     .build();
+     // Set the custom sound and audio attributes to the notification channel
+     notificationChannel.setSound(Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "//"
+     + getApplicationContext().getPackageName() + "/" + R.raw.your_sound_file), audioAttributes)
+     ```
+     </CodeGroup>
+   - **Vibration**: 
+     <CodeGroup>
+     ```ruby Code wrap
+     long[] vibrationPattern = {100, 200, 300, 400, 500, 400, 300, 200, 400}; // Define your custom pattern
+     notificationChannel.setVibrationPattern(vibrationPattern);
+     notificationChannel.enableVibration(true);
+     ```
+     </CodeGroup>
+
+4. Set visual properties such as light color, lock screen visibility, and badges: 
+   <CodeGroup>
+   ```ruby Code wrap
+   notificationChannel.setLightColor(Color.RED); // Set the light color
+   notificationChannel.enableLights(true); // Enable lights
+   notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE); // Set lock screen visibility
+   notificationChannel.setShowBadge(true); // Enable badges
+   ```
+   </CodeGroup>
+
+6. Register the Notification Channel with the system.\
+   Create the notification channel through the _createNotificationChannel()_ method: 
+   <CodeGroup>
+   ```ruby Code wrap
+   assert notificationManager != null;
+   notificationManager.createNotificationChannel(notificationChannel);
+   ```
+   </CodeGroup>
+
+8. Send a notification that shows up in the notification center.\
+   Set the channel ID you specified earlier when building the notification: 
+   <CodeGroup>
+   ```ruby Code wrap
+   NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+   .setSmallIcon(R.drawable.notification_icon)
+   .setContentTitle("My notification")
+   .setContentText("Hello World!")
+   .setPriority(NotificationCompat.PRIORITY_HIGH); // Set the priority
+   notificationManager.notify(1, builder.build());
+   ```
+   </CodeGroup>
+
+   <Info>
+     - The _assert notificationManager != null;_ prevents a NullPointerException if the NotificationManager reference is null. Also, ensure that the entire notifying process runs in a background thread to not block the user interface.
+     - Replace _my\_channel\_id_ with a unique ID for your channel and _My Channel_ must be the human-readable name of the channel. These settings will take effect when the channel is first created.
+     - After you create a notification channel, you cannot change its behavior and the user has the final control over their notification preferences.
+   </Info>
+
+# Use the Notification Channel in MoEngage
+
+<Tip>
+  To use the Notification Channel, you must also update the MoEngage's Android SDK version to v8.0.00.
+</Tip>
+
+1. Navigate to step 2 "Content" of the Push notification.
+2. In the **Basic details** section, add the notification channel:
+   1. Expand the **Notification channel** drop-down list and click **\+ Manage notification channel**. <img src="/images/moengage_7b0885.png" alt="image-20231224-133441.png" /> The Manage android notification channel pop-up window is displayed. <img src="/images/moengage_be3dda.png" alt="image-20231224-133659.png" />
+3. Select the appropriate notification channel for your notification in the same section. After adding the channels, select any one of the channels for your campaign based on your requirement. All notifications posted to the same notification channel have the same behavior.
+   <Info>
+     If an invalid channel ID is added or you miss adding one, MoEngage will use General Channel (a MoEngage Fallback Channel) to target your users on Android 8.0 (API level 26) and above.
+   </Info>
+
+# Conclusion
+
+In this use case, we learnt how to incorporate a custom notification tone for your Android app. You can test the behavior using the **Test Campaign** option before you publish the campaign. For more information, refer [here](/user-guide/campaigns-and-channels/mobile-push/create/create-push-campaigns).

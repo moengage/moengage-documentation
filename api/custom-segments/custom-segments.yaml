@@ -293,6 +293,7 @@ paths:
               $ref: '#/components/schemas/UpdateSegmentRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
               attribute_name: "unique_identifier"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_add.csv"
@@ -309,6 +310,7 @@ paths:
                 message: "File-segment user-add request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -374,6 +376,7 @@ paths:
               $ref: '#/components/schemas/UpdateSegmentRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
               attribute_name: "unique_identifier"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_remove.csv"
@@ -390,6 +393,7 @@ paths:
                 message: "File-segment user-remove request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -460,6 +464,7 @@ paths:
             example:
               name: "custom_segment_unique_name"
               attribute_name: "unique_identifier"
+              "cs_id": "<unique cs id>"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_replace.csv"
               callback_url: "http://example.com/moengage-callback"
@@ -475,6 +480,7 @@ paths:
                 message: "File-segment user-replace request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -522,6 +528,7 @@ paths:
               $ref: '#/components/schemas/SegmentNameRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
       responses:
         '202':
           description: Segment archive request accepted.
@@ -533,6 +540,7 @@ paths:
                 message: "Successfully archived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -562,6 +570,7 @@ paths:
               $ref: '#/components/schemas/SegmentNameRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
       responses:
         '202':
           description: Segment unarchive request accepted.
@@ -573,6 +582,7 @@ paths:
                 message: "Successfully unarchived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -806,7 +816,14 @@ components:
             - expiry_time
     UpdateSegmentRequestV2:
       description: Schema for updating an existing file segment (add, remove, replace users).
-      $ref: '#/components/schemas/BaseSegmentRequestV2'
+      allOf:
+        - $ref: '#/components/schemas/BaseSegmentRequestV2'
+        - type: object
+          properties:
+            cs_id:
+              type: string
+              description: |
+                Unique identifier corresponding to the target segment. When both `cs_id` and `name` are populated, the system prioritizes `cs_id`.
     SegmentNameRequestV2:
       description: Schema for requests that only require the segment name.
       type: object
@@ -814,6 +831,10 @@ components:
         name:
           type: string
           description: The name of the segment.
+        cs_id:
+          type: string
+          description: |
+            Unique identifier corresponding to the target segment. When both `cs_id` and `name` are populated, the system prioritizes `cs_id`.
       required:
         - name
     ApiResponseSuccessV2:
@@ -835,6 +856,9 @@ components:
         title:
           type: string
           description: A short title for the error.
+        description:
+          type: string
+          description: A detailed, human-readable explanation of the error.
     CallbackV2:
       type: object
       description: The payload sent to the callback URL. The structure depends on the processing status.

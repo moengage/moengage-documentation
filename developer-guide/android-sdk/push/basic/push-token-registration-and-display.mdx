@@ -49,7 +49,7 @@ The following steps are optional; use them only if you have the use cases.
 
 You might want to get access to the push token that MoEngage registered on behalf of your application. When MoEngage SDK handles push registration, it optionally provides a callback to the application whenever a new token is registered or refreshed.
 
-To get the token callback, implement the [_TokenAvailableListener_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.listener/%5Bandroid-jvm%5D-token-available-listener/index.html?query=fun%20interface%20TokenAvailableListener) and register for the callback using [_MoEFireBaseHelper.getInstance().addTokenListener()_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/add-token-listener.html)\_. 
+To get the token callback, implement the [_TokenAvailableListener_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.listener/-token-available-listener/index.html) and register for the callback using [_MoEFireBaseHelper.getInstance().addTokenListener()_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/add-token-listener.html)\_. 
 
 We recommend you add the callbacks in the **_onCreate()_** of the Application class since these callbacks can be triggered even when the application is in the background.
 
@@ -69,22 +69,35 @@ By default, MoEngage SDK attempts to register for a push token. If your applicat
 
 ## How to opt-out of MoEngage Push token registration?
 
-To opt out of MoEngage's token registration mechanism, disable token registration using [_configureFCM()_](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/configure-fcm.html) API while configuring FCM in the [_MoEngage.Builder_](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/index.html) as described
+To opt out of MoEngage's token registration mechanism, disable token registration using [_configureFCM()_](https://moengage.github.io/android-api-reference/core/com.moengage.core/-mo-engage/-builder/configure-fcm.html) API while configuring FCM in the [_MoEngage.Builder_](https://moengage.github.io/android-api-reference/core/com.moengage.core/-mo-engage/-builder/index.html) as described
 
 <CodeGroup>
 
 ```Kotlin Kotlin wrap
-val moEngage = MoEngage.Builder(this, "XXXXXXXX")
-    	.configureNotificationMetaData(NotificationConfig(R.drawable.small_icon, R.drawable.large_icon, R.color.notiColor, null, true, isBuildingBackStackEnabled = false, isLargeIconDisplayEnabled = true))
-    .configureFcm(FcmConfig(false))
+val moEngage = MoEngage.Builder(
+        application = this,
+        appId = "XXXXXXXX",
+        dataCenter = DataCenter.DATA_CENTER_X
+    )
+    .configureNotificationMetaData(
+        NotificationConfig(
+            smallIcon = R.drawable.small_icon,
+            largeIcon = R.drawable.large_icon,
+            notificationColor = R.color.notiColor,
+            isMultipleNotificationInDrawerEnabled = false,
+            isBuildingBackStackEnabled = false,
+            isLargeIconDisplayEnabled = true
+        )
+    )
+    .configureFcm(FcmConfig(isRegistrationEnabled = false))
     .build()
 MoEngage.initialiseDefaultInstance(moEngage)
 ```
 
 
 ```Java Java
-MoEngage moEngage = new MoEngage.Builder(this, "XXXXXXXXXX")
-    .configureNotificationMetaData(new NotificationConfig(R.drawable.small_icon, R.drawable.large_icon, R.color.notiColor, "sound", true, true, true))
+MoEngage moEngage = new MoEngage.Builder(this, "XXXXXXXXXX", DataCenter.DATA_CENTER_X)
+    .configureNotificationMetaData(new NotificationConfig(R.drawable.small_icon, R.drawable.large_icon, R.color.notiColor, true, true, true))
     .configureFcm(new FcmConfig(false))
     .build();
 MoEngage.initialiseDefaultInstance(moEngage);
@@ -119,7 +132,7 @@ MoEFireBaseHelper.getInstance().passPushToken(getApplicationContext(), token);
 Even though you have your receiver to receive the notification payloads, you must pass messages from MoEngage platform to MoEngage SDK to render push notifications, especially rich push notifications. In that case, pass the payload to MoEngage SDK using the following method.
 
 To pass the push payload to the MoEngage SDK call the [_passPushPayload()_](https://moengage.github.io/android-api-reference/moe-push-firebase/com.moengage.firebase/-mo-e-fire-base-helper/pass-push-payload.html) API from the _onMessageReceived()_ in the Firebase receiver.\
-Before passing the payload to the MoEngage SDK you should check if the payload is from the MoEngage platform using the [_isFromMoengagePlatfrom()_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/[android-jvm]-mo-e-push-helper/is-from-mo-engage-platform.html) helper API provided by the SDK.
+Before passing the payload to the MoEngage SDK you should check if the payload is from the MoEngage platform using the [_isFromMoengagePlatfrom()_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase/-mo-e-push-helper/is-from-mo-engage-platform.html) helper API provided by the SDK.
 
 <CodeGroup>
 
@@ -134,7 +147,7 @@ if (MoEPushHelper.getInstance().isFromMoEngagePlatform(remoteMessage.data)){
 
 ```Java Java
 if (MoEPushHelper.getInstance().isFromMoEngagePlatform(remoteMessage.getData())) {
-    MoEFireBaseHelper.Companion.getInstance().passPushPayload(getApplicationContext(), remoteMessage.getData());
+    MoEFireBaseHelper.getInstance().passPushPayload(getApplicationContext(), remoteMessage.getData());
  }else{
     // your app's business logic to show notification
  }

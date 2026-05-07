@@ -17,6 +17,23 @@ security:
   - basicAuth: []
 
 components:
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Standard error envelope returned by Personalize endpoints for `4xx` and `5xx` responses.
+      properties:
+        title:
+          type: string
+          description: Short error category, for example `Invalid Field Value`, `Authentication required`, or `Malformed JSON`.
+        description:
+          type: string
+          description: Human-readable detail describing what failed.
+        code:
+          type: string
+          description: Opaque server-assigned error code. Present on validation failures; useful when contacting support.
+      required:
+        - title
+        - description
   securitySchemes:
     basicAuth:
       type: http
@@ -62,6 +79,26 @@ paths:
           application/json:
             schema:
               type: object
+              description: |
+                To target users on contextual signals such as UTM parameters, referrer, or any custom in-session attribute configured for your workspace, pass the parameter as a top-level field in the request body using the parameter's own name as the key.
+
+                For example, if you have configured an in-session attribute with the query parameter name `utm_medium` and want to target users who arrived from an email campaign:
+
+                ```json
+                {
+                  "identifiers": { "customer_id": "user_8821" },
+                  "experience_key": ["email-landing-banner"],
+                  "utm_medium": "email"
+                }
+                ```
+
+                You can pass any number of these custom keys alongside the documented fields below.
+              additionalProperties: true
+              example:
+                identifiers:
+                  customer_id: "user_8821"
+                experience_key: ["email-landing-banner"]
+                utm_medium: "email"
               properties:
                 identifiers:
                   type: object
@@ -88,6 +125,7 @@ paths:
                   type: array
                   items:
                     type: string
+                  maxItems: 25
                   description: |
                     This field uniquely identifies each server-side experience created using MoEngage Personalize. You can pass multiple values in a single request and receive the personalized content defined for each experience in the response.
                     
@@ -97,27 +135,36 @@ paths:
                     To fetch payload for multiple experiences in a single call:
                     `experience_key: ["experience-1", "experience-2"]`
                     
+                    **Limit**: A maximum of 25 experience keys can be passed per request. If more than 25 are provided, the API returns the first 25 experiences.
+                    
                     If no experience_key is specified, API will return:
                     * all experiences for the specified customer_id **OR**
                     * all experiences configured for **all users** if customer_id is not part of the request
-                Custom_Attribute:
-                  type: string
-                  description: |
-                    This field is must contain the same value that has been used to identify users using the In-session attribute *Query Parameter*.
-                    
-                    For example, if you want to target users who have opened the app after clicking on a link in an e-mail campaign and you have specified the parameter name as *utm_medium*,
-                    `utm_medium:"email"`
+
+                    **Note**: Keys must be obtained from the [Fetch Experience Metadata](#operation/getMetadata) endpoint. An unrecognized key, or a key that the user does not match, returns a `200` response with an empty `experiences` object — not an error.
                 DAY_OF_THE_WEEK:
                   type: string
                   description: |
-                    This field must contain the day of the week for evaluating IN-session attribute-based experiences. Example:
-                    `DAY_OF_THE_WEEK:"Sunday"`
+                    This field must contain the day of the week for evaluating IN-session attribute-based experiences.
+                    
+                    **Accepted values**: `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`, `Sunday` (case-sensitive).
+                    
+                    Example: `DAY_OF_THE_WEEK: "Sunday"`
+                  enum:
+                    - Monday
+                    - Tuesday
+                    - Wednesday
+                    - Thursday
+                    - Friday
+                    - Saturday
+                    - Sunday
                 TIME_OF_THE_DAY:
                   type: string
                   description: |
-                    This field must contain the time of the day for evaluating IN-session attribute-based experiences.
-                    Example: For a time interval between 7 PM - 8 PM, the input for this field should be
-                    `TIME_OF_THE_DAY: "00"`
+                    This field must contain the current hour in 24-hour format (UTC) for evaluating IN-session attribute-based experiences. Pass as a zero-padded two-digit string (`"00"`–`"23"`).
+                    
+                    **Examples**: midnight = `"00"`, 7 AM = `"07"`, 2 PM = `"14"`, 7 PM = `"19"`, 11 PM = `"23"`.
+                  enum: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"]
                 USER_IP_ADDRESS:
                   type: string
                   description: This field must contain the user’s IP address to fetch experiences for audiences segmented basis  geo-location.
@@ -127,25 +174,39 @@ paths:
                     This field must contain the USER-AGENT HTTP header.
                     This is useful to delivering experiences personalized based on in-session attributes like Device Type.
             examples:
-              Fetch Experience:
-                summary: Fetch Experience
+              Single Experience:
+                summary: Fetch a single experience
                 value:
                   identifiers:
-                    customer_id: "Unique identifier for the user mapped with ID field"
+                    customer_id: "user_8821"
                     user_identifiers:
-                      u_em: "User Email"
-                      u_mb: "Mobile Number"
-                  experience_key: ["<experience-key>"]
-                  Custom_attribute: "Example: utm_medium: email"
-                  DAY_OF_THE_WEEK: "Day of the week as a string in format: Monday, Tuesday etc."
-                  TIME_OF_THE_DAY: "Time of the day as string: 00,01,02,..,23"
-                  USER_IP_ADDRESS: "IP address for location based experiences"
-                  USER_AGENT: "Copy the USER-AGENT http header from the request"
+                      u_em: "jane@example.com"
+                      u_mb: "+919876543210"
+                  experience_key: ["homepage-banner"]
+                  DAY_OF_THE_WEEK: "Monday"
+                  TIME_OF_THE_DAY: "14"
+                  USER_IP_ADDRESS: "203.0.113.42"
+                  USER_AGENT: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36"
+              Multiple Experiences:
+                summary: Fetch multiple experiences in one call
+                value:
+                  identifiers:
+                    customer_id: "user_8821"
+                  experience_key: ["homepage-banner", "promo-strip", "cart-upsell"]
+              Contextual Targeting (UTM):
+                summary: Contextual targeting with UTM medium In-session query parameter
+                value:
+                  identifiers:
+                    customer_id: "user_8821"
+                  experience_key: ["email-landing-banner"]
+                  utm_medium: "email"
       responses:
         '200':
           description: |
             **Success**
             This response is returned when the request is submitted to MoEngage.
+            
+            **Note**: A `200` response with an empty `experiences` object (`{}`) means the identified user did not match any audience for the requested experience(s). This is not an error — render your default or fallback UI in this case.
           content:
             application/json:
               schema:
@@ -153,66 +214,154 @@ paths:
                 properties:
                   experiences:
                     type: object
+                    description: |
+                      Map of `experience_key → experience_object`. Returns an empty object `{}` when no experiences match the user.
                     additionalProperties:
                       type: object
                       properties:
                         payload:
                           type: object
-                          description: This field contains a list of all the key-value pairs defined as part of the experience
+                          description: Contains all key-value pairs defined as part of the experience. Variable names are set by the campaign creator in the MoEngage dashboard.
                           additionalProperties:
                             type: object
                             properties:
                               value:
-                                type: string
-                                description: This field contains the value of the keys defined in the payload
+                                description: The content value for this variable. Type depends on `data_type` — a string for `string`, a nested JSON object for `json`.
+                                oneOf:
+                                  - type: string
+                                  - type: object
                               data_type:
                                 type: string
-                                description: This field specifies the data type of the value of each key
+                                description: Data type of the value.
+                                enum:
+                                  - string
+                                  - number
+                                  - boolean
+                                  - json
+                                  - float
                         experience_context:
                           type: object
-                          description: This field returns a JSON object that is to be used for reporting pageviews/impressions and/or tracking clicks within the personalized experience.
+                          description: |
+                            Campaign metadata for this experience. **Store this entire object** — its fields must be passed as `attributes` in the [Track Experience Events](#operation/reportExperienceEvents) request to record impressions and clicks.
+                          properties:
+                            cid:
+                              type: string
+                              description: Campaign ID. Pass this as `attributes.cid` in Track Experience Events.
+                            experience:
+                              type: string
+                              description: Human-readable experience name from the MoEngage dashboard.
+                            moe_locale_id:
+                              type: string
+                              description: Internal locale identifier. Pass as-is to Track Experience Events.
+                            moe_variation_id:
+                              type: string
+                              description: Variation ID of the A/B variant served to this user. Pass as-is to Track Experience Events.
+                            audience_name:
+                              type: string
+                              description: Name of the audience segment this user matched.
+                            audience_id:
+                              type: string
+                              description: Alphanumeric audience segment ID.
+                            type:
+                              type: string
+                              description: Experience type.
+                              enum:
+                                - Web Personalization
+                            experience_type:
+                              type: string
+                              description: Internal experience type label (for example, `API based Experience`).
               examples:
-                JSON:
+                Matched Experience:
+                  summary: User matched an experience
                   value:
                     experiences:
-                      new-serverside-experience:
+                      homepage-banner:
                         payload:
                           Title:
-                            value: "Presenting MoEngage Server side personalization! "
+                            value: "Free shipping on orders over ₹999"
                             data_type: string
-                          Image:
-                            value: https://cdn.pixabay.com/photo/2021/02/24/20/53/abstract-6047465_960_720.jpg
+                          ImageURL:
+                            value: "https://cdn.example.com/banners/free-shipping.jpg"
+                            data_type: string
+                          CtaLabel:
+                            value: "Shop Now"
                             data_type: string
                         experience_context:
-                          cid: 65eae5738ea5032b0ef60138_F_T_WP_AB_2_P_0_AU_42D
-                          experience: Server Side Experience
-                          moe_locale_id: <id>
-                          moe_variation_id: <id>
-                          audience_name: <audience name>
-                          audience_id: <id>
-                          type: Web Personalization
+                          cid: "65eae5738ea5032b0ef60138_F_T_WP_AB_2_P_0_AU_42D"
+                          experience: "Homepage Banner — Free Shipping"
+                          moe_locale_id: "0"
+                          moe_variation_id: "2"
+                          audience_name: "High Intent Users"
+                          audience_id: "42D"
+                          type: "Web Personalization"
+                          experience_type: "API based Experience"
+                No Match:
+                  summary: User did not match any audience — render fallback UI
+                  value:
+                    experiences: {}
         '400':
           description: |
             **Bad Request**
-            This response is returned in case the payload is empty or invalid.
+            Returned when the payload is empty, malformed JSON, contains an invalid field value (for example, an unsupported `DAY_OF_THE_WEEK`), or the `MOE-APPKEY` header is missing or not recognized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                Invalid Field Value:
+                  summary: A request field has an unsupported value
+                  value:
+                    title: "Invalid Field Value"
+                    description: "DAY_OF_THE_WEEK - Enum doesnt allow value: funday, allowed values: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]"
+                    code: "GvHogFKc"
+                Malformed JSON:
+                  summary: Request body is not valid UTF-8 JSON
+                  value:
+                    title: "Malformed JSON"
+                    description: "Could not decode the request body. The JSON was incorrect or not encoded as UTF-8."
+                Invalid Workspace:
+                  summary: MOE-APPKEY header is missing or unknown
+                  value:
+                    title: "Request Error"
+                    description: "MoEngage Client not found. Please check values for headers - MOE-APPKEY or MOE-DBNAME"
         '401':
           description: |
             **Authorization Failed**
-            This response is returned when the authorization fails due to incorrect values for the APP KEY/ HTTP Auth Header.
+            This response is returned when the authorization fails due to incorrect values for the Workspace ID or Personalize API Key.
+            
+            **Common causes**:
+            - Using the general API Key instead of the Personalize-specific Secret Key found in Settings > API Keys > Personalize.
+            - The Personalize API Key was regenerated — all calls using the old key immediately return `401`.
+            - The `Authorization` header Base64 value was not encoded correctly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                title: "Authentication required"
+                description: "Invalid API_KEY used in Authentication Header"
         '500':
           description: |
-            **Internal Server error**
-            This response is returned when the system runs into an unexpected error.
+            **Internal Server Error**
+            This response is returned when the system runs into an unexpected error. Retry with exponential backoff. If the error persists for more than 5 minutes, contact MoEngage support.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /experiences/metadata:
     get:
       tags:
         - Experiences
       summary: Fetch Experience Metadata
-      description: This API fetches a list of currently Active, Scheduled, and Paused experiences within a workspace.
+      description: |
+        This API fetches a list of currently Active, Scheduled, and Paused experiences within a workspace.
       x-mint:
         content: |
-          
+          <Tip>
+            **Recommended usage**: Call this endpoint once at application startup and cache the result. Experience keys change infrequently — a daily refresh is usually sufficient. In production rendering paths, filter by `?status=Active` so your [Fetch Experience](/api/experiences/fetch-experience) calls only include keys that are currently live.
+          </Tip>
+
       operationId: getMetadata
       parameters:
         - name: MOE-APPKEY
@@ -225,7 +374,16 @@ paths:
         - name: status
           in: query
           required: false
-          description: You can also fetch experiences that are in a specific state (Only Active or only Active and Paused) by using the query parameter **status**.
+          description: |
+            Filter experiences by status. Pass one or more comma-separated values. If omitted, all statuses are returned.
+            
+            **Accepted values**: `Active`, `Paused`, `Scheduled` (case-sensitive). Unknown values (for example, `active` in lowercase) silently return an empty list rather than an error — verify spelling and casing.
+
+            | Status | Description |
+            |---|---|
+            | `Active` | Experience is live and being served to matching users. |
+            | `Paused` | Experience is not being served. Fetching its key via [Fetch Experience](/api/experiences/fetch-experience) returns an empty payload — not an error. |
+            | `Scheduled` | Experience is configured but has not started yet. Fetching its key returns an empty payload. |
           schema:
             type: string
             example: "Active,Paused"
@@ -236,7 +394,7 @@ paths:
             curl --location 'https://sdk-01.moengage.com/v1/experiences/metadata' \
             --header 'Accept: */*' \
             --header 'Content-Type: application/json' \
-            --header 'Authorization: Basic TkFTNUlQWVdaM0tWTEcyQ05FTVJQVkRROklpSUZzU21zOHVGendEa0ZNX3FqaVVlYw==' \
+            --header 'Authorization: Basic <base64(workspaceId:personalizeApiKey)>' \
             --header 'MOE-APPKEY: <Your Workspace ID>'
         - lang: cURL
           label: Fetch by Status (Active)
@@ -244,7 +402,7 @@ paths:
             curl --location 'https://sdk-01.moengage.com/v1/experiences/metadata?status=Active' \
             --header 'Accept: */*' \
             --header 'Content-Type: application/json' \
-            --header 'Authorization: Basic TkFTNUlQWVdaM0tWTEcyQ05FTVJQVkRROklpSUZzU21zOHVGendEa0ZNX3FqaVVlYw==' \
+            --header 'Authorization: Basic <base64(workspaceId:personalizeApiKey)>' \
             --header 'MOE-APPKEY: <Your Workspace ID>'
         - lang: cURL
           label: Fetch by Status (Active,Paused)
@@ -252,7 +410,7 @@ paths:
             curl --location 'https://sdk-01.moengage.com/v1/experiences/metadata?status=Active,Paused' \
             --header 'Accept: */*' \
             --header 'Content-Type: application/json' \
-            --header 'Authorization: Basic TkFTNUlQWVdaM0tWTEcyQ05FTVJQVkRROklpSUZzU21zOHVGendEa0ZNX3FqaVVlYw==' \
+            --header 'Authorization: Basic <base64(workspaceId:personalizeApiKey)>' \
             --header 'MOE-APPKEY: <Your Workspace ID>'
       responses:
         '200':
@@ -267,6 +425,7 @@ paths:
                     properties:
                       count:
                         type: integer
+                        description: Total number of experiences returned after the status filter is applied.
                       experiences:
                         type: array
                         items:
@@ -274,23 +433,78 @@ paths:
                           properties:
                             experience_name:
                               type: string
+                              description: Human-readable name set in the MoEngage dashboard.
                             experience_key:
                               type: string
+                              description: Unique key for this experience. Pass this value in the `experience_key` array of the [Fetch Experience](/api/experiences/fetch-experience) request.
                             status:
                               type: string
+                              description: Current status of the experience.
+                              enum:
+                                - Active
+                                - Paused
+                                - Scheduled
+              examples:
+                All statuses:
+                  summary: Multiple experiences, mixed statuses
+                  value:
+                    metadata:
+                      count: 3
+                      experiences:
+                        - experience_name: "Homepage Banner — Free Shipping"
+                          experience_key: "homepage-banner"
+                          status: Active
+                        - experience_name: "Cart Upsell Widget"
+                          experience_key: "cart-upsell"
+                          status: Paused
+                        - experience_name: "Christmas Sale Strip"
+                          experience_key: "christmas-sale-strip"
+                          status: Scheduled
+                Active only:
+                  summary: Active filter applied
+                  value:
+                    metadata:
+                      count: 1
+                      experiences:
+                        - experience_name: "Homepage Banner — Free Shipping"
+                          experience_key: "homepage-banner"
+                          status: Active
+                No experiences:
+                  summary: No experiences match the filter
+                  value:
+                    metadata:
+                      count: 0
+                      experiences: []
+        '400':
+          description: |
+            **Bad Request**
+            This response is returned when the `MOE-APPKEY` header is missing or not recognized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
               example:
-                metadata:
-                  count: 3
-                  experiences:
-                    - experience_name: Experience 1
-                      experience_key: experience-1
-                      status: Active
-                    - experience_name: Experience 2
-                      experience_key: experience-2
-                      status: Paused
-                    - experience_name: Experience-3
-                      experience_key: experience-3
-                      status: Scheduled
+                title: "Request Error"
+                description: "MoEngage Client not found. Please check values for headers - MOE-APPKEY or MOE-DBNAME"
+        '401':
+          description: |
+            **Authorization Failed**
+            This response is returned when the authorization fails due to incorrect values for the Workspace ID or Personalize API Key. Refer to the authentication guidance in the `basicAuth` security scheme above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                title: "Authentication required"
+                description: "Invalid API_KEY used in Authentication Header"
+        '500':
+          description: |
+            **Internal Server Error**
+            This response is returned when the system runs into an unexpected error. Retry after a short delay. If the error persists, contact MoEngage support.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /experiences/events:
     post:
@@ -299,7 +513,11 @@ paths:
       summary: Track Experience Events
       description: |
         This API tracks impressions (shown) and user interactions (clicked) for accurate experience reporting. To report an impression or click for your experience via API, use the following endpoint.
-          
+      x-mint:
+        content: |
+          <Warning>
+            If you do not call this endpoint, your MoEngage analytics dashboard will show zero impressions and zero clicks, and campaign reporting will be empty.
+          </Warning>
       operationId: reportExperienceEvents
       parameters:
         - name: MOE-APPKEY
@@ -318,6 +536,8 @@ paths:
               properties:
                 elements:
                   type: array
+                  maxItems: 100
+                  description: Array of user-event objects. Each element represents one user. You can batch up to 100 users per request.
                   items:
                     type: object
                     properties:
@@ -334,39 +554,93 @@ paths:
                       user_timezone_offset:
                         type: integer
                         description: |
-                          The difference in time between UTC and the local system time in a particular time zone. All time zones are defined by their offset from UTC. The offset is expressed as either UTC- or UTC+.
-                          **user_timezone_offset** should have a value in seconds, which can be between -54000 to 54000. For example, for IST (UTC+0530), "user_timezone_offset" will be 19800.
+                          The user's UTC offset **in seconds** (not minutes, not hours). Used for time-based analytics segmentation. Valid range: `-54000` to `54000`.
+                          
+                          **Common values**:
+                          - UTC: `0`
+                          - IST (UTC+5:30): `19800`
+                          - US Eastern (UTC−5): `-18000`
+                          - US Pacific (UTC−8): `-28800`
+                        minimum: -54000
+                        maximum: 54000
                       actions:
                         type: array
-                        description: Multiple actions or events performed by a user can be grouped together in a single API call
+                        description: Multiple actions or events performed by a user can be grouped together in a single API call.
                         items:
                           type: object
                           properties:
                             action:
                               type: string
                               description: |
-                                This field identifies the action or the event performed by the user.
-                                **Accepted values**
-                                *MOE_PERSONALIZATION_MESSAGE_SHOWN*
-                                *MOE_PERSONALIZATION_MESSAGE_CLICKED*
+                                This field identifies the action or the event performed by the user. The value is case-sensitive — any other string returns a `400` error.
+                                
+                                **Accepted values**:
+                                - `MOE_PERSONALIZATION_MESSAGE_SHOWN` — send immediately after the personalized component becomes visible to the user.
+                                - `MOE_PERSONALIZATION_MESSAGE_CLICKED` — send when the user clicks or taps the personalized component.
+                              enum:
+                                - MOE_PERSONALIZATION_MESSAGE_SHOWN
+                                - MOE_PERSONALIZATION_MESSAGE_CLICKED
                             moe_event_uuid:
                               type: string
-                              description: Unique identifier to be sent for each event to prevent duplication.
+                              format: uuid
+                              description: |
+                                Unique UUID v4 identifier for each event occurrence. Used by MoEngage for server-side deduplication.
+                                
+                                - **On first attempt**: generate a fresh UUID.
+                                - **On retry**: reuse the same UUID from the original attempt — MoEngage will deduplicate it and not double-count the event.
+                                - **Never reuse** a UUID across different events.
+                                
+                                Generate with: `uuid.uuid4()` (Python), `uuidv4()` (Node.js), `UUID.randomUUID()` (Java).
                             event_time:
-                              type: string
-                              description: This field represents UTC time at which the event happened. (Numeric Epoch time in seconds OR String ISO 8601)
+                              type: integer
+                              description: |
+                                Unix timestamp of the event **in seconds** (not milliseconds).
+                                
+                                Generate with:
+                                - JavaScript: `Math.floor(Date.now() / 1000)`
+                                - Python: `int(time.time())`
+                                - Java: `Instant.now().getEpochSecond()`
                             platform:
                               type: string
                               description: |
-                                This field represents the platform on which the user is shown the personalization event. If the values are missing, **Unknown** will be used.
-                                **Accepted values**
-                                *Android*
-                                *IOS*
-                                *Web*
-                                *TV*
+                                The platform on which the user is shown the personalization event. If the value is missing or unrecognized, **Unknown** is used.
+
+                                **Accepted values**: `web`, `android`, `ios`, `tv`. Matching is case-insensitive (`Android`, `iOS`, and `Web` all work). Use lowercase for consistency with existing examples.
                             attributes:
                               type: object
-                              description: This field is the experience context sent as part of the response to the Experience Fetch API request call.
+                              description: |
+                                Pass-through of the `experience_context` object returned by the [Fetch Experience](/api/experiences/fetch-experience) API. Store `experience_context` from the fetch response and copy each field into `attributes` here when the user sees or clicks the experience — for example, `experience_context.cid` becomes `attributes.cid`.
+                              required:
+                                - cid
+                                - experience
+                                - moe_locale_id
+                                - moe_variation_id
+                                - audience_name
+                                - audience_id
+                              properties:
+                                cid:
+                                  type: string
+                                  description: Campaign ID. From `experience_context.cid`.
+                                experience:
+                                  type: string
+                                  description: Experience name. From `experience_context.experience`.
+                                moe_locale_id:
+                                  type: string
+                                  description: Locale ID. From `experience_context.moe_locale_id`.
+                                moe_variation_id:
+                                  type: string
+                                  description: Variation ID. From `experience_context.moe_variation_id`.
+                                audience_name:
+                                  type: string
+                                  description: Audience name. From `experience_context.audience_name`.
+                                audience_id:
+                                  type: string
+                                  description: Audience ID. From `experience_context.audience_id`.
+                                type:
+                                  type: string
+                                  description: Experience type. From `experience_context.type`.
+                                  enum:
+                                    - Web Personalization
                             b_id:
                               type: string
                               description: |
@@ -501,5 +775,57 @@ paths:
 
       responses:
         '200':
-          description: Success. The event was successfully submitted.
-          
+          description: |
+            **Success**
+            The event was accepted by the MoEngage ingestion pipeline.
+
+            **Note on idempotency**: Events are deduplicated using `moe_event_uuid`. On retry, reuse the same UUID from the original attempt — MoEngage will not double-count it. For a new event, always generate a fresh UUID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Acknowledgement status, for example `success`.
+                  message:
+                    type: string
+                    description: Human-readable acknowledgement message.
+                  req_id:
+                    type: string
+                    description: Server-assigned request identifier. Include this when contacting support about a specific call.
+              example:
+                status: "success"
+                message: "Your request has been accepted and will be processed soon."
+                req_id: "SKuSLFnX"
+        '400':
+          description: |
+            **Bad Request**
+            Returned when the payload is malformed JSON, fails validation (for example, an unsupported `action` or `platform`, a missing required `attributes` field, or `user_timezone_offset` outside `-54000`–`54000`), or the `MOE-APPKEY` header is missing or not recognized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                title: "Invalid Field Value"
+                description: "elements - Validators Failed : Validator: Element, Errored Field: actions"
+                code: "NwRqMltB"
+        '401':
+          description: |
+            **Authorization Failed**
+            This response is returned when the authorization fails due to incorrect values for the Workspace ID or Personalize API Key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                title: "Authentication required"
+                description: "Invalid API_KEY used in Authentication Header"
+        '500':
+          description: |
+            **Internal Server Error**
+            This response is returned when the system runs into an unexpected error. Retry using the same `moe_event_uuid` from the original attempt — the event will be safely deduplicated. If the error persists for more than 5 minutes, contact MoEngage support.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

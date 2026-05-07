@@ -73,6 +73,10 @@ paths:
                       type: "double"
                     - name: "in_stock"
                       type: "bool"
+                    - name: "sale_start_date"
+                      type: "datetime"
+                    - name: "store_location"
+                      type: "geopoint"
       responses:
         '201':
           description: Catalog created successfully.
@@ -84,12 +88,13 @@ paths:
                   catalog_id:
                     type: string
                     description: |
-                      The unique ID corresponding to a successful catalog creation.
-                      This ID must be stored by you and used as a path parameter
-                      for all subsequent item ingestion and modification requests.
-                    example: "6a4d7b0f-9e3c-4b1a-8f6e-2d9c0b1a3e5d"
+                      The unique ID corresponding to a successful catalog creation,
+                      returned as a 24-character hex string.
+                      Store this ID and use it as a path parameter for all
+                      subsequent item ingestion and modification requests.
+                    example: "507f1f77bcf86cd799439011"
               example:
-                catalog_id: "{{Catalog_id}}"
+                catalog_id: "507f1f77bcf86cd799439011"
         '400':
           description: Bad Request - Validation or logic error.
           content:
@@ -197,6 +202,10 @@ paths:
                       type: "string"
                     - name: "weight_kg"
                       type: "double"
+                    - name: "sale_start_date"
+                      type: "datetime"
+                    - name: "store_location"
+                      type: "geopoint"
       responses:
         '202':
           description: Accepted. The request was processed. The response contains a list of attributes that were already present and ignored.
@@ -213,12 +222,21 @@ paths:
                     description: A list of attributes that already existed in the catalog and were ignored.
                     items:
                       type: string
-                    example: ["colour", "weight"]
-              example:
-                success: true
-                duplicate-item-attributes:
-                  - colour
-                  - weight
+                    example: ["pricing"]
+              examples:
+                new-attribute-added:
+                  summary: New attribute added successfully
+                  description: All requested attributes were new and added to the catalog. The `duplicate-item-attributes` array is empty.
+                  value:
+                    success: true
+                    duplicate-item-attributes: []
+                duplicate-attribute:
+                  summary: Duplicate attribute ignored
+                  description: One or more requested attributes already existed on the catalog and were ignored. The duplicates are listed in `duplicate-item-attributes`.
+                  value:
+                    success: true
+                    duplicate-item-attributes:
+                      - pricing
         '400':
           description: Bad Request - Attribute already exists.
           content:
@@ -280,7 +298,7 @@ paths:
                 items:
                   type: array
                   maxItems: 50
-                  description: An array of item objects to add to the catalog. Each item must contain the mandatory attributes (`id`, `title`, `link`, `image_link`).
+                  description: An array of item objects to add to the catalog. Each item must contain the mandatory attributes (`id`, `title`, `link`, `image_link`), and may include any custom attributes you have defined on the catalog. Custom attributes must already exist on the catalog (added at creation or via Add Catalog Attributes).
                   items:
                     $ref: '#/components/schemas/CatalogItem'
       responses:
@@ -375,6 +393,8 @@ paths:
                 - id: test2
                   attributes:
                     price: 98
+                    sale_start_date: "2025-08-27T19:26:38.00Z"
+                    store_location: "12.9716,77.5946"
       responses:
         '200':
           description: OK. The update request was processed. The response body contains details on valid and invalid item counts.
@@ -568,11 +588,13 @@ paths:
                     link: "https://link.in/"
                     image_link: "https://link.in/"
                     price_currency: "USD"
-                    creation_date: "2024-05-10T07:03:00.180000"
-                    last_updated: "2024-05-10T07:03:00.180000"
+                    creation_date: "2024-05-10T07:03:00.18Z"
+                    last_updated: "2024-05-10T07:03:00.18Z"
                     product_id: "string"
                     price: 29.99
-                    date: "2022-04-05T00:00:00"
+                    date: "2022-04-05T00:00:00.00Z"
+                    sale_start_date: "2025-08-27T19:26:38.00Z"
+                    store_location: "12.9716,77.5946"
         '400':
           description: Bad Request - Invalid request format or item count validation failed.
           content:
@@ -631,7 +653,13 @@ components:
           description: The name of the attribute (e.g., 'color', 'price').
         type:
           type: string
-          description: The data type of the attribute.
+          description: |
+            The data type of the attribute. Supported values:
+            - `string` — text values.
+            - `bool` — boolean values (`true` or `false`).
+            - `double` — numeric values, including decimals.
+            - `datetime` — ISO 8601 timestamp with milliseconds and a UTC offset (`Z` or `±HH:mm`). Example: `2025-08-27T19:26:38.00Z`.
+            - `geopoint` — a geographic coordinate as `"latitude,longitude"`. Example: `"12.9716,77.5946"`.
           enum: [string, bool, double, datetime, geopoint]
     CreateCatalogRequest:
       type: object
@@ -692,6 +720,8 @@ components:
         brand_attribute: "Super Tech"
         in_stock: true
         price: 19.99
+        sale_start_date: "2025-08-27T19:26:38.00Z"
+        store_location: "12.9716,77.5946"
     ItemUpdate:
       type: object
       required:

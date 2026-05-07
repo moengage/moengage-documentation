@@ -18,11 +18,18 @@ info:
     - LOCATION_TRIGGERED (Push only)
     - BROADCAST_LIVE_ACTIVITY (Push iOS only)
     
-    **Rate Limits:** 5 campaigns per minute, 25 campaigns per hour, 100 campaigns per day.
-    
-    <Info>
-    If this API is not enabled for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team to request enablement.
-    </Info>
+     | Rate Limit Name | Rate Limit |
+     | :--- | :--- |
+     | Create campaign per second | The total number of create campaign operations per second per client allowed is 5. |
+     | Create campaign per minute | The total number of create campaign operations per minute per client allowed is 25. |
+     | Create campaign per hour | The total number of create campaign operations per hour per client allowed is 100. |
+
+     You can create 5 campaigns per minute, 25 campaigns per hour, and 100 campaigns per day.
+
+     <Note>
+       * Breaching the limits will reject the request.
+        * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+     </Note>
     
     For more details, visit [MoEngage Developer Documentation](https://developers.moengage.com).
   contact:
@@ -90,6 +97,8 @@ components:
         - campaign_content
         - segmentation_details
         - scheduling_details
+        - delivery_controls
+        - advanced
       properties:
         request_id:
           type: string
@@ -921,6 +930,40 @@ components:
           minItems: 1
           maxItems: 10
           example: ["camp_abc123", "camp_def456"]
+
+    # ==================== Global Control Group Request ====================
+    GlobalControlGroupRequest:
+      type: object
+      description: Request to add or remove users from the Global Control Group (GCG).
+      required:
+        - request_id
+        - file_url
+        - action_type
+        - updated_by
+      properties:
+        request_id:
+          type: string
+          description: Unique identifier of the request to update the Global Control Group.
+          example: "{{request_id}}"
+        file_url:
+          type: string
+          format: uri
+          description: |
+            Publicly accessible URL of the CSV file for processing. The file must contain a single column named `uid` followed by the respective user IDs in new rows. The file must be under 300 MB and downloadable without authentication.
+
+            **Note:** Currently, only publicly accessible Amazon S3 URLs are supported.
+          example: "https://example.csv"
+        action_type:
+          type: string
+          enum:
+            - add
+            - remove
+          description: The operation to perform on users in the Global Control Group.
+        updated_by:
+          type: string
+          format: email
+          description: The email ID of the user initiating the update.
+          example: "john.doe@xyz.com"
 
     # ==================== Get Child Campaigns Request ====================
     GetChildCampaignsRequest:
@@ -2514,6 +2557,17 @@ components:
             
             **Optional** if custom_template_id is provided.
           example: "<!DOCTYPE html><html><head></head><body><p>Hello {{UserAttribute['First Name']}}</p></body></html>"
+        email_editor:
+          type: string
+          enum:
+            - Froala Editor
+            - Ace Editor
+          description: |
+            The HTML editor used for the email campaign.
+            
+            - **Required** if you want to create the campaign using the `Ace Editor`.
+            - **Optional** if you want to use the default `Froala Editor`.
+          example: "Ace Editor"
         custom_template_id:
           type: string
           description: |
@@ -3264,14 +3318,29 @@ paths:
       description: |
         This API creates a new Push or Email campaign in MoEngage with specified content, audience, and delivery settings.   
       x-mint:
-        content: |
-          <Info>
-            **API Enablement**
-            
-            If this API is not enabled for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team to request enablement.
-          </Info>        
+        content: |       
+          
           #### Rate Limits
-          You can create 5 campaigns per minute, 25 campaigns per hour, and 100 campaigns per day.        
+
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | Create campaign per second | The total number of create campaign requests per second per client allowed is 5. |
+          | Create campaign per minute | The total number of create campaign requests per minute per client allowed is 25. |
+          | Create campaign per hour | The total number of create campaign requests per hour per client allowed is 100. |  
+
+          ### Campaign Creation Limits
+
+          You can create 5 campaigns per minute, 25 campaigns per hour, and 100 campaigns per day.
+
+          <Note>
+           **Notes**
+           * Higher limit (Total Calls): The system permits a higher volume of total API calls (for example, 120 calls) to accommodate potential failures or retries.
+           * Minimum limit (Campaign Creation Limits): The system maintains a stricter quota for actual successful creations (100 campaigns per day).
+              
+              Example: If a client submits 120 requests and 20 fail, they successfully generate exactly 100 campaigns. Because the system applies the most restrictive threshold, the 100 successful operations trigger the quota limit, and the system issues a rate limit breach warning regardless of the total API calls made.
+           * Breaching the limits will reject the request.
+           * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+          </Note>           
           
       tags:
         - Create Campaigns
@@ -3482,6 +3551,20 @@ paths:
 
           For **Event-Triggered campaigns**, updated content is cached and takes up to 30 minutes to take effect.
           </Warning>
+
+          #### Rate Limits
+
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | Update campaign per second | The total number of update campaign requests per second per client allowed is 10. |
+          | Update campaign per minute | The total number of update campaign requests per minute per client allowed is 100. |
+          | Update campaign per hour | The total number of update campaign requests per hour per client allowed is 6000. | 
+
+          <Note>
+           **Notes**
+           * Breaching the limits will reject the request.
+           * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+          </Note>
         
       tags:
         - Update Campaigns
@@ -3492,7 +3575,7 @@ paths:
           description: |
             The unique ID of the campaign to update.
             
-            You can fetch the campaign ID using the [Get Campaign Details API](https://developers.moengage.com/hc/en-us/articles/27896777540756) by filtering with campaign name, channel, or other criteria.
+            You can fetch the campaign ID using the [Get Campaign Details API](/api/get-campaign-details/search-campaigns) by filtering with campaign name, channel, or other criteria.
           schema:
             type: string
           example: "camp_abc123xyz"
@@ -3581,11 +3664,20 @@ paths:
           - Include archived campaigns
           - Paginated results (max 15 per page)
         
-          <Info>
-          **API Enablement:**
-          
-          If this API is not enabled for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team to request enablement.
-          </Info>
+
+           #### Rate Limits
+
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | Search campaign per second | The total number of search campaign requests per second per client allowed is 10. |
+          | Search campaign per minute | The total number of search campaign requests per minute per client allowed is 100. |
+          | Search campaign per hour | The total number of search campaign requests per hour per client allowed is 6000. | 
+
+          <Note>
+            **Notes**
+            * Breaching the limits will reject the request.
+            * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+          </Note>
 
       tags:
         - Get Campaign Details
@@ -3744,6 +3836,22 @@ paths:
       summary: Test Campaign
       description: |
         This API sends a test Push or Email campaign to specific users or identifiers before launching it to your entire audience. You can only test campaigns created via the API, not campaigns created through the MoEngage dashboard.
+      x-mint:
+        content: |
+          #### Rate Limits
+
+          | Rate  Limit Name | Rate Limit |
+          | :--- | :--- |
+          | Test campaign per second | The total number of test campaign requests per second per client allowed is 10. |
+          | Test campaign per minute | The total number of test campaign requests per minute per client allowed is 100. |
+          | Test campaign per hour | The total number of test campaign requests per hour per client allowed is 6000. | 
+
+          <Note>
+            **Notes**
+            * Breaching the limits will reject the request.
+            * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+          </Note>
+
       tags:
         - Test Campaigns
       parameters:
@@ -4073,7 +4181,20 @@ paths:
           - Calculated once daily and cached for 24 hours.
           - May vary due to app installations/uninstalls or subscription changes.
           - Reachability is an estimated value and may vary over time. It is calculated once per day and cached for 24 hours. Multiple API calls within the same day will return the cached value.
+          
+          #### Rate Limits
 
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | get campaign meta per second | The total number of get campaign meta requests per Second per client allowed is 10. |
+          | get campaign meta per minute | The total number of get campaign meta requests per minute per client allowed is 100. |
+          | get campaign meta per hour | The total number of get campaign meta requests per hour per client allowed is 6000. | 
+
+            <Note>
+              **Notes**
+              * Breaching the limits will reject the request.
+              * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+              </Note>
       tags:
         - Get Campaign Details
       parameters:
@@ -4214,8 +4335,19 @@ paths:
                 - Location-triggered
           </Note>
 
-          #### Rate Limit
-          Maximum 10 campaign IDs can be processed per request.
+          #### Rate Limits
+
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | change campaign status per second | The total number of change campaign status requests per second per client is 10. |
+          | change campaign status per minute | The total number of change campaign status requests per minute per client allowed is 100. |
+          | change campaign statusper hour | The total number of change campaign status requests per hour per client allowed is 6000. | 
+
+            <Note>
+              **Notes**
+              * Breaching the limits will reject the request.
+              * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+            </Note>
         
       tags:
         - Update Campaigns
@@ -4289,6 +4421,22 @@ paths:
           - You can only retrieve child campaigns for campaigns created via the [Create Campaign API](https://www.moengage.com/docs/api/create-campaigns/create-campaign).
           - Results are paginated with a maximum of 15 children per page.
           </Note>
+
+          #### Rate Limits
+
+          | Rate Limit Name | Rate Limit |
+          | :--- | :--- |
+          | get child campaign per second | The total number of get child campaigns requests per second per client allowed is 10. |
+          | get child campaign per minute | The total number of get child campaigns requests per minute per client allowed is 100. |
+          | get child campaign per hour | The total number of get child campaigns requests per hour per client allowed is 6000. | 
+
+          <Note>
+           **Notes**
+           * Breaching the limits will reject the request.
+           * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
+          </Note>
+
+         
       tags:
         - Get Campaign Details
       parameters:
@@ -4363,3 +4511,80 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  /global-control-group/users:
+    put:
+      operationId: update_global_control_group
+      summary: Update Global Control Group
+      description: |
+        This API adds or removes users from the Global Control Group (GCG) in MoEngage. Provide a publicly accessible CSV of user IDs and specify whether to add or remove those users.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 10 RPM.
+
+          <Note>
+            - One file-processing request must complete before the next API call is accepted.
+            - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
+            - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
+            - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
+            - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
+          </Note>
+      tags:
+        - Update Campaigns
+      parameters:
+        - $ref: '#/components/parameters/MOE-APPKEY'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalControlGroupRequest'
+            examples:
+              add_users:
+                summary: Add Users
+                value:
+                  request_id: "{{request_id}}"
+                  file_url: "https://example.csv"
+                  action_type: "add"
+                  updated_by: "john.doe@xyz.com"
+              remove_users:
+                summary: Remove Users
+                value:
+                  request_id: "{{request_id}}"
+                  file_url: "https://example.csv"
+                  action_type: "remove"
+                  updated_by: "john.doe@xyz.com"
+      responses:
+        '204':
+          description: No Content - The request was processed successfully. There is no response body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          description: Internal Server Error - An unexpected error occurred while processing this request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                        description: A short title for the error.
+                      description:
+                        type: string
+                        description: A detailed, human-readable explanation of the error.
+                      code:
+                        type: string
+                        description: Internal error code, if provided.
+              example:
+                error:
+                  title: "Server Error"
+                  description: "An unexpected error was encountered while processing this request. Please contact Moengage team"
+                  code: "<code>"

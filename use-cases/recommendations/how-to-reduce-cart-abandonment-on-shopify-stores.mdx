@@ -1,0 +1,153 @@
+---
+title: "How to Reduce Cart Abandonment on Shopify Stores"
+---
+
+# Introduction
+
+Sending cart abandonment campaigns is a highly effective strategy for e-commerce marketers, primarily because these campaigns directly address potential sales that did not initially convert. Benefits of such campaigns include recovering lost sales, increasing conversion rates, gaining insights into customer behaviour, personalizing customer interactions, and enhancing customer loyalty. These strategies not only help optimize the checkout process but also play a significant role in boosting overall customer engagement and retention.
+
+With the swift and seamless Shopify integration, you can effortlessly import catalog and user interaction data in just a few minutes. This enables you to initiate effective cart recovery campaigns right from the outset.
+
+In this article, we will create a Push campaign to target users who have abandoned a product or multiple products in their cart. We will use MoEngage Recommendations to send a personalized message to these users and recommended a similar list of products to them.
+
+# Expected Result
+
+Users receive a Push Notification on their phones 30 minutes after the cart abandonment, having content personalized with the item they added to the cart but did not purchase.
+
+![](/images/moengage_2d6827.png)
+
+<Tip>
+  - Events to track the action of a user searching for products, adding a product to the cart or adding a product to wishlist, completing the purchase and each action’s related information such as the platform, product name, category, brand, price. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction). Note that the steps might differ based on the SDK being used.
+  - Mapping of the above tracked events to the concerned MoEngage events. This mapping helps us in understanding the action and thus run our recommendation models and in querying models to create an expected output. For more information, refer to [Map User Actions Settings](/user-guide/content/recommendations/prerequisites/map-user-actions-settings).
+  - A catalog and a respective feed that have a list of available products and all related information about the same such as the title, category, brand, and price. Set the feed to refresh at a suitable interval so that the latest information can be maintained. For more information, refer to [Catalogs](/user-guide/content/recommendations/prerequisites/catalogs).
+  - Settings for one or more than one channels such as Push, Email, SMS, or WhatsApp.
+</Tip>
+
+# Shopify Integration
+
+The Shopify and MoEngage integration allows you to seamlessly integrate MoEngage Web SDK to your brand's Shopify store to track user events and data. With this integration, you can enable real-time data sync, provide personalized recommendations, and increase conversions using cross-channel engagement.
+
+To learn how to integrate MoEngage Web SDK with a Shopify store, refer [here](/developer-guide/ecommerce-platforms/shopify/shopify-20).
+
+# Create a Recommendation
+
+In this section, let us create a cart abandonment recommendation.
+
+## Map User Action Events
+
+To map user events to MoEngage standard events, perform the following steps:
+
+1. Go to **Content** \> **Recommendations** from the left navigation. The Recommendations page is displayed. Click **Map user actions** to navigate to the standard event mapping page.
+2. Click **\+ Add event** under **Actions** for the "Added to Cart" user action bucket. The Add Event pop-up window is displayed.
+3. From the **Event name** drop-down list, select the event "Shopify - Add To Cart".
+4. From the **Event Attribute** drop-down list, select event attribute "Variation ID" as the unique item ID attribute.
+5. Click **Add event**. MoEngage Recommendations start listening to this user event-attribute pair for all such events performed after mapping time. You can check the event mapping time by expanding a bucket.
+
+![Mapping Users.gif](/images/moengage_a83ad7.png)
+
+## Create a Recommendation Set
+
+In this section, let us create a recommendation based on the users' actions:
+
+1. Navigate to the MoEngage Dashboard and select **Content** \> **Recommendations** from the left navigation. The Recommendations page is displayed.
+2. At the top right corner, click **\+ Create recommendation**. It takes you to the first step "Select recommendation model".
+   ![2.png](/images/moengage_d4cb14.png)
+3. In the **Filter by user action and item attributes** section, select the **User Actions** model.
+4. Click **Next**. It takes you to the second step "**Create recommendation**". Enter the following details:
+   - **Recommendation name**: Enter a name for the recommendation. For example, "AbandonedCart". This will be the designated placeholder name for recommendations, which you can use while personalizing campaigns.
+   - **Recommendation Description**: Enter a description for the recommendation.
+   - **Catalog**: Select the catalog that has the list of products provided in your platform with all their related information.
+5. In the **Filter recommendations by user actions** section, filter the products that the user has added to their cart but not purchased.
+   - From the **Item where user performed** drop-down list, select “Added to Cart”.
+   - Select the **Exclude** checkbox.
+   - From the **Item where user performed** drop-down list under **Exclude**, select “Product Purchased”.
+     - Click **\+** **Filter** to add a filter for the users who have removed a product from their cart.
+       ![](/images/moengage_ff1f24.png)
+       This query provides the list of products that users have added to their carts and excludes the products that have been purchased or removed from the users's carts.
+6. Click **Create** to save the changes and create the recommendation. The status of the same will be "Active" on the Recommendations page.
+
+Now that the recommendation is created, you can use this recommendation in your campaigns.
+
+# Create a Push Campaign
+
+In this section, let us create a Push campaign with recommendations of product that user has added to cart but did not purchase. We will be sending this campaign after 30 minutes of cart addition.
+
+1. Navigate to the sidebar on the left and click **Engage** \> **Campaigns** and click **\+ Create campaign** or click **\+ Create new** \> **Campaign**.
+2. Under **Outbound**, select **Push** \> **Event Triggered**.
+   ![UC-61 Event triggered.png](/images/moengage_c5c8de.png)
+   You are taken to the first step "Target users" of defining your campaign.
+
+## Step 1: Target Users
+
+1. Enter the following details:
+   - **Team**: Select a team if your organization has teams enabled for your account. For more information, refer to [Teams in MoEngage](/user-guide/settings/account/team-management/teams-in-moengage). For example, "Demo team".
+   - **Campaign name**: Enter a name for the campaign. For example, "Cart Reminder Campaign".
+   - **Campaign tags**: Select the required campaign tags.
+     <img
+       src="/images/moengage_43698a.png"
+       style={{ width:"50%" }}
+     />
+2. Under **Trigger Criteria**, define the criteria. We must trigger the communication only if the user has not bought the same product that they added to the cart as the initial check. This means that we must define a dynamic check using Linked Conditions while defining the trigger condition. To learn more about Linked Conditions, click [here](/user-guide/flows-cross-channel-messaging/create/create-flows/linked-conditions).
+3. To define the dynamic check mentioned above:
+   1. In the **IF user** section, select **`<Shopify - Add To Cart>`** from the drop-down.
+   2. Under **THEN trigger the message**, select **With Delay** and define the delay based on the requirement, say 30 minutes. This will be the maximum time the user will be evaluated to fulfill the conditions from the time the first condition was fulfilled.\
+      The **Select Condition** section will look like below:
+      ![](/images/moengage_c67b7b.png)
+4. In the **Target Audience** section, select **All users**.
+   ![](/images/moengage_843920.png)
+5. In the **Target Platforms** section, select platform as per the use case. You should select all those platforms that you would like to target the users in.
+6. Click **Next** to move to the second step "Content" where you can define the content that will go into your Push campaign.
+
+## Step 2: Content
+
+1. Select the template that you like to go with. For our example, select **Basic notification**. <img alt="image-20231129-213115 (1).png" src="/images/moengage_dd5828.png" />
+2. Enter the required content for the campaign that will be defined alongside the personalized product name value. For example:
+   - Message title
+   - Message
+   - Message summary
+3. To define the personalization placeholder, select the product set that is generated through the recommendation [that you defined](/user-guide/use-cases/recommendations/how-to-use-recommendations-to-announce-price-drop). Enter “@” and search for “AbandonedCart”, the name of the recommendation that you built, in the Push Personalization pop-up. <img src="/images/moengage_dba897.png" />
+4. Click **Done**. Replace the product personalization placeholder with the following JINJA code in the **Message** field:
+   JINJA
+   ```ruby
+   {% if ProductSet.AbandonedCart%}
+   {% for product in ProductSet.AbandonedCart[0:1]%}
+   {{product.title}}
+   {% endfor %}
+   {% else %}
+   MOE_NOT_SEND
+   {% endif %}
+   ```
+5. The `{{product.title}}` in Line 3 points to the title of the cart product in the product set generated from our recommendation. For more information, refer to [MoEngage Templating Language (JINJA)](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language).
+6. Enter the following code to get the image of the selected product above:
+   JINJA
+   ```ruby
+   {% if ProductSet.AbandonedCart%}
+   {% for product in ProductSet.AbandonedCart[0:1]%}
+   {{product.image_link}}
+   {% endfor %}
+   {% else %}
+   MOE_NOT_SEND
+   {% endif %}
+   ```
+   The Content setup will be similar to as following:
+   ![](/images/moengage_a357d7.png)
+7. Personalize the content further by entering information such the URL, adding buttons in the **Buttons** section, and/or adding coupons in the **Advanced** section.
+   <Info>
+     The campaigns might show “Personalization Errors” for the users who have viewed/added the product to the cart but also purchased the same item. This campaign will be targeted only when user has added to cart but did not purchase that item within 30 minutes of cart addition.
+   </Info>
+8. Click **Next** to move to the third step "Schedule and goals" where you can define the schedule and goal of your campaign.
+
+## Step 3: Schedule and Goals
+
+1. In the **Send campaign** section, define when you want to start and end your campaign.
+   ![3.png](/images/moengage_03a1d0.png)
+2. In the **Conversion goals** section, add conversion goals that you like to track.
+3. Define **Delivery controls** and **Advanced** settings based on your requirements. For more information, refer to [Create Push Campaigns](/user-guide/campaigns-and-channels/mobile-push/create/create-push-campaigns).
+   ![4.png](/images/moengage_dd4e0a.png)
+4. Click **Publish**.
+
+# Conclusion
+
+In this use case, we created a Push campaign to target users who have abandoned a product or multiple products in their cart. Afterwards, we used MoEngage Recommendations to send a personalized message to these users and recommended a similar list of products to them.
+
+With these recommendations, your abandoned cart recovery rate will surely improve and engage your users. For more information on Recommendations, refer to [MoEngage Recommendations](/user-guide/content/recommendations/getting-started/moengage-recommendations) suite.
