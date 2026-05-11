@@ -1,6 +1,6 @@
 ---
 title: "Personalize SDK"
-description: "Fetch and track personalized experience and offering campaigns natively from your Android app using the MoEngage Personalize SDK."
+description: "Learn how to integrate the MoEngage Personalize SDK for React Native to fetch personalized content, handle offering campaigns, and track performance."
 ---
 
 # Overview
@@ -28,7 +28,7 @@ Before writing any code, it is helpful to understand the three moving parts of t
     The SDK returns **raw** JSON only. As the developer, you are responsible for parsing this payload and building the corresponding UI in your application.
 </Info>
 
-# Integration MoEngage Personalization
+# Integrate MoEngage Personalization
 
 After you configure the BOM, add the required artifact in your `app/build.gradle`. Version numbers are managed by the BOM.
 
@@ -55,7 +55,7 @@ The `MoEPersonalizeHelper` SDK object is designed to simplify the retrieval and 
 
 ## 1. Fetch Meta Experience
 
-Ensure you invoke the metadata call prior to fetching a specific payload or experience. You can use this call to fetch all experience keys under the provided status, providing the context necessary to properly configure subsequent requests.
+Before fetching any specific payload or experience, you must invoke the metadata call. Prefetching the metadata helps you optimize the experience fetch. On the app side, you can use the metadata to identify the right personalized content for the current UI state and fetch only the relevant content instead of all the content in the application.
 
 <CodeGroup>
 
@@ -88,22 +88,23 @@ MoEPersonalizeHelper.INSTANCE.fetchExperiencesMeta(
 
 </CodeGroup>
 
-Ensure you call `fetchExperiencesMeta` first to retrieve the experience key you need.
-
-The `onSuccess` callback returns an `ExperienceCampaignsMetadata` object containing all necessary metadata for campaign execution in the main thread. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode` ](https://moengage.github.io/android-api-reference/core/com.moengage.core.model/-request-failure-reason-code/index.html) and an optional message to identify the specific reason for the request's failure.
+The returned object is a Promise that holds the `ExperienceCampaignsMetadata` object containing all necessary metadata for campaign execution in the main thread. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode` ](https://moengage.github.io/android-api-reference/core/com.moengage.core.model/-request-failure-reason-code/index.html) and an optional message to identify the specific reason for the request's failure.
 
 ## 2. Fetch Personalized Content
 
-Once the metadata is fetched, you can retrieve the actual personalized payloads. The SDK provides methods to fetch either a single experience or multiple experiences simultaneously.
+Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
 
 <Info>
-  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can fetch these keys using the fetchExperiencesMeta call. 
+    EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can find this key in the `ExperienceCampaignMeta` object of the `ExperienceCampaignsMetadata` returned on successful metadata fetch.
 </Info>
+
+## Fetch Single Experience
+
+- **Single Experience**: Retrieve a single experience using a single experience key.
 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-// Fetch Single Experience Payload
     MoEPersonalizeHelper.fetchExperience(
         context = context,
         // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
@@ -116,8 +117,33 @@ Once the metadata is fetched, you can retrieve the actual personalized payloads.
             println("Failure: $reason")
         }
     )
+```
 
-    // Fetch Multiple Experience Payload
+```java Java wrap
+ 		MoEPersonalizeHelper.INSTANCE.fetchExperience(
+			context,
+        // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+			EXPERIENCE_KEY,
+			attributes,
+			campaignsResult -> {
+				System.out.println("Success: " + campaignsResult);
+			},
+			(reason, message) -> {
+				System.out.println("Failure: " + reason);
+				return Unit.INSTANCE;
+			}
+		);
+```
+
+</CodeGroup>
+
+## Fetch Multiple Experiences
+
+- **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
     MoEPersonalizeHelper.fetchExperiences(
         context = context,
         // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
@@ -132,23 +158,8 @@ Once the metadata is fetched, you can retrieve the actual personalized payloads.
     )
 ```
 
-```java Java wrap
-        // Fetches single personalized experience campaign.
-		MoEPersonalizeHelper.INSTANCE.fetchExperience(
-			context,
-        // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
-			EXPERIENCE_KEY,
-			attributes,
-			campaignsResult -> {
-				System.out.println("Success: " + campaignsResult);
-			},
-			(reason, message) -> {
-				System.out.println("Failure: " + reason);
-				return Unit.INSTANCE;
-			}
-		);
+```java Java highlight={1-2} wrap
 
-		// Fetches multiple personalized experience campaigns.
 		Set<String> hashSet = new HashSet<>();
 		hashSet.add("KEY1");
 		hashSet.add("KEY2");
@@ -169,24 +180,21 @@ Once the metadata is fetched, you can retrieve the actual personalized payloads.
 
 </CodeGroup>
 
-The `onSuccess` callback returns an `ExperienceCampaignsResult` object containing all necessary metadata for campaign execution in the main thread. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode` ](https://moengage.github.io/android-api-reference/core/com.moengage.core.model/-request-failure-reason-code/index.html) and an optional message to identify the specific reason for the request's failure.
-
-You can fetch :
-
-- Single Experiences: Retrieve a specific payload using a single `experienceKey`.
-- Bulk Experiences: Retrieve multiple payloads at once by passing a Set\<String\> of `experienceKeys`.
+The returned object is a Promise that holds the `ExperienceCampaignsResult` object containing all necessary metadata for campaign execution in the main thread. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode` ](https://moengage.github.io/android-api-reference/core/com.moengage.core.model/-request-failure-reason-code/index.html) and an optional message to identify the specific reason for the request's failure.
 
 Use Cases:
 
-**Contextual Targeting**: You can pass a map of attributes (e.g., current\_page: "home", cart\_value: "500") during the fetch call. This allows MoEngage SDK to serve real-time, state-dependent content (such as a "Free Shipping" banner when the cart value is high enough).
+**Contextual Targeting**:  Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a “Free Shipping” banner if the cart value meets a threshold).
 
-## 3. Track Impressions
+## 3. Notify SDK on Showing the Experience (Track Impressions)
 
-After fetching and rendering the personalized content on the UI, it is essential to track user interactions to measure campaign performance.
+An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
 
-To measure performance, you must track when an experience is shown. This requires a `campaignEntity`. You can use these methods to log "Impressions" (`experienceShown / experiencesShown`) when the UI renders the content.
+To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
 
-### 3a. Track Impressions for Experience Campaigns
+### 3a. Notify SDK for Experience Campaigns
+
+Call the `experiencesShown()` method when the UI element containing the experience renders.
 
 <CodeGroup>
 
@@ -205,9 +213,15 @@ To measure performance, you must track when an experience is shown. This require
 
 </CodeGroup>
 
-### 3b. Track Impressions for Offering Campaigns
+### 3b. Notify SDK for Offering Campaigns
 
-[Offerings](/user-guide/decisioning/new-ui-experience/offerings) are specific, personalized items (such as a product recommendation or a coupon) contained within a campaign.
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
 
 <CodeGroup>
 
@@ -255,7 +269,13 @@ You can use these methods to log "Clicks" (`experienceClicked`) when the user in
 
 ### 4b. Track Clicks for Offering Campaigns
 
-[Offerings](/user-guide/decisioning/new-ui-experience/offerings) are specific, personalized items (such as a product recommendation or a coupon) contained within a campaign.
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
 
 <CodeGroup>
 
