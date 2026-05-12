@@ -96,7 +96,110 @@ Initialize the SDK before your React component mounts. You will inject your MoEn
 Create a custom wrapper hook (`useMoEngage.js`) to cleanly manage initialization and expose SDK methods throughout your widget.
 
 ```javascript useMoEngage Hook
-[placeholder]
+import { useCallback, useRef, useEffect } from 'react';
+import moengage from '@moengage/web-sdk';
+
+function logMoe(msg) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[MoEngage]', msg);
+  }
+}
+
+// React hook wrapping @moengage/web-sdk. Initializes on mount; all methods are stable via useCallback.
+export default function useMoEngage() {
+  const initRef = useRef(false);
+
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    try {
+      const appId = window.__MOENGAGE_APP_ID__;
+      const cluster = window.__MOENGAGE_DATA_CENTER__ || '';
+
+      if (!appId) {
+        logMoe('App ID not configured, MoEngage disabled');
+        return;
+      }
+
+      moengage.initialize({
+        appId,
+        env: 'LIVE',
+        logLevel: 0,
+        cluster,
+      });
+      logMoe(`Initialized with appId: ${appId}, cluster: ${cluster}`);
+    } catch (err) {
+      logMoe(`Init error: ${err.message}`);
+    }
+  }, []);
+
+  const trackEvent = useCallback((eventName, properties = {}) => {
+    try {
+      moengage.trackEvent(eventName, properties);
+      logMoe(`Event: ${eventName} ${JSON.stringify(properties)}`);
+    } catch (err) {
+      logMoe(`Track error (${eventName}): ${err.message}`);
+    }
+  }, []);
+
+  const identifyUser = useCallback((userId, attributes = {}) => {
+    try {
+      const userObj = { uid: userId, ...attributes };
+      moengage.identifyUser(userObj);
+      logMoe(`Identified: ${userId} with ${Object.keys(attributes).length} attrs`);
+    } catch (err) {
+      logMoe(`Identify error: ${err.message}`);
+    }
+  }, []);
+
+  const setEmailId = useCallback((email) => {
+    try {
+      moengage.setEmailId(email);
+      logMoe(`Email set: ${email}`);
+    } catch (err) {
+      logMoe(`Set email error: ${err.message}`);
+    }
+  }, []);
+
+  const setAttribute = useCallback((name, value) => {
+    try {
+      moengage.setUserAttribute(name, value);
+      logMoe(`Attribute: ${name} = ${value}`);
+    } catch (err) {
+      logMoe(`Attribute error: ${err.message}`);
+    }
+  }, []);
+
+  const getAttribute = useCallback((name) => {
+    try {
+      const val = moengage.getUserAttribute(name);
+      logMoe(`Attribute "${name}" = ${JSON.stringify(val)}`);
+      return val;
+    } catch (err) {
+      logMoe(`Get attribute error: ${err.message}`);
+      return undefined;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    try {
+      moengage.logoutUser();
+      logMoe('User logged out');
+    } catch (err) {
+      logMoe(`Logout error: ${err.message}`);
+    }
+  }, []);
+
+  return {
+    trackEvent,
+    identifyUser,
+    setEmailId,
+    setAttribute,
+    getAttribute,
+    logout,
+  };
+}
 ```
 
 ## 5. Handle Tool Results (handleToolResult)
@@ -107,6 +210,26 @@ The `handleToolResult` callback acts as the central event dispatcher. MoEngage S
 - Chat Commands: user issues a prompt via the Model Context Protocol (MCP).
 
 Use the `handleToolResult` callback to catch incoming postMessage commands from the MCP server and route them to the appropriate MoEngage SDK wrapper functions.
+
+```javascript handleToolResult
+// MCP tool result handler — MoEngage actions (excerpt)
+const handleToolResult = (result) => {
+  const data = result?.structuredContent || result?.result?.structuredContent || null;
+  if (!data) return;
+
+  switch (data.action) {
+    // Track a custom event
+    case 'moe_track_event':
+      if (data.eventName) moe.trackEvent(data.eventName, data.properties || {});
+      break;
+
+    // Identify + set attributes on a user
+    case 'moe_identify_user':
+      if (data.userId) moe.identifyUser(data.userId, data.attributes || {});
+      break;
+  }
+};
+```
 
 <Info>
   With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event tracking becomes a seamless part of your widget's interactive flow.
