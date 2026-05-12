@@ -1,0 +1,90 @@
+---
+title: "Send a Card Payment Reminder"
+---
+
+# Introduction
+
+Banks send card payment reminders to prompt customers to pay their credit card bills before the due date. Failed payments or late fees might jeopardize the bank's relationship with users or even lead to churn. Consistent reminders about upcoming bills can prevent unfortunate scenarios of missed payments due to forgetfulness.
+
+#### Advantages of sending card payment reminders
+
+- **For customers:**
+  - **Avoids missed payments**: Reminders ensure customers are aware of upcoming due dates, preventing accidental late payments.
+  - **Prevents late fees**: Timely payments avoid incurring costly late fees, which can be a significant financial burden.
+  - **Maintains credit scores**: Missed or late payments can negatively impact credit scores, making it harder to secure loans or credit in the future.
+  - **Increased trust and satisfaction**: Reminders demonstrate a commitment to customer service and can increase trust and satisfaction with the bank.
+- **For businesses:**
+  - **Improves cash flow**: Timely payments ensure a steady revenue stream, allowing businesses to manage their finances effectively.
+  - **Reduces outstanding debts**: Reminders help businesses collect payments on time, minimizing the risk of outstanding debts.
+  - **Enhances customer relationships**: Proactive communication about payments can improve customer relationships and build trust.
+
+We will achieve this use case by [creating a Push campaign](/user-guide/use-cases/push/send-a-card-payment-reminder#create-a-push-campaign) to remind users about pending credit card payments 5 days before the due date.
+
+# Expected Result
+
+Users receive a push notification about their credit card payment on their phones:
+
+<img
+  src="/images/moengage_7eb92f.png"
+  alt="card payment reminder.png"
+  style={{ width:"63%" }}
+/>
+
+<Tip>
+  - Events must be available in MoEngage to track the action of generating a bill for a user and related information such as the card ID, bill amount, credit card name, and due date. In this example, we will name the event _Bill generated_. Also, this event should be configured to occur before we send the reminder about the due date. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction).
+  - Events must be available in MoEngage to track the action of bill payment by a user and related information such as the card ID, bill amount, paid amount, credit card name, and due date. In this example, we will name the event _Bill Paid_.
+  - The [Push channel](/user-guide/campaigns-and-channels/mobile-push/getting-started-with-mobile-push) must be configured.
+  - The [Linked Conditions](/user-guide/flows-cross-channel-messaging/create/create-flows/linked-conditions) feature must be enabled for your account.
+</Tip>
+
+# Create a Push Campaign
+
+In this section, we will create a Push campaign to remind users about their pending credit card payments.
+
+## Step 1: Target Users
+
+1. On the left navigation menu in the MoEngage dashboard, click **Engage**, and then click **Campaigns**.
+2. On the All campaigns page, click **\+ Create campaign**.
+3. Under **Outbound**, click **Push** \> **Event Triggered**. <img src="/images/moengage_ba5c3c.png" alt="pushlessgoooo.png" /> You are taken to the first step, **Target users**, of defining your campaign.
+4. Define your campaign with a name and tags. Enter the following details:
+   - **Team**: Select a team if your organization has teams enabled for your account. For more information, refer to [Teams in MoEngage](/user-guide/settings/account/team-management/teams-in-moengage).
+   - **Campaign name**: Enter a name for the campaign. For example, _Remind users about card payment_.
+   - **Campaign tags**: Select the required campaign tags. <img src="/images/moengage_367a69.png" alt="usecase1.png" />
+5. In the **Trigger Criteria** section, define the trigger condition.\
+   A user can have more than one credit card, and you must remind them specifically of the card that they have not yet paid after the bill was generated. Therefore, the check must be dynamic, not static. For a user with bills generated for cards 1 and 2, you must look for the purchase event with the attribute pointing to each card and send a reminder for the card that does not have a _Bill Paid_ event. To achieve this, we must use Linked Conditions while defining the trigger condition.
+6. To define the dynamic check mentioned above:
+   1. In the **IF user** section, select _Bill generated_ and then click **\+ Filter** to add the additional check.
+   2. In the **AND then** section, select _Has not executed_ from the first list and _Bill Paid_ from the **Select an event** list.
+   3. Click **\+ Attribute** and select _Card ID_ because it is a unique attribute that can help you identify the card.
+   4. Select the _is_ operator because you want an exact match.
+   5. Change _Constant Value_ to _Event Attribute_ because this value will change with the user and the card, and so referring to the _Bill generated_ event will make the check personalized for each possible situation of a user.
+   6. Select the _Card ID_ attribute of the _Bill generated_ event from the list of attributes. This can help you compare the card for which the _Bill Paid_ event is coming.
+7. In the **THEN trigger the message** section, define the **With Delay** option to send a reminder to the user 5 days before the due date. This is the maximum time the user will be evaluated to fulfill the conditions from when the first condition is met.\
+   The **Select condition** section looks as follows now: <img src="/images/moengage_b719cf.png" alt="usecase77.png" /> The selected attribute must be in the supported format for the abovementioned filter to work correctly. For more information, refer to [Create an Event-Triggered Campaign](/user-guide/campaigns-and-channels/getting-started/triggers/event/create-an-event-triggered-campaign).
+8. In the **Target audience** section, select **All users**.
+9. In the **Target Platforms** section, select **Android**. <img src="/images/moengage_a2eeb2.png" alt="usecase3.png" />
+10. Click **Next** to move to the second step, **Content**, where you can define the content for your Push campaign.
+
+## Step 2: Content
+
+1. Select the template that you would like to use. For example, select **Basic notification**. <img src="/images/moengage_0f8ab7.png" alt="usecase4.png" />
+2. Enter the required title and a message for the campaign. We can enter the content manually or generate it using Merlin AI. For more information, refer to [Generate Push Messages with Merlin AI](/user-guide/intelligence/merlin-ai/merlin-ai-copywriter/generate-push-messages-with-merlin-ai).
+3. Add personalization to the message using information such as the user's name, bill amount, or credit card name. Such personalization makes the message more contextual for users with multiple cards. To do the same:
+   1. Type _@_.
+   2. On the **Push Personalization** dialog box, find your event attributes, such as bill amount, credit card name, or user attributes, such as name. <img src="/images/moengage_b308f9.png" alt="7.png" />
+   3. Click **Done**.\
+      You can select the attributes based on your requirements. Selecting a name and other personalization makes the message content look something as follows: <img src="/images/moengage_7c7b52.png" alt="8.png" /> Whenever MoEngage tries to send a message, it makes sure to check the name of the user, credit card name, and amount from the _Bill generated_ event and replace those instead of `{{UserAttribute['Name']}}`, `{{EventAttribute['Credit card name']}}`, `{{EventAttribute['amount']}}` respectively.
+4. Use the deep link option to take the users to the bill payment page in your app.
+   1. In the **Default click action** list, select _Navigate to a screen_.
+   2. In the **Take user to a specific screen** list, select the respective screen. <img src="/images/moengage_1ddfa5.png" alt="usecase5.png" />
+5. Click **Next** to move to the third step, **Schedule and goals**, where you can define your campaign's schedule and goals.
+
+## Step 3: Schedule and Goals
+
+1. Define when to start and end this campaign and the conversion goal based on your requirements. <img src="/images/moengage_100801.png" alt="10.png" />
+2. Change the deliverability settings based on your requirements. For more information, refer to [Create Push Campaigns](/user-guide/campaigns-and-channels/mobile-push/create/create-push-campaigns). <img src="/images/moengage_27d8e6.png" alt="11.png" />
+3. Click **Publish**.
+
+# Conclusion
+
+In this use case, we created a Push campaign to remind users about pending payments for their credit cards 5 days before the due date.

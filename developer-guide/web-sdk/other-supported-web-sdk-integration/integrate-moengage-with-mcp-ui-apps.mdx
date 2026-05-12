@@ -1,0 +1,239 @@
+---
+title: "Integrate MoEngage with MCP UI Apps"
+description: "Learn how to integrate the MoEngage Web SDK into MCP UI  applications. Configure CSP, initialize the SDK, and track user behavior via MCP UI apps."
+---
+
+# Overview
+
+This guide outlines how to integrate the MoEngage Web SDK into MCP UI  applications.
+
+### Key Capabilities
+
+- Track user behavior in real-time.
+- Trigger On-Site Messaging (OSM).
+- Trigger Cards.
+
+<Info>
+  MCP UI applications executes custom widgets within a secure iframe sandbox. As a result, the execution URL differs from your primary domain, and standard URL-based campaigns are not supported.
+
+  However, you can seamlessly deliver targeted experiences by configuring your campaigns to fire on Custom Events instead. All event-trigger based On-Site Messages (OSMs) and Cards remain fully supported for this integration.
+</Info>
+
+# MCP UI Applications Setup and Configuration
+
+<Tip>
+  **Prerequisites**
+
+  - Before beginning the integration, ensure you have your MoEngage App ID and Data Center (DC).
+  - A [MCP UI app](https://modelcontextprotocol.io/extensions/apps/overview)  created in the OpenAI platform [(OpenAI sample app )](https://github.com/openai/openai-apps-sdk-examples).
+</Tip>
+
+# Implementation Steps
+
+## 1. Install dependencies
+
+Run the following command in your project directory:
+
+```shellscript NPM wrap
+npm install @moengage/web-sdk
+```
+
+## 2. Configure CSP Domain Whitelisting
+
+The MCP UI applications widget runs inside a strict internal iframe sandbox, standard CSP headers block the application by default. You must explicitly whitelist the CSP URL in your MCP server configuration.
+
+Ensure you whitelist both the MoEngage URLs (Base URLs, tracking endpoints, and OSM delivery URLs) and the sandbox URLs in your `connect-src` and `script-src` directives to prevent the browser from blocking requests.
+
+Ensure that you whitelist the following endpoints for smooth integration.
+
+**script-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+- [**https://app-cdn.moengage.com/**](https://app-cdn.moengage.com/)
+
+**image-src:**
+
+- [**https://moe-email-campaigns.s3.amazonaws.com/**](https://moe-email-campaigns.s3.amazonaws.com/)
+- [**https://image.moengage.com/**](https://image.moengage.com/)
+- [**https://image-eu.moengage.com/**](https://image-eu.moengage.com/)
+- [**https://image-ap1.moengage.com/**](https://image-ap1.moengage.com/)
+- [**https://image-04.moengage.com/**](https://image-04.moengage.com/)
+- [**https://image-06.moengage.com/**](https://image-06.moengage.com/)
+- [**https://image.moengage.com/all-campaign-images-moe-dc-100/**](https://image.moengage.com/all-campaign-images-moe-dc-100/)
+
+**connect-src:**
+
+- [**https://sdk-01.moengage.com/**](https://sdk-01.moengage.com/)
+- [**https://sdk-02.moengage.com/**](https://sdk-02.moengage.com/)
+- [**https://sdk-03.moengage.com/**](https://sdk-03.moengage.com/)
+- [**https://sdk-04.moengage.com/**](https://sdk-04.moengage.com/)
+- [**https://sdk-06.moengage.com/**](https://sdk-06.moengage.com/)
+
+**frame-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+
+**style-src:**
+
+- [**https://cdn.moengage.com/**](https://cdn.moengage.com/)
+- [**https://app-cdn.moengage.com/**](https://app-cdn.moengage.com/)
+- [**https://fonts.bunny.net/**](https://fonts.bunny.net/)
+
+**font-src:**
+
+- [**https://fonts.bunny.net/**](https://fonts.bunny.net/)
+
+You will get the error `Refused to connect to https://\*\*\*.moengage.com/\*\*\*\* because it violates the following Content Security Policy directive.` If you do not whitelist the URLs.
+
+## 3. Initialize the SDK and Inject Credentials
+
+Initialize the SDK before your React component mounts. You will inject your MoEngage App ID and Data Center credentials into the widget HTML or environment variables.
+
+Create a custom wrapper hook [`useMoEngage.js`](https://github.com/moengage/webSDK-sample/blob/master/ChatGPT-App/src/client/hooks/useMoEngage.js) to cleanly manage initialization and expose SDK methods throughout your widget.
+
+```javascript useMoEngage Hook
+import { useCallback, useRef, useEffect } from 'react';
+import moengage from '@moengage/web-sdk';
+
+function logMoe(msg) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[MoEngage]', msg);
+  }
+}
+
+// React hook wrapping @moengage/web-sdk. Initializes on mount; all methods are stable via useCallback.
+export default function useMoEngage() {
+  const initRef = useRef(false);
+
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    try {
+      const appId = window.__MOENGAGE_APP_ID__;
+      const cluster = window.__MOENGAGE_DATA_CENTER__ || '';
+
+      if (!appId) {
+        logMoe('App ID not configured, MoEngage disabled');
+        return;
+      }
+
+      moengage.initialize({
+        appId,
+        env: 'LIVE',
+        logLevel: 0,
+        cluster,
+      });
+      logMoe(`Initialized with appId: ${appId}, cluster: ${cluster}`);
+    } catch (err) {
+      logMoe(`Init error: ${err.message}`);
+    }
+  }, []);
+
+  const trackEvent = useCallback((eventName, properties = {}) => {
+    try {
+      moengage.trackEvent(eventName, properties);
+      logMoe(`Event: ${eventName} ${JSON.stringify(properties)}`);
+    } catch (err) {
+      logMoe(`Track error (${eventName}): ${err.message}`);
+    }
+  }, []);
+
+  const identifyUser = useCallback((userId, attributes = {}) => {
+    try {
+      const userObj = { uid: userId, ...attributes };
+      moengage.identifyUser(userObj);
+      logMoe(`Identified: ${userId} with ${Object.keys(attributes).length} attrs`);
+    } catch (err) {
+      logMoe(`Identify error: ${err.message}`);
+    }
+  }, []);
+
+  const setEmailId = useCallback((email) => {
+    try {
+      moengage.setEmailId(email);
+      logMoe(`Email set: ${email}`);
+    } catch (err) {
+      logMoe(`Set email error: ${err.message}`);
+    }
+  }, []);
+
+  const setAttribute = useCallback((name, value) => {
+    try {
+      moengage.setUserAttribute(name, value);
+      logMoe(`Attribute: ${name} = ${value}`);
+    } catch (err) {
+      logMoe(`Attribute error: ${err.message}`);
+    }
+  }, []);
+
+  const getAttribute = useCallback((name) => {
+    try {
+      const val = moengage.getUserAttribute(name);
+      logMoe(`Attribute "${name}" = ${JSON.stringify(val)}`);
+      return val;
+    } catch (err) {
+      logMoe(`Get attribute error: ${err.message}`);
+      return undefined;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    try {
+      moengage.logoutUser();
+      logMoe('User logged out');
+    } catch (err) {
+      logMoe(`Logout error: ${err.message}`);
+    }
+  }, []);
+
+  return {
+    trackEvent,
+    identifyUser,
+    setEmailId,
+    setAttribute,
+    getAttribute,
+    logout,
+  };
+}
+```
+
+## 4. Handle Tool Results (handleToolResult)
+
+The [`handleToolResult`](https://github.com/moengage/webSDK-sample/blob/master/ChatGPT-App/src/client/components/App.jsx) callback acts as the central event dispatcher. MoEngage SDK methods can be triggered in two ways:
+
+- Direct UI Interaction:  user clicks or interacts directly via UI elements.
+- Chat Commands: user issues a prompt via the Model Context Protocol (MCP).
+
+Use the  [`handleToolResult`](https://github.com/moengage/webSDK-sample/blob/master/ChatGPT-App/src/client/components/App.jsx) callback to catch incoming postMessage commands from the MCP server and route them to the appropriate MoEngage SDK wrapper functions.
+
+```javascript handleToolResult
+// MCP tool result handler — MoEngage actions (excerpt)
+const handleToolResult = (result) => {
+  const data = result?.structuredContent || result?.result?.structuredContent || null;
+  if (!data) return;
+
+  switch (data.action) {
+    // Track a custom event
+    case 'moe_track_event':
+      if (data.eventName) moe.trackEvent(data.eventName, data.properties || {});
+      break;
+
+    // Identify + set attributes on a user
+    case 'moe_identify_user':
+      if (data.userId) moe.identifyUser(data.userId, data.attributes || {});
+      break;
+  }
+};
+```
+
+<Info>
+  With your `useMoEngage` hook and `handleToolResult` dispatcher in place, event tracking becomes a seamless part of your widget's interactive flow.
+
+  - **Custom Events**: When UI interactions occur (either via direct user clicks in the iframe or via MCP UI applications prompts processed by the MCP), call your trackEvent function.
+  - The integration is designed so that both manual UI interactions (such as clicking an "Add to Cart" button) and Chat commands (via MCP) ultimately execute the same underlying JavaScript functions. The chat interface does not track events directly; it uses MCP to call the widget, which then fires the standard tracking events.
+</Info>
+
+# Sample Application
+
+For a complete, practical demonstration of this integration within a fully functional environment,  refer to the [Sample Application](https://github.com/moengage/webSDK-sample/tree/master/ChatGPT-App).

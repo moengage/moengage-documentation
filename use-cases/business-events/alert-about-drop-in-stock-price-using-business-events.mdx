@@ -1,0 +1,141 @@
+---
+title: "Alert About Drop in Stock Price Using Business Events"
+---
+
+# Introduction
+
+Businesses want to alert their users (investors) about a drop in the price of their favorite stock because they can react differently to price drops. Some investors may view them as opportunities to buy more stocks, believing they are now undervalued. For some investors, price drops may trigger fear, leading to panic selling to avoid further losses.
+
+#### Advantages of setting stock price drop alerts
+
+- **Market awareness**: Inform users about sudden price fluctuations in the market, which can be triggered by news events, company announcements, or broader economic factors.
+- **Risk management**: Send timely notifications to potentially limit losses if a stock price falls significantly due to negative news or unexpected events.
+- **Potential buying opportunities**: A drop in price could indicate a temporary dip that might be a good time to buy more shares of a company you believe in.
+- **Quick reaction**: A price drop alert gives them the opportunity to react quickly by either selling the stock, researching the reason for the drop, or potentially buying more shares.
+
+We will achieve this use case in two steps:
+
+1. [Create a business event](/user-guide/use-cases/business-events/alert-about-drop-in-stock-price-using-business-events#step-1-create-a-business-event)
+2. [Create a Push campaign](/user-guide/use-cases/business-events/alert-about-drop-in-stock-price-using-business-events#step-2-create-a-push-campaign)
+3. [Trigger the campaign by triggering the business event](/user-guide/use-cases/business-events/alert-about-drop-in-stock-price-using-business-events#step-3-trigger-campaign-by-triggering-the-business-event)
+
+# Expected Result
+
+Users will receive a push notification about a drop in the price of their favorite stock, as shown below:
+
+![stockpricesalert.png](/images/moengage_ee5cdf.png)
+
+<Tip>
+  - You must have an enterprise plan with the _Business Events_ feature enabled for your account.
+  - Events to track the customer's interest in a particular stock must be available in MoEngage. In this example, we will name the event _Stock Viewed_. When a customer checks a stock’s details, an event can be triggered with the name or the ID of the stock. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction).
+  - The [Push channel](/user-guide/campaigns-and-channels/mobile-push/getting-started-with-mobile-push) must be configured.
+</Tip>
+
+# Step 1: Create a Business Event
+
+In this section, we will create a [Business Event](/user-guide/campaigns-and-channels/getting-started/triggers/business-event/overview-business-events) for your account, which will help create an event template to capture all the required details. We can use the MoEngage Business Event public API. For our example, the following information is a part of the business event:
+
+- Event name: _Stock Price Drop Alert_
+- Attributes of the event and their data type:
+  - **Stock ID**: string
+  - **Percentage Drop**: string
+  - **Current Stock Price**: float
+
+Perform the following steps:
+
+1. Write the information above in the JSON format and send it to MoEngage through Postman. JSON
+   ```json
+   {
+   "event_name": "Stock Price Drop Alert",
+   "event_attributes": [
+   {
+   "attribute_name": "Stock ID",
+   "attribute_data_type": "string"
+   },
+   {
+   "attribute_name": "Percentage Drop",
+   "attribute_data_type": "string"
+   },
+   {
+   "attribute_name": "Current Stock Price",
+   "attribute_data_type": "float"
+   }
+   ],
+   "created_by": "john.doe@example.com"
+   }
+   ```
+2. Use the information above in the JSON format and make the API call with authorization information for the right data center to which your workspace belongs. For more information, refer to [Create Business Event API](/api/business-events/create-business-event).\
+   After the API call is made and the event is created successfully, MoEngage sends the following response: JSON
+   ```ruby
+   {
+   "message": "The business event has been created",
+   "_id": "{{Business Event ID}}"
+   }
+   ```
+3. To verify if the event is successfully added:
+   1. In the MoEngage dashboard, go to a Business Event Triggered Push campaign.
+   2. In the **Select business event** list, you can see the _Stock Price Drop Alert_ event. <img src="/images/moengage_c89eb4.png" alt="6.png" />
+
+# Step 2: Create a Push Campaign
+
+In this section, we will create price drop alerts for your users' favorite stocks through business event-triggered push notifications.
+
+## Step 2.1: Target Users
+
+1. On the left navigation menu in the MoEngage dashboard, click **Engage**, and then click **Campaigns**.
+2. On the All campaigns page, click **\+ Create campaign**.
+3. Under **Outbound**, click **Push** \> **Business Event Triggered**. <img src="/images/moengage_cfbf81.png" alt="BUSINESSPUSH.png" /> \
+   You are taken to the first step, **Target users**, of defining your campaign.
+4. Define your campaign with a name and tags. Enter the following details:
+   1. **Team**: Select a team if your organization has teams enabled for your account. For more information, refer to [Teams in MoEngage](/user-guide/settings/account/team-management/teams-in-moengage).
+   2. **Campaign name**: Enter a name for the campaign. For example, _Stock Price Drop Alert_.
+   3. **Campaign tags**: Select the required campaign tags. <img src="/images/moengage_d524ed.png" alt="7usecase1.png" />
+5. In the **Select business event** list, select the _Stock Price Drop Alert_ event. <img src="/images/moengage_c89eb4.png" alt="6.png" />
+6. In the **Target audience** section, define the logic to identify all the customers who have viewed the stock with the same _Stock ID_. So, for this example, the target audience can be as shown below: <img src="/images/moengage_1e99a2.png" alt="7usecase3.png" /> \
+   The business event attributes are now available in the drop-down lists. The event attribute’s **Stock ID** can now have a dynamic value every time the business event is triggered, and the value against the business event attribute **Stock ID** is automatically substituted in the segmentation query.
+7. In the **Target Platforms** section, select **Android**. <img src="/images/moengage_0a9037.png" alt="7usecase2.png" />
+8. Click **Next** to move to the second step, **Content**, where you can define the content for your Push campaign.
+
+## Step 2.2: Content
+
+1. Select the template that you would like to use. For example, select **Basic notification**. <img src="/images/moengage_8728a7.png" alt="7usecase4.png" />
+2. Enter the required content for the campaign. We can manually enter a title, message, and summary or generate it using Merlin AI. For more information, refer to [Generate Push Messages with Merlin AI](/user-guide/intelligence/merlin-ai/merlin-ai-copywriter/generate-push-messages-with-merlin-ai). <img src="/images/moengage_98ca70.png" alt="8.png" /> \
+   The content for such communications would need to have the values picked from the business event’s attributes, which can be done similarly to any other personalization.
+3. Add personalization to the message using information such as the user's name. Such personalization makes the message more contextual and makes the users feel connected. To do the same:
+   1. Type @.
+   2. On the **Push Personalization** dialog box, find relevant attributes from a user's business event or user property. <img src="/images/moengage_99707b.png" alt="9.png" />
+4. Use the deep link option to direct users to a page in your app or website where they can check their ticket details.
+   1. In the **Default click action** list, select _Deeplinking_.
+   2. In the **URL** field, mention the relevant URL.
+5. Click **Next** to move to the third step, **Schedule and goals**, where you can define your campaign's schedule and goals.
+
+## Step 2.3: Schedule and Goals
+
+1. Define when to start and end this campaign and the conversion goal based on your requirements.
+2. Change the deliverability settings based on your requirements. For more information, refer to [Create Push Campaigns](/user-guide/campaigns-and-channels/mobile-push/create/create-push-campaigns). <img src="/images/moengage_0cf9f7.png" alt="10.png" />
+3. Click **Publish**.
+
+# Step 3: Trigger Campaign by Triggering the Business Event
+
+We are now ready to start triggering the communications. When a stock price drop is detected, the campaign can be triggered using the Trigger Business Event API. The logic of when to pass this event to MoEngage lies at your end based on the business requirement.
+
+Here is a payload example:
+
+JSON
+
+```json
+{
+"event_name": "Stock Price Drop Alert",
+"event_attributes": {
+"Stock ID": "GOOG",
+"Percentage Drop": "10%",
+"Current Stock Price":136.65},
+"triggered_by": "john.doe@example.com"
+}
+```
+
+# Conclusion
+
+In this use case, we created price drop alerts through Push notifications for your users' favorite stocks. We used Business Events in MoEngage to achieve this.
+
+Now that we have published the campaign, we can test it using MoEngage APIs. For more information, refer to [Business Event Triggered Campaigns](/user-guide/campaigns-and-channels/getting-started/triggers/business-event/business-event-triggered-campaigns).

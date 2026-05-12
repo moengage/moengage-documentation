@@ -1,0 +1,139 @@
+---
+title: "How to Update Order Status Using Inform"
+---
+
+# Introduction
+
+Brands always want to keep their customers updated on the orders they place. These order tracking emails help build trust between businesses and customers, as they provide transparency and accountability throughout the order fulfillment process.
+
+In this article, we will learn how to send timely updates in real time to customers about their orders. We will consider an order status update where the order has been dispatched and all products belonging to the order will also be posted with it.
+
+# Expected Result
+
+Users receive an email with the order confirmation:
+
+<img
+  src="/images/moengage_25ec99.png"
+  alt="image-20231222-132422.png"
+  style={{ width:"50%" }}
+/>
+
+<Tip>
+  - Subscription to the Inform module, which allows you to trigger 1:1 communication with APIs across multiple channels with an SLA of 5 seconds.
+  - A backend system that allows you to make API calls to the MoEngage Inform module. Whenever the order status is changed, the MoEngage Inform API will be called with the required details.
+
+  For more information, refer to [Inform](/user-guide/inform/overview/overview-inform) and [Inform API](/api/inform/inform-overview).
+</Tip>
+
+# Define the Payload for the Inform API
+
+The API payload must contain the order status and the details of the products purchased. The payload has a defined structure but you can customize the _personalized\_attributes_ as required.
+
+Sample Payload
+
+```json wrap
+{
+    "alert_id": "65xxxxxxxxxxxxxxxxxxxx98",
+    "transaction_id": "IN-00263",
+    "payloads": {
+        "EMAIL": {
+            "recipient": "john.doe@moengage.com",
+            "personalized_attributes": {
+                "customer_name": "John",
+                "items": [{
+                    "image_url": "https://www.apple.com/v/iphone-15-pro/c/images/overview/camera/48mp_camera__cxq25ak34nau_large_2x.jpg",
+                    "brand_name": "Apple",
+                    "product_name": "iPhone 15 Pro",
+                    "quantity": 1,
+                    "price": 999
+                },
+                {
+                    "image_url": "https://www.apple.com/v/airpods-pro/i/images/overview/case_front__r6ng7f1x18a6_large_2x.png",
+                    "brand_name": "Apple",
+                    "product_name": "AirPods Pro(2nd generation)",
+                    "quantity": 1,
+                    "price": 249
+                }],
+                "order_status": "Your order has been dispatched!",
+                "order_id": "IN-00263",
+                "estimated_delivery_date": "29th Dec 2023"
+                }
+        }
+    }
+}
+```
+
+For more information, see [Inform API](/api/inform/inform-overview).
+
+# Create an Inform Alert
+
+In this section, let us create an Inform Alert.
+
+## Step 1: Alert Details
+
+While you can select any channel available, let us use Email as a channel in this article. For more information on creating an Inform Alert, refer to [Create Alert](/user-guide/inform/create/create-alert).
+
+## Step 2: Content
+
+On the **Drag and drop editor** tab, create the template as required to display the order status and the product details.
+
+### Order Status and Other Relevant Details
+
+The keys used to define the payload are used here as Jinja attributes: `{{order_status}}`, `{{order_id}}`, and `{{estimated_delivery_date}}`.
+
+![image-20231222-130419.png](/images/moengage_d5fff1.png)
+
+### Product Details
+
+After you configure the row with all the details, you can add the condition to reiterate through the products and display each based on the template defined.
+
+Select the row and add the condition as displayed here where items is the key within which the array of objects is passed:
+
+- **Name**: Products Purchased
+- **Description**: Products Purchased
+- **Before**: `{% for item in items %}`
+- **After**: `{% endfor %}`
+
+<img
+  src="/images/moengage_7e3ddb.png"
+  alt="image-20231222-131731.png"
+  style={{ width:"55%" }}
+/>
+
+After adding the condition, use the keys from the Product object to personalize the values for each product where the item refers to the current iteration.
+
+<img
+  src="/images/moengage_e5ed35.png"
+  alt="image-20231222-132001.png"
+  style={{ width:"64%" }}
+/>
+
+### Images
+
+1. Click the image content block.
+2. Turn the **Dynamic image** toggle on.
+3. Enter the JINJA attribute in the **Dynamic Url** field.
+
+![image-20231222-132116.png](/images/moengage_52c700.png)
+
+## Step 3: Publish
+
+### Test the Alert
+
+After the entire template is defined, you can test the email using the cURL provided in the next step with Postman.
+
+You can test your Alert before publishing it to check if the integration with the API is working fine and to view the actual email as it will be received by your users. For more information, refer to [Test Your Alert](/user-guide/inform/create/test-alert).
+
+### Publish the Alert
+
+Click **Publish** at the bottom right. This will publish your alert and generate an Alert ID that will be used to uniquely identify your alert. You can also use the Reference ID that you entered to identify your alert.
+
+## Alert Go Live
+
+If the test is inline with the expectation, you can use the same payload to configure the alerts for the API calls that would be initiated from your backend. The logic of when to call these APIs depends on the business requirements.
+
+# Conclusion
+
+With this set-up, customers can receive timely updates as and when you trigger the alert, and can be completely automated thereby eliminating the need for manual intervention.
+
+While the logic for triggering is in the backend, you can change the templates anytime from the MoEngage dashboard. In addition, such timely updates not only improve customer trust but also reduce support queries.

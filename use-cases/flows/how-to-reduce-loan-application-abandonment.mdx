@@ -1,0 +1,73 @@
+---
+title: "How to Reduce Loan Application Abandonment"
+---
+
+# Introduction
+
+Are you a marketer looking to reduce loan application abandonment and improve your conversion rates? You have come to the right place. As a marketer, reducing loan application abandonment must be a top priority because it helps in improved customer satisfaction and revenue potential. It also helps in being cost-efficient because making users take long term loans will retain them and there by help us gain more from the invested customer acquisition cost.
+
+Generally, loan applications have two stages: filling personal information and uploading relevant documents. In this article, we will create a Flow campaign to nudge users to complete their loan application process, depending on the stage they dropped off.
+
+# Expected Result
+
+Users receive a Push Notification on their phone to complete their loan application:
+
+<img alt="image-20240120-181047.png"  src="/images/moengage_24a6f7.png"  />
+
+<Tip>
+- Events to track the action of a user starting the loan application process and related information such as the platform. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction). In this example, we will name the event as “BFSI-applicationFormStarted”
+- Events to track the action of a user completing different parts of the loan application process such as filling in their personal information, uploading documents, and related information such as the platform, user ID, lead ID, and app version. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction). In this example, we will name the event as follows:
+  - BFSI-LoanapplicationPersonalDetailsFilled
+  - BFSI\_LoanDocumentsUploaded
+- Events to track the action of a user submitting their loan application, and related information such as the platform, loan amount, tenure, customer ID, app version. To understand how to track events, refer to the [Developer Guide](/developer-guide/introduction). In this example, we will name the event “BFSI-applicationFormSubmitted”
+- Settings for one or more channels such as Push, Email, SMS, or WhatsApp.
+</Tip>
+
+# Create a Flow
+
+In this section, let us create a Flow to nudge your customers to complete their loan application process:
+
+## Add Flow Details
+
+1. Navigate to **Engage** \> **Flows** and click **+ Create Flow** or navigate to the sidebar, click **+ Create new**, and then click **Flow**.
+2. Click **+ Start with a blank canvas** to start building your flow for the use case. You are taken to the first step “Details and goals”.
+3. Enter the following details:  
+   - **Flow name**: Enter a flow name. For example, "Loan Application Abandonment".
+   - **Flow tags**: Select the required flow tags.
+4. Under the **Conversion goal** section, turn the **Exit on conversion** toggle on to exit users who convert by doing the event “BFSI-applicationFormSubmitted”. This is your primary conversion goal, which triggers when a user submits the form.  
+    <img alt="image-20240120-174832.png" src="/images/moengage_0dab7f.png" />
+5. Click **Next** to move the second step “When will users enter the flow”. This step helps you define when to allow the user by mentioning the trigger conditions. For our example, the event can be “BFSI-applicationFormStarted”.
+6. Under **Users enter the flow** section, select **On event trigger**.
+7. In the **IF user** section, select the event “BFSI-applicationFormStarted”, which gets triggered when a user starts their application process. <img alt="image-20240120-174909.png" src="/images/moengage_713ada.png" />
+8. In the **THEN enter the user** section, select the **Immediately** option.
+9. In the **Flow schedule** section, define a start time and an end time to the flow if required. By default, the flow will start “As soon as possible” and will never end.
+10. Turn the **Limit user entry into this flow** toggle on to define the maximum time a user can enter the flow.   
+    Note that the users are highly likely to match the Loan Application Abandonment flow’s entry rules more often and thus might enter the flow too many times. Defining such limits helps us control users from re-entering the flow repeatedly and thus avoid spamming them too much, which in turn provides a better user experience. <img alt="image-20231125-123528.png" src="/images/moengage_aea9d8.png" />
+11. Click **Next** to move to the third step “Who will enter the flow”. This is where you select the target audience for your Flow.
+12. In the **Audience** section, select **All users**. For a user to be eligible to enter an event-triggered flow, they must be part of the target audience before they do the required event. <img alt="image-20240120-174950.png" src="/images/moengage_d327a0.png" />
+13. Click **Next** to move to the canvas section where you can define the Flow structure that you want the user to move through.
+
+## Define Flow Structure
+
+1. Click the **+** icon. A drawer is displayed.
+2. Under **Conditions**, add the entry condition as “Conditional Split”.
+3. Define the possible movement of your users down the steps of Loan Application Completion process by starting with:   
+   - Branch 1 checking for the “BFSI-LoanApplicationFormsubmitted” event
+   - Branch 2 having the “BFSI-LoanDocumentsUploaded” event
+   - Branch 3 having the “BFSI-LoanApplicationPersonalDetailsFilled” event  
+     Note that the reason to have the checks in the reverse order is because of the ranking each branch of a conditional split has. For more information, refer to to [Branching of Users via Condition Stages](/user-guide/flows-cross-channel-messaging/create/conditions-and-controls-in-flows/branching-of-users-in-flows).
+4. Turn the **Keep evaluating for the next** toggle on to define the maximum time to wait for the user to execute the event. For our use case, enter 30 mins. <img alt="image-20240120-175605.png" src="/images/moengage_7d57cf.png" />
+5. Add corresponding communications to each branch of the conditional split to acknowledge their loan application being successfully completed by suggesting their next course of action or nudge them to move to the next step in the process based on their current stage.  
+   For example, a user moving down branch 3 has completed personal information but did not share their documents for approval. So the communications in branch 3 should focus on the same. If a user moving through the default branch has not completed the first step of sharing the personal information itself, the default branch should have communications to nudge them to do the same.
+6. The strategy is to create a drip campaign and thus after every communication stage, you can have a **Has done event** stage to look for the event to be triggered as the next step. The “Yes” path of the stage can have a "Goto" stage connecting it to the first communication in the previous branch; the “No” path can have another communication.  
+   For example, the default branch should have a **Has done event** to look for the “BFSI-LoanApplicationPersonalDetailsFilled” event and the Yes path has a "Goto" stage connecting the first communication from Branch 3 to the user. The No path has another communication to target the user to get them to fill in their personal details.  <img alt="image-20240120-181152.png" src="/images/moengage_07f875.png"  />
+7. Add as many action campaigns you want, from WhatsApp to Push, OSM or In-App based on your preference, to nudge the user for both getting their feedback and sending a message. Make sure to have some gap between any two communications to avoid spamming the user by using a Wait stage, especially in the Yes path of your “Has done events”. For more information, refer to [Add Controls to Flow](/user-guide/flows-cross-channel-messaging/create/conditions-and-controls-in-flows/force-move-or-delay-users-in-flows).
+8. Click **Publish**.
+
+# Conclusion
+
+In this use case, we created a Flow campaign to nudge users to complete their loan application process, depending on the stage they dropped off.
+
+- Now that we have published the Flow, we can [analyze](/user-guide/flows-cross-channel-messaging/analyze-flows/analyze-a-flow) how well our Flow is performing.
+- We can understand how many users entered the flow because of our campaign. Create a segmentation on the “User Entered Flow” event by mentioning the “Flow ID”. For more information, refer to [Users who have entered/exited the Flow](/user-guide/flows-cross-channel-messaging/analyze-flows/tracking-users-in-flows).
+- We can also understand how many users actually completed their loan application because of our campaign. Create a segmentation on the “Flow Trip Conversion” event by mentioning the “Flow ID”. For more information, refer to [Conversion Tracking and Attribution in Flows](/user-guide/flows-cross-channel-messaging/analyze-flows/conversion-attribution-in-flows).

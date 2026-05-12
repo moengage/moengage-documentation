@@ -1,0 +1,275 @@
+---
+title: "Personalize SDK"
+description: "Learn how to integrate the MoEngage Personalize SDK for Flutter to fetch personalized content, handle offering campaigns, and track performance."
+---
+
+# Overview
+
+The MoEngage Personalize SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls.
+
+<Info>
+  **Prerequisite**
+
+  Before you can fetch personalized experiences, ensure the core MoEngage SDK has been initialized in your application. For more information, refer to Flutter SDK Initialization.
+</Info>
+
+# How It All Fits Together
+
+Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
+
+1. **Dashboard Configuration:** A marketer creates an Experience Campaign in the MoEngage dashboard and assigns it a unique `experienceKey` (e.g., `home_banner`). They configure the specific JSON payload to be returned for different user segments.
+2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user.
+3. **The Fetch Call :** Your application calls `fetchExperience` or `fetchExperiences` with a specific key to retrieve the actual payload. The SDK uses the metadata gathered in Step 2 to accurately resolve and return this request.
+
+<Info>
+  The SDK returns **raw** JSON only. As the developer, you are responsible for parsing this payload and building the corresponding UI in your application.
+</Info>
+# Integrating MoEngage Personalization
+
+To add MoEngage's Personalize SDK to your project, edit the application's **pubspec.yaml** file and use the command below.
+
+<CodeGroup>
+
+```yaml pubspec.yaml wrap
+dependencies:
+	moengage_personalize: $latestVersion
+```
+
+</CodeGroup>
+
+**_\$latestVersion_** refers to the latest version of the plugin.
+
+Post including the dependency, run **_flutter pub get_** command in the terminal to install the dependency.
+
+<Info>
+  This plugin is dependent on **moengage\_flutter** plugin. Make sure you have installed the **moengage\_flutter** plugin as well. Refer to the [documentation](/developer-guide/flutter-sdk/sdk-integration/sdk-installation/framework-dependency) for the same.
+</Info>
+
+## Initialize Personalize
+
+After installing the plugin, initialize the MoEngage Personalize module using the following configuration.
+
+<CodeGroup>
+
+```dart Dart
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+```
+
+</CodeGroup>
+
+# Implementation Workflow
+
+The Personalize helper for Flutter is designed to simplify the retrieval and interaction with dynamic, personalized content. Below is a breakdown of the workflow and code placeholders.
+
+## 1. Fetch Meta Experience
+
+Before fetching any specific payload or experience, you must invoke the metadata call. Prefetching the metadata helps you optimize the experience fetch. On the app side, you can use the metadata to identify the right personalized content for the current UI state and fetch only the relevant content instead of all the content in the application.
+
+<CodeGroup>
+
+```dart Dart
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// Create a list with the desired experience statuses
+final statuses = [ExperienceStatus.active];
+
+personalize.fetchExperiencesMeta(statuses)
+    .then((metadata) => print(metadata)) // add logic here to process the metadata
+    .catchError((e) => print(e)); // add logic for fallback/error handling
+```
+
+</CodeGroup>
+
+The returned `Future` resolves with an [`ExperienceCampaignsMetadata`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) object containing all necessary metadata for campaign execution. The `catchError` handler receives a [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) with a `code` and `message` identifying the reason for failure.
+
+## 2. Fetch Personalized Content
+
+Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
+
+<Info>
+  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can find this key in the `ExperienceCampaignMeta` object of the `ExperienceCampaignsMetadata` returned on successful metadata fetch.
+</Info>
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// additional attributes you want to pass for the experience.
+final attributes = <String, String>{};
+```
+
+</CodeGroup>
+
+### Fetch Single Experience
+
+- **Single Experiences**: Retrieve a single experience using a single experience key.
+
+<CodeGroup>
+
+```dart Dart wrap
+personalize.fetchExperience('<experience_key>', attributes: attributes)
+    .then((result) => print('Single Experience: $result'))
+    .catchError((e) => print(e));
+```
+
+</CodeGroup>
+
+### Fetch Multiple Experience
+
+- **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
+
+<CodeGroup>
+
+```dart Dart wrap
+personalize.fetchExperiences(experienceKeys, attributes: attributes)
+    .then((result) => print('Multiple Experiences: $result'))
+    .catchError((e) => print(e));
+```
+
+</CodeGroup>
+
+The returned `Future` resolves with an `ExperienceCampaignsResult` object. On success, the result contains two fields:
+
+- `experiences` — successfully resolved ExperienceCampaign objects
+- `failures` — [`ExperienceCampaignFailure`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) objects for keys that could not be resolved, each with a reason and `experienceKeys`.
+
+Throws [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) (with code and message) for system-level failures such as network errors or SDK not initialised."
+
+Use Cases:
+
+**Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
+
+To accurately measure campaign performance, you must track user impressions after rendering the personalized content on the UI.
+
+## 3. Notify SDK on Showing the Experience (Track Impressions)
+
+An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
+
+To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
+
+### 3a. Notify SDK for Experience Campaigns
+
+Call the `experiencesShown()` method when the UI element containing the experience renders.
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// campaigns is a list of ExperienceCampaign objects received from fetchExperiences
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+final List<ExperienceCampaign> campaigns = [/* campaign objects */];
+
+personalize.experiencesShown(campaigns);
+```
+
+</CodeGroup>
+
+### 3b. Track Impressions for Offering Campaigns
+
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// List of offering payload dicts for a specific offering campaign
+final List<Map<String, dynamic>> offeringPayloads = [/* offering payload dicts */];
+
+personalize.offeringsShown(offeringPayloads);
+```
+
+</CodeGroup>
+
+## 4. Track Clicks
+
+### 4a. Track Clicks for Experience Campaigns
+
+Use these methods to log "Clicks" when the user interacts with the UI element.
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// campaign is an array of ExperienceCampaign objects
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+final ExperienceCampaign campaign = /* campaign object */;
+
+personalize.experienceClicked(campaign);
+```
+
+</CodeGroup>
+
+### 4b. Track Clicks for Offering Campaigns
+
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+For interactions with specific items (such as a product recommendation or a coupon) contained within an offering campaign:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_personalize/moengage_personalize.dart';
+
+final personalize = MoEngagePersonalize('YOUR_APP_ID');
+
+// campaign is a single ExperienceCampaign object
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+final ExperienceCampaign campaign = /* campaign object */;
+
+// Map containing offering details for a specific offering campaign
+final Map<String, dynamic> offeringPayload = {/* offering payload */};
+
+personalize.offeringClicked(campaign, offeringPayload);
+```
+
+</CodeGroup>
+
+#### Example
+
+```dart Sample Payload
+{
+  "custom_offering_key": {
+    // Expected offering payload in the function call.
+  }
+}
+```
+
+<Info>
+  You can use these Offering-specific functions only if the data is part of an offering payload. For all other experience data, use the standard experience shown/clicked functions.
+</Info>
+
+# FAQs
+
+<Accordion title="How many experiences I can fetch?">
+  You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
+</Accordion>
+
+<Accordion title="What happens if a fetch request is made while the device is offline and no valid cache is available?">
+  The SDK returns an empty payload along with a standardized error code (e.g., NETWORK\_ERROR).
+</Accordion>
