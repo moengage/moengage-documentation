@@ -96,107 +96,236 @@ Initialize the SDK before your React component mounts. You will inject your MoEn
 Create a custom wrapper hook (`useMoEngage.js`) to cleanly manage initialization and expose SDK methods throughout your widget.
 
 ```javascript useMoEngage Hook
-import { useEffect, useRef, useCallback } from 'react';
-import * as moengage from '@moengage/web-sdk';
-
+/**
+ * @file widget/hooks/useMoEngage.js
+ * @description React hook for MoEngage WebSDK npm package (@moengage/web-sdk).
+ *
+ * Initializes the SDK on first mount and provides stable methods for event
+ * tracking, user identification, email management, content cards, and personalization.
+ * No push notifications (disabled per requirements).
+ */
+import { useCallback, useRef, useEffect } from 'react';
+import moengage from '@moengage/web-sdk';
+/**
+ * Prefixed console logger for MoEngage-related messages.
+ * Only logs in development mode to avoid spamming production consoles.
+ * @param {string} msg
+ */
+function logMoe(msg) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[MoEngage]', msg);
+  }
+}
+/**
+ * Custom hook exposing MoEngage SDK operations used by the widget.
+ *
+ * All methods are memoised via `useCallback` so they are safe to pass as
+ * props or include in dependency arrays.
+ *
+ * @returns {{
+ *   logMoe:          (msg: string) => void,
+ *   trackEvent:      (eventName: string, properties?: object) => void,
+ *   identifyUser:    (userId: string, attributes?: object) => void,
+ *   setEmailId:      (email: string) => void,
+ *   setAttribute:    (name: string, value: *) => void,
+ *   getAttribute:    (name?: string) => *,
+ *   logout:          () => void,
+ *   trackPageView:   () => void,
+ *   openCardsInbox:  () => void,
+ *   getCardsInfo:    (query: string) => *,
+ * }}
+ */
 export default function useMoEngage() {
   const initRef = useRef(false);
-  const sdkReadyRef = useRef(false);
-
+  // Initialize SDK on mount
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
-    // You can directly use app_id or dataCenter.
-    const appId = window.__MOENGAGE_APP_ID__;
-    const dataCenter = window.__MOENGAGE_DATA_CENTER__;
-
-    if (!appId || !dataCenter) {
-      console.warn('[MoEngage] Missing credentials');
-      return;
-    }
-
-    // Initialize SDK
-    moengage.initialize({
-      appId,
-      cluster: getCluster(dataCenter),  // Maps dc_0 → DC_1, etc
-      env: 'LIVE',
-      logLevel: 0,  // No console logs in production
-    });
-
-    // Poll until SDK ready (max 10 iterations × 500ms = 5s)
-    let attempts = 0;
-    const poll = setInterval(() => {
-      if (window.Moengage?.onsite) {
-        clearInterval(poll);
-        sdkReadyRef.current = true;
-        moengage.trackEvent('app_opened', { source: 'widget' });
-      }
-      if (++attempts >= 10) clearInterval(poll);
-    }, 500);
-
-    return () => clearInterval(poll);
-  }, []);
-
-  // Wrapped callbacks safe for dependency arrays
-  const trackEvent = useCallback((name, props = {}) => {
-    if (!window.Moengage) {
-      console.warn('[MoEngage] SDK not ready');
-      return;
-    }
     try {
-      moengage.trackEvent(name, props);
-    } catch (err) {
-      console.error('[MoEngage] trackEvent error:', err);
-    }
-  }, []);
-
-  const identifyUser = useCallback((userObj) => {
-    if (!window.Moengage) return;
-    try {
-      moengage.add_unique_user_id(userObj.uid);
-      if (userObj.attrs) {
-        Object.entries(userObj.attrs).forEach(([k, v]) => {
-          moengage.add_user_attribute(k, v);
-        });
+      // Get config from window globals (set by HTML template)
+      const appId = window.__MOENGAGE_APP_ID__;
+      const cluster = window.__MOENGAGE_DATA_CENTER__ || '';
+      if (!appId) {
+        logMoe('App ID not configured, MoEngage disabled');
+        return;
       }
+      moengage.initialize({
+        appId,
+        env: 'LIVE',
+        logLevel: 0,
+        cluster,
+      });
+      logMoe(`Initialized with appId: ${appId}, cluster: ${cluster}`);
     } catch (err) {
-      console.error('[MoEngage] identifyUser error:', err);
+      logMoe(`Init error: ${err.message}`);
     }
   }, []);
-
+  // ── trackEvent ────────────────────────────────────────────────────────────
+  /**
+   * Track a custom event via MoEngage SDK.
+   *
+   * @param {string} eventName  - Name of the event.
+   * @param {object} [properties={}] - Key/value event properties.
+   */
+  const trackEvent = useCallback((eventName, properties = {}) => {
+    try {
+      moengage.trackEvent(eventName, properties);
+      logMoe(`Event: ${eventName} ${JSON.stringify(properties)}`);
+    } catch (err) {
+      logMoe(`Track error (${eventName}): ${err.message}`);
+    }
+  }, []);
+  // ── identifyUser ──────────────────────────────────────────────────────────
+  /**
+   * Identify a user with UID and optional attributes.
+   *
+   * @param {string} userId     - Unique user identifier (uid).
+   * @param {object} [attributes={}] - Profile attributes (u_mb, u_fn, u_ln, u_em, u_gender, u_birthday).
+   */
+  const identifyUser = useCallback((userId, attributes = {}) => {
+    try {
+      const userObj = { uid: userId, ...attributes };
+      moengage.identifyUser(userObj);
+      logMoe(`Identified: ${userId} with ${Object.keys(attributes).length} attrs`);
+    } catch (err) {
+      logMoe(`Identify error: ${err.message}`);
+    }
+  }, []);
+  // ── setEmailId ────────────────────────────────────────────────────────────
+  /**
+   * Set the user's email ID.
+   *
+   * @param {string} email - User's email address.
+   */
   const setEmailId = useCallback((email) => {
-    if (!window.Moengage) return;
     try {
       moengage.setEmailId(email);
+      logMoe(`Email set: ${email}`);
     } catch (err) {
-      console.error('[MoEngage] setEmailId error:', err);
+      logMoe(`Set email error: ${err.message}`);
     }
   }, []);
-
-  const setUserAttribute = useCallback((name, value) => {
-    if (!window.Moengage) return;
+  // ── setAttribute ──────────────────────────────────────────────────────────
+  /**
+   * Set a custom user attribute.
+   *
+   * @param {string} name  - Attribute name (e.g., 'u_premium', 'u_plan').
+   * @param {*}      value - Attribute value.
+   */
+  const setAttribute = useCallback((name, value) => {
     try {
-      moengage.add_user_attribute(name, value);
+      moengage.setUserAttribute(name, value);
+      logMoe(`Attribute: ${name} = ${value}`);
     } catch (err) {
-      console.error('[MoEngage] setUserAttribute error:', err);
+      logMoe(`Attribute error: ${err.message}`);
     }
   }, []);
-
+  // ── getAttribute ──────────────────────────────────────────────────────────
+  /**
+   * Retrieve a user attribute.
+   *
+   * @param {string} name - Attribute name.
+   * @returns {*} The attribute value or `undefined`.
+   */
+  const getAttribute = useCallback((name) => {
+    try {
+      const val = moengage.getUserAttribute(name);
+      logMoe(`Attribute "${name}" = ${JSON.stringify(val)}`);
+      return val;
+    } catch (err) {
+      logMoe(`Get attribute error: ${err.message}`);
+      return undefined;
+    }
+  }, []);
+  // ── logout ────────────────────────────────────────────────────────────────
+  /**
+   * Logout the current user and destroy session.
+   */
   const logout = useCallback(() => {
-    if (!window.Moengage) return;
     try {
       moengage.logoutUser();
+      logMoe('User logged out');
     } catch (err) {
-      console.error('[MoEngage] logout error:', err);
+      logMoe(`Logout error: ${err.message}`);
     }
   }, []);
-
-  return { trackEvent, identifyUser, setEmailId, setUserAttribute, logout };
-}
-
-function getCluster(dc) {
-  const map = { dc_1: 'DC_1', dc_2: 'DC_2', dc_3: 'DC_3', dc_4: 'DC_4', dc_5: 'DC_5', dc_6: 'DC_6' };
-  return map[dc] || 'DC_1';
+  // ── trackPageView ─────────────────────────────────────────────────────────
+  /**
+   * Track a page view event.
+   */
+  const trackPageView = useCallback(() => {
+    try {
+      moengage.trackPageView();
+      logMoe('Page view tracked');
+    } catch (err) {
+      logMoe(`Page view error: ${err.message}`);
+    }
+  }, []);
+  // ── openCardsInbox ────────────────────────────────────────────────────────
+  /**
+   * Open the MoEngage Content Cards inbox.
+   */
+  const openCardsInbox = useCallback(() => {
+    try {
+      const inbox = document.getElementById('moe_inbox');
+      if (inbox) {
+        inbox.style.display = 'block';
+        logMoe('Content Cards inbox opened');
+      }
+    } catch (err) {
+      logMoe(`Cards error: ${err.message}`);
+    }
+  }, []);
+  // ── getCardsInfo ──────────────────────────────────────────────────────────
+  /**
+   * Query Content Cards metadata or fetch cards.
+   *
+   * @param {string} query - Query type (e.g., 'fetch_cards', 'unclicked_count')
+   * @returns {*} The result or `null`.
+   */
+  const getCardsInfo = useCallback((query) => {
+    try {
+      let result = null;
+      if (query === 'fetch_cards') {
+        moengage.fetchCards();
+        result = 'Cards fetch initiated';
+      }
+      logMoe(`Cards query (${query}): ${JSON.stringify(result)}`);
+      return result;
+    } catch (err) {
+      logMoe(`Cards query error: ${err.message}`);
+      return null;
+    }
+  }, []);
+  // ── sdkControl ────────────────────────────────────────────────────────────
+  /**
+   * Generic MoEngage SDK control method for custom actions.
+   * Allows tools to invoke arbitrary SDK methods.
+   *
+   * @param {string} action - SDK action name (e.g., 'showCards', 'logout').
+   * @returns {void}
+   */
+  const sdkControl = useCallback((action) => {
+    try {
+      if (!action) return;
+      logMoe(`SDK control: ${action}`);
+      // Action types can be extended as needed by tools
+    } catch (err) {
+      logMoe(`SDK control error (${action}): ${err.message}`);
+    }
+  }, []);
+  return {
+    trackEvent,
+    identifyUser,
+    setEmailId,
+    setAttribute,
+    getAttribute,
+    logout,
+    trackPageView,
+    openCardsInbox,
+    getCardsInfo,
+    sdkControl,
+  };
 }
 ```
 
