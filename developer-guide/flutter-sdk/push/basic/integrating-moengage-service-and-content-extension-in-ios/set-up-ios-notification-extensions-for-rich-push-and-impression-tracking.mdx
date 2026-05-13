@@ -3,6 +3,8 @@ title: "Set Up iOS Notification Extensions for Rich Push and Impression Tracking
 description: "Required configuration to enable push impression tracking and rich media notifications on iOS. Skipping this results in missing impression metrics and rich push failures."
 ---
 
+All steps in this guide are performed in Xcode — open your iOS project by launching `ios/Runner.xcworkspace` in Xcode before proceeding.
+
 This guide describes how to integrate MoEngage service and content extensions into your iOS application. These extensions enable notification impression tracking, support for rich media (images, GIFs, and video), and the use of rich push notification templates.
 
 <Tip>
@@ -49,7 +51,12 @@ The service extension tracks notification impressions and downloads rich media c
 1. [Create an App Identifier](https://idmsa.apple.com/IDMSWebAuth/signin?appIdKey=891bd3417a7776362562d2197f89480a8547b108fd934911bcbea0110d07f757&path=%2Faccount%2Fresources%2Fidentifiers%2Flist&rv=1): Use the format `[appBundleId].[serviceExtensionName].`
    1. Replace `[appBundleId]` with your application’s specific bundle identifier
    2. Replace `[serviceExtensionName]` with your chosen name (which defaults to _MoEngageNotificationService_). For example\_:\_ If your app bundle identifier is `com.org.app` and your extension is named `NotificationService`, the identifier is `com.org.app.NotificationService`.
-2. Add the App Group to the extension capabilities using the specific name defined in your SDK initialization under the key: `AppGroupName`.
+
+   <Info>
+     If you already have an existing Notification Service Extension, you can reuse it — you do not need to create a new one. The tool injects the necessary MoEngage logic without overwriting your custom code.
+   </Info>
+
+2. In Xcode, select the **service extension target**, open the **Signing & Capabilities** tab, click **+ Capability**, and add **App Groups**. Enter the name matching your `AppGroupName` key.
    <Frame>
      <img
        src="/images/Appgroup.png"
@@ -59,7 +66,7 @@ The service extension tracks notification impressions and downloads rich media c
        className="mr-auto"
      />
    </Frame>
-3. **Generate provisioning profile:** Create and download a provisioning profile for this identifier in Xcode.
+3. **Generate provisioning profile:** On the [Apple Developer Portal](https://developer.apple.com/account/resources/profiles/list), create a new provisioning profile for the identifier created in step 1, download it, and double-click to register it in Xcode.
    <Frame>
      <img
        src="/images/provisioningprofile-2.png"
@@ -69,10 +76,6 @@ The service extension tracks notification impressions and downloads rich media c
      />
    </Frame>
 
-<Info>
-  If you already have an existing Notification Service Extension, you can pass your existing extension’s name using the `--notification-service-extension-name` flag in the Run Script phase. The tool will then inject the necessary MoEngage logic into your current implementation without overwriting your custom code.
-</Info>
-
 ### Step 2: Configure the content extension (Optional)
 
 The content extension is required only if you intend to use MoEngage rich push notification templates.
@@ -80,7 +83,7 @@ The content extension is required only if you intend to use MoEngage rich push n
 1. [Create an App Identifier](https://idmsa.apple.com/IDMSWebAuth/signin?appIdKey=891bd3417a7776362562d2197f89480a8547b108fd934911bcbea0110d07f757&path=%2Faccount%2Fresources%2Fidentifiers%2Flist&rv=1): Use the format `[appBundleId].[contentExtensionName].`
    1. Replace `[appBundleId]` with your application’s specific bundle identifier
    2. Replace `[contentExtensionName]` with your chosen name (which defaults to _MoEngageNotificationContent_). For example\_:\_ If your app bundle identifier is `com.org.app` and your extension is named `NotificationContent`, the identifier is `com.org.app.NotificationContent`.
-2. Add the App Group to the extension capabilities using the specific name defined in your SDK initialization under the key: `AppGroupName`.
+2. In Xcode, select the **content extension target**, open the **Signing & Capabilities** tab, click **+ Capability**, and add **App Groups**. Enter the name matching your `AppGroupName` key.
    <Frame>
      <img
        src="/images/Appgroup.png"
@@ -90,19 +93,9 @@ The content extension is required only if you intend to use MoEngage rich push n
        className="mr-auto"
      />
    </Frame>
-3. **Generate provisioning profile:** Create and download a provisioning profile for this identifier in Xcode.
+3. **Generate provisioning profile:** On the [Apple Developer Portal](https://developer.apple.com/account/resources/profiles/list), create a new provisioning profile for the identifier created in step 1, download it, and double-click to register it in Xcode.
 
 <Frame>
-  <img
-    alt="Provisioningprofile 1"
-    title="Provisioningprofile 1"
-    style={{ width:"65%" }}
-    className="hidden dark:block mr-auto"
-    lightAlt="Provisioningprofile"
-    darkAlt="Provisioningprofile"
-    src="/images/provisioningprofile-2.png"
-  />
-
   <img
     alt="Provisioningprofile 1"
     title="Provisioningprofile 1"
@@ -116,7 +109,10 @@ The content extension is required only if you intend to use MoEngage rich push n
 
 ### Step 3: Integrate MoEngageRichNotification (Optional)
 
-If you require rich content or templates, integrate the `MoEngageRichNotification` library.
+Integrate `MoEngageRichNotification` if you need to support either of the following push notification features:
+
+- **Rich media** — display images, GIFs, or video in the notification banner
+- **Rich push templates** — render interactive notification layouts such as carousel, stepper, rating, or timer
 
 <Info>
   This step is mandatory if you have integrated the content extension mentioned in Step 2.
@@ -128,8 +124,7 @@ If you require rich content or templates, integrate the `MoEngageRichNotificatio
 
     1. Navigate to **File \> Add Package**.
     2. Enter the repository URL:
-       - **SDK v9.23.0 and above:** `https://github.com/moengage/apple-sdk.git`
-       - **Earlier versions:** `https://github.com/moengage/MoEngage-iOS-SDK.git`
+       - `https://github.com/moengage/apple-sdk.git`
     3. Select the **master** branch or a specific version and select **Add Package**.
     4. Target the package to your application.
   </Tab>
@@ -138,15 +133,14 @@ If you require rich content or templates, integrate the `MoEngageRichNotificatio
       **Information** CocoaPods is being deprecated. MoEngage recommends using Swift Package Manager for all new integrations. For more info, refer [here](/developer-guide/ios-sdk/sdk-integration/basic/sdk-integration).
     </Warning>
 
-    1. Add the following to your `Podfile` .
+    1. Add the following line to your `Podfile` inside your app target.
+
+    <Info>
+      The `moengage_flutter` package already brings in `MoEngage-iOS-SDK` via autolinking — you only need to add the `RichNotification` subspec.
+    </Info>
 
     ```ruby lines wrap
-    target 'YourApp' do
-      use_frameworks!
-      pod 'MoEngage-iOS-SDK'
-      # other moengage specs
-      pod 'MoEngage-iOS-SDK/RichNotification'
-    end
+    pod 'MoEngage-iOS-SDK/RichNotification'
     ```
 
     2. Run pod install:
@@ -162,7 +156,7 @@ If you require rich content or templates, integrate the `MoEngageRichNotificatio
 
 Automate the extension configuration by adding a custom script to your build process.
 
-1. In your application target, add a **New Run Script Phase**.
+1. In Xcode, select your application target, go to **Build Phases**, and click **+** to add a **New Run Script Phase**.
 
 <Frame>
   <img
