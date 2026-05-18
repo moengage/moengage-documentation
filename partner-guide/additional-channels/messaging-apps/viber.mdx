@@ -1,0 +1,451 @@
+---
+title: "Viber"
+description: "Integrate MoEngage with Viber to send personalized, rich-media, and automated messages through native APIs, Infobip, or the 8x8 connector."
+---
+
+[Viber](https://www.viber.com/en/) is a cross-platform voice-over-IP and instant messaging application that is secure, fast, and synchronized across all devices. Through Viber, brands can engage with users using rich messaging.
+
+## MoEngage and Viber
+
+The MoEngage and Viber integration lets you use segmentation, predictive capabilities, personalization, and triggering to message users on your Viber bot through the [Viber REST Bot API](https://developers.viber.com/docs/api/rest-bot-api/).
+
+## Use cases
+
+The integration supports the following use cases:
+
+- **Personalized messaging**: Send personalized messages based on user preferences.
+- **Rich media content**: Include images, videos, and files in Viber messages.
+- **Automated campaigns**: Send messages on a schedule or trigger them based on user actions.
+
+## Methods to send messages via Viber integration
+
+You can send messages through Viber using:
+
+- **[Integration via native](#integration-via-native)**: Use MoEngage campaigns with Viber APIs directly.
+- **[Integration via Infobip](#integration-via-infobip)**: Send messages through the Infobip connector.
+- **[Integration via 8x8 connector](#integration-via-8x8-connector)**: Send text, media (images, videos, files), and call-to-action (CTA) button messages through the 8x8 Chat Apps API.
+
+---
+
+## Integration via native {#integration-via-native}
+
+<Info>
+**Prerequisites**
+
+- **Viber bot**: You must have a Viber bot. Messages are sent from your bot profile, so users see your bot details. To create a bot, see the [Viber Partners portal](https://partners.viber.com/login).
+- **Active auth token**: An active Viber account that supports bots (iOS or Android). During account creation, the Viber account is set as the account administrator.
+- **Account authentication token**: A unique identifier that validates your account in API requests. After you create the account, the authentication token appears on the account **edit info** screen (admins only).
+- **Viber user IDs**: A unique ID for each Viber user. After users subscribe to your bot, you can access user IDs through the [Viber Users API](https://developers.viber.com/docs/api/rest-bot-api/#get-user-details).
+- **Account webhook**: Define webhook and response preferences during account setup to configure message handling.
+- **Connected Channels add-on**: Viber is part of the Connected Channels add-on. Contact your MoEngage customer success manager (CSM) to enable it for your account.
+</Info>
+
+Viber lets you send promotional and non-promotional messages when users have given consent. Users must have subscribed to your Viber bot to receive messages.
+
+<Note>
+- After users send their first message to the Viber bot, they are automatically subscribed.
+- Personalized campaigns can only be sent to users if you have their user identifier (phone number).
+- The Viber bot does not assign a default phone number to users. You can obtain a phone number in two ways:
+  - Request it directly from the user by sending a broadcast message to their Viber ID.
+  - Access phone numbers directly if you are part of Viber's Business Messages service.
+</Note>
+
+### Step 1: Connect Viber on the App marketplace
+
+To connect Viber on the App marketplace:
+
+1. On the left navigation menu in the MoEngage dashboard, click **App marketplace**.
+2. On the App Marketplace page, search for **Viber**.
+
+   <img src="/images/TODO-viber-search-app-marketplace.png" alt="App Marketplace search results for Viber" />
+
+3. Click the **Viber** tile.
+4. On the Viber page, go to the **Integrate** tab.
+5. Open the integration dropdown and click **Send messages (Native)**.
+
+   <img src="/images/TODO-viber-native-integration-dropdown.png" alt="Viber integration dropdown with Send messages Native selected" />
+
+6. Enter the following details:
+
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | **Connection name** | Yes | Name of the Viber connection. |
+   | **Viber Auth Token** | Yes | Your Viber auth token. The token is generated when you create the bot; admins can view it on the bot **edit info** screen or in the Viber Admin Panel. For more information, see [Authentication token](https://developers.viber.com/docs/api/rest-bot-api/#authentication-token). |
+   | **Sender Name** | Yes | The sender name displayed to recipients. |
+   | **Sender Avatar URL** | No | URL for the sender avatar. **Note**: Maximum size is 100 KB. Recommended resolution is 720×720 pixels. |
+
+   <img src="/images/TODO-viber-native-connection-form.png" alt="Viber native connection configuration form" />
+
+7. Click **Connect**. Your Viber connection is integrated.
+
+#### Step 1.1: Collect users' Viber IDs
+
+To send Viber messages, collect each user's Viber ID. Viber generates these IDs; use them when calling the [Viber send message API](https://developers.viber.com/docs/api/rest-bot-api/#send-message).
+
+#### Step 1.2: Save users' Viber IDs in MoEngage
+
+Add Viber IDs to MoEngage as a custom user attribute named `viber_id`. You can:
+
+- Pass the data using the [Track User API](/api/user/track-user).
+- Upload it using **User Imports** in MoEngage.
+
+### Step 2: Create a Viber campaign in MoEngage
+
+To create a campaign:
+
+1. On the left navigation menu, click **Engage**, and then click **Campaigns**.
+2. On the **All campaigns** page, click **+ Create campaign**.
+3. In the **Create campaign** dialog, under **Connected Apps**, click **Viber**, and then select a delivery type.
+
+   <img src="/images/TODO-viber-create-campaign-delivery-type.png" alt="Create campaign dialog with Viber and delivery types" />
+
+4. Under **Select audience**, click **Filter users by**.
+5. On the **User property** tab, select users for whom **viber_id** exists (you can combine this with other segment criteria).
+6. In step 2 (**Content**), select the native message connector and specify the content to send.
+7. Enter the following details:
+
+   <img src="/images/TODO-viber-native-campaign-content.png" alt="Viber native campaign content configuration" />
+
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | **Connector** | Yes | Select **Send messages (Native)**. |
+   | **Connections** | Yes | Select the connection you added in the App marketplace. |
+   | **Receiver ID** | Yes | Recipient's unique Viber user ID. You can use personalization. |
+   | **Tracking ID** | Yes | Tracks messages and user replies. The `tracking_data` value you send is returned with the user's reply. Maximum 4096 characters. |
+
+8. Select the **Message type** to send. Supported types are **Text**, **Picture**, and **Video**. Based on the type, enter the fields in the following tables.
+
+#### Native message type fields
+
+<Tabs>
+<Tab title="Text message">
+
+If you select **Text**, enter:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message Content** | Yes | Message text. You can use personalization. **Note**: Maximum 7000 or 768 characters (per Viber limits). |
+| **Media URL** | No | Leave blank. |
+| **Video Size** | No | Leave blank. |
+| **Video Duration** | No | Leave blank. |
+
+</Tab>
+<Tab title="Picture message">
+
+If you select **Picture**, enter:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message Content** | Yes | Description for the picture message. You can use personalization. **Note**: Maximum 7000 or 768 characters. |
+| **Media URL** | Yes | Image URL. Must start with `https://` or `http://`. Supported types: `.jpg`, `.jpeg`, `.png`. Recommended resolution: 800×800 pixels. You can use personalization. |
+| **Video Size** | No | Leave blank. |
+| **Video Duration** | No | Leave blank. |
+
+</Tab>
+<Tab title="Video message">
+
+If you select **Video**, enter:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message Content** | No | Leave blank. |
+| **Media URL** | Yes | Video URL. Must start with `https://` or `http://`. Supported types: `3gp`, `m4v`, `mov`, `mp4`. You can use personalization. **Note**: Maximum video size is 200 MB. |
+| **Video Size** | Yes | Video size in bytes. |
+| **Video Duration** | Yes | Video duration in seconds. Maximum 180 seconds. |
+
+</Tab>
+</Tabs>
+
+For more information, see the [Viber REST Bot API send message documentation](https://developers.viber.com/docs/api/rest-bot-api/#send-message).
+
+9. Test the campaign using **Test**. If your test user receives the message, the setup is ready.
+
+   <img src="/images/TODO-viber-campaign-test.png" alt="Viber campaign test functionality" />
+
+10. Publish the campaign.
+
+---
+
+## Integration via Infobip {#integration-via-infobip}
+
+<Info>
+**Prerequisites**
+
+- **Viber bot**: You must have a Viber bot. Messages are associated with your bot profile. To create a bot, see the [Viber Partners portal](https://partners.viber.com/login).
+- **Infobip APIs**: A Viber connection established with your connected Viber bot, with access to Infobip APIs.
+</Info>
+
+### Step 1: Connect Viber on the App marketplace
+
+1. On the left navigation menu, click **App marketplace**.
+2. Search for **Viber**.
+
+   <img src="/images/TODO-viber-search-app-marketplace.png" alt="App Marketplace search results for Viber" />
+
+3. Click the **Viber** tile.
+4. Go to the **Integrate** tab.
+5. Open the integration dropdown and click **Send messages (Infobip)**.
+
+   <img src="/images/TODO-viber-infobip-integration-dropdown.png" alt="Viber Infobip integration option" />
+
+6. Enter the following details:
+
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | **Connection name** | Yes | Name of the Viber connection. |
+   | **API Base URL** | Yes | Unique API base URL for your Infobip account. See [Infobip base URL](https://www.infobip.com/docs/essentials/base-url). |
+   | **API Key** | Yes | Your Infobip API key. See [API authentication](https://www.infobip.com/docs/essentials/api-essentials/api-authentication#api-key-header). |
+
+   <img src="/images/TODO-viber-infobip-connection-form.png" alt="Viber Infobip connection form" />
+
+7. Click **Connect**.
+
+#### Step 1.1: Collect users' Viber IDs
+
+Collect each user's Viber ID for use with the [Viber send message API](https://developers.viber.com/docs/api/rest-bot-api/#send-message).
+
+#### Step 1.2: Save users' Viber IDs in MoEngage
+
+Add IDs as the `viber_id` user attribute via the [Track User API](/api/user/track-user) or **User Imports**.
+
+### Step 2: Create a Viber campaign in MoEngage
+
+1. Click **Engage** > **Campaigns**.
+2. Click **+ Create campaign**.
+3. Under **Connected Apps**, click **Viber** and select a delivery type.
+
+   <img src="/images/TODO-viber-create-campaign-delivery-type.png" alt="Create campaign with Viber delivery types" />
+
+4. Under **Select audience**, click **Filter users by**.
+5. On the **User property** tab, select users for whom **viber_id** exists.
+6. In step 2 (**Content**), select the Infobip connector and specify content.
+7. Enter the following details:
+
+   <img src="/images/TODO-viber-infobip-campaign-content.png" alt="Viber Infobip campaign content screen" />
+
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | **Connector** | Yes | Select **Send messages (Infobip)**. |
+   | **Connections** | Yes | Select the connection from the App marketplace. |
+   | **Sender ID** | Yes | Unique identifier for your Viber account (alphanumeric or numeric). You can use personalization. **Note**: Maximum 11 characters. |
+   | **User mobile number** | Yes | User's mobile number. You can use personalization. **Note**: For India, use DLT parameters; for Turkey, IYS regulations; for South Korea, use case-dependent parameters. |
+
+8. Select the **Message type**: **Text**, **Image**, **Video**, or **File**.
+
+#### Infobip message type fields
+
+<Tabs>
+<Tab title="Text message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message** | Yes | Message content. You can use personalization. **Note**: Maximum 1000 characters. |
+| **Button Text** | No | Text on the action button. Required only if adding a button. **Note**: Maximum 30 characters. |
+| **Button Action URL** | No | URL or action when the button is pressed. Required only if adding a button. **Note**: Maximum 1000 characters. |
+| **Media URL** | No | Leave blank. |
+| **Video Duration** | No | Leave blank. |
+| **Thumbnail URL** | No | Leave blank. |
+| **File name** | No | Leave blank. |
+
+</Tab>
+<Tab title="Image message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message** | No | Text with the image. Required when sending a message with a button and an image. |
+| **Button Text** | No | Action button text. Required only if adding a button. Maximum 30 characters. |
+| **Button Action URL** | No | URL for the button action. Required only if adding a button. Maximum 1000 characters. |
+| **Media URL** | Yes | Image URL (`https://` or `http://`). Supported: `.jpg`, `.jpeg`, `.png`. Recommended: 800×800 pixels. |
+| **Video Duration** | No | Leave blank. |
+| **Thumbnail URL** | No | Leave blank. |
+| **File name** | No | Leave blank. |
+
+</Tab>
+<Tab title="Video message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message** | No | Leave blank. |
+| **Button Text** | No | Action button text. Maximum 30 characters. |
+| **Button Action URL** | No | Button destination URL. Maximum 1000 characters. |
+| **Media URL** | Yes | Video URL (`https://` or `http://`). Supported: `3gp`, `m4v`, `mov`, `mp4`. Maximum 200 MB. |
+| **Video Duration** | Yes | Video duration (maximum 180 seconds). Example: `PT5S`. |
+| **Thumbnail URL** | Yes | Thumbnail URL (`https://` or `http://`). Supported: `.jpg`, `.jpeg`, `.png`. Recommended: 800×800 pixels. |
+| **File name** | No | Leave blank. |
+
+</Tab>
+<Tab title="File message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Message** | No | Leave blank. |
+| **Button Text** | No | Leave blank. |
+| **Button Action URL** | No | Leave blank. |
+| **Media URL** | Yes | File URL. Supported types include `.doc`, `.docx`, `.pdf`, `.xls`, `.xlsx`, `.csv`, and others listed in Infobip docs. Maximum 200 MB. |
+| **Video Duration** | No | Leave blank. |
+| **Thumbnail URL** | No | Leave blank. |
+| **File name** | Yes | Attached file name including extension. |
+
+</Tab>
+</Tabs>
+
+   For more information, see [Infobip send Viber messages](https://www.infobip.com/docs/api/channels/viber/viber-business-messages/send-viber-messages).
+
+9. Test the campaign. If the test user receives the message, the setup is ready.
+
+   <img src="/images/TODO-viber-campaign-test.png" alt="Campaign test screen" />
+
+10. Publish the campaign.
+
+---
+
+## Integration via 8x8 connector {#integration-via-8x8-connector}
+
+<Info>
+**Prerequisites**
+
+Before configuring this connector, ensure you have:
+
+- **8x8 Connect account**: An active 8x8 Connect portal account.
+- **Viber channel enabled**: Your 8x8 subaccount must be provisioned for Viber. Contact your 8x8 account manager or 8x8 support for provisioning.
+- **8x8 API access**: Ability to generate an API key and locate your Subaccount ID in the 8x8 Connect portal.
+</Info>
+
+### Step 1: Connect Viber on the App marketplace
+
+1. On the left navigation menu, click **App marketplace**.
+2. Search for **Viber** and click the **Viber** tile.
+3. Go to the **Integrate** tab.
+4. Click **Add integration**, then **Send messages (8x8)**.
+
+   <img src="/images/TODO-viber-8x8-integration-dropdown.png" alt="8x8 Viber integration option" />
+
+5. Enter the following details:
+
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | **Connection name** | Yes | Name for this connector instance (for your reference in MoEngage). |
+   | **8x8 Subaccount ID** | Yes | Your 8x8 Chat Apps API Subaccount ID. In the 8x8 Connect portal, go to **Channels** under **Messaging Apps** and copy **Subaccount ID**. |
+   | **8x8 API Token** | Yes | Your 8x8 Chat Apps API token. In the portal, go to **API Keys** and copy the **API Key**. |
+
+6. Click **Connect**.
+
+   <img src="/images/TODO-viber-8x8-connection-complete.png" alt="8x8 Viber connection confirmation" />
+
+### Step 2: Create an 8x8 connector campaign in MoEngage
+
+1. Click **Engage** > **Campaigns**.
+2. Click **+ Create campaign**.
+3. Under **Connected Apps**, click **Viber** and select a delivery type.
+
+   <img src="/images/TODO-viber-create-campaign-delivery-type.png" alt="Create Viber campaign delivery type" />
+
+4. Under **Select audience**, click **Filter users by**.
+5. Select users for whom **viber_id** exists.
+6. In step 2 (**Content**), select the 8x8 Viber connector and specify content.
+7. Configure campaign fields and message content:
+
+   <img src="/images/TODO-viber-8x8-campaign-content.png" alt="8x8 Viber campaign content configuration" />
+
+#### 8x8 message type fields
+
+<Tabs>
+<Tab title="Text message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Recipient Mobile Number** | Yes | Mobile number in E.164 format including country code (for example, `14155552671`). |
+| **Message Text** | Yes | Text content. Can be combined with a CTA button. |
+| **Media URL** | No | Leave blank for text messages. |
+| **Video Content Details** | No | Leave blank for text messages. |
+| **Button Caption** | Conditional | CTA button title (for example, **Shop Now**). Required if **Button Action URL** is provided. |
+| **Button Action URL** | Conditional | HTTPS destination when the user taps the button. Required if **Button Caption** is provided. |
+
+</Tab>
+<Tab title="Image message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Recipient Mobile Number** | Yes | E.164 format with country code. |
+| **Message Text** | No | Optional text with the image and/or CTA button. |
+| **Media URL** | Yes | Public HTTPS URL for the image when **Content Type** is **Image**. |
+| **Video Content Details** | No | Leave blank. |
+| **Button Caption** | Conditional | Required if **Button Action URL** is provided. |
+| **Button Action URL** | Conditional | Required if **Button Caption** is provided. |
+
+</Tab>
+<Tab title="Video message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Recipient Mobile Number** | Yes | E.164 format with country code. |
+| **Message Text** | No | Optional text with the video and/or CTA button. |
+| **Media URL** | Yes | Public HTTPS URL for the video when **Content Type** is **Video**. |
+| **Video Content Details** | Yes | Required when **Content Type** is **Video**. JSON object with `filesize` (integer, bytes), `duration` (integer, seconds), and `thumbnail` (string, HTTPS URL). See example below. |
+| **Button Caption** | Conditional | Required if **Button Action URL** is provided. |
+| **Button Action URL** | Conditional | Required if **Button Caption** is provided. |
+
+Example **Video Content Details** JSON:
+
+```json
+{
+  "filesize": 200000,
+  "duration": 15,
+  "thumbnail": "https://example.com/thumb.jpg"
+}
+```
+
+For more information, see [8x8 Viber video samples](https://developer.8x8.com/connect/docs/usage-samples-viber#video-only).
+
+</Tab>
+<Tab title="File message">
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **Recipient Mobile Number** | Yes | E.164 format with country code. |
+| **Message Text** | No | Leave blank. |
+| **Media URL** | Yes | Public HTTPS URL for the file when **Content Type** is **File**. |
+| **Video Content Details** | No | Leave blank. |
+| **Button Caption** | No | Not supported for file messages. |
+| **Button Action URL** | No | Not supported for file messages. |
+
+</Tab>
+</Tabs>
+
+### Message combinations
+
+The connector handles these content combinations:
+
+- **Text + button**: Text message with a CTA button.
+- **Image + button**: Image with a CTA button.
+- **Video + button**: Video with a CTA button.
+- **Media only**: Send only an **Image**, **Video**, or **File** by setting **Content Type** and **Media URL** (and **Video Content Details** for video).
+
+### Analytics and delivery tracking
+
+The 8x8 connector tracks delivery status. MoEngage creates these events from the 8x8 API response:
+
+- **Connected App Campaign Sent**: Triggered when the 8x8 API accepts the message request (HTTP 200).
+- **Connected App Campaign Failed**: Triggered when the 8x8 API returns a non-200 response.
+
+Use these events for analytics dashboards, performance tracking, and follow-up actions.
+
+---
+
+## Send a Viber message to a channel or group
+
+1. Create a MoEngage user for the channel or group. Set the Viber ID to the channel or group ID.
+2. Create a segment that includes only that user. If multiple users are in the segment, the message is sent to the channel or group multiple times.
+3. In step 2 of campaign creation, enter the channel or group Viber ID (personalization supported).
+
+---
+
+## Campaign analytics
+
+MoEngage campaign analytics help you measure performance. For general Connected Apps analytics, see [Connected Apps campaign analytics](/user-guide/campaigns-and-channels/connected-apps/analyze/connected-apps-campaign-analytics).
+
+By default, Viber campaigns include:
+
+- **Attempted**: After frequency capping (FC) exclusions, the number of users who qualified for the campaign and to whom MoEngage attempted delivery.
+- **Failed**: Users for whom Viber did not send a message, or users for whom MoEngage could not resolve user or event attributes used in the campaign.
+- **Successfully sent**: The campaign is marked successful when Viber APIs accept the send request (HTTP 200) for users, groups, or rooms. For response details, see [Viber REST Bot API](https://developers.viber.com/docs/api/rest-bot-api/) documentation.
