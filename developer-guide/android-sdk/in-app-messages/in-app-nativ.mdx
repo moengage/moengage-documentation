@@ -1,9 +1,20 @@
 ---
-title: "In-App NATIV"
-description: "Display contextual in-app messages to your Android app users using the MoEngage In-App NATIV SDK."
+title: "In-App Messages"
+description: "Display contextual in-app messages and nudges to your Android app users. The MoEngage SDK supports Native and HTML rendering for both in-app and nudge display formats."
 ---
 
-In-App NATIV Campaigns target your users by showing a message while the user is using your app. They are very effective in providing contextual information and help to cross-sell/up-sell on desired screens of your app or/and on desired actions performed by the user in your app.
+In-App campaigns display messages to users while they are actively using your app. They are effective for contextual messaging, cross-sells, and up-sells on specific screens or user actions.
+
+The MoEngage SDK supports two rendering mechanisms, each available in two display formats:
+
+- **Native In-App** — a popup or full-screen message rendered using standard Android UI elements.
+- **Native Nudge** — a non-intrusive banner rendered using standard Android UI elements.
+- **HTML In-App** — a popup or full-screen message rendered inside a WebView (HTML/CSS/JS).
+- **HTML Nudge** — a non-intrusive banner rendered inside a WebView (HTML/CSS/JS).
+
+<Info>
+  The MoEngage SDK determines which renderer to use based on the campaign configuration in the MoEngage dashboard. The `showInApp()` and `showNudge()` calls trigger the correct renderer automatically.
+</Info>
 
 <img
   src="/images/Latest_Popupimage.png"
@@ -61,7 +72,9 @@ MoEInAppHelper.getInstance().showInApp(context)
 
 # Display Nudges
 
-Starting with version \*\*7.0.0,\*\*MoEngage InApp SDK supports displaying Non-Intrusive nudges. 
+Nudges are non-intrusive banners displayed at the edge of the screen without interrupting the user's flow. Like in-apps, nudges support both Native and HTML rendering.
+
+Starting with In-App SDK version 7.0.0, use `showNudge()` to display nudges.
 
 MoEngage can not show the Nudges by default, and the app should call the following method in the places where necessary to show the Nudges to the user. We would recommend you add this method in onStart() of your activity or onResume() of your fragment. [MoEInAppHelper.getInstance().showNudge(context)](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/show-nudge.html)
 
@@ -69,6 +82,27 @@ MoEngage can not show the Nudges by default, and the app should call the followi
 
 ```Kotlin Kotlin wrap
 MoEInAppHelper.getInstance().showNudge(context)
+```
+
+</CodeGroup>
+
+To display a nudge at a specific screen position, pass an `InAppPosition` value to `showNudge()`. Available positions: `ANY` (default), `TOP`, `BOTTOM`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import com.moengage.inapp.MoEInAppHelper
+import com.moengage.inapp.model.enums.InAppPosition
+
+MoEInAppHelper.getInstance().showNudge(context, InAppPosition.BOTTOM)
+```
+
+
+```java Java
+import com.moengage.inapp.MoEInAppHelper;
+import com.moengage.inapp.model.enums.InAppPosition;
+
+MoEInAppHelper.getInstance().showNudge(context, InAppPosition.BOTTOM);
 ```
 
 </CodeGroup>
@@ -239,6 +273,10 @@ public class MyCustomFragment extends Fragment {
 
 # WebView Customization
 
+<Info>
+  This section applies to HTML In-Apps and HTML Nudges only.
+</Info>
+
 Starting with In-App SDK version **9.6.0**, the SDK supports customizing the underlying WebView used to render HTML In-App messages. This allows for modifying the WebView settings, adding custom JavaScript interfaces, and implementing other configurations to the WebView used to render HTML In-Apps.
 
 To customize the WebView, you must invoke the `MoEInAppHelper.getInstance().setInAppWebViewCustomizer()` API. Any custom settings defined using this API will override the default MoEngage In-App WebView settings.
@@ -280,20 +318,46 @@ To get the self-handled in-app, use the below API.
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-MoEInAppHelper.getInstance().getSelfHandledInApp(context, listener)
+import com.moengage.inapp.MoEInAppHelper
+
+MoEInAppHelper.getInstance().getSelfHandledInApp(
+    context = this,
+    onSuccess = { data ->
+        // data is nullable — no campaign may be available for the current user
+        data ?: return@getSelfHandledInApp
+        // render your in-app UI using data
+    },
+    onFailure = { error ->
+        // handle error, for example when the SDK is not initialized
+    }
+)
 ```
 
 
 ```java Java
-MoEInAppHelper.getInstance().getSelfHandledInApp(context, listener);
+import com.moengage.inapp.MoEInAppHelper;
+
+MoEInAppHelper.getInstance().getSelfHandledInApp(
+    context,
+    data -> {
+        if (data == null) return kotlin.Unit.INSTANCE;
+        // render your in-app UI using data
+        return kotlin.Unit.INSTANCE;
+    },
+    error -> {
+        // handle error
+        return kotlin.Unit.INSTANCE;
+    }
+);
 ```
 
 </CodeGroup>
 
-The **listener** is an instance of [_SelfHandledAvailableListener._](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-self-handled-available-listener/index.html)
+<Info>
+  The `data` parameter in the `onSuccess` callback can be `null` when no campaign is scheduled for the current user. Always null-check before accessing campaign properties or passing `data` to the tracking APIs (`selfHandledShown`, `selfHandledClicked`, `selfHandledDismissed`).
+</Info>
 
-This method should be called in the _onResume()_ of your Fragment or _onStart()_ of your activity.\
-The above method is asynchronous and does not return the payload immediately, once the payload is available [_onSelfHandledAvailable(), the listener callback_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-self-handled-available-listener/on-self-handled-available.html) would be called with the payload.
+This method should be called in the _onResume()_ of your Fragment or _onStart()_ of your activity. The method is asynchronous — the callback is invoked once the payload is available.
 
 ### Event-Triggered Self Handled InApps
 
@@ -441,7 +505,7 @@ MoEngage.initialiseDefaultInstance(builder.build());
 
 # Testing In-App
 
-Refer to this [link](https://www.moengage.com/docs/user-guide/campaigns-and-channels/in-app-message/create/test-your-in-app-campaign) to read more about how to create and test in-apps.
+To create a test campaign and verify in-app rendering on a device, refer to [Test your in-app campaign](/user-guide/campaigns-and-channels/in-app-message/create/test-your-in-app-campaign).
 
 # Implementing Embedded Nudges (Deprecated)
 
