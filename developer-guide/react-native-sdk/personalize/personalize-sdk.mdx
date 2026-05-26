@@ -62,7 +62,9 @@ personalize.fetchExperiencesMeta(status)
 
 The returned object is a Promise that holds the [`ExperienceCampaignsMetadata` ](/developer-guide/react-native-sdk/personalize/personalize-data-payload)object, containing all necessary metadata for campaign execution. The rejection contains the [`FailureReason`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) and an optional message to identify the specific reason for the request's failure.
 
-
+<Note>
+  `fetchExperience` and `fetchExperiences` resolve keys against the result of the most recent `fetchExperiencesMeta` call. If you skip the metadata call, or call it with a status filter that does not include the keys you later request, the subsequent fetch call rejects with `INVALID_EXPERIENCE_KEY` for those keys.
+</Note>
 
 ## 2. Fetch Personalized Content
 
@@ -165,13 +167,32 @@ personalize.experiencesShown(campaigns);
 
 ### 3b. Notify SDK for Offering Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/create-offerings#what-are-offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content (such as a product recommendation or a coupon code). Each experience campaign can carry one or more offerings inside its `payload`. A fetched campaign that carries an offerings group has the following shape:
 
-- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
-- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
-- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+```json Sample ExperienceCampaign
+{
+  "experienceKey": "home_banner",
+  "payload": {
+    "<your_offering_key>": {
+      "value": "[ { \"offering_content\": { ... }, \"offering_context\": { ... }, \"...\": \"...\" }, ... ]",
+      "data_type": "string"
+    }
+  },
+  "experienceContext": { ... },
+  "source": "network"
+}
+```
 
-Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
+The following fields appear in the sample payload:
+
+- `payload` is the campaign's content object. Offerings are nested one level below it.
+- `<your_offering_key>` is configured for this campaign on the MoEngage dashboard. You define the key name when authoring the campaign.
+- `value` is a **stringified JSON array**. Parse it with `JSON.parse(value)` to obtain the list of offering objects.
+- Each offering object contains:
+  - `offering_content` — the data you render into your UI.
+  - `offering_context` — attribution data used by the SDK; do not modify it.
+
+Once you have parsed one or more offering objects out of `campaign.payload`, pass them back to the SDK when the corresponding UI renders:
 
 <CodeGroup>
 
@@ -194,12 +215,6 @@ personalize.offeringShown(offeringPayloads);
 
 ### 4a. Track Clicks for Experience Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/create-offerings#what-are-offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
-
-- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
-- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
-- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
-
 Use these methods to log "Clicks" when the user interacts with the UI element.
 
 <CodeGroup>
@@ -220,7 +235,7 @@ personalize.experienceClicked(campaign);
 
 ### 4b. Track Clicks for Offering Campaigns
 
-For interactions with specific items (such as a product recommendation or a coupon) contained within an offering campaign:
+Use `offeringClicked` to log a click on a specific offering item, such as a product recommendation or a coupon code, within an offering campaign. Pass both the parent `campaign` and the specific offering object extracted from `campaign.payload`. For the payload shape, refer to [section 3b](#3b-notify-sdk-for-offering-campaigns).
 
 <CodeGroup>
 
