@@ -1,0 +1,188 @@
+---
+title: "JWT Authentication"
+description: "Secure your MoEngage data collection by implementing JWT authentication in your application."
+---
+
+## Overview
+
+JWT (JSON Web Token) authentication is a standard method for securely verifying user identity. By implementing JWT authentication, you add a critical layer of security to your data collection process with MoEngage.
+
+The feature ensures that the data sent on behalf of your identified users is authentic and has not been tampered with. This security is achieved by requiring a token that is cryptographically signed by your own server, which prevents unauthorized users from impersonating your legitimate users.
+
+<Note>
+  **Prerequisites**
+
+  Before you begin the implementation, please ensure you meet the following requirements:
+
+  - Your application must use the MoEngage Capacitor SDK version [**_7.1.0_** ](https://www.moengage.com/docs/developer-guide/release-notes/capacitor-sdk#core-7-1-0)  or higher to access the JWT authentication feature.
+  - You must have access to your MoEngage dashboard to manage public keys and configure the feature's enforcement settings. For detailed information on enforcement settings, [refer here](/user-guide/settings/account/security/sdk-authentication#step-2-select-an-enforcement-mode).
+</Note>
+
+The following diagram illustrates the interaction between your application, your server, the MoEngage SDK, and the MoEngage server:
+
+![Jwt1](/images/jwt1.jpeg)
+
+## Integration
+
+Follow these steps to integrate JWT authentication into your Capacitor application.
+
+### Step 1: Enable JWT Authentication
+
+#### Android
+
+You can enable JWT authentication during SDK initialization by configuring the **NetworkAuthorizationConfig** property on the **MoEngage.Builder** object.
+
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+`val moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X) //Existing configurations
+    .configureNetworkRequest(
+        NetworkRequestConfig(
+            networkAuthorizationConfig = NetworkAuthorizationConfig(
+                isJwtEnabled = true,
+                NetworkAuthorizationConfig(isJwtEnabled = true)
+            )
+        )
+    )`
+```
+
+```java Java wrap
+`MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X) //existing configurations
+    .configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)));`
+```
+
+</CodeGroup>
+
+#### iOS
+
+You can enable JWT authentication during SDK initialization by configuring the **networkConfig** property on the **MoEngageSDKConfig** object.
+<CodeGroup>
+
+```swift Swift wrap
+let sdkConfig = MoEngageSDKConfig(appId: "YOUR_APP_ID", dataCenter: .YOUR_DATA_CENTER)
+sdkConfig.networkConfig = MoEngageNetworkRequestConfig(authorizationConfig: MoEngageNetworkAuthorizationConfig(isJwtEnabled: true))
+MoECapacitorInitializer.sharedInstance.initializeDefaultInstance(sdkConfig, andLaunchOptions: nil)
+```
+
+```objective-c Objective-C wrap
+MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_APP_ID" dataCenter:YOUR_DATA_CENTER];
+sdkConfig.networkConfig = [[MoEngageNetworkRequestConfig alloc] initWithAuthorizationConfig:[[MoEngageNetworkAuthorizationConfig alloc] initWithIsJwtEnabled:YES]];
+[[MoECapacitorInitializer sharedInstance] initializeDefaultInstance:sdkConfig andLaunchOptions:nil];
+```
+
+</CodeGroup>
+
+### Step 2: Pass the JWT to the SDK
+
+Your application is responsible for managing the JWT lifecycle. The recommended flow is to fetch a token upon user app login and pass the token to the SDK. You should also check if the token has expired on subsequent app launches and fetch a new one if necessary.
+
+Use the **passAuthenticationDetails** method to provide the token to the SDK.
+
+```typescript TypeScript wrap
+import {
+  MoECapacitorCore,
+  MoEAuthenticationType,
+  MoEAuthenticationData,
+  MoEJwtAuthenticationData
+} from 'capacitor-moengage-core';
+
+MoECapacitorCore.passAuthenticationDetails({
+  appId: 'YOUR_WORKSPACE_ID',
+  authenticationData: MoEAuthenticationData
+});
+
+
+```
+For detailed information, refer to [Interface and Enums](#interface-and-enums).
+
+### Step 3: Register the listener and Handle Authentication Errors
+
+The payload for authentication error data is returned via a callback. Register a callback as shown below and  handle token validation errors that the MoEngage server returns. The SDK invokes this listener when an authentication error occurs, which allows your application to fetch and provide a new token.
+
+```typescript TypeScript wrap
+import {
+  MoECapacitorCore,
+  MoEAuthenticationType,
+  MoEAuthenticationErrorData,
+  MoEJwtAuthenticationErrorData,
+  MoEJwtErrorCode
+} from 'capacitor-moengage-core';
+MoECapacitorCore.addListener('authenticationError', (error: MoEAuthenticationErrorData) => {
+  if (error.authenticationType === MoEAuthenticationType.JWT) {
+    const errorData = error.data as MoEJwtAuthenticationErrorData;
+    const jwtError = errorData.code;
+    const message = errorData.message;
+    // Take appropriate action based on jwtError
+    // e.g. fetch a new token and call passAuthenticationDetails again
+  }
+});
+
+```
+For detailed information, refer to [Interface and Enums](#interface-and-enums).
+
+## Interface and Enums 
+
+The following interfaces and enums define the data structures used by the JWT authentication methods described in this guide. Use them when constructing your token payload and handling errors.
+
+```typescript TypeScript wrap
+//Interface for MoEAuthenticationData
+interface MoEAuthenticationData {
+  authenticationType: MoEAuthenticationType
+  data: MoEAuthenticationDetails // for JWT, use MoEJwtAuthenticationData
+}
+
+//Enum for MoEAuthenticationType
+enum MoEAuthenticationType {
+  JWT = 'JWT'
+}
+
+//Interface for MoEJwtAuthenticationData 
+interface MoEJwtAuthenticationData {
+  token: string;
+  userIdentifier: string;
+}
+
+//Interface for MoEAuthenticationErrorData 
+ interface MoEAuthenticationErrorData {
+  accountMeta: MoEAccountMeta;
+  platform: MoEPlatform;
+  authenticationType: MoEAuthenticationType;
+  data: MoEAuthenticationErrorDetails; // for JWT, use MoEJwtAuthenticationErrorData
+}
+
+//Interface for MoEJwtAuthenticationErrorData 
+ interface MoEJwtAuthenticationErrorData  {
+  code: MoEJwtErrorCode;
+  token: string;
+  userIdentifier: string;
+  message: string;
+}
+
+//Enum for MoEAuthenticationType 
+ enum MoEAuthenticationType {
+  JWT = 'JWT',
+}
+
+//Enum for MoEJwtErrorCode 
+ enum MoEJwtErrorCode {
+  TimeConstraintFailure = 'TIME_CONSTRAINT_FAILURE',
+  DecryptionFailed = 'DECRYPTION_FAILED',
+  HeaderTypeIncompatible = 'HEADER_TYPE_INCOMPATIBLE',
+  PayloadContentMissing = 'PAYLOAD_CONTENT_MISSING',
+  InvalidSignature = 'INVALID_SIGNATURE',
+  IdentifierMismatch = 'IDENTIFIER_MISMATCH',
+  Unknown = 'UNKNOWN',
+  TokenNotAvailable = 'TOKEN_NOT_AVAILABLE',
+}`
+
+```
+
+<Info>
+  **Information**
+
+  - If an API request fails due to an authentication error, the SDK will not retry the request until your application provides a new token.
+  - After 10 consecutive authentication failures in a single session, the SDK will stop attempting to sync data until the next session begins. This counter resets after any successful sync.
+  - Upon user logout, if a data sync fails due to a JWT error, the pending data will be deleted, and no retry will be attempted.
+</Info>
+

@@ -1,150 +1,301 @@
 ---
 title: "FAQs"
-description: "Find answers to frequently asked questions about the MoEngage Shopify integration and user identity."
+description: "Find answers to common questions about the installation, configuration, and use of the MoEngage Shopify integration."
 ---
 
-Here are the most frequently asked questions about MoEngage integration for Shopify. 
+This article answers common questions about the installation, configuration, and use of the MoEngage Shopify integration—covering setup, identity, data sync, catalog, and event tracking.
 
-# Installation
+## Installation
 
-* APP ID and API Key authentication not working?
+To troubleshoot your account authentication, review the following question:
 
-	+ Usually, it takes 10 mins for the newly generated keys to take effect so please retry authentication for the Shopify app after 10 mins of generation of the MoEngage API key.
+<AccordionGroup>
+  <Accordion title="Do API keys work during authentication?">
+    Newly generated API keys take up to 10 minutes to activate. Wait 10 minutes after you generate the key, and then retry authentication for the Shopify app. If the error persists, verify that you copied the full key with no leading or trailing spaces.
+  </Accordion>
+</AccordionGroup>
 
-# User Identity
+## User Identity
 
-* How is the Unique user identity setting used?
+To manage user profiles and identifiers, review the following questions:
 
-	+ The unique user identifier setting is used to determine, out of mobile number or email, which identifier will be used as the unique user identifier to provide the single view of the end-user on the MoEngage dashboard. So if the same user visits your store from multiple devices we will be able to merge their activity under the same profile if the same unique identifier is set on all their devices/browsers.
-* How to decide which identifier to use as the unique customer identifier?
+<AccordionGroup>
+  <Accordion title="How is the unique user identity setting used?">
+    The unique user identifier setting determines whether the mobile number or email is used as the primary key to identify each user on the MoEngage dashboard. When the same user visits your store from multiple devices, MoEngage merges their activity into a single profile if the same unique identifier is present across all their devices and browsers.
+  </Accordion>
 
-	+ By default, Shopify uses email to identify a user uniquely.
-	+ The choice of the unique identifier depends on your business use case i.e. what login identifier you are using across other systems or whether most of your users would want to use email or mobile number as the login identifier. If you are already using MoEngage, please select the same unique identifier as you are currently using. If you are currently using a unique identifier that is different from the available settings, please reach out to the support team or your account executive for help.
+  <Accordion title="How to decide which identifier to use as the unique customer identifier?">
+    By default, Shopify uses email to identify users. The right choice depends on your business: use the identifier your customers most likely provide at checkout, and whichever aligns with how you identify users across your other systems.
 
-* Can I use anything other than a Mobile number or Email as the unique customer identifier?
-	+ No, currently the setting is limited to the mobile number or email.
-* Can I use both Email and Mobile number, as the unique customer identifier?
-	+ No, currently you would have to select either of the two to uniquely identify a user. Multiple unique identifiers for a user will be available soon where Email and Mobile number, along with any of the other user attributes can be used to uniquely identify a user.
-* What are the steps to set the mobile number as the unique identifier?
+    If you already use MoEngage, select the same unique identifier you currently use. If neither email nor mobile number matches your current setup, contact the support team or your account executive for help.
+  </Accordion>
 
-	+ Please make the following store change before using the mobile number as UID
-	
-	
-		- The option to get the User's mobile number is not available by default in the checkout flow, please make sure to enable this from your store’s checkout settings.
-		- The user signup/login flow also does not have the option to get the user’s mobile number, please use custom login and user signup to get the user’s mobile number as part of these flows to successfully use the Mobile number as the unique identifier.
-		- If these changes are not done, you will see a lot of anonymous profiles with the same user properties on MoEngage.
+  <Accordion title="Can I use an attribute other than mobile number or email as the unique customer identifier?">
+    No, currently the setting is limited to mobile number or email. You must select one at the time of installation.
 
-* Can I use a shipping mobile number as the unique identifier?
+    <Info>
+      **Selection is permanent after installation**
 
-No. Shipping mobile numbers should not be used as the unique identifier for the end customers. It might lead to data corruption because the same user can place multiple orders with different shipping mobile numbers which will distort the single view of the customer on the MoEngage dashboard and would lead to sending the wrong communication to the users. This will also lead to data discrepancy of events data on MoEngage in comparison to Shopify reports and higher MTUs on MoEngage which might have an impact on pricing. It is explained in the example below:  
+      The identifier you select at setup applies permanently to your workspace. If you change the identifier later, you must reinstall the integration, which affects all existing user profiles. Choose the identifier that will most reliably be present for your customers at checkout.
+    </Info>
+  </Accordion>
 
-	+ For example, with the shipping mobile number as the UID, a user Bob places an order with the shipping mobile number SM1. Bob's profile will be created with UID as SM1. Now Bob places another order with a different shipping mobile number SM2, another profile will be created on MoEngage with UID as SM2, with only the order placed event as the events before adding the SM2 as the shipping mobile number will be tracked against Bob's profile with SM1 as UID.
-	+ Now SM1 user will get all the configured abandoned cart and abandoned checkout campaigns as the order placed event will be tracked against the SM2 user and SM1 will satisfy the Add to cart but not order placed criteria mostly used for abandoned cart/checkout campaigns.
-	+ On Shopify reports, you will see one user with 2 orders while on MoEngage you will have 2 users with 2 orders placed.
-	+ To avoid such miscommunication and discrepancy, it is strongly advised to not use the shipping mobile number as UID
+  <Accordion title="Can I use both email and mobile number as the unique customer identifier?">
+    Not at the individual identifier setting level—you must select one at installation. However, when you enable Identity Resolution for your workspace, MoEngage recognizes the same user via multiple identifiers simultaneously. See the Identity Resolution section below for details.
+  </Accordion>
 
-* Why are there multiple profiles for the same mobile number/Email?
-	+ Profiles are merged when their unique identifier is the same, so if the same user visits your website from multiple devices but does not provide the user attribute you are using as UID there will be multiple profiles for the same user as the UID between the two profiles does not match.
-	+ For example, If email is set as UID, and the user places 2 orders from different devices/browsers but does not provide email while checking out, instead uses the same mobile number while placing both orders. Then there will be two profiles available on the MoEngage dashboard both with the same mobile number as the user attribute. This is because the UID that is expected to be Email does not match between these 2 profiles hence the profiles can't be merged.
+  <Accordion title="What are the steps to set the mobile number as the unique identifier?">
+    Before you select the mobile number as your UID, you must make the following changes to your Shopify store:
 
-# User and Order backfill
+    - The Shopify checkout flow does not collect a mobile number by default. Enable this from your store checkout settings before installation.
+    - The default user signup and login flow also does not collect the mobile number. Implement custom login and signup flows to capture the user mobile number at these touchpoints.
 
-* What all data can be synced?
+    If these changes are not made before you go live, you will see a high volume of anonymous profiles because MoEngage cannot assign a UID to users who have not provided a mobile number.
+  </Accordion>
 
-	+ User data, i.e. all the user profiles available at the time of installation will be synced when you sync data.
-	+ Order data. i.e. the orders placed during the period selected by you will be synced
-* The data sync has failed what could be the reason?
+  <Accordion title="Can I use a shipping mobile number as the unique identifier?">
+    No. If you use a shipping mobile number as the UID, data corruption occurs. A single user can place multiple orders with different shipping mobile numbers—each creates a separate profile in MoEngage, which breaks the single customer view and causes attribution errors.
 
-	+ If you have selected mobile number as the UID for users and some of the existing user profiles on Shopify do not have the mobile number attribute set, we will not be able to automatically successfully sync those users and their order data.   
-	You should reach out to our support team to get the user and event upload done manually.
-	+ If the event retention policy on MoEngage is less than the period you are trying to sync the order data for, the data sync will be partial as per the retention policy of the event. You would need to get the retention of the Shopify-Order placed event increased first and then retry the sync to have all the expected past order events data synced successfully.
-	
-	
-		- The default retention policy allows 60 days of past order sync. So if you sync order events for the last 1 year only orders placed in the last 60 days will be synced.
-* How do you sync data successfully?
+    For example, a user Bob places an order with shipping number SM1—MoEngage creates a profile with UID SM1. Bob then places another order with shipping number SM2—MoEngage creates a second profile with UID SM2. On Shopify, you see one user with two orders. On MoEngage, you see two users with one order each. Abandoned cart campaigns fire incorrectly because SM1 fulfills the "Add to Cart" criteria but not "Order Placed".
 
-	+ Please make sure that your account does not have any existing data in it before syncing the past order and user data. If there are existing user and event data, performing this sync might lead to duplicates and overall data corruption
-	+ Please use the date range before the date of installation of the app as after the installation the order data is expected to be present in your MOE account. So if you are installing the app on 10th Jan 2024, please select a date before 10th Jan to sync the orders data.
+    To avoid this miscommunication and data discrepancy, do not use the shipping mobile number as the UID.
+  </Accordion>
 
-# Catalog sync
+  <Accordion title="Why are there multiple profiles for the same mobile number or email?">
+    MoEngage merges profiles only when their UID values match. If the same user visits your store from multiple devices but does not provide the UID attribute at each touchpoint, MoEngage cannot merge those sessions and creates a separate profile for each.
 
-* How does catalog sync work?
+    For example, if email is set as UID and a user places two orders from different devices without entering their email during either checkout—by using only a mobile number—two separate profiles appear in MoEngage, both with the same mobile number but no matching UID to trigger a merge.
+  </Accordion>
 
-	+ MoEngage fetches the whole product catalog associated with your store and syncs the feed into Moengage.
-	+ A new catalog in Moengage is automatically created when you enable the product catalog sync from within the app settings.
-	+ The catalog is updated automatically every 24 hours. Sync happens at 8 am IST every day.
-* What product details are synced?
+  <Accordion title="Why is email showing as the user ID when I selected Phone Number?">
+    This happens when the mobile number is not present in the user Shopify profile at the time the track event occurs. When MoEngage cannot find the selected UID, it may fall back to the next available identifier. The most common cause is customers completing checkout without entering a phone number.
 
-	+ Each product variation ID is treated as a unique product identifier. In addition to variation ID other synced product attributes are Variation ID, product ID, Product title, image\_link, Vendor Name, SKU, Variation Title, Currency, Price, Quantity, Status, Description, created\_at, updated\_at
+    To resolve this consistently, contact your Customer Success Manager or raise a support ticket requesting Identity Resolution enablement. With Identity Resolution enabled, MoEngage tracks users across multiple identifiers simultaneously, which prevents this fallback behavior.
+  </Accordion>
 
-* How do I customize the feed to add more attributes?
+  <Accordion title="Why are anonymous profiles created with Cart Token as the UID?">
+    When a user adds items to their cart without identified data (no email or phone number available), MoEngage uses the Shopify cart token as a temporary identifier to preserve abandoned cart event data.
 
-	+ The product attributes are currently fixed, please raise a feature request to add more attributes to the existing list.
-	+ You can create a new feed with the attributes you need and a sync frequency that works best for you to add your custom product attributes into MoEngage.
-* What are the limitations of automatic catalog sync?
+    If you see a high volume of cart-token profiles, Identity Resolution is the recommended solution. Once enabled, MoEngage can merge these anonymous profiles with the identified profile when the user provides an email or phone number. Contact your Customer Success Manager or raise a support ticket to request enablement.
+  </Accordion>
+</AccordionGroup>
 
-	+ The list of product attributes is fixed. Product attributes like product links are currently not available in the automated product feed.
+## [Identity Resolution](/developer-guide/ecommerce-platforms/shopify/user-profile-management-with-shopify)
 
-# Event Tracking
+To unify user profiles from multiple sources, review the following questions:
 
-* How does the automated event tracking work?
+<AccordionGroup>
+  <Accordion title="What is Identity Resolution?">
+    Identity Resolution is a MoEngage feature that links user profiles from multiple sources into a single unified profile. Once it is enabled, MoEngage can recognize the same user using multiple identifiers—for example, both email and mobile number—rather than relying on a single value at every touchpoint. You can configure up to five identifiers per workspace.
 
-	+ Based on the app settings, we automatically track the events you have enabled for automated tracking. Events are tracked by the combination of our Web SDK and Shopify Webhooks.
-* Events are not getting tracked against my profile?
+    Without Identity Resolution, each user is tracked by a single identifier. When that identifier is absent, MoEngage creates a separate anonymous profile. Identity Resolution prevents duplicate profiles, resolves identity gaps from guest checkouts, and ensures campaign triggers fire correctly across your full user base.
+  </Accordion>
 
-	+ There are multiple ways to fix/debug this
-	
-	
-		- If the event in question is pre checkout event, add the moe [Chrome plugin](https://chromewebstore.google.com/detail/moengage-sdk/dhggnkfnnoebbfofpimfehcklnekmbgi) on your browser and then perform the events from your browser once again.
-		
-		
-			* If the Chrome plugin shows the events are tracked successfully, then the event tracking is working fine. Please check if you are looking at the correct user profile, user profile details are available in the Chrome plugin as well.
-			* If the plugin does not show the event as tracked, then it might be due to the customizations that you might have added to the website. Please check the console log to see if there are any errors.
-			* If you are still not able to identify the issue please reach out to the MoEngage support team.
-		- If the events in question are checkout and post-checkout events
-		
-		
-			* Check if the events are currently enabled for automated tracking.
-			* Check if the same event is getting tracked for other users
-			* Please check if the events are tracked against a different profile by filtering on event attributes with your order ID, email, or shopping mobile number.
-			* Please reach out to our support team if you are still not able to identify   
-			the reason.
-* Why none of the events are getting tracked for my store?
+  <Accordion title="How to enable Identity Resolution?">
+    Identity Resolution requires enablement by the MoEngage team before you can configure it. You cannot activate it from within the Shopify app or the MoEngage dashboard.
 
-	+ Please check using the [Chrome plugin](https://chromewebstore.google.com/detail/moengage-sdk/dhggnkfnnoebbfofpimfehcklnekmbgi) if MoEngage SDK is getting loaded on your store.
-	
-	
-		- If the SDK is not detected on your store, please follow the initialization steps again.
-		- Unsave and save the app embed setting again.
-	+ If the MOE SDK is available on your store, please resave the event tracking settings from within the MoEngage Shopify App.
-	
-	
-		- Please uncheck a few events from the list and save the setting.
-		- Again check all the events and resave the settings.
-		- Now after 5 minutes, please perform the events again, the events will be flowing in.
+    To request enablement, contact your Customer Success Manager or raise a support ticket. Once it is enabled, go to **Settings** > **Data** > **Identity Resolution** in your MoEngage dashboard to configure your identifiers and merge rules.
+  </Accordion>
 
-# Linking multiple stores to a single MoEngage Account
+  <Accordion title="Can I undo Identity Resolution after profiles merge?">
+    No. Profile merges are irreversible—once two profiles merge, you cannot unmerge them.
 
-Ideally, we do not recommend integrating multiple stores into the same account on MoEngage. But if you want to do it, you can use the same Authentication keys during installation across different stores to link it to the same account on MoEngage.
+    <Warning>
+      **Review before you activate**
 
-We suggest you take this decision after understanding the limitations below.
+      Before you enable Identity Resolution, review your identifier configuration and merge rules carefully. You can request a merge report from the support team before activation—this documents every user merge action.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
 
-## Limitations
+## [User and Order Backfill](/developer-guide/ecommerce-platforms/shopify/user-data-sync)
 
-* + Web Push
-	
-	
-		- The same user will be asked for a separate web push permission for each store
-		- All users' campaigns will deliver duplicate notifications to users who have subscribed to web push on multiple stores
-	+ OSM
-	
-	
-		- You would need to specify the target URL for each campaign targeting a specific store. Otherwise, all stores will be displaying the same campaign and any common user will see it on all of your stores.
-	+ Data
-	
-	
-		- We recommend that organizations use the same user identifier for different brand stores to have a single view of customers across the stores else this will result in the creation of multiple profiles for the same user.
-	+ Segmentation
-	
-	
-		- Please use either URL or store ID filters in the event attributes to identify the events for each store.
+To sync historical store data, review the following questions:
+
+<AccordionGroup>
+  <Accordion title="What data can sync?">
+    The historical data sync brings two types of data into MoEngage:
+
+    - User profiles: All registered users available in your Shopify store at the time you run the synchronization, regardless of when those users were created.
+    - Order data: Orders placed during the date range you select, ingested as individual **Shopify—Order Placed** events. Each event carries the original order date from Shopify as its timestamp.
+  </Accordion>
+
+  <Accordion title="The data sync failed—what is the reason?">
+    Two common causes occur:
+
+    - UID not present on user profiles: If you selected mobile number as the UID and some existing user profiles on Shopify do not have a mobile number, those users and their order data cannot sync automatically. Contact our support team to arrange a manual upload.
+    - The event retention period is shorter than the sync window: If your MoEngage event retention policy is shorter than the date range you try to sync, the sync is partial. You must increase the retention period for the **Shopify—Order Placed** event first, and then retry the sync.
+
+    <Warning>
+      **Set event retention before you sync beyond 60 days**
+
+      Contact your Customer Success Manager or support to increase your event retention period before you start the sync. This cannot apply retroactively to a sync that has already run.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="How long does sync take, and how to confirm success?">
+    A standard sync for the last 60 days typically completes within 24 hours. An extended 2-year sync can take up to 48 hours.
+
+    To confirm the sync completed correctly: wait at least a few hours after you start, and then open a user profile in MoEngage for a user you know who placed an order within your sync window. Check that the **Shopify—Order Placed** event appears with the correct original order date.
+  </Accordion>
+
+  <Accordion title="How to run the sync successfully?">
+    Check two things before you run the sync:
+
+    - Make sure your MoEngage account does not have existing duplicate data. If user and event data are already present, the sync creates duplicates and causes data corruption.
+    - Use a date range before your app install date. After installation, MoEngage automatically tracks new order data via webhooks and should already be available in your account.
+  </Accordion>
+
+  <Accordion title="What happens if I run the data synchronization and my event retention period is shorter than the synchronization window?">
+    If you request a synchronization window that is longer than your workspace's event retention period, MoEngage syncs only the orders that fall within the retention window. MoEngage does not store orders outside that window, even if the system successfully retrieves them from Shopify.
+
+    <Warning>
+      **Set event retention before syncing beyond 60 days**
+
+      Contact your Customer Success Manager or the MoEngage Support team to increase your event retention period before starting the synchronization. You cannot apply this change retroactively to a synchronization that has already run.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## [Catalog Sync](/developer-guide/ecommerce-platforms/shopify/sync-product-catalog)
+
+To synchronize your product catalog, review the following questions:
+
+<AccordionGroup>
+  <Accordion title="How does catalog sync work?">
+    MoEngage fetches your full Shopify product catalog and syncs it into a new MoEngage catalog. This catalog is automatically created when you enable catalog sync in the app settings. The catalog is then available as a data source for product recommendation blocks, dynamic content in messages, and segmentation filters.
+
+    <Info>
+      **Enable Basic Recommendations**
+
+      Catalog sync makes your product data available in MoEngage, but using it for personalization and product recommendations requires that you enable Basic Recommendations on your account.
+    </Info>
+  </Accordion>
+
+  <Accordion title="How often does the catalog sync?">
+    The catalog refreshes automatically once daily, between 8–10 AM IST.
+
+    <Info>
+      **Impact on time-sensitive campaigns**
+
+      Price changes, flash sales, or inventory updates made in Shopify do not reflect in MoEngage until the next daily sync. For campaigns where accuracy is critical, schedule sends after the 8–10 AM IST sync window completes.
+    </Info>
+  </Accordion>
+
+  <Accordion title="What product details sync?">
+    Each product variation ID is treated as a unique product identifier. Synced product attributes are Variation ID, product ID, Product title, image_link, Vendor Name, SKU, Variation Title, Currency, Price, Quantity, Status, Description, created_at, and updated_at. Product metafields and custom fields from third-party Shopify apps are not included in the default sync.
+  </Accordion>
+
+  <Accordion title="Why are most products not appearing in MoEngage after sync?">
+    This occurs when a catalog field contains inconsistent data types across products. For example, if the "variation_title" field has string values for some products and numeric values for others, MoEngage rejects the products with non-conforming field types. The sync completes without an error, but the products are silently excluded.
+
+    To diagnose this, compare the total product count in MoEngage against your active product count in Shopify. If significantly fewer products appear, review your Shopify product data for fields with mixed data types—particularly variation_title, SKU, and price. Correct the inconsistencies and re-trigger the sync.
+  </Accordion>
+
+  <Accordion title="How do I customize the catalog feed to add more attributes?">
+    The product attributes are currently fixed. To request additional attributes, raise a feature request with your Customer Success Manager. You can also create a separate custom feed with the attributes you need and a sync frequency that suits your use case.
+  </Accordion>
+
+  <Accordion title="What are the limitations of automatic catalog synchronization?">
+    The list of synchronized product attributes is fixed. Product links are not available in the automated product feed. Catalog metafields are also not synced by default.
+
+    Additionally, each catalog item's unique identifier is the variation ID and cannot be customized to use SKU or another product field.
+  </Accordion>
+</AccordionGroup>
+
+## [Event Tracking](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking)
+
+To monitor automated events, review the following questions:
+
+<AccordionGroup>
+  <Accordion title="How does automated event tracking work?">
+    Based on your app settings, MoEngage automatically tracks the events you enabled. Events are captured through a combination of the MoEngage Web SDK (for browser-side actions such as Product Viewed and Add to Cart) and Shopify Webhooks (for server-side signals such as Order Placed and Order Fulfilled).
+
+    <Info>
+      **Which event version to use in campaigns**
+
+      For any event tracked by both the Web SDK and a Shopify Webhook—such as Add to Cart and Checkout Started—always use the Webhook version when you build segments or trigger campaigns. Webhook events are received directly from Shopify's backend and are the more reliable signal. Using both versions of the same event in a single campaign causes conflicts.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Why does my Order Placed count not match Shopify?">
+    Discrepancies often have several causes:
+
+    - **Count is lower in MoEngage:** Shopify webhook delivery is not guaranteed. Webhook requests can occasionally be missed.
+    - **Count is higher in MoEngage:** Shopify can send duplicate webhook events for the same order. MoEngage applies deduplication, but some duplicates may still be tracked.
+
+    Differences with other analytics tools are expected because each platform uses a different counting methodology. Shopify is the source of truth for MoEngage data.
+  </Accordion>
+
+  <Accordion title="Why does my Add to Cart count not match Shopify?">
+    Shopify counts Add to Cart as the number of sessions that result in cart creation. MoEngage counts the number of times the Add to Cart event fired, which includes multiple adds within a single session. Use the MoEngage count for campaign triggers and the Shopify count for conversion funnel benchmarking.
+  </Accordion>
+
+  <Accordion title="Why is the Image URL missing from Shopify events?">
+    Product URL and image URL are not included in Shopify webhook payloads, so they are absent from webhook-based events, including Shopify — Add to Cart, Shopify — Checkout Started, and Shopify — Order Placed.
+
+    To use product images or URLs in campaign personalization, use catalog enrichment at send time: set up your product catalog synchronization and reference catalog attributes in your message template. Alternatively, you can track these attributes directly by using custom SDK events.
+  </Accordion>
+
+  <Accordion title="Are fulfillment events tracked automatically?">
+    Fulfillment events (Order Delivered, Out for Delivery) are available via the Shopify webhook setup but are not enabled by default. Enablement requires a configuration step by the MoEngage team. Contact your Customer Success Manager or raise a support ticket to request this.
+  </Accordion>
+
+  <Accordion title="Why is Product Viewed not firing on some pages?">
+    The Product Viewed event is tracked only via the default Shopify product page template. If your store uses custom product page templates, the event does not get triggered on those pages by default. Additional implementation is required to extend track to non-default templates.
+  </Accordion>
+
+  <Accordion title="Are Shopify customer metafields tracked in events or user profiles?">
+    Shopify customer metafields do not sync to user profiles and do not appear in event attributes by default. To pass metafield data to MoEngage, configure the metafields in Shopify:
+
+    - Public storefront access: If the metafield has public storefront access enabled, read it server-side in Shopify Liquid and pass it to MoEngage by using a user attribute call in your theme.
+    - No storefront access: If a third-party app creates the metafield, a server-side integration is required. Subscribe to the Shopify customers/update webhook, read the metafield value by using the Shopify Admin API, and then call the MoEngage Data API to update the user attribute.
+
+    <Info>
+      **For implementation details**
+
+      See the "Shopify customer metafields" section in the [**Events and User Data Tracking**](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking) article for step-by-step guidance on both paths, and along with a liquid code example.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Are events tracked against my profile?">
+    For pre-checkout events, add the MoEngage [Chrome plugin](https://chromewebstore.google.com/detail/moengage-sdk/dhggnkfnnoebbfofpimfehcklnekmbgi) to your browser, and then perform the events again. If the plugin shows the events as tracked, then the track works—check that you look at the correct user profile.
+
+    For checkout and post-checkout events, check that the events are enabled for automated track in your app settings. Verify whether the event is tracked against a different profile by filtering on event attributes with your order ID, email, or mobile number.
+  </Accordion>
+
+  <Accordion title="Why are none of the events tracked for my store?">
+    First, use the MoEngage Chrome plugin to check whether the MoEngage SDK loads on your store. If the SDK is not detected:
+
+    - Go to your Shopify admin, open the MoEngage app embed settings, and then un-save and re-save the app embed block. This re-triggers SDK injection.
+    - If the SDK still does not load, check your browser console for JavaScript errors on the page.
+
+    If the SDK is loading correctly, events are still not flowing, perform the following steps:
+
+    1. Open your event tracking settings in the MoEngage Shopify app.
+    2. Uncheck a few events and save, and then re-check all events and save again.
+    3. Wait 5 minutes, and then perform the events in your store.
+  </Accordion>
+</AccordionGroup>
+
+## Link Multiple Stores to a Single MoEngage Account
+
+To understand the setup and limitations of linking multiple storefronts, review the following question:
+
+<AccordionGroup>
+  <Accordion title="Can I connect more than one Shopify store to a single MoEngage account?">
+    Yes, although MoEngage does not recommend this approach. If you want to link multiple stores, use the same authentication keys during installation across your different stores to link them to the same MoEngage account.
+
+    Review the following implications before you proceed:
+
+    - **Web Push**
+      - The same user is prompted for separate web push permission on each store.
+      - Users who subscribe to web push on multiple stores receive duplicate notifications if campaigns are not scoped to a specific store.
+    - **OSM (On-site Messaging)**
+      - Specify a target URL for each campaign. Without it, all stores display the same campaign including to users who visit multiple stores.
+    - **Data and Profiles**
+      - Use the same user identifier across all stores to maintain a single customer view. Different identifiers per store result in multiple profiles for the same user.
+    - **Segmentation**
+      - Use either URL or store ID filters in the event attributes to identify the events for each store to isolate them when you build segments.
+  </Accordion>
+</AccordionGroup>
