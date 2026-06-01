@@ -31,16 +31,22 @@ You can enable JWT authentication during [SDK initialization](https://www.moenga
 <CodeGroup>
 
 ```kotlin Kotlin wrap
- val builder = MoEngage.Builder(application, , )
- .configureNetworkRequest(NetworkRequestConfig(networkAuthorizationConfig = NetworkAuthorizationConfig(isJwtEnabled = true)))
-  MoEngage.initialiseDefaultInstance(builder.build())
+val moEngage = MoEngage.Builder(
+        application = application,
+        appId = "YOUR_WORKSPACE_ID",
+        dataCenter = DataCenter.DATA_CENTER_X
+    )
+    .configureNetworkRequest(NetworkRequestConfig(NetworkAuthorizationConfig(isJwtEnabled = true)))
+    .build()
+MoEngage.initialiseDefaultInstance(moEngage)
 ```
 
 
 ```java Java
-MoEngage.Builder builder = new MoEngage.Builder(application, , )
-.configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)));
-MoEngage.initialiseDefaultInstance(builder.build());
+MoEngage moEngage = new MoEngage.Builder(application, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)))
+    .build();
+MoEngage.initialiseDefaultInstance(moEngage);
 ```
 
 </CodeGroup>
@@ -54,13 +60,13 @@ Use the [**_MoECoreHelper.passAuthenticationDetails()_**](https://moengage.githu
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-val data = AuthenticationData.Jwt(, )
+val data = AuthenticationData.Jwt("YOUR_JWT_TOKEN", "USER_IDENTIFIER")
 MoECoreHelper.passAuthenticationDetails(context, data)
 ```
 
 
 ```java Java
-AuthenticationData data = new AuthenticationData.Jwt(, );
+AuthenticationData data = new AuthenticationData.Jwt("YOUR_JWT_TOKEN", "USER_IDENTIFIER");
 MoECoreHelper.INSTANCE.passAuthenticationDetails(application.getApplicationContext(), data);
 ```
 
@@ -68,7 +74,7 @@ MoECoreHelper.INSTANCE.passAuthenticationDetails(application.getApplicationConte
 
 ### Step 3: Handle Authentication Errors
 
-To handle token validation errors that the MoEngage server returns, you must register an error listener. The SDK invokes this listener when an authentication error occurs, which allows your application to fetch and provide a new token.
+To handle token validation errors that the MoEngage server returns, register an [**_OnAuthenticationError_**](https://moengage.github.io/android-api-reference/core/com.moengage.core.model.authentication/-on-authentication-error/index.html) listener. The SDK invokes this listener when an authentication error occurs, which allows your application to fetch and provide a new token. Register the listener in a global scope, such as the `onCreate()` of your `Application` class, to ensure your application always receives callbacks.
 
 <CodeGroup>
 
@@ -84,7 +90,6 @@ val authErrorListener = OnAuthenticationError { error ->
     }
   }
 }
-// Register listener after SDK initialization
 MoECoreHelper.registerAuthenticationListener(authErrorListener)
 ```
 
@@ -94,34 +99,16 @@ OnAuthenticationError errorListener = new OnAuthenticationError() {
   @Override
   public void onError(@NonNull AuthenticationError error) {
       switch (error.getType()) {
-	 case JWT:
-	      ErrorData.Jwt jwtError = (ErrorData.Jwt) error.getData();
-	      // Handle JWT error
-	      JwtError jwtErrorType = jwtError.getCode();
-	      String message = jwtError.getMessage();
-	      // Take action based on jwtErrorType
-	      break;
-	}
-   }
+          case JWT:
+              ErrorData.Jwt jwtError = (ErrorData.Jwt) error.getData();
+              // Handle JWT error
+              JwtError jwtErrorType = jwtError.getCode();
+              String message = jwtError.getMessage();
+              // Take action based on jwtErrorType
+              break;
+      }
+  }
 };
-// Register listener after SDK initialization
-MoECoreHelper.INSTANCE.registerAuthenticationListener(errorListener);
-```
-
-</CodeGroup>
-
-### Step 4:  Register the listener after SDK initialization
-
-Register the [**_OnAuthenticationError_**](https://moengage.github.io/android-api-reference/core/com.moengage.core.model.authentication/-on-authentication-error/index.html) listener in a global scope, such as the **_onCreate()_** of your Application class, to ensure your application always receives callbacks.
-
-<CodeGroup>
-
-```kotlin Kotlin wrap
-MoECoreHelper.registerAuthenticationListener(authErrorListener)
-```
-
-
-```java Java
 MoECoreHelper.INSTANCE.registerAuthenticationListener(errorListener);
 ```
 
