@@ -3,29 +3,47 @@ title: "Track Install or Update"
 description: "Differentiate between app installs and updates in the MoEngage Android SDK using the setAppStatus API."
 ---
 
-SDK needs support to enable the update by the user application or install the application. You need to have a logic on the app side to distinguish between app _INSTALL_ and _UPDATE_
+Call `setAppStatus()` so the SDK knows whether the current launch is a fresh install or an update to an existing install. The SDK doesn't infer this on its own — your app must determine the state and pass the correct enum value.
+
+## Detect install vs. update
+
+Use a persisted flag (such as `SharedPreferences`) and compare the stored app version code against the current one. The first time the app launches without a flag, treat it as an install; if a flag exists with an older version, treat it as an update.
 
 <CodeGroup>
 
-```Kotlin Kotlin wrap
-//For Fresh Install of App
-MoEAnalyticsHelper.setAppStatus(context, AppStatus.INSTALL)
+```kotlin Kotlin wrap
+val prefs = context.getSharedPreferences("app_status_prefs", Context.MODE_PRIVATE)
+val storedVersion = prefs.getInt("app_version_code", -1)
+val currentVersion = context.packageManager
+    .getPackageInfo(context.packageName, 0).longVersionCode.toInt()
 
-// For Existing user who has updated the app
-MoEAnalyticsHelper.setAppStatus(context, AppStatus.UPDATE)
+when {
+    storedVersion == -1 ->
+        MoEAnalyticsHelper.setAppStatus(context, AppStatus.INSTALL)
+    storedVersion < currentVersion ->
+        MoEAnalyticsHelper.setAppStatus(context, AppStatus.UPDATE)
+}
+
+prefs.edit().putInt("app_version_code", currentVersion).apply()
 ```
 
+```java Java
+SharedPreferences prefs = context.getSharedPreferences("app_status_prefs", Context.MODE_PRIVATE);
+int storedVersion = prefs.getInt("app_version_code", -1);
+int currentVersion = (int) context.getPackageManager()
+        .getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
 
-```Java Java
-//For Fresh Install of App
-MoEAnalyticsHelper.INSTANCE.setAppStatus(context, AppStatus.INSTALL);
+if (storedVersion == -1) {
+    MoEAnalyticsHelper.INSTANCE.setAppStatus(context, AppStatus.INSTALL);
+} else if (storedVersion < currentVersion) {
+    MoEAnalyticsHelper.INSTANCE.setAppStatus(context, AppStatus.UPDATE);
+}
 
-// For Existing user who has updated the app
-MoEAnalyticsHelper.INSTANCE.setAppStatus(context, AppStatus.UPDATE);
+prefs.edit().putInt("app_version_code", currentVersion).apply();
 ```
 
 </CodeGroup>
 
 <Info>
-  If you uninstall and reinstall your app again, the SDK considers it as a fresh install.
+  If you uninstall and reinstall your app, the SDK considers it a fresh install.
 </Info>
