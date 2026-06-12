@@ -25,6 +25,40 @@ MoEngageClient.SetUniqueId("UNIQUE ID");
 
 **Note:** The following values are not allowed in the UniqueID field: "unknown", "guest", "null", "0", "1", "true", "false", "user_attribute_unique_id", "(empty)", "na", "n/a", "", "dummy_seller_code", "user_id", "id", "customer_id", "uid", "userid", "none", "-2", "-1", "2"
 
+### Set Multiple User Identities
+
+Use `MoEAnalyticsHelper.identifyUser()` to set multiple user identities at once instead of calling individual identity methods separately.
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+
+var identities = new UserIdentities {
+    uniqueId = "UNIQUE_ID",
+    email = "user@example.com",
+    mobile = "+911234567890"
+};
+MoEAnalyticsHelper.IdentifyUser(identities);
+```
+
+</CodeGroup>
+
+### Get Current User Identities
+
+Use `MoEAnalyticsHelper.getUserIdentities()` to retrieve the identities currently set for the user.
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+
+UserIdentities identities = MoEAnalyticsHelper.GetUserIdentities();
+Debug.Log("Unique ID: " + identities.uniqueId);
+```
+
+</CodeGroup>
+
 ## Logout
 
 The application needs to notify the MoEngage SDK whenever the user is logged out of the application. To notify the SDK, call the API whenever the user is logged out of the application.
@@ -39,6 +73,24 @@ MoEngageClient.Logout();
 </CodeGroup>
 
 In case the application is registering for push token it should pass the new push token to MoEngage SDK after user logout. For more information about passing push tokens, refer to [Push Configuration for Android SDK](/developer-guide/android-sdk/push/basic/push-configuration).
+
+### Logout Complete Callback
+
+To receive a callback when logout completes, register a listener using `MoECoreHelper.addLogoutCompleteListener()`:
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+
+MoEGameObject.LogoutCompleteCallback += LogoutCompleteCallback;
+
+public void LogoutCompleteCallback(object sender, LogoutCompleteData data) {
+    Debug.Log("LogoutCompleteCallback() : platform=" + data.platform + " appId=" + data.accountMeta.appId);
+}
+```
+
+</CodeGroup>
 
 ## Updating User Attribute Unique Id
 
@@ -90,16 +142,29 @@ MoEngageClient.SetUserAttribute(key, value);
 
 ## Tracking Date as user attributes
 
-To track any date as user attributes use the **_SetUserAttributeISODate()_**. This API takes the attribute name and ISO Date as input.\
-Date Format - **_yyyy-MM-dd'T'HH:mm:ss.fff'Z'_**
+**ISO date**
 
-Example:
+Use `SetUserAttributeISODate()` to track a date attribute using an ISO 8601 string.\
+Date format: `yyyy-MM-dd'T'HH:mm:ss.fff'Z'`
 
 <CodeGroup>
 
 ```c# c#
 using MoEngage;
 MoEngageClient.SetUserAttributeISODate("userAttrDate", "2019-01-02T08:26:21.170Z");
+```
+
+</CodeGroup>
+
+**Epoch time**
+
+Use `SetUserAttributeEpochTime()` to track a date attribute using a Unix epoch timestamp (milliseconds).
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+MoEngageClient.SetUserAttributeEpochTime("userAttrDate", 1546417581170L);
 ```
 
 </CodeGroup>
