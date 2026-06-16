@@ -30,115 +30,34 @@ Users of a custom segment can be analyzed on the MoEngage Analytics pages — [B
 
 ## Managing Custom Segments
 
-After creating a custom segment, you can edit its filters, rename it, or archive it from the **All Segments** page. Navigate to **Segment** > **All Segments** to access these actions.
-
-### Edit a Custom Segment
-
-To edit the filters or rules of an existing custom segment:
-
-1. Go to **Segment** > **All Segments**.
-2. Find the segment and click the ellipsis icon in the **Actions** column.
-3. Select **Edit**. The Create Segments page opens with the segment's current filters pre-populated.
-4. Update the filters and click **Save**.
-
-### Rename a Custom Segment
-
-<Info>
-  **Early Access**
-
-  This is an Early Access feature. To enable it for your account, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
-</Info>
-
-You can update the name of a custom segment without disrupting existing workflows, historical data, or API downstream integrations. When a segment is renamed, its unique Segment ID remains unchanged.
-
-To rename a custom segment:
-
-1. Go to **Segment** > **All Segments**, click the ellipsis icon on the desired segment, and select **Rename**. <img src="/images/segment-rename.png" alt="Segment Rename" />
-2. In the **Rename custom segment** window, enter the new name in the **Segment name** field and click **Save**. <img src="/images/rename-2.png" alt="Rename 2" />
-
-Keep the following in mind when renaming:
-
-- Only users with **Create & Manage** permission in Segments can rename a segment.
-- You can edit the filters, the name, or both at the same time.
-- Segment names must pass character limits and unique name checks to prevent duplication within the same workspace.
-
-<Info>
-  You cannot rename segments sourced from Campaigns, Imports, Locales, Global Control Groups, Data Science (predictions), or partner integrations (such as Amplitude, Mixpanel, or Segment).
-</Info>
-
-### Archive a Custom Segment
-
-To archive a custom segment:
-
-1. Go to **Segment** > **All Segments**.
-2. Search for the custom segment name you want to archive.
-3. Click the ellipsis icon and select **Archive**.
-
-![Custom\_segment\_archive.png](/images/moengage_052ab2.png)
-
-Note the following archival behavior:
-
-1. Archived custom segments are not available in the custom segments dropdown on the MoEngage dashboard. If an archived [Rule/Filter-based Segment](/user-guide/segment/basics-of-segmentation/types-of-segments) is used in a campaign, the segment is calculated based on its rules. If an archived [File Segment](/user-guide/segment/segment-operations/file-segments) is used in a campaign, the segment returns 0 users.
-2. Custom segments that have not been run in the last 60 days are automatically archived.
-3. All users from an archived [File Custom Segment](/user-guide/segment/segment-operations/file-segments) are dropped after 30 days of archival. After this point, the archived segment returns 0 users.
-4. You can mark an expiry time for file custom segments using the [Custom File Segment API](/api/file-segments/create-file-segment). After the expiry time, all existing users are dropped and the segment is archived.
-5. Custom segments cannot share the same name, even when one of the segments is archived.
-
-<Note>
-  Segment names must be unique. Once a segment is archived, its name remains reserved and cannot be reused for new segments.
-</Note>
-
-To unarchive a segment, go to **Segment** > **All Segments**, enable the **Archived Segments** toggle, find the segment, and click **Unarchive**.
-
-![CS\_unarchive.png](/images/moengage_2e6b67.png)
+To edit, rename, archive, or unarchive a custom segment, go to **Segment** > **All Segments**. For a full list of available actions and step-by-step instructions, see [Manage Segments](/user-guide/segment/segment-operations/manage-segments).
 
 ## Troubleshooting
 
 <Accordion title="Why Is the Custom Segment Count Less Than the Import User Count?">
-  ## Problem
+  If the user count in your custom segment is lower than the number of users in your uploaded file, there are two common reasons:
 
-  When you upload a set of users through the **Import users** feature, you may notice that the count of the corresponding custom segment is less than the total number of users uploaded.
+  - **Duplicate user IDs in the file:** MoEngage ignores duplicates. Each unique user ID is counted once.
+  - **Users not yet in MoEngage:** File segments can only contain users who already exist in MoEngage. If an uploaded user ID doesn't match an existing profile, that user is excluded from the segment.
 
-  ## Explanation
-
-  The following reasons typically cause this discrepancy:
-
-  - **Duplicate users in the file:** If there are duplicate user IDs in the uploaded file, MoEngage will reject or ignore these duplicates. As a result, the total number of users in the dashboard will be less than the number of users uploaded.
-  - **Users are not part of the dashboard:** This scenario occurs when you attempt to update existing users through **Import users**. If some users you tried to upload are not included in the custom segment, search for those users on the Create segment page. If you cannot find them, those users are not yet part of the dashboard.
-
-  For more information, read [Import User Data Using CSV](/user-guide/data/imports/file-based-imports/import-user-data-using-csv) and [Custom Segments](/user-guide/segment/segment-operations/custom-segments).
+  For more information, read [Import User Data Using CSV](/user-guide/data/imports/file-based-imports/import-user-data-using-csv).
 
   ![user\_import\_final.gif](/images/moengage_903b65.png)
 </Accordion>
 
 <Accordion title="Why Do Date Range Filters Fail Sometimes for Custom Attributes in Segmentation?">
-  ## Problem
+  The filters available for a custom attribute depend on the data type MoEngage receives for it. If date-based filters (such as "before", "after", or "between") are unavailable for a date attribute, the attribute is likely being received as a string instead of a datetime.
 
-  The filters available for a custom attribute during segmentation depend on that attribute's data type. If the data type MoEngage receives isn't the one you expect, the available filters change accordingly. This can happen in two scenarios:
+  This typically happens when:
 
-  1. You configured the attribute with the datetime data type, but later started sending a data type other than datetime for the same attribute.
-  2. You are sending two different data types for the same custom attribute from different sources.
+  - The attribute was initially set up as a datetime, but your app later started sending it as a string.
+  - The same attribute is sent with different data types from different sources.
 
-  For example, if the custom attribute Subscription Date is ingested with the datetime data type, it should allow date-based filters such as before, after, or between. However, if some values are sent as the string data type instead, string-based filters like contains, does not contain, is empty, or not empty appear instead of the date filters.
+  To fix this, ensure all sources send the attribute in the same, correct data type. Contact your development team to verify the data type being sent.
 </Accordion>
 
 <Accordion title="Why Does the Error 'Custom Segment Name Already Taken' Occur?">
-  ## Problem
+  MoEngage uses segment names as unique identifiers to track and manage references across the system. To protect data integrity, a segment name cannot be reused — even if the original segment is archived and no longer visible in the dashboard.
 
-  While creating a custom segment, the following error occurs:
-
-  The custom segment name that you have provided is already in use by some other team. Please use a different custom segment name.
-
-  ## Solution
-
-  Perform the following steps:
-
-  - Check if the custom segment is in the Archived list.
-  - Verify if the segment has been archived for more than 180 days.
-  - Custom segments that have not been run (query not executed) in the last 60 days are automatically archived.
-  - Custom segments cannot share the same name, even if one is archived.
-
-  <Info>
-    The segmentation backend maintains segment referrals and prevents the creation of segments with the same name, even if the original is archived and not visible in the dashboard.
-  </Info>
+  To resolve this, use a different name for your new segment.
 </Accordion>
