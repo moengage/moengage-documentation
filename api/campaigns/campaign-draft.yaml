@@ -667,6 +667,8 @@ components:
 
         - **Inline mode**: Supply `channel` and `campaign_content` directly. Nothing is stored on the server.
         - **Draft mode**: Supply `draft_id` to load content from a saved DRAFT campaign. By default, the server sends one test per platform, locale, and variation defined in the draft. Use `test_campaign_meta.platform`, `locale_name`, or `variation` to narrow the send.
+
+        **Conditional required fields:** `test_campaign_meta` is always required. Inline mode additionally requires `channel` and `campaign_content`. Draft mode additionally requires `draft_id`. These per-mode requirements are enforced by the API but cannot be expressed in the `required` array, which lists only the always-required `test_campaign_meta`.
       required: [test_campaign_meta]
       properties:
         request_id:
@@ -700,6 +702,8 @@ components:
 
         - **Inline mode**: Supply `channel`, `basic_details`, `connector`, and `campaign_content` directly. Nothing is stored on the server.
         - **Draft mode**: Supply `draft_id` to load content from a saved DRAFT campaign. By default, the server sends one test per locale and variation defined in the draft. Use `test_campaign_meta.locale_name` or `variation` to narrow the send.
+
+        **Conditional required fields:** `test_campaign_meta` is always required. Inline mode additionally requires `channel`, `basic_details`, `connector`, and `campaign_content`. Draft mode additionally requires `draft_id`. These per-mode requirements are enforced by the API but cannot be expressed in the `required` array, which lists only the always-required `test_campaign_meta`.
       required: [test_campaign_meta]
       properties:
         request_id:
@@ -893,6 +897,7 @@ components:
         identifier_values:
           type: array
           items: { type: string }
+          maxItems: 10
           description: Array of identifier values to send the test campaign to. Maximum 10 values per request.
           example: ["{{identifier_value}}"]
         variation:
@@ -1003,12 +1008,14 @@ components:
           items: { type: string, enum: [ANDROID, IOS, WEB] }
           description: The platforms to target for this Push campaign.
           example: ["ANDROID", "IOS"]
-        broadcast_live_activity_id: 
+        broadcast_live_activity_id:
           type: string
           description: |
             The broadcast live activity ID for iOS Live Activities.
-            
+
             **Required** when platform is iOS and delivery_type is BROADCAST_LIVE_ACTIVITY.
+
+            **Not applicable in the draft-based creation flow.** `BROADCAST_LIVE_ACTIVITY` is not supported via POST `/v5/campaigns`.
           example: "live_check123"
         geofences: { $ref: '#/components/schemas/Geofences' }
         send_to_triggered_platform_only: 
@@ -1021,8 +1028,7 @@ components:
       description: |
         Identifying metadata for the Email campaign, including name, team, tags, and subscription category.
 
-        **Note for Inline Testing:** When using the `/v5/campaigns/test` endpoint in inline mode, `name`, `content_type`, `user_attribute_identifier`, and `subscription_category` are strictly required.
-      required: [name, content_type, user_attribute_identifier, subscription_category]
+        **Conditional requirements:** `name`, `content_type`, `user_attribute_identifier`, and `subscription_category` are strictly required only when using the `/v5/campaigns/test` endpoint in **inline mode**. They are not required at campaign creation time (V5 supports progressive creation, where components are added later via PATCH) and are not needed in **draft mode** tests, where content comes from the saved draft.
       properties:
         name: 
           type: string
@@ -1522,10 +1528,13 @@ components:
         
         **Required for:** Simple Image Carousel template
       properties:
-        slider_transition: 
+        slider_transition:
           type: string
           enum: [MANUAL, AUTOMATIC]
-          description: The transition type for the carousel slides.
+          description: |
+            The transition type for the carousel slides.
+
+            In earlier versions of this API, the accepted values were `manual` and `automatic` (lowercase). They are now `MANUAL` and `AUTOMATIC` (uppercase). Update any existing integrations that pass lowercase values.
         slide_data:
           type: array
           description: Array of slide configurations.
@@ -1825,10 +1834,13 @@ components:
         
         **Required for:** Simple Image Carousel template
       properties:
-        slider_transition: 
+        slider_transition:
           type: string
           enum: [MANUAL, AUTOMATIC]
-          description: The transition type for the carousel slides.
+          description: |
+            The transition type for the carousel slides.
+
+            In earlier versions of this API, the accepted values were `manual` and `automatic` (lowercase). They are now `MANUAL` and `AUTOMATIC` (uppercase). Update any existing integrations that pass lowercase values.
         slide_data:
           type: array
           description: Array of slide configurations.
@@ -2689,9 +2701,10 @@ components:
         Email connector configuration for sending email campaigns.**Required** on Email create and inline test requests. For runnable examples, refer to [Email delivery connector](/api/campaigns/campaign-content-reference#email-delivery-connector).
       required: [connector_type, connector_name]         
       properties:
-        connector_type: 
+        connector_type:
           type: string
-          description: The type of connector service (e.g., SENDGRID, AWS SES, etc.).
+          description: |
+            The type of connector service (for example, `SENDGRID`, `AWS SES`). Must match a connector configured in your MoEngage workspace. To find valid values, go to **Settings** > **Email** > **Connectors** in the MoEngage dashboard.
         connector_name: 
           type: string
           description: The name of the connector configuration as configured in your MoEngage workspace.
@@ -2883,7 +2896,16 @@ components:
             - $ref: '#/components/schemas/PushTriggerCondition'
             - $ref: '#/components/schemas/EmailTriggerCondition'
         segmentation_details: { $ref: '#/components/schemas/SegmentationDetails' }
-        scheduling_details: { $ref: '#/components/schemas/SchedulingDetails' }
+        scheduling_details:
+          description: |
+            Scheduling configuration as resolved on the campaign. The response is a normalized, read-only view and can include fields that are not part of the `SchedulingDetails` request schema:
+            - `delivery_type` may be returned as `SCHEDULED` (a resolved response value, not one of the request enum values).
+            - `schedule_time` holds the resolved send time and corresponds to the request-side `start_time`.
+            - `time_zone` holds the resolved IANA time zone the schedule is interpreted in.
+
+            Treat these as response-only fields. Use the `SchedulingDetails` request schema when constructing create or update payloads.
+          allOf:
+            - $ref: '#/components/schemas/SchedulingDetails'
         delivery_controls:
           description: |
             Delivery control settings. Structure varies by channel:
@@ -2892,9 +2914,10 @@ components:
           oneOf:
             - $ref: '#/components/schemas/PushDeliveryControls'
             - $ref: '#/components/schemas/EmailDeliveryControls'
-        advanced: 
-          type: object
-          description: Advanced campaign settings (for Push campaigns).
+        advanced:
+          description: Advanced campaign settings (for Push campaigns). See the `AdvancedDetails` schema for child properties such as `expiration_settings` and `platform_level_priority`.
+          allOf:
+            - $ref: '#/components/schemas/AdvancedDetails'
         conversion_goal_details: { $ref: '#/components/schemas/ConversionGoalDetails' }
         control_group_details: { $ref: '#/components/schemas/ControlGroupDetails' }
         utm_params: { $ref: '#/components/schemas/UTMParams' }
@@ -3022,7 +3045,6 @@ components:
       description: |
         - When `valid` is `true`, only `valid` is returned.
         - When `valid` is `false`, `errors` lists one or more field-level issues found during publish-time validation (`DRAFT_PUBLISH`).
-        - `Idempotency-Key` is not required for validate requests.
       properties:
         valid:
           type: boolean
@@ -3114,7 +3136,7 @@ components:
             - `IOS_en_control` - iOS platform, English locale, control variation.
 
             Key components:
-            - **PLATFORM** - One of `ANDROID`, `IOS`, or `WEB`.
+            - **PLATFORM** - One of `ANDROID`, `IOS`, or `WEB`. For channels that have no platform dimension (such as Email), the channel name is used in this position instead — for example, `EMAIL_default_variation_1`.
             - **locale** - The locale name (for example, `en`, `fr`). Defaults to `default` if no locale is configured on the campaign.
             - **variation** - The variation name (for example, `variation_1`, `control`). Defaults to `variation_1` if no A/B test is configured.
 
@@ -3360,6 +3382,7 @@ paths:
                     delivery_type: "ASAP"
               email_event_triggered_delay:
                 summary: Email - EVENT_TRIGGERED (with delay)
+                description: Field values are illustrative. Replace the connector, content, and trigger values with your own before use.
                 value:
                   request_id: "{{request_id}}"
                   channel: "EMAIL"
@@ -3616,8 +3639,9 @@ paths:
                         - "TUESDAY"
               email_event_triggered:
                 summary: Email - EVENT_TRIGGERED
+                description: Field values are illustrative. Replace the connector, content, and trigger values with your own before use.
                 value:
-                  request_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  request_id: "{{request_id}}"
                   channel: "EMAIL"
                   campaign_delivery_type: "EVENT_TRIGGERED"
                   created_by: "marketer@example.com"
@@ -3954,7 +3978,7 @@ paths:
                         utm_medium: "email"
                         utm_campaign: "weekly_newsletter"
                       campaign_audience_limit:
-                        enabled: false
+                        is_campaign_audience_limit_enabled: false
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
@@ -4423,6 +4447,8 @@ paths:
       summary: Validate Campaign
       description: |
         Validates whether a draft would pass publish-time checks (`DRAFT_PUBLISH`) without making any changes to the draft.
+
+        The request body is the same regardless of channel — all campaign data is read from the saved draft identified by `campaign_id` in the path, so there is no channel-specific payload.
       x-mint:
         content: |
           <Info>
@@ -4461,12 +4487,8 @@ paths:
                     Unlike other POST endpoints, this field is not required and does not enforce deduplication - the validate endpoint is read-only and safe to retry freely.
                   example: "{{request_id}}"
             examples:
-              push_validation:
-                summary: Push
-                value:
-                  request_id: "{{request_id}}"
-              email_validation:
-                summary: Email
+              validate:
+                summary: Validate a draft campaign
                 value:
                   request_id: "{{request_id}}"
       responses:
@@ -4512,11 +4534,15 @@ paths:
       operationId: change_campaign_status_v5
       summary: Update Campaign Status
       description: |
-        Applies a state transition to a published campaign.
+        Applies a state transition to a published campaign. Supported for **Email** and **Push** campaigns.
       x-mint:
         content: |
           <Note>
           `PUBLISH` is not accepted on this endpoint. To publish a draft, use `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }`.
+          </Note>
+
+          <Note>
+          The response does not include the resulting campaign status. To confirm the new state after a transition, call `GET /v5/campaigns/{campaign_id}`.
           </Note>
 
           #### Rate Limits
@@ -5086,6 +5112,7 @@ paths:
                           basic_details:
                             title: "{{title}}"
                             message: "{{message}}"
+                            notification_channel: "{{notification_channel}}"
                   test_campaign_meta:
                     identifier: "USER_ATTRIBUTE_UNIQUE_ID"
                     identifier_values:
@@ -5351,243 +5378,5 @@ paths:
           $ref: '#/components/responses/V5Unauthorized'
         '429':
           $ref: '#/components/responses/V5RateLimited'
-        '500':
-          $ref: '#/components/responses/V5InternalError'
-
-  /v5/campaigns/{parent_campaign_id}/executions:
-    post:
-      operationId: get_child_campaigns_v5
-      summary: Get Child Campaigns
-      description: |
-        Retrieves the execution history of a Periodic or Business Event-triggered campaign.
-        Each execution (child campaign) represents one run of the parent campaign and returns the child's ID, send time, status, and the total number of executions to date.
-      x-mint:
-        content: |
-          **Supported campaign types:** Periodic, Business Event-triggered
-
-          **Supported channels:** Push, Email
-
-          #### Rate Limits
-
-          | Rate Limit Name | Rate Limit |
-          | :--- | :--- |
-          | Get child campaigns per second | 10 requests per second per client |
-          | Get child campaigns per minute | 100 requests per minute per client |
-          | Get child campaigns per hour | 6,000 requests per hour per client |
-      tags:
-        - Get Campaign Details
-      parameters:
-        - $ref: '#/components/parameters/X-MOE-Tenant-ID'
-        - $ref: '#/components/parameters/X-MOE-Request-Id'
-        - name: parent_campaign_id
-          in: path
-          required: true
-          description: The `campaign_id` of the parent Periodic or Business Event-triggered campaign.
-          schema:
-            type: string
-            example: "64a1b2c3d4e5f6a7b8c9d0e1"
-      requestBody:
-        description: Pagination parameters for the executions list.
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [request_id]
-              properties:
-                request_id:
-                  type: string
-                  description: Unique identifier for this request. Correlates with `response_id`.
-                limit:
-                  type: integer
-                  minimum: 1
-                  maximum: 15
-                  default: 15
-                  description: Maximum number of child campaign records to return per page.
-                page:
-                  type: integer
-                  minimum: 1
-                  default: 1
-                  description: Page number for pagination (1-indexed).
-              example:
-                request_id: "exec-001"
-                limit: 15
-                page: 1
-            examples:
-              get_periodic_children:
-                summary: Get periodic children
-                value:
-                  request_id: "{{request_id}}"
-                  limit: 15
-                  page: 1
-              get_business_event_children:
-                summary: Get business event children
-                value:
-                  request_id: "{{request_id}}"
-                  limit: 15
-                  page: 1
-              get_second_page:
-                summary: Get second page
-                value:
-                  request_id: "{{request_id}}"
-                  limit: 15
-                  page: 2
-      responses:
-        '200':
-          description: Execution history retrieved successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  response_id:
-                    type: string
-                  type:
-                    type: string
-                    example: "campaign"
-                  data:
-                    type: object
-                    properties:
-                      total_instances:
-                        type: integer
-                        description: Total number of times the parent campaign has executed to date.
-                      executions:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            campaign_id:
-                              type: string
-                              description: Unique ID of the child campaign execution.
-                            sent_time:
-                              type: string
-                              format: date-time
-                              description: ISO 8601 timestamp of when this execution was sent.
-                            status:
-                              type: string
-                              enum: [SENT, SENDING, FAILED]
-                              description: Status of this child campaign execution.
-                    example:
-                      response_id: "exec-001"
-                      type: "campaign"
-                      data:
-                        total_instances: 4
-                        executions:
-                          - campaign_id: "64b2c3d4e5f6a7b8c9d0e1f2"
-                            sent_time: "2024-11-25T08:00:00Z"
-                            status: "SENT"
-                          - campaign_id: "64b2c3d4e5f6a7b8c9d0e2f3"
-                            sent_time: "2024-11-18T08:00:00Z"
-                            status: "SENT"
-        '400':
-          $ref: '#/components/responses/V5ValidationError'
-        '401':
-          $ref: '#/components/responses/V5Unauthorized'
-        '500':
-          $ref: '#/components/responses/V5InternalError'
-
-  /v5/global-control-group/users:
-    put:
-      operationId: update_global_control_group_v5
-      summary: Update Global Control Group
-      description: |
-        Adds or removes users from the Global Control Group (GCG) in bulk via a CSV file.
-        The CSV must contain a single `uid` column. Once submitted, MoEngage processes the file asynchronously and sends an email summary to the `updated_by` address with counts of successfully processed and failed users.
-      x-mint:
-        content: |
-          **File requirements:** Single `uid` column, under 300 MB, publicly accessible Amazon S3 URL
-
-          <Info>
-          The GCG must already be initialised using the **Upload Users** option in the MoEngage dashboard.
-          The **Random allocation** option is not supported by this API.
-          </Info>
-
-          #### Rate Limits
-
-          | Rate Limit Name | Rate Limit |
-          | :--- | :--- |
-          | Update GCG per minute | 10 requests per minute |
-
-          <Note>
-          Each file-processing request must complete before the next one is submitted.
-          Submitting a second request while the first is still processing returns `429`.
-          </Note>
-      tags:
-        - Global Control Group
-      parameters:
-        - $ref: '#/components/parameters/X-MOE-Tenant-ID'
-        - $ref: '#/components/parameters/X-MOE-Request-Id'
-      requestBody:
-        description: GCG update request specifying the CSV file location and the operation to perform.
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [request_id, file_url, action_type, updated_by]
-              properties:
-                request_id:
-                  type: string
-                  description: Unique identifier for this request. Correlates with `response_id`.
-                file_url:
-                  type: string
-                  format: uri
-                  description: >-
-                    Publicly accessible URL of the CSV file containing user IDs. Currently only Amazon S3 URLs
-                    are supported. The file must have a single column named `uid` and be under 300 MB.
-                  example: "https://s3.amazonaws.com/my-bucket/gcg_users.csv"
-                action_type:
-                  type: string
-                  enum: [add, remove]
-                  description: Whether to add or remove the listed users from the Global Control Group.
-                updated_by:
-                  type: string
-                  format: email
-                  description: >-
-                    Email address of the user initiating the update. An email summary with processed
-                    and failed user counts is sent to this address once processing completes.
-                  example: "marketer@example.com"
-              example:
-                request_id: "gcg-001"
-                file_url: "https://s3.amazonaws.com/my-bucket/gcg_users.csv"
-                action_type: "add"
-                updated_by: "marketer@example.com"
-            examples:
-              add_users:
-                summary: Add users to GCG
-                value:
-                  request_id: "{{request_id}}"
-                  file_url: "{{s3_csv_url}}"
-                  action_type: "add"
-                  updated_by: "{{user_email}}"
-              remove_users:
-                summary: Remove users from GCG
-                value:
-                  request_id: "{{request_id}}"
-                  file_url: "{{s3_csv_url}}"
-                  action_type: "remove"
-                  updated_by: "{{user_email}}"
-      responses:
-        '204':
-          description: >-
-            Request accepted. The CSV file will be processed asynchronously. An email summary is sent
-            to the `updated_by` address once processing completes. No response body is returned.
-        '400':
-          $ref: '#/components/responses/V5ValidationError'
-        '401':
-          $ref: '#/components/responses/V5Unauthorized'
-        '429':
-          description: >-
-            Rate limit exceeded or a previous file-processing request is still in progress. Wait for
-            the previous request to complete before submitting a new one.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
-              example:
-                response_id: "gcg-001"
-                error:
-                  code: TOO_MANY_REQUESTS
-                  message: "A file-processing request is already in progress. Wait for it to complete before submitting a new request."
-                  details: []
         '500':
           $ref: '#/components/responses/V5InternalError'
