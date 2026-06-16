@@ -717,19 +717,21 @@ paths:
 
           | `data_type` | Allowed operators | Extra fields |
           |---|---|---|
-          | `string` | `is`, `in`, `contains`, `containsInTheFollowing`, `startsWith`, `startsWithInTheFollowing`, `endsWith`, `endsWithInTheFollowing`, `exists` | `case_sensitive` |
-          | `double` / `number` | `is`, `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
+          | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
+          | `double` / `number` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
           | `bool` | `is`, `exists` | — |
-          | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
+          | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
           | `geopoint` | (implicit `around`) | `value` (latitude), `value1` (longitude), `radius`; no `operator` or `negate` |
-          | `array_string` | Same as `string` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
-          | `array_double` | Same as `double` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
+          | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
+          | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
           | `object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
           | `array_object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
 
           **`value` shape by operator:**
-          - Scalar: `is`, `on`, `before`, `after`, `lessThan`, `greaterThan`, `startsWith`, `endsWith`, `contains`, `inTheLast`, `inTheNext`
-          - Array: `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`
+          - Array: `in` (string, number, array types); `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing` (string); `contains`, `startsWith`, `endsWith` (array_string); `in` (datetime with time/day/month extract types)
+          - Scalar: `is` (bool only), `on`, `before`, `after`, `lessThan`, `greaterThan`, `inTheLast`, `inTheNext`
+          - Empty string (`""`): `is_empty`
+          - Single space (`" "`): `containsSpaces`
           - Absent: `exists`, `today`
 
           **`exists` cleans up:** When `operator` is `exists`, `value`, `value1`, and `value_type` are removed from the payload.
@@ -750,7 +752,15 @@ paths:
 
           #### Cross-Attribute Comparison (Dynamic Values)
 
-          To compare an attribute against another attribute rather than a literal, set `is_dynamic_value: true` and use the template format in `value`:
+          To compare an attribute against another attribute rather than a literal, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string in `value`:
+
+          | Source | `value` template |
+          |---|---|
+          | User attribute | `"{{MoeUserAttribute['<attr_name>']}}"` |
+          | Event attribute | `"{{MoeEventAttribute['<attr_name>']}}"` |
+          | Business event attribute | `"{{BusinessEventAttribute['<attr_name>']}}"` |
+
+          For array types, `dynamic_attribute_type` uses the base element type: `array_string` → `"string"`, `array_double` → `"double"`. For `datetime`, `value_type` is forced to `"absolute"`.
 
           ```json
           {
@@ -760,11 +770,10 @@ paths:
             "operator": "greaterThan",
             "negate": false,
             "value": "{{MoeUserAttribute['lifetime_value']}}",
-            "is_dynamic_value": true
+            "is_dynamic_value": true,
+            "dynamic_attribute_type": "double"
           }
           ```
-
-          For `datetime` with a dynamic value, `value_type` is forced to `"absolute"`.
 
           ---
 
@@ -883,7 +892,7 @@ paths:
               $ref: '#/components/schemas/FilterSegmentRequestV3'
             examples:
               user_property_string:
-                summary: "User Property — String equals"
+                summary: "User Property — String is"
                 value:
                   name: "active-users-segment"
                   included_filters:
@@ -893,10 +902,10 @@ paths:
                         name: "status"
                         data_type: "string"
                         category: "Lifecycle"
-                        operator: "is"
+                        operator: "in"
                         negate: false
                         case_sensitive: false
-                        value: "active"
+                        value: ["active"]
               user_property_string_multi:
                 summary: "User Property — String in list"
                 value:
@@ -1016,10 +1025,10 @@ paths:
                           - name: "city"
                             data_type: "string"
                             category: "Location"
-                            operator: "is"
+                            operator: "in"
                             negate: false
                             case_sensitive: false
-                            value: "New York"
+                            value: ["New York"]
               user_property_array_object:
                 summary: "User Property — Array of objects (purchases)"
                 value:
@@ -1284,18 +1293,18 @@ paths:
                             name: "country"
                             data_type: "string"
                             category: "Location"
-                            operator: "is"
+                            operator: "in"
                             negate: false
                             case_sensitive: false
-                            value: "US"
+                            value: ["US"]
                           - filter_type: "user_attributes"
                             name: "country"
                             data_type: "string"
                             category: "Location"
-                            operator: "is"
+                            operator: "in"
                             negate: false
                             case_sensitive: false
-                            value: "UK"
+                            value: ["UK"]
                       - filter_type: "actions"
                         action_name: "purchase"
                         executed: true
@@ -1597,19 +1606,19 @@ components:
 
         | `data_type` | Allowed `operator` values | Extra fields |
         |---|---|---|
-        | `string` | `is`, `in`, `contains`, `containsInTheFollowing`, `startsWith`, `startsWithInTheFollowing`, `endsWith`, `endsWithInTheFollowing`, `exists` | `case_sensitive` |
-        | `double` / `number` | `is`, `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
+        | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
+        | `double` / `number` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
         | `bool` | `is`, `exists` | — |
-        | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
+        | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
         | `geopoint` | (implicit `around` — no `operator` or `negate` in payload) | `value` (latitude), `value1` (longitude), `radius` |
-        | `array_string` | Same as `string` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
-        | `array_double` | Same as `double` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
+        | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
+        | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
         | `object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
         | `array_object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
 
         When `operator` is `exists`, omit `value`, `value1`, and `value_type`.
 
-        For cross-attribute comparison, set `is_dynamic_value: true` and use `"{{MoeUserAttribute['attribute_name']}}"` as `value`.
+        For cross-attribute comparison, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string as `value`: `"{{MoeUserAttribute['attr_name']}}"`, `"{{MoeEventAttribute['attr_name']}}"`, or `"{{BusinessEventAttribute['attr_name']}}"`. For array types, `dynamic_attribute_type` is the element type (`array_string` → `"string"`, `array_double` → `"double"`).
       properties:
         filter_type:
           type: string
@@ -1634,10 +1643,12 @@ components:
             - in
             - contains
             - containsInTheFollowing
+            - containsSpaces
             - startsWith
             - startsWithInTheFollowing
             - endsWith
             - endsWithInTheFollowing
+            - is_empty
             - exists
             - lessThan
             - greaterThan
@@ -1732,10 +1743,20 @@ components:
         is_dynamic_value:
           type: boolean
           description: |
-            Set to `true` when `value` references another user attribute rather than a literal.
-            The `value` must use the format `"{{MoeUserAttribute['attribute_name']}}"`.
+            Set to `true` when `value` references another attribute rather than a literal.
+            Pair with `dynamic_attribute_type` to specify the base type of the referenced attribute.
+            Supported template formats for `value`:
+            - User attribute: `"{{MoeUserAttribute['<attr_name>']}}"`
+            - Event attribute: `"{{MoeEventAttribute['<attr_name>']}}"`
+            - Business event attribute: `"{{BusinessEventAttribute['<attr_name>']}}"`
             For `datetime` with a dynamic value, `value_type` is forced to `absolute`.
           default: false
+        dynamic_attribute_type:
+          type: string
+          description: |
+            Required when `is_dynamic_value` is `true`. The base type of the referenced attribute.
+            For array types, use the element type: `array_string` → `"string"`, `array_double` → `"double"`.
+          enum: [string, double, number, bool, datetime]
       required:
         - filter_type
         - name
@@ -2425,7 +2446,7 @@ components:
                     name: "Subscription Status 19Dec_7"
                     data_type: "string"
                     operator: "in"
-                    value: "active"
+                    value: ["active"]
                     negate: false
                     case_sensitive: false
                   - filter_type: "actions"
