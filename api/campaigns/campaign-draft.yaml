@@ -292,6 +292,11 @@ components:
             The email address of the user making this update, used for audit trail purposes.
             If omitted, the update is attributed to the authenticated API credential.
           example: "marketer@example.com"
+        version_note:
+          type: string
+          description: |
+            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Stored as the version's edit note.
+          example: "Updated subject line for the summer sale"
         basic_details:
           $ref: '#/components/schemas/PushBasicDetailsV5'
         trigger_condition:
@@ -343,6 +348,11 @@ components:
             The email address of the user making this update, used for audit trail purposes.
             If omitted, the update is attributed to the authenticated API credential.
           example: "marketer@example.com"
+        version_note:
+          type: string
+          description: |
+            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Stored as the version's edit note.
+          example: "Updated subject line for the summer sale"
         basic_details:
           $ref: '#/components/schemas/EmailBasicDetailsV5'
         connector:
@@ -2399,11 +2409,11 @@ components:
             Whether to bypass Do Not Disturb settings.
             
             Required for event-triggered campaigns.
-        campaign_throttle_rpm: 
+        campaign_throttle_rpm:
           type: integer
           description: |
             The campaign throttle in requests per minute.
-            
+
             Not applicable for device-triggered, location-triggered, and event-triggered campaigns.
           example: 50000
         count_for_frequency_capping: 
@@ -2459,17 +2469,21 @@ components:
             respecting the global delay would reduce delivery timeliness.
 
             Applies to event-triggered campaigns.
-        queuing_enabled: 
+        queuing_enabled:
           type: boolean
           description: |
             Whether queuing is enabled for this campaign. When `true`, messages that cannot be delivered immediately are queued for later delivery within the `queue_duration` window.
-            
+
+            Push only. Not supported for device-triggered or location-triggered campaigns.
+
             This is a flag-gated feature. Contact your MoEngage account team to enable it for your workspace.
 
-        queue_duration: 
+        queue_duration:
           type: integer
+          minimum: 0
+          maximum: 48
           description: |
-            Duration in hours during which queued messages will be attempted for delivery. Must be greater than 0 when `queuing_enabled` is `true`.
+            Duration in hours during which queued messages will be attempted for delivery. Valid range is 1–48 hours. Must be `0` when `queuing_enabled` is `false`.
             
             This is a flag-gated feature. Contact your MoEngage account team to enable it for your workspace.
 
@@ -2654,7 +2668,7 @@ components:
       description: |
         UTM parameters for tracking campaign performance. The five standard keys (`utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`) are explicitly defined.
 
-        **Custom UTM parameters:** Up to 5 additional custom parameters can be passed as separate keys directly inside the `utm_params` object, using arbitrary key names prefixed with `utm_` (for example, `utm_cust`, `utm_c1ust`).
+        **Custom UTM parameters:** Up to 5 additional custom parameters can be passed as separate keys directly inside the `utm_params` object. Custom keys accept arbitrary names — the `utm_` prefix is a convention, not a requirement (for example, `utm_cust` or `campaign_source` are both accepted).
 
         For runnable examples, refer to [UTM parameters](/api/campaigns/audience-scheduling-delivery-reference#utm-parameters).
       properties:
@@ -4470,7 +4484,8 @@ paths:
         - name: campaign_id
           in: path
           required: true
-          description: Raw 24-char ObjectId of the campaign to validate.
+          description: |
+            Raw 24-char ObjectId of the campaign to validate. Use the `id` value returned in the Create Campaign response.
           schema:
             type: string
       requestBody:
