@@ -1,0 +1,132 @@
+---
+title: "Simulate a Decision Policy"
+description: "Validate and test your decision policy logic in real time by simulating how offerings are ranked and selected for specific user profiles."
+---
+
+Use the decision policy simulation feature to validate your decisioning logic before a policy goes live or while editing an existing one. The simulator evaluates specific user profiles against your configured eligibility rules, ranking strategies, and capping limits, and shows you exactly which offerings are returned, in what order, and why.
+
+<Info>
+  **Prerequisites**
+
+  Before you run a simulation, ensure the following:
+
+  - A decision policy exists in your workspace. For more information, refer to [Create a Decision Policy](/user-guide/decisioning/offer-decisioning/decision-policy).
+  - Your user role has the **View** permission for Decision Policy. Both editors and view-only users can access and run the simulation.
+</Info>
+
+## Access the Simulation
+
+You can access the simulator from two places in the MoEngage UI.
+
+**During policy creation or editing**
+
+1. On the **Create Decision Policy** or **Edit Decision Policy** page, configure your basic details and offerings.
+2. Click **Run Simulation**, which appears to the left of **Create** in the lower-right corner.
+
+**From the Decision Policies list**
+
+1. On the left navigation menu, hover over **Decisioning**. The Decisioning menu appears.
+2. Click **Decision Policies**. The Decision Policies page appears.
+3. Open the simulator using one of the following methods:
+   - **From the list**: Locate the policy, click the ellipsis icon in the **Actions** column, click **Edit**, and then click **Run Simulation**.
+   - **From the policy details page**: Click the policy name to open its details page, and then click **Run Simulation** in the upper-right corner.
+
+## Configure a Simulation
+
+When the **Simulate Decision Policy** window opens, the top section displays the active policy parameters: **Ranking Strategy**, **Offering Selection** mode, **Total Input**, and **Expected Output** limit.
+
+### Identified User
+
+Select **Identified User** to evaluate the decision policy against an existing user profile in your database.
+
+**Specific user**
+
+Select **Choose specific user** and search for the user by any of the following identifiers:
+
+| Identifier | Description |
+|---|---|
+| **ID** | The unique custom customer database ID configured for your workspace partition. |
+| **Email** | The user's primary registered email address. |
+| **Phone** | The user's mobile or landline phone number, including country code. |
+| **MoEngage ID** | The system-generated unique user identifier. |
+
+To load a specific user:
+
+1. In the **Select user by** list, select the identifier type: **ID**, **Email**, **Phone**, or **MoEngage ID**.
+2. In the **User identifier value** field, enter the corresponding value and click **Find User**.
+
+   <Note>
+     If no matching profile is returned, verify that you are searching within the correct active workspace partition. Simulations are isolated to your active workspace partition.
+   </Note>
+
+3. After a match is found, the message "1 profile found. Selected user with [Identifier Type]: [value]" appears. Hover over the identifier value to inspect profile attributes, or click **View user** to open the full profile in a new tab.
+
+**Random user**
+
+Select **Choose random user** to evaluate the policy's general behavior without entering a specific identifier. The simulator automatically selects an active user profile at random from your workspace database.
+
+### Anonymous User
+
+Select **Anonymous User** to simulate a first-time visitor with no existing profile or historical identifiers.
+
+<Info>
+  For anonymous users, MoEngage automatically skips primary offerings that require target segment matching. The system defaults to evaluating fallback offerings. If no fallback offerings are eligible, the simulation results strip turns yellow instead of green to indicate that zero offerings were returned.
+</Info>
+
+### Define In-Session Attributes (Optional)
+
+In the **In-session attribute** section, click **+ In-session attribute** to define real-time, session-specific key-value pairs for testing contextual eligibility rules.
+
+Examples of key-value pairs:
+
+- Device type — Key: `device_platform` | Value: `iOS`
+- Referral source — Key: `traffic_source` | Value: `google_search`
+- Current cart value — Key: `cart_value` | Value: `150.00`
+
+For more information, refer to [In-Session Attributes in Offerings](/user-guide/decisioning/offer-decisioning/create-offerings#in-session-attributes).
+
+## Run a Simulation
+
+Running a simulation is a read-only operation. It does not deliver offerings, record events, or deduct from user frequency-capping limits.
+
+Click **Run Simulation**.
+
+<Note>
+  **Run Simulation** is disabled during processing to prevent duplicate requests. It remains disabled until you modify any simulation input parameter.
+</Note>
+
+## Simulation Results
+
+During a simulation, the feature evaluates each offering and assigns one of the following states:
+
+| State | Description |
+|---|---|
+| **Selected** | The final offerings selected for display. These passed all eligibility checks and ranked highest under your policy's strategy, up to the configured output limit. |
+| **Eligible** | Offerings that met all target segmentation and capping rules but were not selected — due to lower priority scores, lower custom formula values, or because higher-ranking offerings already satisfied the output limit. When scores are equal, tie-breaking logic applies. For more information, refer to [FAQs on Decision Policy](/user-guide/decisioning/offer-decisioning/faqs-on-decision-policy#how-does-the-priority-value-work-when-multiple-offerings-are-eligible). |
+| **Ineligible** | Offerings that failed the target segment check or the capping limit rules. |
+| **Not Evaluated** | Offerings bypassed during evaluation. This occurs for primary offerings when simulating anonymous users, or for fallback offerings when eligible primary offerings fully satisfy the expected output limit. Scheduled and expired offerings are also excluded, as the engine prioritizes active offerings. |
+
+<Info>
+  If an offering fails at the **Target Segment** stage, MoEngage automatically skips evaluation for subsequent stages such as **Capping Limit**. Skipped stages appear as a double dash (--) in the results table. The offering's original priority score remains visible for debugging purposes.
+</Info>
+
+## Analyze the Results Table
+
+The results table displays the following columns:
+
+| Column | Description |
+|---|---|
+| **Offering Name** | The unique name of the offering, along with any assigned tags. |
+| **Offering Type** | Identifies the offering as either Primary or Fallback. |
+| **Status** | The active schedule status of the offering — for example, Active, Scheduled, or Expired. |
+| **Target Segment** | Displays **Pass** if the simulated user matches the segment criteria; displays **Fail** if they do not match or if skipped. |
+| **Capping Limit** | Displays **Pass** if the user has not exceeded the offering's frequency-capping rules; displays **Fail** if they have exceeded them or if skipped. |
+| **Final Score** | Adapts based on your decision policy's ranking strategy: **Priority** displays the numerical priority value assigned to the offering. **Final Score** displays the computed weighted score from your custom formula parameters — click the information icon next to the score to view the weight breakdown (for example, CTR, priority, or attributes). **CTR** displays the click-through rate metric used when **AI Auto Optimize** is enabled. |
+
+## Manage and Export Results
+
+Use the toolbar on the results panel to manage and extract simulation data:
+
+- **Global Search**: Type a keyword in the **Search by Offering name** field to filter matching offerings across all four status tabs (**Selected**, **Eligible**, **Ineligible**, **Not Evaluated**) simultaneously.
+- **Status Filter**: Click the **Select status** list to filter offerings by operational state — for example, to view only **Active** offerings.
+- **Download CSV**: Click **Download CSV** to export the tabular results. The exported file preserves all values displayed in the UI, including priority, segment checks, and scores.
