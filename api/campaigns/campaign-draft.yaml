@@ -105,6 +105,23 @@ components:
       schema:
         type: string
         format: uuid
+    X-MOE-Scopes:
+      name: X-MOE-Scopes
+      in: header
+      required: false
+      description: |
+        Caller's effective Campaigns permissions. When requests pass through the MoEngage IAM gateway, the gateway injects this header from the permissions tied to your API key, and the service treats it as the source of truth. The service reads only the `campaigns:` entry.
+
+        Action vocabulary: `view` (read), `create_manage` (create and edit drafts), and `create_manage_publish` (create, edit, and publish). The hierarchy is `create_manage_publish` ⟹ `create_manage` ⟹ `view`.
+
+        Required action by operation:
+        - `PATCH /v5/campaigns/{campaign_id}` (component edits) requires `create_manage`.
+        - `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }` requires `create_manage_publish`.
+
+        If your effective permissions do not satisfy the required action, the API returns `403`. Other V5 routes are not gated by this header in the current release.
+      schema:
+        type: string
+      example: "campaigns:create_manage_publish"
 
   schemas:
     # ==================== V5 Draft-First Envelopes ====================
@@ -209,13 +226,13 @@ components:
       description: |
         Request body for creating an Email campaign draft via `POST /v5/campaigns`.
 
-        Required fields are `channel`, `campaign_delivery_type`, `created_by`, and `connector`. `campaign_content` can be added when the message content is ready.
+        Required fields are `channel`, `campaign_delivery_type`, and `created_by`. `connector` is required before the campaign can be published or test-sent, but can be added later via `PATCH` (progressive creation). `campaign_content` can be added when the message content is ready.
 
 
         For the component-level schemas with conditional rules:
         - [Campaign content reference](/api/campaigns/campaign-content-reference) — `basic_details`, `campaign_content` (`html_content` and `custom_template_id`), `variation_details`, and `connector`.
         - [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference) — `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls`, `conversion_goal_details`, `control_group_details`, `utm_params`, and `campaign_audience_limit`.
-      required: [channel, campaign_delivery_type, created_by, connector]
+      required: [channel, campaign_delivery_type, created_by]
       properties:
         request_id: 
           type: string
@@ -294,8 +311,9 @@ components:
           example: "marketer@example.com"
         version_note:
           type: string
+          maxLength: 2048
           description: |
-            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Stored as the version's edit note.
+            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Ignored on DRAFT-state updates. Stored as the version's edit note.
           example: "Updated subject line for the summer sale"
         basic_details:
           $ref: '#/components/schemas/PushBasicDetailsV5'
@@ -350,8 +368,9 @@ components:
           example: "marketer@example.com"
         version_note:
           type: string
+          maxLength: 2048
           description: |
-            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Stored as the version's edit note.
+            Optional free-text note saved on the new campaign version. Applies only when the update creates a new version (campaign versioning must be enabled for the workspace). Ignored on DRAFT-state updates. Stored as the version's edit note.
           example: "Updated subject line for the summer sale"
         basic_details:
           $ref: '#/components/schemas/EmailBasicDetailsV5'
@@ -398,10 +417,11 @@ components:
       description: Changes the status of a single published campaign. One campaign ID per request.
       required: [action]
       properties:
-        request_id: 
+        request_id:
           type: string
-          description: A unique identifier for this status change request.
-        action: 
+          description: |
+            A client-supplied identifier for this status change request, echoed back as `response_id` so you can correlate the request and response. This is not a deduplication key — to make a request idempotent, use the `Idempotency-Key` header. Replaying the same `Idempotency-Key` returns the original response.
+        action:
           type: string
           enum: [STOP, PAUSE, RESUME]
           description: |
@@ -540,7 +560,7 @@ components:
           type: array
           items:
             type: string
-            enum: [DRAFT, ACTIVE, SCHEDULED, PAUSED, SENT, SENDING, STOPPED, ARCHIVED, RETIRED]
+            enum: [DRAFT, ACTIVE, SCHEDULED, PAUSED, SENT, SENDING, STOPPED, ARCHIVED]
           description: |
             Include campaigns in any of these statuses.
 
@@ -583,7 +603,7 @@ components:
           description: |
             The number of campaigns to display per page.
             
-            **Maximum:** 15
+            **Maximum:** 15. The response does not include a `total_count` field - to determine the total number of results, keep paginating until a response returns fewer items than `limit`.
           minimum: 1
           maximum: 15
           example: 15
@@ -650,7 +670,7 @@ components:
           type: array
           items:
             type: string
-            enum: [DRAFT, SCHEDULED, ACTIVE, PAUSED, SENT, SENDING, STOPPED, RETIRED, ARCHIVED]
+            enum: [DRAFT, SCHEDULED, ACTIVE, PAUSED, SENT, SENDING, STOPPED, ARCHIVED]
           description: Include campaigns in any of these statuses.
         tags:
           type: array
@@ -1181,7 +1201,8 @@ components:
             - trigger_delay_granularity
             - trigger_relation
         trigger_delay_value: 
-          type: string
+          type: integer
+          minimum: 0
           description: The numeric value of the triggered delay.
         trigger_delay_granularity: 
           type: string
@@ -1246,7 +1267,8 @@ components:
             - trigger_delay_granularity
             - trigger_relation
         trigger_delay_value: 
-          type: string
+          type: integer
+          minimum: 0
           description: The numeric value of the triggered delay.
         trigger_delay_granularity: 
           type: string
@@ -2274,6 +2296,11 @@ components:
           description: |
             The expiry time for the campaign in ISO 8601 format.
 
+        timezone:
+          type: string
+          description: |
+            IANA timezone string for the campaign schedule (for example, `Asia/Kolkata`). Required when `delivery_type` is `AT_FIXED_TIME` or `SEND_IN_BTS`. Optional for `SEND_IN_USER_TIMEZONE`, where each user's own timezone is used.
+          example: "Asia/Kolkata"
         periodic_details: { $ref: '#/components/schemas/PeriodicDetails' }
         bts_details: { $ref: '#/components/schemas/BTSDetails' }
         user_timezone_details: { $ref: '#/components/schemas/UserTimezoneDetails' }
@@ -2712,13 +2739,14 @@ components:
     Connector:
       type: object
       description: |
-        Email connector configuration for sending email campaigns.**Required** on Email create and inline test requests. For runnable examples, refer to [Email delivery connector](/api/campaigns/campaign-content-reference#email-delivery-connector).
+        Email connector configuration for sending email campaigns. Required for inline Email test requests and before an Email campaign can be published or test-sent. Not required at draft create time — it can be added later via `PATCH`. For runnable examples, refer to [Email delivery connector](/api/campaigns/campaign-content-reference#email-delivery-connector).
       required: [connector_type, connector_name]         
       properties:
         connector_type:
           type: string
+          enum: [SENDGRID, MAILGUN, MAILJET, SES, SMTP, SPARKPOST]
           description: |
-            The type of connector service (for example, `SENDGRID`, `AWS SES`). Must match a connector configured in your MoEngage workspace. To find valid values, go to **Settings** > **Email** > **Connectors** in the MoEngage dashboard.
+            The type of connector service. Must match a connector configured in your MoEngage workspace. To find valid values, go to **Settings** > **Email** > **Connectors** in the MoEngage dashboard.
         connector_name: 
           type: string
           description: The name of the connector configuration as configured in your MoEngage workspace.
@@ -2727,6 +2755,8 @@ components:
       type: object
       description: |
         Configuration for capping the number of users a campaign can reach (max-send).
+
+        Campaign Audience Limit (also called max-send) caps how many users a single campaign can reach. Use it to control reach on high-volume campaigns and protect users from over-messaging. The cap can apply across the campaign's full lifetime (`frequency: TOTAL`) or per send instance (`frequency: INSTANCE`).
 
         For runnable `TOTAL` (lifetime cap), `INSTANCE` (per-send cap, Periodic Push only), and disabled-cap examples, refer to [Campaign audience cap](/api/campaigns/audience-scheduling-delivery-reference#campaign-audience-cap).
 
@@ -2833,9 +2863,9 @@ components:
           type: integer
           description: |
             Monotonic version index for this campaign document when campaign versioning is enabled. Publishing edits to a previously published campaign creates a new document with a higher `version_number`. `campaign_id` is the canonical identifier shared across versions; `id` is unique per document.
-        status: 
+        status:
           type: string
-          enum: [DRAFT, ACTIVE, SCHEDULED, PAUSED, SENT, SENDING, STOPPED, ARCHIVED, RETIRED]
+          enum: [DRAFT, ACTIVE, SCHEDULED, PAUSED, SENT, SENDING, STOPPED, ARCHIVED]
           description: The current status of the campaign.
         channel: 
           type: string
@@ -3003,7 +3033,7 @@ components:
           description: Tags associated with the campaign.
         campaign_status: 
           type: string
-          enum: [DRAFT, SCHEDULED, ACTIVE, PAUSED, SENT, SENDING, STOPPED, RETIRED, ARCHIVED]
+          enum: [DRAFT, SCHEDULED, ACTIVE, PAUSED, SENT, SENDING, STOPPED, ARCHIVED]
           description: The current status of the campaign.
         campaign_start_time: 
           type: string
@@ -3013,9 +3043,9 @@ components:
         parent_campaign_id: 
           type: string
           description: |
-            The campaign ID of the parent campaign.
-            
-            Only shown if the requested campaign_id belongs to a child campaign and `include_child_campaigns` is true.
+            The `id` (24-character ObjectId) of the parent campaign.
+
+            Only shown if the requested `id` belongs to a child campaign and `include_child_campaigns` is true.
         total_child_campaigns: 
           type: integer
           description: |
@@ -3420,7 +3450,7 @@ paths:
                           executed: true
                           condition: "IF"
                     trigger_delay_type: "DELAY"
-                    trigger_delay_value: "1"
+                    trigger_delay_value: 1
                     trigger_delay_granularity: "HOURS"
                     trigger_relation: "AFTER"
                     trigger_attr: "If Action"
@@ -4086,6 +4116,7 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/Idempotency-Key-Required'
+        - $ref: '#/components/parameters/X-MOE-Scopes'
       requestBody:
         description: |
           In this payload, you can include the fields you want to update.
