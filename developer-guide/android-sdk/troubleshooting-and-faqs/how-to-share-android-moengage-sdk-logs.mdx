@@ -11,7 +11,7 @@ In this document, we list a few steps that you can execute to share the MoEngage
 
 ## Enable SDK logs globally at runtime
 
-Use the following API to enable MoEngage SDK logs globally at runtime without rebuilding the application or modifying initialization code. This activates comprehensive logging across all SDK components and active workspace instances.
+Use the following API to enable MoEngage SDK logs globally at runtime. This activates comprehensive logging across all SDK components and active workspace instances.
 
 <CodeGroup>
 
@@ -30,10 +30,10 @@ MoESdkStateHelper.enableAllLogs();
 </CodeGroup>
 
 <Warning>
-  Call this method before any SDK initialization to capture all logs from startup. Remove it before pushing the app to production.
+  `enableAllLogs()` only captures logs generated after it is called, it does not replay previous logs. To disable all logs, including instance-level logs, call `disableAllLogs()`. Remove both methods before pushing the app to production.
 </Warning>
 
-## Enable debug logs
+## Enable debug logs for Android
 
 MoEngage SDK logs are best read in verbose format, which prints almost all the steps the SDK takes at any given time. You must first enable verbose-level logging by following this documentation and changing the initialization code a bit.
 
@@ -59,17 +59,49 @@ MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.D
 ```
 
 
-```typescript ReactNative
 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+</CodeGroup>
+
+<Warning>
+  Ensure to remove the above lines before the application is pushed to production.
+</Warning>
+
+## Enable debug logs for React Native
+
+React Native provides log control at the TypeScript level. Update your MoEngage initialization code (typically in `App.tsx` or your app entry file) to pass a log configuration:
+
+```typescript TypeScript
+import { MoEInitConfig, MoEPushConfig, MoEngageLogConfig, MoEngageLogLevel } from "react-native-moengage";
+import ReactMoE from 'react-native-moengage';
+
+const moEInitConfig = new MoEInitConfig(
+  MoEPushConfig.defaultConfig(),
+  new MoEngageLogConfig(MoEngageLogLevel.VERBOSE, true)
+);
+
+ReactMoE.initialize("YOUR_WORKSPACE_ID", moEInitConfig);
 ```
 
+<Warning>
+  Set `isEnabledForReleaseBuild` to `false` and remove verbose logging before pushing the app to production.
+</Warning>
 
-```dart Flutter
+## Enable debug logs for Flutter
 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+Flutter uses the same Android native initialization for log configuration. Open the Android initialization file, `android/app/src/main/java/<your-package>/MainApplication.kt` (or `MainApplication.java`), and add `configureLogs` to the MoEngage builder:
+
+<CodeGroup>
+
+```kotlin Kotlin
+MoEngage moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuilds = true))
+    .build()
+```
+
+```java Java
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+    .build();
 ```
 
 </CodeGroup>
