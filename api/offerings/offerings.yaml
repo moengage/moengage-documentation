@@ -39,6 +39,7 @@ servers:
           MoEngage data center identifier. Replace it with the number assigned to your account,
           such as 01 (US), 02 (EU), 03 (India), 05 (Singapore), or 06 (Indonesia). For example,
           https://api-01.moengage.com.
+        enum: ["01", "02", "03", "05", "06"]
 
 paths:
   /v5/offers:
@@ -141,7 +142,8 @@ paths:
             maximum: 500
           description: >
             Page number to retrieve, starting at 1. Maximum 500; a higher value returns
-            `400 OUT_OF_RANGE`.
+            `400 OUT_OF_RANGE`. When the page number exceeds the total number of available
+            pages, returns an empty `items` array (not an error).
         - name: limit
           in: query
           required: false
@@ -173,15 +175,15 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day per workspace."
+              description: Maximum requests allowed in the current per-minute window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
-              description: Requests remaining in the current window.
+              description: Requests remaining in the current per-minute window.
             X-RateLimit-Reset:
               schema:
                 type: integer
-              description: UTC epoch second when the current rate-limit window resets.
+              description: UTC epoch second when the current per-minute window resets.
           content:
             application/json:
               schema:
@@ -364,9 +366,59 @@ paths:
                             content_1:
                               type: json
                               value: '{"headline":"Limited Time Offer","cta_text":"Grab Deal"}'
+              withCapping:
+                summary: Offering with frequency capping and conversion tracking
+                value:
+                  request_id: req_550e8400-e29b-41d4-a716-446655440002
+                  name: Flash_Sale_Capped
+                  priority: 8
+                  delivery: scheduled
+                  created_by: marketing-team@example.com
+                  scheduling:
+                    start_datetime: "2026-07-15T10:00:00+00:00"
+                    expiry_datetime: "2026-07-15T22:00:00+00:00"
+                  segment_info:
+                    filters: {}
+                  variation_meta:
+                    type: SMV
+                    variantsPerLocale: [Variant_A]
+                    smv_distribution:
+                      split:
+                        Variant_A: 100
+                    control_group:
+                      is_enabled: true
+                      percentage: 10
+                  offer_content:
+                    locales:
+                      "0":
+                        variations:
+                          Variant_A:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Flash Sale — 50% off today only"}'
+                  capping_rules:
+                    overall:
+                      enabled: true
+                      limit_value: 5000
+                      limit_schedule: DAILY
+                    user_level:
+                      enabled: true
+                      limit_value: 1
+                      limit_schedule: DAILY
+                  conversion:
+                    primary:
+                      goal_name: Purchase
+                      action: purchase
+                      filter_type: actions
+                      r_track: true
+                      ra: order_value
+                      rc: USD
       responses:
         '201':
-          description: Offering created.
+          description: >
+            Offering created. Check `data.status` — if `start_datetime` was in the past at the
+            time of the request, the offering is created with `status: expired` and will not be
+            served to users.
           headers:
             X-MOE-Request-Id:
               schema:
@@ -376,15 +428,15 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day per workspace."
+              description: Maximum requests allowed in the current per-minute window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
-              description: Requests remaining in the current window.
+              description: Requests remaining in the current per-minute window.
             X-RateLimit-Reset:
               schema:
                 type: integer
-              description: UTC epoch second when the current rate-limit window resets.
+              description: UTC epoch second when the current per-minute window resets.
           content:
             application/json:
               schema:
@@ -470,6 +522,11 @@ paths:
         changed; omitted fields keep their current values. You can update offerings in the
         `active` and `scheduled` states. Requires the `write:offers` scope and an
         `Idempotency-Key` header.
+
+        **Array fields are replaced entirely, not merged**: `tags` and
+        `offering_attribute_configuration` overwrite the existing values when included. To add
+        one tag, send the current list plus the new tag ID. To remove all tags, send an empty
+        array.
       x-mint:
         content: |
           #### Rate Limit
@@ -552,15 +609,15 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day per workspace."
+              description: Maximum requests allowed in the current per-minute window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
-              description: Requests remaining in the current window.
+              description: Requests remaining in the current per-minute window.
             X-RateLimit-Reset:
               schema:
                 type: integer
-              description: UTC epoch second when the current rate-limit window resets.
+              description: UTC epoch second when the current per-minute window resets.
           content:
             application/json:
               schema:
@@ -605,12 +662,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: EXPIRED_OFFERING
-                  message: "Offering 'offer_683abc123def456789012345' expired on 2026-05-01T00:00:00Z and can no longer be modified."
-                  target: offer_id
-                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+              examples:
+                expired:
+                  summary: Offering is expired
+                  value:
+                    error:
+                      code: EXPIRED_OFFERING
+                      message: "Offering 'offer_683abc123def456789012345' expired on 2026-05-01T00:00:00Z and can no longer be modified."
+                      target: offer_id
+                    response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                archived:
+                  summary: Offering is archived
+                  value:
+                    error:
+                      code: ARCHIVED_OFFERING
+                      message: "Offering 'offer_683abc123def456789012345' is archived and can no longer be modified."
+                      target: offer_id
+                    response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567891
         '404':
           description: No offering with the given `offer_id` exists in this workspace (`OFFER_NOT_FOUND`).
           content:
@@ -631,6 +699,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicateInFlight:
+                  summary: Concurrent duplicate (in progress)
+                  value:
+                    error:
+                      code: DUPLICATE_IDEMPOTENCY_KEY
+                      message: A request with this Idempotency-Key is already being processed.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                bodyMismatch:
+                  summary: Same key, different body
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: The Idempotency-Key was already used with a different request body.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d480
         '429':
           $ref: '#/components/responses/RateLimited'
         '500':
@@ -699,15 +784,15 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day per workspace."
+              description: Maximum requests allowed in the current per-minute window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
-              description: Requests remaining in the current window.
+              description: Requests remaining in the current per-minute window.
             X-RateLimit-Reset:
               schema:
                 type: integer
-              description: UTC epoch second when the current rate-limit window resets.
+              description: UTC epoch second when the current per-minute window resets.
           content:
             application/json:
               schema:
@@ -769,6 +854,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
 components:
   schemas:
@@ -876,6 +963,35 @@ components:
           items:
             type: string
           example: [web]
+        fields:
+          type: array
+          description: >
+            Field definitions for this template. Use these to construct the `value` object when
+            `content_1.type` is `template`. Fields marked `required: true` must be present in
+            `value` or the API returns `400 MISSING_TEMPLATE_FIELD`.
+          items:
+            $ref: '#/components/schemas/TemplateField'
+
+    TemplateField:
+      description: A single field definition within a personalization template.
+      type: object
+      required: [key, required, type]
+      properties:
+        key:
+          type: string
+          description: Field key name used as the property name in the `value` object.
+          example: headline
+        required:
+          type: boolean
+          description: >
+            Whether this field must be present in `value` when creating or updating an offering
+            with this template. Omitting a required field returns `400 MISSING_TEMPLATE_FIELD`.
+          example: true
+        type:
+          type: string
+          description: Expected data type of the field value.
+          enum: [string, number, boolean, url]
+          example: string
 
     PagePagination:
       description: Pagination metadata included in list responses.
@@ -893,13 +1009,13 @@ components:
         has_more:
           type: boolean
           description: >
-            Whether more pages exist beyond this one. When `true`, increment `page` to fetch the
-            next page.
+            Whether more pages exist beyond this one. Use this as the primary pagination signal —
+            when `true`, increment `page` to fetch the next page.
           example: true
         total_count:
           type: integer
           format: int64
-          description: Total number of items matching the applied filters. Compute total pages as `ceil(total_count / limit)`.
+          description: Total number of items matching the applied filters.
           example: 42
 
     ClientOfferCreateRequest:
@@ -1088,7 +1204,8 @@ components:
           format: date-time
           description: >
             ISO 8601 datetime when the offering becomes eligible. Include a UTC offset in the
-            timestamp, or send a naive datetime together with `timezone`. Must be in the future.
+            timestamp, or send a naive datetime together with `timezone`. If this value is in the
+            past, the offering is created with `status: expired` and will not be served to users.
           example: "2026-07-01T09:00:00+05:30"
         expiry_datetime:
           type: string
@@ -1289,7 +1406,7 @@ components:
           example: [Variant_A, Variant_B]
         smv_distribution:
           type: object
-          description: Variation percentage allocation. Required when `type` is `SMV`.
+          description: Variation percentage allocation. Required when `type` is `SMV` or `AB`.
           properties:
             split:
               type: object
@@ -1445,8 +1562,13 @@ components:
           enum: [and, or]
           example: and
         filters:
-          type: object
-          description: Attribute filter definitions, following the same format as `segment_info.filters`.
+          type: array
+          description: >
+            Array of attribute filter objects. Each object targets a specific event attribute.
+            Follows the same filter structure as `segment_info.filters.included_filters.filters`.
+          items:
+            type: object
+            description: A single attribute filter. Structure varies by filter type.
 
     OfferAttributeConfigurationRequest:
       description: |
