@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: MoEngage Analytics Dashboard and Chart API
+  description: |
+    Read-only REST APIs to access your MoEngage Custom Dashboards and the analytics data behind their charts. All endpoints are `GET` requests and do not modify any data.
+  version: '5.0'
+servers:
+  - url: 'https://api-{dc}.moengage.com'
+    description: MoEngage API Server
+    variables:
+      dc:
+        default: '01'
+        description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+tags:
+  - name: Dashboards
+    description: Read custom dashboards and their chart data.
+security:
+  - basicAuth: []
+paths:
+
+  /v5/analytics/dashboards:
+    get:
+      tags:
+        - Dashboards
+      summary: List Dashboards
+      description: |
+        Returns the custom dashboards available to the authenticated workspace. Archived dashboards are excluded.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limits are at the workspace level. You can make a maximum of 100 requests per hour and 10 requests per minute to this endpoint.
+      operationId: listDashboards
+      parameters:
+        - $ref: '#/components/parameters/MoeAppKey'
+        - $ref: '#/components/parameters/MoeTeamId'
+      responses:
+        '200':
+          description: |
+            This response is returned when the request is processed successfully.
+
+            Each item contains the dashboard ID and name. Use the dashboard ID with [Get Dashboard Charts](/api/dashboards/get-dashboard-charts) to retrieve the charts on a dashboard.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [response_id, type, data]
+                properties:
+                  response_id:
+                    $ref: '#/components/schemas/ResponseId'
+                  type:
+                    type: string
+                    description: The type of resource returned in the `data` field.
+                    example: dashboard
+                  data:
+                    type: array
+                    description: The list of dashboards accessible to the workspace.
+                    items:
+                      $ref: '#/components/schemas/DashboardSummary'
+              example:
+                response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                type: dashboard
+                data:
+                  - _id: 63ede292b4c6a68b18c2c93f
+                    name: Acquisition Overview
+                  - _id: 63ef1f824da10b4fd96c6e3b
+                    name: Retention Deep Dive
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /v5/analytics/dashboards/{dashboard_id}/charts:
+    get:
+      tags:
+        - Dashboards
+      summary: Get Dashboard Charts
+      description: |
+        Returns the details of a single dashboard, including its name, creator, and owner. It also returns the list of charts on the dashboard, in layout order. Each chart entry contains the chart's ID and name.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limits are at the workspace level. You can make a maximum of 100 requests per hour and 10 requests per minute to this endpoint.
+
+          <Note>
+            Chart data is not returned here. To fetch the data for a chart, use [Get Chart Data](/api/dashboards/get-chart-data) with the dashboard ID and chart ID.
+          </Note>
+      operationId: getDashboardCharts
+      parameters:
+        - $ref: '#/components/parameters/DashboardId'
+        - $ref: '#/components/parameters/MoeAppKey'
+        - $ref: '#/components/parameters/MoeTeamId'
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [response_id, type, data]
+                properties:
+                  response_id:
+                    $ref: '#/components/schemas/ResponseId'
+                  type:
+                    type: string
+                    description: The type of resource returned in the `data` field.
+                    example: dashboard
+                  data:
+                    $ref: '#/components/schemas/DashboardData'
+              example:
+                response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                type: dashboard
+                data:
+                  name: Acquisition Overview
+                  created_by: kritika.garg@example.com
+                  owned_by: kritika.garg@example.com
+                  chart_ids:
+                    - _id: 67f9d9df279348ecdc84415f
+                      name: New Users by Day
+                    - _id: 68f08c79d33bd238d3ef00e0
+                      name: Sign-ups by Channel
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /v5/analytics/dashboards/{dashboard_id}/charts/{chart_id}:
+    get:
+      tags:
+        - Dashboards
+      summary: Get Chart Data
+      description: |
+        Returns the data behind a single chart, as an array of rows. Each call runs the chart's analytics query and returns the result.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limits are at the workspace level. You can make a maximum of 100 requests per hour and 10 requests per minute to this endpoint.
+
+          <Note>
+            **About the chart data:**
+
+            - The data matches what the chart shows in the MoEngage dashboard. It uses the chart's saved settings, such as its date range, segment, filters, and breakdowns. You can't change these settings through the API, because the endpoint accepts no date-range or segment parameters.
+            - By default, the response is served from a server-side cache. To recompute the chart with the latest data, set the `cache` query parameter to `false`.
+            - The fields in each row depend on the chart's analysis type: Behavior, Funnels, Retention, User, or Session and Source. To learn more about these analysis types, see [MoEngage Analytics](/user-guide/analyze/moengage-analytics/overview).
+          </Note>
+      operationId: getChartData
+      parameters:
+        - $ref: '#/components/parameters/DashboardId'
+        - $ref: '#/components/parameters/ChartId'
+        - $ref: '#/components/parameters/Cache'
+        - $ref: '#/components/parameters/MoeAppKey'
+        - $ref: '#/components/parameters/MoeTeamId'
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [response_id, type, data]
+                properties:
+                  response_id:
+                    $ref: '#/components/schemas/ResponseId'
+                  type:
+                    type: string
+                    description: The type of resource returned in the `data` field.
+                    example: chart_data
+                  data:
+                    type: array
+                    description: The resolved chart data, as an array of metric rows.
+                    items:
+                      $ref: '#/components/schemas/ChartSeriesPoint'
+              example:
+                response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                type: chart_data
+                data:
+                  - metric: 4
+                    granularity: 2026/05
+                    splitby: []
+                    grouped_by: []
+                    step: A
+                    tseq: 0
+                    cseq: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format `username:password`.
+
+        - **Username**: Use your MoEngage workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+        - **Password**: Use your Data API Key, which you can find in the MoEngage dashboard at **Settings** > **Account** > **APIs**.
+
+        For more information, see [Authentication](/api/introduction#authentication).
+
+  parameters:
+    DashboardId:
+      name: dashboard_id
+      in: path
+      required: true
+      description: The unique identifier of the dashboard. You can retrieve dashboard IDs from the [List Dashboards](/api/dashboards/list-dashboards) response.
+      schema:
+        type: string
+        example: 6a10ae88f3a1896d59d5bf8f
+    ChartId:
+      name: chart_id
+      in: path
+      required: true
+      description: The unique identifier of the chart on the dashboard. You can retrieve chart IDs from the [Get Dashboard Charts](/api/dashboards/get-dashboard-charts) response.
+      schema:
+        type: string
+        example: 6a10af49f3a1896d59d5bfbd
+    MoeAppKey:
+      name: MOE-APPKEY
+      in: header
+      required: true
+      description: Your MoEngage workspace ID (also known as the App ID), which identifies the workspace the request applies to. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+      schema:
+        type: string
+        example: ABCD1234EFGH56789
+    MoeTeamId:
+      name: MOE-Team-ID
+      in: header
+      required: false
+      description: The team ID, required only when MoEngage Teams is enabled for your workspace. Scopes the request to the specified team.
+      schema:
+        type: string
+    Cache:
+      name: cache
+      in: query
+      required: false
+      description: Controls whether the chart data is served from the server-side cache. Set to `false` to bypass the cache and recompute the chart. Defaults to `true`.
+      schema:
+        type: boolean
+        default: true
+
+  schemas:
+
+    DashboardSummary:
+      type: object
+      required: [_id, name]
+      description: A dashboard accessible to the workspace.
+      properties:
+        _id:
+          type: string
+          description: The unique identifier of the dashboard.
+          example: 63ede292b4c6a68b18c2c93f
+        name:
+          type: string
+          description: The name of the dashboard.
+          example: Acquisition Overview
+
+    ChartSummary:
+      type: object
+      required: [_id, name]
+      description: A chart laid out on the dashboard.
+      properties:
+        _id:
+          type: string
+          description: The unique identifier of the chart.
+          example: 67f9d9df279348ecdc84415f
+        name:
+          type: string
+          description: The name of the chart.
+          example: New Users by Day
+
+    DashboardData:
+      type: object
+      required: [name, created_by, owned_by, chart_ids]
+      description: A dashboard's details and the charts laid out on it.
+      properties:
+        name:
+          type: string
+          description: The name of the dashboard.
+          example: Acquisition Overview
+        created_by:
+          type: string
+          format: email
+          description: The email address of the user who created the dashboard.
+          example: kritika.garg@example.com
+        owned_by:
+          type: string
+          format: email
+          description: The email address of the dashboard's current owner.
+          example: kritika.garg@example.com
+        chart_ids:
+          type: array
+          description: The charts laid out on the dashboard, in layout order. Each entry includes the chart's ID and name.
+          items:
+            $ref: '#/components/schemas/ChartSummary'
+
+    ChartSeriesPoint:
+      type: object
+      description: |
+        One row of a chart's resolved data series. The exact keys vary by the chart's analysis type, so a chart may return additional fields beyond those listed here.
+      properties:
+        metric:
+          type: number
+          description: The metric value for this data point.
+          example: 4
+        granularity:
+          type: string
+          description: The time bucket for this data point, such as a month, week, or day.
+          example: 2026/05
+        splitby:
+          type: array
+          description: The split-by dimension values applied to this data point, if any.
+          items: {}
+        grouped_by:
+          type: array
+          description: The group-by dimension values applied to this data point, if any.
+          items: {}
+        step:
+          type: string
+          description: The step label for this data point, used in funnel and similar multi-step analyses.
+          example: A
+        tseq:
+          type: integer
+          description: The time-sequence index of this data point within the series.
+          example: 0
+        cseq:
+          type: integer
+          description: The category-sequence index of this data point within the series.
+          example: 0
+      additionalProperties: true
+
+    ResponseId:
+      type: string
+      description: A unique identifier for this response. Include it when reporting issues to MoEngage Support to help trace the request.
+      example: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+
+    ErrorResponse:
+      type: object
+      required: [error, response_id]
+      description: The standard error envelope returned for failed requests.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: A machine-readable error code.
+              example: NOT_FOUND
+            message:
+              type: string
+              description: A human-readable description of the error.
+              example: Dashboard not found.
+            target:
+              type: string
+              description: The field or parameter the error refers to, when applicable.
+              example: dashboard_id
+            doc_url:
+              type: string
+              description: A link to documentation about this error, when available.
+        response_id:
+          $ref: '#/components/schemas/ResponseId'
+
+  responses:
+
+    BadRequest:
+      description: This response is returned when the dashboard ID or chart ID is invalid, or the request is malformed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: Invalid dashboard_id.
+              target: dashboard_id
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+    Unauthorized:
+      description: This response is returned when the authentication credentials are missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Missing or invalid credentials.
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+    Forbidden:
+      description: This response is returned when the caller does not have access to the requested dashboard or chart, or the selected team is not permitted.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: This request cannot be performed in the selected team. Please select the correct team.
+              target: MOE-Team-ID
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+    NotFound:
+      description: This response is returned when the requested dashboard or chart does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Dashboard not found.
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+    TooManyRequests:
+      description: This response is returned when the number of requests has exceeded the rate limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Rate limit exceeded. Try again later.
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+    InternalError:
+      description: This response is returned when the system runs into an unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: An unexpected error occurred while processing the request.
+            response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
