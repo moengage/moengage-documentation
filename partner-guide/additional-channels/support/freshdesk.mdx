@@ -1,0 +1,174 @@
+---
+title: "Freshdesk"
+---
+
+# Introduction
+
+[Freshdesk](https://freshdesk.com/), the online customer engagement solution from Freshworks, lets you streamline your company's customer support using customer service software and helps you to efficiently manage your customers as you scale.
+
+# MoEngage × Freshdesk
+
+The MoEngage and Freshdesk integration enables you to automate the creation of support tickets in Freshdesk from the engagement within MoEngage flows and campaigns.
+
+For example, after successfully implementing and testing an integration, MoEngage can create a support ticket from a user answering negatively to a feedback question such as “Enjoying our App?”, allowing your support team to follow up with the customer using Freshdesk.
+
+The integration can be done in 2 ways:
+
+1. Native Integration: You can use MoEngage connector campaigns to create support tickets using Freshdesk APIs.
+2. Via Zapier: You can
+   - Create or Update Users inside MoEngage when a New Contact is created in Freshdesk
+   - Add or Remove Users from custom cohorts (segments) when a ticket is updated
+
+# Native Integration via Freshdesk APIs
+
+<Info>
+  - Ensure you have admin access to your Freshdesk account.
+  - Ensure you have your [Freshdesk API token](https://support.freshdesk.com/en/support/solutions/articles/225435-where-can-i-find-my-api-key-).
+  - A common identifier between MoEngage and Freshdesk. This is recommended to map your users across two platforms.
+</Info>
+
+## Step 1: Get your Freshdesk API Token
+
+Follow the steps provided in [How to find your API key](https://support.freshdesk.com/en/support/solutions/articles/215517-how-to-find-your-api-key). Click on your profile picture on the top right and select 'Profile Settings'. Your API key will be displayed in the sidebar on the right.
+
+![ApiKey-Freshdesk.png](/images/partner_9685220297748.png)
+
+Make a note of this API Key as you will need this to configure the payload inside Connector Campaign.
+
+## Step 2: Create a connector campaign on MoEngage
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \>\> Connectors \>\> Custom and choose the delivery type most suitable to your needs<img src="/images/partner_49660202470164.png" alt="Create campaign dialog with the Custom connector selected" />
+2. On step 2 of the campaign
+
+- Select the method as POST.
+- Add the Webhook URL as: `https://<your-domain>.freshdesk.com/api/v2/tickets`
+- In Headers, add:
+  - Authorization: `Basic {{ '<api_token>:X' | base64encode }}`
+  - Content-Type: `application/json`
+
+![ConnectorCampaign.png](/images/partner_9686146670612.png)
+
+- In the Body, you need to define the ticket details like type, subject, and status. Ticket details are extensible and can be customized based on the [Freshdesk API](https://support.freshdesk.com/en/support/solutions/folders/270563). Use the following example to help structure your payload and enter your desired fields.
+  <CodeGroup>
+  ```json file name
+  {
+      "description": "<description>",
+      "subject": "<subject>",
+      "email": "{{UserAttribute['Email (Standard)']}}",
+      "priority": 1,
+      "status": 2,
+      "cc_emails": [
+          "ram@freshdesk.com",
+          "diana@freshdesk.com"
+      ],
+      "custom_fields": {
+          "cf_customer_plan": "Enterprise"
+      }
+  }
+  ```
+  </CodeGroup>
+
+## Step 3: Preview your request
+
+3. At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available in Step 2 of Create Connector Campaign.<img src="/images/partner_49660177558804.png" alt="Test campaign widget for testing the connector configuration" />
+
+You can also check your Freshdesk. If the ticket is successfully created, your set-up is good to go. You can go ahead and Publish the campaign.
+
+## Common identifier
+
+If you have a common identifier between MoEngage and Freshdesk, it is recommended to utilize this as the `requester_id`, this will help unify the two sets of users.
+
+Alternatively, if this is not the case, we recommend passing a set of identifying attributes such as name, email address, phone number, or others.
+
+# Integration via Zapier
+
+<Info>
+  - Ensure you have admin access to your Freshdesk account.
+  - You need a Zapier account to use this integration. Please follow the instructions mentioned [here](/partner-guide/data-and-infrastructure/workflow-automation/zapier/overview#connecting-zapier-to-moengage) to connect your Zapier and MoEngage accounts.
+  - A common identifier between MoEngage and Freshdesk. This is recommended to map your users across two platforms.
+</Info>
+
+With this integration, you can:
+
+1. Create or update Freshdesk contacts in MoEngage
+2. Add or remove Freshdesk contacts to custom segments in MoEngage
+
+## A. Import Freshdesk Contacts to MoEngage
+
+_Note: This workflow makes use of the [Create or Update User](/partner-guide/data-and-infrastructure/workflow-automation/zapier/create-or-update-users) Action._
+
+### Step 1: Select Freshdesk as the Trigger app
+
+<Frame>
+  ![Selecting Freshdesk as the trigger app in Zapier](/images/partner_9686703863956.png)
+</Frame>
+
+1. Select Freshdesk from the list of apps.
+2. Choose the "Event" as "New Contact". Click continue.
+3. Connect your Freshdesk account. Select your Freshdesk account from the dropdown and click continue.
+
+![mceclip0.png](/images/partner_9686746328340.png)
+
+4. Fill up the next steps. Click continue once satisfied.
+5. Click "Test trigger" and Zapier will try to fetch a recent Contact. Click on continue to move to the next step.
+
+### Step 2: Select MoEngage as the Action app
+
+Search for "MoEngage" from the apps and select it.
+
+![Searching for and selecting MoEngage as the action app](/images/partner_8854856527252.png)
+
+1. From the event dropdown, select: "Create or Update User". Click continue.
+2. Following the prerequisites, you should see your MoEngage account already listed. You can either choose that or connect a new one. Click continue once done.
+3. In the next step, "Set up action", you will see a list of attributes and user properties for you to either fill in or map from the previous step. [Click here to know more](/api/user/track-user). You can add the relevant custom user attributes as per your requirements.
+4. Once you are satisfied with your mappings, click on "Continue".
+5. In the final step, click on "Test & continue".
+6. If the API call was successful, you should see a "success" return.
+
+You can also verify this in your MoEngage dashboard. Go to your Freshdesk user's profile and look under custom attributes:
+
+![Trigger-Step4.png](/images/partner_9687231631380.png)
+
+You can now send campaigns by filtering users that have relevant user attributes.
+
+## B. Add Contacts to a Custom Segment in MoEngage
+
+_Note: This workflow uses the [Add or Remove User from Cohort (Audience)](/partner-guide/data-and-infrastructure/workflow-automation/zapier/update-cohorts-audience) Action._
+
+### Step 1: Select Freshdesk as the Trigger app
+
+<Frame>
+  ![Selecting Freshdesk as the trigger app in Zapier](/images/partner_9686703863956.png)
+</Frame>
+
+1. Select Freshdesk from the list of apps.
+2. Choose the "Event" as "Update Ticket". Click continue.
+3. Connect your Freshdesk account. Select your Freshdesk account from the dropdown and click continue.
+
+![mceclip0.png](/images/partner_9686746328340.png)
+
+4. Fill up the next steps. Click continue once satisfied.
+5. Click "Test trigger" and Zapier will try to fetch a recent Contact. Click on continue to move to the next step.
+
+### Step 2: Select MoEngage as the Action app
+
+Search for "MoEngage" from the apps and select it.
+
+![Searching for and selecting MoEngage as the action app](/images/partner_8854856527252.png)
+
+1. From the event dropdown, select: "Add or Remove User From Cohort (Audience)". Click continue.
+2. If you have followed the prerequisites, you should see your MoEngage account already listed. You can either choose that or connect a new one. Click continue once done.
+3. In the next step "Set up action", you will see a form for you to either fill in or map from the previous step. [Click here to know more](/api/cohort-sync/sync-cohort-members).
+4. Select if you want to add or remove a user. Fill in all the mandatory fields and you will then be presented with an option to test this setup. Do make sure you fill in at least one of "User ID" or "Anonymous ID". To know more, read the [Cohort API docs](/api/cohort-sync/sync-cohort-members).
+5. Once you are satisfied with your mapping, click continue.
+6. You will now be presented with an option to test this setup.
+7. Click on "Test & continue" to test this setup.
+8. If the API call was successful, you should see a "success" return.
+
+You can also verify this in your MoEngage dashboard. Go to your MoEngage Dashboard \>\> Segment \>\> Create segment. Filter users by "Custom Segment", and you should see your newly created cohort here.
+
+![Trigger-Step5.png](/images/partner_9687377923604.png)
+
+This confirms that your Zap was successful.

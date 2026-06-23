@@ -1,0 +1,201 @@
+---
+title: "Google Cloud Storage"
+---
+
+## Introduction
+
+[Google Cloud Storage](https://cloud.google.com/storage) is an enterprise public cloud storage platform that can house large unstructured data sets.
+
+## MoEngage × GCS
+
+The MoEngage and GCS integration exports campaign interaction events to your Google Cloud Storage buckets. You can then import these files into BigQuery for further processing and analysis.
+
+## Integration
+
+<Info>
+  **Prerequisites**
+
+  - Ensure you have a Google Cloud Platform account with permission to create a new bucket and a service account.
+  - Exports to GCS are part of the Streams add-on. Contact your dedicated MoEngage CSM (customer success manager) to enable it for your account.
+</Info>
+
+### Step 1: Create a dedicated service account for MoEngage
+
+On your Google Cloud Platform console, go to the **IAM & Admin** console.
+
+1. From the sidebar, open **Service Accounts**.
+   <Frame>
+     ![Service Accounts home in the IAM & Admin console](/images/partner_12062501879700.png)
+   </Frame>
+2. Click the **\+ Create Service Account** button.
+3. Give this service account a name, and an optional description.
+4. Click **Create and continue**.
+   <Frame>
+     ![Creating a new service account in Google Cloud](/images/partner_12062703174548.png)
+   </Frame>
+5. Add the role **Basic \> Browser** to this service account.
+   <Frame>
+     ![Assigning the Basic \> Browser role to the service account](/images/partner_12062802345876.png)
+   </Frame>
+6. Click **Continue**. Optionally, grant users access to this service account.
+7. Click **Done**.
+8. Open the service account from the list of service accounts.
+9. Go to the **Keys** tab, click **Add Key**, and then select **Create new key**.
+   <Frame>
+     ![Add Key option on the service account Keys tab](/images/partner_12062893736724.png)
+   </Frame>
+10. Select the **Key Type** as **JSON**, and then click **Create**.
+    <Frame>
+      ![Selecting JSON as the key type when creating a service account key](/images/partner_12062926508052.png)
+    </Frame>
+11. Your new key is automatically downloaded in JSON format. Store this file safely. You will need to upload it later on the MoEngage dashboard.
+
+### Step 2: Grant this service account permissions to your bucket
+
+1. On your service account details page, copy the email of your service account.
+   <Frame>
+     ![Service account email on the details page](/images/partner_12063141549076.png)
+   </Frame>
+2. Go to the **Cloud Storage** console, and open the bucket in which you want MoEngage to export the events.
+3. Under the **Permissions** tab, click **Grant Access**.
+   <Frame>
+     ![Grant Access option on the bucket Permissions tab](/images/partner_12063166880276.png)
+   </Frame>
+4. Paste and select the service account email in the **New Principals** field.
+5. Assign the role **Cloud Storage \> Storage Admin**.
+   <Frame>
+     ![Assigning the Storage Admin role to the service account](/images/partner_12063216822036.png)
+   </Frame>
+6. Click **Save**.
+
+### Step 3: Enable APIs & Services in your GCP account
+
+1. In your GCP console, go to **APIs & Services**, and then click **\+ Enable APIs and Services**.
+   <Frame>
+     ![Enable APIs and Services option in GCP console](/images/partner_12063295895828.png)
+   </Frame>
+2. Search for **Cloud Storage** and open the API details page.
+3. Click **Enable** to enable it.
+   <Frame>
+     ![Enabling the Cloud Storage API in GCP](/images/partner_12063394282388.png)
+   </Frame>
+
+### Step 4: Set up the GCS integration on the App Marketplace
+
+1. On your MoEngage dashboard, go to the **App Marketplace**.
+2. Search for **Google Cloud Storage**.
+3. Go to the **Integrate** tab, and click **\+ Add Integration**.
+   <Frame>
+     ![Add Integration option on the Google Cloud Storage Integrate tab](/images/partner_12063471722644.png)
+   </Frame>
+4. Give your connection an identifiable name.
+5. Enter your bucket name.
+6. Optionally, select your bucket region. You can find this on your Bucket Details page.
+7. Upload the service account credential JSON file that you downloaded earlier. You can verify your Client ID and Client Email upon upload.
+8. Select which events you want to export. By default, each event is exported with standard attributes.
+   <Frame>
+     ![Configuring the GCS integration on the MoEngage App Marketplace](/images/partner_12064408178068.png)
+   </Frame>
+9. Optionally, you can test the connection. MoEngage attempts to verify whether the details you entered are correct. If there is an issue, an error is displayed that you can rectify.
+
+### Note on required permissions
+
+To perform end-to-end testing, MoEngage requires a few additional permissions to be configured. If your IT policy does not allow for these permissions, you can skip them. However, you will not be able to test the connection from the App Marketplace. Skipping these optional permissions does not impact the actual data export in any way.
+
+| Permission | Required | Description |
+| --- | --- | --- |
+| `resourcemanagement.projects.get` | No | Allows the user to view metadata for a project in Google Cloud Resource Manager. MoEngage uses this permission to access your service account during testing. |
+| `resourcemanagement.projects.getIampolicy` | No | Allows the user to view the IAM policy for a project in Google Cloud Resource Manager. MoEngage uses this permission to check whether you have assigned the right policy to your bucket. |
+| `storage.bucket.get` | No | Allows the user to view metadata for a Google Cloud Storage bucket. MoEngage uses this permission to check whether the bucket that you have provided during configuration actually exists. |
+| `storage.object.create` | Yes | Allows the user to create objects (files) in a Google Cloud Storage bucket. MoEngage requires this permission to create files in your bucket. |
+| `storage.object.get` | Yes | Allows the user to read the contents of objects (files) in a Google Cloud Storage bucket. MoEngage requires this permission to verify whether the files are correctly created in your bucket. |
+| `storage.object.update` | Yes | Allows the user to modify the contents of objects (files) in a Google Cloud Storage bucket. MoEngage requires this permission to update files in case of any discrepancies. |
+
+Feel free to create a custom role that incorporates the mandatory permissions required by MoEngage along with any optional permissions cleared by your IT policy for testing.
+
+## Verify if you are receiving the data correctly
+
+MoEngage uploads files using the following path structure:
+
+```text wrap
+gs://<your-bucket-name>/event-exports/<your_app_name>/<connection_id>/export_day=YYYY-MM-DD/export_hour=HH/<file-name>.json.gz
+```
+
+Go to your bucket and verify that the files are present:
+
+<Frame>
+  ![Verifying that exported files are present in the GCS bucket](/images/partner_12064664073364.png)
+</Frame>
+
+## Export Frequency
+
+MoEngage dumps the data at hourly intervals.
+
+## Sample File
+
+The exported files are in the `.json.gz` format. [Download a sample file](https://app-cdn.moengage.com/partners-integration-ui/app-marketplace-public/helpdoc/event_exports_sample_files.json.gz) to inspect the structure. The exact contents will differ based on the events and attributes you opt to export.
+
+```json JSON
+{
+  "app_name": "App Name",
+  "export_hour": "6",
+  "db_name": "MoEngage App Name",
+  "event": {
+    "uid": "user id",
+    "event_type": "CAMPAIGN_EVENT",
+    "event_code": "MOE_EMAIL_SENT",
+    "event_name": "Email Sent",
+    "user_attributes": {
+      "moengage_user_id": "userid1",
+      "user_attr1": "value1",
+      "user_attr2": "value2"
+    },
+    "event_source": "MOENGAGE",
+    "email_id": "test@xyz.com",
+    "event_attributes": {
+      "campaign_name": "Campaign name",
+      "moe_campaign_tags": [
+        "Tag1",
+        "Tag2"
+      ],
+      "campaign_type": "GENERAL",
+      "moe_campaign_channel": "Email",
+      "moe_delivery_type": "One Time",
+      "campaign_id": "moengage campaign id",
+      "campaign_channel": "EMAIL"
+    },
+    "event_uuid": "3b918064-08dc-47ae-b674-c23797475a8d",
+    "event_time": 1653022310,
+    "device_attributes": {
+      "moengage_device_id": "device id if applicable"
+    }
+  },
+  "export_day": "2022-05-20"
+}
+```
+
+For a list of supported events and attributes, refer to our [Data Export Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="How soon will I start getting the data?">
+    It typically takes up to 30 minutes for the automated data exports to be set up for your account and for you to start seeing data.
+  </Accordion>
+
+  <Accordion title="Can I export additional events at a later time?">
+    Yes. If you need to export new events at a later time, you can edit your configuration on the App Marketplace and add the new events to your exports.
+  </Accordion>
+
+  <Accordion title="Can I export historical data using Automated Data Exports?">
+    You cannot export historical data using Automated Data Exports. Once configured, you will start seeing data for each event from the time you enabled your exports.
+  </Accordion>
+
+  <Accordion title="Is there any pricing involved for Automated Data Exports?">
+    If your billing plan does not cover this already and you need to enable it later, you will need to work with your Customer Success Manager to include it in your billing plan. Based on the volume of data MoEngage places in your data warehouse, partner, or API destination each month, this could lead to additional charges.
+  </Accordion>
+
+  <Accordion title="Does Data Exports guarantee the latest user attributes?">
+    No, Data Exports is primarily built to export your Events in near real-time and user attributes in MoEngage are updated asynchronously so it is currently not possible to guarantee the latest values of user attributes in the exports.
+  </Accordion>
+</AccordionGroup>

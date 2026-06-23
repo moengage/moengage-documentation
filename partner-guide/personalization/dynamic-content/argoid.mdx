@@ -1,0 +1,159 @@
+---
+title: "Argoid"
+---
+
+## Introduction
+
+[Argoid](https://www.argoid.ai/) helps businesses deliver personalized experiences across digital touchpoints with hyper-personalized recommendations. It enables ecommerce and OTT platforms to grow revenue with 1:1 personalization.
+
+## MoEngage and Argoid
+
+The MoEngage and Argoid integration lets you trigger emails with personalized ecommerce recommendations to each user at the right moment to improve conversions, retention, and reduce churn.
+
+You can use the following Argoid capabilities in MoEngage campaigns:
+
+| Feature | Description |
+| --- | --- |
+| Product recommendations | Embed personalized product recommendations in rails such as "You may also like" and "Trending" for each shopper to boost email conversions and sales. |
+| Abandoned cart recommendations | Engage shoppers by recommending the right products at the right moment based on recent cart abandonments and user preferences. |
+| Out-of-stock recommendations | Recommend similar products with high purchase intent when a user's product of interest goes out of stock. |
+| Wishlist recommendations | Remind shoppers at the right time about changes to their wishlisted products. |
+| Cross-sell and upsell | Generate complementary product recommendations through personalized emails to increase average order value and repeat purchase rate. |
+
+## Integration
+
+<Info>
+  **Prerequisites**
+
+  - An Argoid account.
+  - Access to Argoid APIs.
+</Info>
+
+### Step 1: Get API endpoints and specifications
+
+Contact the Argoid team to get details on your Recommendation Feed APIs.
+
+### Step 2: Set up Content APIs in the MoEngage dashboard
+
+Use MoEngage [Content APIs](https://www.moengage.com/docs/user-guide/campaigns-and-channels/getting-started/campaign-content/content-apis) to add Argoid as a feed. You can add multiple APIs from Argoid at the same time, one for each use case.
+
+#### Set up the API
+
+1. Navigate to **Settings** \> **Advanced settings** \> **Content API**. Click **\+ Add content API** in the upper-right corner of the Content API screen. <img src="/images/partner_21979512889876.png" alt="MoEngage Content API screen with the Add content API button highlighted" />
+2. Add your Argoid subdomain API to the endpoint URL. <img src="/images/partner_35546704245396.png" alt="Content API configuration screen with the Argoid endpoint URL entered" /> **API URL**
+   ```text wrap
+   https://prod.[YOUR-ARGOID-ACCOUNT-NAME].saas.argoid.com/[YOUR-ARGOID-ACCOUNT-NAME]/v1/trending/products
+   ```
+   <Note>
+     This API endpoint is indicative. Your actual endpoint may differ. Confirm the latest specification with Argoid.
+   </Note>
+   **Headers**
+   | Parameter | Description | Example |
+   | --- | --- | --- |
+   | `Authorization` | **Required.** API authorization key. | `Basic SGVyZSBpcyBhbiBleGFtcGxlIG9mIHlvdXIgQVBJIGtleS4=` |
+   | <img src="/images/partner_35546690523284.png" alt="Headers section of the Content API configuration with the Authorization header set" /> |  |  |
+   | **Parameters** |  |  |
+   | Parameter | Description | Example |
+   | --- | --- | --- |
+   | `num_recos` | Number of products. | `9` |
+   | `user_id` | Fetch recommendations for the given user ID. | `{{UserAttribute['ID']}}` |
+   | `country` | Fetch recommendations based on a country. | `in` |
+   | <img src="/images/partner_35546690523924.png" alt="Parameters section of the Content API configuration with num_recos, user_id, and country mapped" /> |  |  |
+3. Click **Save**. Your Argoid API now appears in MoEngage.
+
+<Tip>
+  Click **Test** to validate your API response before using it in a campaign.
+</Tip>
+
+![MoEngage Content APIs list with the Argoid API listed](/images/partner_35546704253460.png)
+
+**Sample response:**
+
+<CodeGroup>
+
+```ruby Ruby wrap
+{
+  "recommendations": [
+    {
+      "category": "My Category",
+      "brand": "My Brand",
+      "itemGroupId": "12_MYGROUPID222",
+      "pageLink": "https://www.demoblaze.com/prod.html?idp_=1",
+      "imageLink": "https://www.demoblaze.com/imgs/galaxy_s6.jpg",
+      "actualPrice": "360.00 USD",
+      "currentPrice": "324.00 AED",
+      "productId": "12_MYPRODID0222"
+    },
+    {
+      "category": "My Category",
+      "brand": "My Brand",
+      "itemGroupId": "12_MYGROUPID122",
+      "pageLink": "https://www.demoblaze.com/prod.html?idp_=6",
+      "imageLink": "https://www.demoblaze.com/imgs/xperia_z5.jpg",
+      "actualPrice": "320.00 USD",
+      "currentPrice": "288.00 AED",
+      "productId": "12_MYPRODID0389"
+    }
+  ],
+  "userId": "{{UserAttribute['ID']}}",
+  "numOfRecos": 2
+}
+```
+
+</CodeGroup>
+
+### Step 3: Use Content APIs in MoEngage campaigns
+
+You can now use the Content API in your campaigns. For more information, see [Content APIs](https://www.moengage.com/docs/user-guide/campaigns-and-channels/getting-started/campaign-content/content-apis).
+
+1. On step 2 of campaign creation, type `@`.
+2. In the personalization pop-up, select the Content API you configured in Step 2.
+3. Use the [MoEngage Templating Language](https://www.moengage.com/docs/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language) to parse the API response and use the content in your campaign.
+
+![MoEngage editor with Argoid recommendations being inserted using JINJA](/images/partner_35757718090260.png)
+
+You can also edit the HTML of content blocks:
+
+<CodeGroup>
+
+```html HTML wrap
+<!-- code continued before -->
+<!-- START row 1 -->
+     <div class="row">
+        <!-- product 1 -->
+        <div class="grid-item">
+           <div align="center">
+             <a style="outline: none;" href="{{results.recommendations[0].pageLink}}" target="_blank" rel="noopener noreferrer" data-saferedirecturl=""><img src="{{results.recommendations[0].imageLink}}"></a>
+           <div class="product__info">
+              <h4 id="01GT5PP2J7WVZTV783NK8RB7WN" class="product__brand">‎{{results.recommendations[0].brand}}</h4>
+              <span class="product__pricing"> <span class="product-sales-price">{{results.recommendations[0].currentPrice}}</span> </span>
+           </div>
+        </div>
+        </div>
+        <!-- product 2 -->
+        <div class="grid-item">
+           <div align="center">
+              <a style="outline: none;" href="{{results.recommendations[1].pageLink}}" target="_blank" rel="noopener noreferrer" data-saferedirecturl=""><img src="{{results.recommendations[1].imageLink}}"></a>
+           <div class="product__info">
+              <h4 id="01GT5PP2J8JZ0CQXG2CTMGGPPM" class="product__brand">‎{{results.recommendations[1].brand}}</h4>
+              <span class="product__pricing"> <span class="product-sales-price">{{results.recommendations[1].currentPrice}}</span> </span>
+           </div>
+        </div>
+        </div>
+        <!-- product 3 -->
+        <div class="grid-item">
+           <div align="center">
+             <a style="outline: none;" href="{{results.recommendations[2].pageLink}}" target="_blank" rel="noopener noreferrer" data-saferedirecturl=""><img src="{{results.recommendations[2].imageLink}}"></a>
+             <div class="product__info">
+               <h4 id="01GT5PP2J8PAKKX1KZCJYCM1YT" class="product__brand">‎{{results.recommendations[2].brand}}</h4>
+               <span class="product__pricing"> <span class="product-sales-price">{{results.recommendations[2].currentPrice}}</span> </span>
+             </div>
+           </div>
+        </div>
+        <!-- END product 3 -->
+     </div>
+<!-- END row 1 -->
+<!-- code continued after -->
+```
+
+</CodeGroup>

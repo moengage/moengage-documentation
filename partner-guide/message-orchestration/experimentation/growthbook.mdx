@@ -1,0 +1,133 @@
+---
+title: "Growthbook"
+---
+
+# Introduction
+
+[GrowthBook](https://www.growthbook.io/) is an open-source platform to help companies make data-driven product decisions with feature flags and A/B tests.
+
+# MoEngage × Growthbook
+
+The MoEngage and Growthbook integration allows you to conduct multiple A/B experimentations using feature flags on your app or website and track their performance via MoEngage Event Tracking on Growthbook.
+
+# Integration
+
+<Info>
+  - Ensure you have MoEngage SDK installed on your app or website.
+  - Ensure you have Growthbook SDK installed on your app or website.
+  - Ensure you have either [BigQuery Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports) or [Redshift Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/redshift-exports) enabled for your app.
+</Info>
+
+## Tracking your Growthbook experiments on MoEngage
+
+In order to successfully run experiments and track them on MoEngage, you need to call MoEngage SDK's `track_event()` function inside Growthbook SDK's `trackingCallback` function:
+
+**MoEngage Tracking**
+
+```javascript wrap
+const gb = new GrowthBook({
+    apiHost: "[https://cdn.growthbook.io](https://cdn.growthbook.io)",
+    clientKey: "sdk-abc123",
+    trackingCallback: (experiment, result) => {
+        // MoEngage SDK tracking
+        Moengage.track_event("GROWTHBOOK_EXPERIMENT_VIEWED", {
+            "experiment_id": experiment.key,
+            "variation_id": result.key
+        });
+    },
+});
+```
+
+Growthbook offers SDKs for iOS, Android, Web, and more. You can read more about how to track events on multiple platforms [here](https://docs.growthbook.io/lib/). In all the platforms, you need to call the appropriate Event Tracking method from the corresponding MoEngage SDK inside the callback method provided by Growthbook.
+
+Once you have set up this tracking, you should see these events in your MoEngage Dashboard after you run an experiment.
+
+## Setting up MoEngage as a Data Source on Growthbook
+
+In order for Growthbook to view your experiments' performances, you need to export the events from MoEngage to your data warehouse. MoEngage currently supports exports to Redshift and BigQuery.
+
+### MoEngage × Growthbook via BigQuery
+
+Follow our guide on [BigQuery Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports) to set up the exports for your MoEngage App. On the App marketplace, make sure to select `GROWTHBOOK_EXPERIMENT_VIEWED` as one of the events to export.
+
+1. Once data starts flowing into your BigQuery database, head over to _Growthbook \>\> Metrics and Data (side menu) \>\> Data Sources_.
+2. Click on "\+ Add Data Source".
+3. Select "Use Custom Source" from the list of Event Sources. <img src="/images/partner_18468236468884.png" />
+
+| Field | Description | Value to be chosen |
+| --- | --- | --- |
+| Data Source Type | Select "BigQuery" as your Data Source Type. | BigQuery |
+| Display Name | Give this source an identifiable name. | MoEngage |
+| Description | You can leave this blank. |  |
+
+To understand how to fill in the other values and what permissions to give Growthbook, read their [docs](https://docs.growthbook.io/guide/bigquery).
+
+4. Click "Save" once you have entered all the information.
+5. Select your identifier type as `user_id` if you want to track registered users on MoEngage.
+6. Under "Experiment Assignment Queries", click on Edit option from the actions menu of "Logged-in Users":<img src="/images/partner_18468331067668.png" />
+7. From the popup, click on the "Customise SQL" button.
+8. Replace the SQL with the following:
+
+**Logged-in Users query**
+
+```sql wrap
+SELECT
+  event.uid as user_id,
+  event.event_time as timestamp,
+  event.event_attributes.experiment_id as experiment_id,
+  event.event_attributes.variation_id as variation_id
+FROM
+  `<your-dataset>`.`<your-schema>`.`<your-table-name>`
+WHERE
+  event.event_name = "GROWTHBOOK_EXPERIMENT_VIEWED"
+```
+
+Remember to update `<your-dataset>`, `<your-schema>` and `<your-table-name>` with the actual names that you used to set up BigQuery Exports on MoEngage.
+
+9. You can test your query to see a preview of the users who were involved in your experiment.
+10. Once satisfied with the results, click Save to save this custom SQL query.
+11. Click Save again to save the Experiment Assignment Query for Logged-in Users.
+
+### MoEngage × Growthbook via Redshift
+
+Follow our guide on [Redshift Exports](moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports) to set up the exports for your MoEngage App. On the App marketplace, make sure to select `GROWTHBOOK_EXPERIMENT_VIEWED` as one of the events to export.
+
+1. Once data starts flowing into your Redshift database, head over to _Growthbook \>\> Metrics and Data (side menu) \>\> Data Sources_.
+2. Click on "\+ Add Data Source".
+3. Select "Use Custom Source" from the list of Event Sources. <img src="/images/partner_18468236468884.png" />
+
+| Field | Description | Value to be chosen |
+| --- | --- | --- |
+| Data Source Type | Select "Redshift" as your Data Source Type. | Redshift |
+| Display Name | Give this source an identifiable name. | MoEngage |
+| Description | You can leave this blank. |  |
+
+To understand how to fill in the other values and what permissions to give Growthbook, read their [docs](https://docs.growthbook.io/warehouses/redshift).
+
+4. Click "Save" once you have entered all the information.
+5. Select your identifier type as `user_id` if you want to track registered users on MoEngage.
+6. Under "Experiment Assignment Queries", click on Edit option from the actions menu of "Logged-in Users":<img src="/images/partner_18468331067668.png" />
+7. From the popup, click on the "Customise SQL" button.
+8. Replace the SQL with the following:
+
+**Logged-in Users query**
+
+```sql wrap
+SELECT
+  uid as user_id,
+  event_time as timestamp,
+  event_attributes.experiment_id as experiment_id,
+  event_attributes.variation_id as variation_id
+FROM
+  <your-schema>.<your-table-name>
+WHERE
+  event_name = 'GROWTHBOOK_EXPERIMENT_VIEWED'
+```
+
+Remember to update `<your-schema>` and `<your-table-name>` with the actual names that you used to set up Redshift Exports on MoEngage.
+
+1. You can test your query to see a preview of the users who were involved in your experiment.
+2. Once satisfied with the results, click Save to save this custom SQL query.
+3. Click Save again to save the Experiment Assignment Query for Logged-in Users.
+
+You are now ready to track your users and perform experiments in your app or website. You can create various metrics on Growthbook and track them. Use the above SQL query template as a base to write other queries on top of your BigQuery or Redshift table as per your requirements.

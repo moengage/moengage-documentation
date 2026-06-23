@@ -1,0 +1,85 @@
+---
+title: "How Does onConfigurationChanged() Work for In-App in Android Native?"
+description: "Understand how the onConfigurationChanged() lifecycle method interacts with MoEngage in-app campaigns in Android native apps."
+---
+
+## Problem
+
+Native in-apps are limited to portrait mode when using`onConfigurationChanged()`, which prevents landscape orientation, whereas HTML in-apps support both orientations.
+
+## Instructions
+
+1. Open the [Handling Configuration](/developer-guide/android-sdk/in-app-messages/in-app-nativ) link, change, and override the code in your activity or fragment.
+
+```kotlin Kotlin wrap
+override fun onConfigurationChanged(newConfig: Configuration) {
+  super.onConfigurationChanged(newConfig)
+  MoEInAppHelper.getInstance().onConfigurationChanged()
+}
+```
+
+<Info>
+  **Information**
+
+  This method notifies the MoEngage SDK when a configuration change occurs for an activity or fragment that Android does not handle.
+</Info>
+
+2. To manually manage configuration changes for an activity or fragment, you must add the `android:configChanges="orientation"` attribute to the relevant `<activity>` tag within your `AndroidManifest.xml` file.
+
+```xml AndroidManifest.xml wrap
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+        
+        <activity
+            android:name=".ui.MainActivity"
+            android:configChanges="orientation"
+            android:exported="true" /> 
+        
+    </application>
+
+</manifest>
+```
+
+3. Run the Native app with this setup, call `showInApp()` in `onResume`, and the in-app will appear in its default portrait mode.
+
+<Frame>
+  ![3 2](/images/3-2.png)
+</Frame>
+
+4. When orientation changes, the in-app disappears and displays `ORIENTATION_NOT_SUPPORTED` for the native in-app campaign.
+
+<Frame>
+  ![4 2](/images/4-2.png)
+</Frame>
+
+<Frame>
+  ![5 1](/images/5-1.png)
+</Frame>
+
+5. HTML in-apps support both portrait and landscape orientations. Internally, `onConfigurationChanged()` calls ConfigurationChangedHandler's `showInAppOnConfigurationChange()` of the HTML in-app.
+
+<Frame>
+  ![7 1](/images/7-1.png)
+</Frame>
+
+<Frame>
+  ![8](/images/8.jpeg)
+</Frame>
+
+<Frame>
+  ![9](/images/9.png)
+</Frame>

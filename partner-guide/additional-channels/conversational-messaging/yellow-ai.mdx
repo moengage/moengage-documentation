@@ -1,0 +1,118 @@
+---
+title: "Yellow.ai"
+---
+
+# Introduction
+
+[Yellow.ai](https://yellow.ai/) is a Total Experience Automation Platform, powered by Dynamic AI agents that deliver human-like interactions to boost customer satisfaction.
+
+## When to use Yellow.ai
+
+_A. Travel and Hospitality_(Informational) - A user booked a travel package and the you want to send a WhatsApp message to the user about the booking with the following options -
+
+1. Get invoice
+2. View itinerary
+3. Request call back
+4. Cancel booking
+
+B. _E-Commerce_ (Adoption) - A user adds items to his cart but does not complete the transaction. You want to send a WhatsApp message to the user with a coupon code (for additional discount) with the following options -
+
+1. Save Coupon
+2. View Cart
+3. Complete the transaction
+4. Request call back
+
+C._Banking_ (Conversion) - A user is approaching his credit card due date. You want to send a WhatsApp reminder (along with their bill attached) asking him to pay on time to avoid late fees -
+
+1. Pay Now
+2. Defer payment
+3. Contact Us
+
+In each of these use cases, the user can respond to the WhatsApp message and your bot recipe will guide them through their problem or connect them to your team.
+
+# MoEngage × Yellow.ai
+
+The MoEngage and Yellow.ai integration allows you to seamlessly orchestrate the end-to-end customer lifecycle from initial outreach, routed into a conversational experience, and through to omni-channel follow-up(s) via intelligent retargeting.
+
+![Yellow.Ai\_Integration\_-Integration\_Flow-\_Bordered.jpeg](/images/partner_6626996958228.png)
+
+Channel needs to be added on your Yellow.ai dashboard. The messages are then triggered using MoEngage connector campaigns.
+
+# Integration
+
+<Info>
+  - Ensure you have a Yellow.ai account.
+  - Ensure you have access to your Yellow.ai account APIs. You can access them from your Yellow.ai dashboard by navigating to Overview \>\> Configure \>\> API keys
+</Info>
+
+## Step 1: Setup a WhatsApp Channel on Yellow.ai
+
+Follow the steps on [How to setup a WhatsApp chatbot on Yellow Messenger? ](https://docs.yellow.ai/docs/platform_concepts/channelConfiguration/whatsapp-configuration/)to successfully setup an engagement channel.
+
+## Step 2: Enable Notification API Engine
+
+1. Go to the dashboard \>\> Engage section \>\> Preferences.
+2. Turn on "Enable notification API engine".
+3. We do not currently support a Postback URL. You can keep that turned off.
+4. If you want, you can setup Notification API Reports as per your requirements.
+
+![mceclip1.png](/images/partner_6627737590676.png)
+
+## Step 3: Obtain your API keys
+
+Head over to your Yellow.ai dashboard's Overview section.
+
+![mceclip0.png](/images/partner_6627612422804.png)
+
+1. Click on Configure \>\> API keys \>\> Generate new API Key. Store this API key safely as you will need this when setting up the campaign on MoEngage.
+
+## Step 4: Create a connector campaign on MoEngage
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \>\> Connectors \>\> Custom and choose delivery type most suitable to your needs <img src="/images/partner_19930813369876.png" alt="Screenshot_2022-02-21_at_10.48.46_PM.png" />
+2. On step 2 of the campaign,
+   1. Select method as POST
+   2. Add Webhook URL as: [https://app.yellowmessenger.com/api/engagements/notifications/v2/push](https://app.yellowmessenger.com/api/engagements/notifications/v2/push)
+   3. In Headers, add
+      1. "x-api-key" as the API key you copied from the Yellow.ai Dashboard.
+      2. "Content-Type" as "application/json".
+   4. In Parameters, add
+      1. "bot" as your bot ID. You can obtain that from your Yellow.ai Dashboard's URL: [https://cloud.yellow.ai/bot/\[YOUR-BOT-ID\]/overview](https://cloud.yellow.ai/bot/[YOUR-BOT-ID]/overview)
+   5. In Body, choose Raw and copy paste this code:
+      <CodeGroup>
+      ```json JSON wrap
+      {
+              "type": "whatsapp", // channel type - whatsapp,sms,email,voice,fbmessenger
+              "sender": "xxxxxxxxxx", // ten digit number without country code
+              "userDetails": {
+              		"number": "91xxxxxxxxxx" //country code to be added without space // if not, 91 is taken as default
+              },
+              "freeTextContent": "Your content goes here", //if template is not renderable, notification engine will try to send this, subject to channel restrictions
+              "notification": {
+              		"templateId": "12345678", // name of the template in YM portal. if template is created in WABA, name of the template given there.
+                  // mandatory for wa, sms(wherever applicable)
+              "params": { //renderable parameters defined in the template.
+              		"emiValue": "15000",
+                  "balance": "79999",
+                  "media": [ //applicable for whatsapp //
+                  		{
+                      "title": "title",
+                  		"mediaLink": "url"
+               		}],
+               		"quickReplies": {
+               				"ctaUrlParam": "pricing-ai-chatbot" // over here, "pricing-ai-chatbot" represents a part of the URL after the domain (as configured in the template)
+               		}
+           		}
+        	}
+      }
+      ```
+      </CodeGroup>
+
+You can view the complete config here: [NOTIFICATIONS API](https://docs.yellow.ai/docs/platform_concepts/engagement/outbound/notification-engine#23-postman-collections).
+
+3. At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available on Step 2 of Create Connector Campaign.
+
+![Screen\_Shot\_2022-02-22\_at\_11.12.42\_AM.png](/images/partner_19930784755220.png)
+
+If your test user successfully receives the message, your set-up is good to go. You can go ahead and Publish the campaign.

@@ -1,0 +1,85 @@
+---
+title: "Ticketek"
+description: "Pull live Ticketek event details and ticket availability into MoEngage campaign templates using a Content API."
+---
+
+[Ticketek](https://www.ticketek.com.au) is the dominant live event ticketing platform across Australia and New Zealand, handling major sports leagues including the NRL, AFL, and Cricket Australia, arena concerts, and theatre productions. Ticketek processes millions of tickets annually and is the primary ticketing infrastructure for many of Australia and New Zealand's largest venues.
+
+## MoEngage × Ticketek
+
+The MoEngage × Ticketek integration allows you to dynamically pull live event and ticket availability data from Ticketek into your MoEngage campaigns via Content APIs. At send time, MoEngage calls the Ticketek API with event identifiers relevant to your campaign, retrieves real-time ticket data, and inserts it directly into your message across email, push, SMS, in-app, and WhatsApp.
+
+Common use cases include alerting fans when tickets go on sale for their favourite team's next home game, surfacing remaining ticket counts to drive urgency in promotional campaigns, or personalising communications with venue and date information for events a user has expressed interest in.
+
+# Integration
+
+<Warning>
+  **No public API available**
+
+  Ticketek does not offer a public self-serve developer programme. API access requires a direct partner relationship with Ticketek. Contact your Ticketek account representative or reach out via [ticketek.com.au/contact](http://www.ticketek.com.au/contactus) to discuss partner API access before proceeding with this integration.
+</Warning>
+
+## Step 1: Request Ticketek API credentials
+
+Because Ticketek does not offer a public developer portal, access must be arranged directly:
+
+1. Contact your Ticketek account representative or the Ticketek partner team via [ticketek.com.au/contact](https://www.ticketek.com.au/contact) and request API access for the purpose of campaign personalisation.
+2. Provide Ticketek with your intended use cases; specifically on why you will be using the API to fetch event and ticket availability data at campaign send time via a marketing automation platform. This context helps Ticketek determine the appropriate access tier.
+3. Once access is approved, Ticketek will issue you a **Bearer token** (or API key, depending on your agreement).
+4. Confirm with Ticketek which event IDs or endpoints are available under your agreement. Ticketek will provide you with the specific event codes and base URL for your environment.
+
+<Info>
+  **Note**
+
+  A third party feature overview of the Ticketek API is available at [SportsFirst](https://www.sportsfirst.net/sportsapi/ticketek-ticket-api), which documents example endpoint patterns and response structures that can help you prepare your MoEngage configuration before your Ticketek credentials arrive.
+</Info>
+
+## Step 2: Set up the Content API on MoEngage
+
+Once you have received your Ticketek API credentials:
+
+- Navigate to **Dashboard > Settings > APIs** and open the **Content API** tab.
+- Click *Add Content API*.
+- Fill in the details using the table below as a reference.
+
+| Key | Value |
+| --- | --- |
+| **Name** | Choose a descriptive name, for example `Ticketek Event Availability`. This name will identify the API when you reference it inside campaign templates. |
+| **Method** | GET |
+| **API URL** | `https://api.ticketek.com.au/v1/events/{eventId}/tickets`  Replace `{eventId}` with the specific event code provided by Ticketek for the event you want to surface in your campaign. If you want to fetch general event details rather than ticket availability, use the events endpoint:  `https://api.ticketek.com.au/v1/events/{eventId}`  Ticketek will confirm the exact base URL and available endpoints for your account when they issue your credentials. |
+| **Headers** | Add the following header to authenticate every request: |
+
+| Header | Value |
+| --- | --- |
+| `Authorization` | `Bearer YOUR_TICKETEK_API_TOKEN` |
+| `Content-Type` | `application/json` |
+| `Accept` | `application/json` |
+
+- Click **Validate** to confirm the platform returns a response, then click **Save**. The Content API is now available to reference inside any campaign across all supported channels.
+
+![Screenshot 2026-05-19 at 7.28.51 PM.png](/images/partner_49399131635092.png)
+
+Note: If this API uses OAuth 2.0 authentication, enable the OAuth toggle and configure your credentials there. New to OAuth 2.0? See [Authorization Configuration with OAuth 2.0](/user-guide/settings/advanced-settings/authorization-configuration-with-oauth-20).
+
+Once saved, refer to the MoEngage documentation on using [Content APIs in campaigns](/user-guide/campaigns-and-channels/getting-started/campaign-content/content-apis) to learn how to reference the Ticketek response fields inside your campaign templates.
+
+## Understanding the API response
+
+When MoEngage calls the Ticketek API at send time, the response is a JSON object containing event details and a `ticketTypes` array. Each object in that array represents one ticket category available for the event. The fields most commonly referenced in campaign templates are shown below.
+
+| Response field | Template variable example | Description |
+| --- | --- | --- |
+| `eventName` | `{{ContentApi.eventName}}` | The full name of the event, for example "State of Origin Game 1". |
+| `date` | `{{ContentApi.date}}` | The event date and time in ISO 8601 format. |
+| `venue` | `{{ContentApi.venue}}` | The venue name where the event is taking place. |
+| `ticketTypes[0].category` | `{{ContentApi.ticketTypes[0].category}}` | The name of the first available ticket category, for example "General Admission". |
+| `ticketTypes[0].price` | `{{ContentApi.ticketTypes[0].price}}` | The price of the first available ticket category. |
+| `ticketTypes[0].availability` | `{{ContentApi.ticketTypes[0].availability}}` | The number of tickets remaining in that category — useful for urgency messaging. |
+| `saleStatus` | `{{ContentApi.saleStatus}}` | The current sale status of the event, for example `ON_SALE` or `SOLD_OUT`. |
+
+![Screenshot 2026-05-19 at 7.30.50 PM.png](/images/partner_49399232494612.png)
+<Tip>
+  **Tip**
+
+  Use the *Test* button in the Content API settings screen to inspect the raw JSON response for your test user. This confirms exact field paths before you reference them in your campaign template, and helps you verify that your Bearer token and event ID are correctly configured.
+</Tip>

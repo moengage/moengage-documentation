@@ -120,8 +120,38 @@ paths:
             * [Sample File Link](https://app-cdn.moengage.com/assets/Sample_GAIDs.csv)
          
            #### Segment Processing and Availability
-          
-            As soon as the request is received at the MoEngage system, MoEngage creates a segment with zero users. After this, the file is processed and users are added to the segment. If the created segment is queried in between the file processing, it will show zero or partial user count.
+
+            As soon as the request is received at the MoEngage system, MoEngage creates a segment with zero users. After this, the file is downloaded, processed, and users are added to the segment. If the segment is queried during processing, it will show zero or partial user count.
+
+            There is no fixed processing timeout. If the initial file download fails, MoEngage automatically retries before reporting a failure via the callback.
+
+           #### Callback Payload
+
+           When file processing completes, MoEngage sends a `POST` request to your `callback_url`. Your server must return an HTTP `200` to acknowledge receipt.
+
+           The payload structure depends on the processing outcome.
+
+           **Success (status: 201)**
+
+           | Field | Type | Description |
+           | :--- | :--- | :--- |
+           | `db_name` | string | The MoEngage database name for your workspace. |
+           | `segment_name` | string | The name of the processed segment. |
+           | `request_id` | string | Unique identifier for this processing request. |
+           | `status` | integer | `201` on successful processing. |
+           | `values_found` | integer | Number of rows present in the uploaded file. |
+           | `values_processed` | integer | Number of values processed from `values_found`. Values with corrupted or empty data are skipped. |
+           | `user_count` | integer | Number of users found in MoEngage from the processed values and added to the segment. |
+
+           **Failure (status: 400 or 500)**
+
+           | Field | Type | Description |
+           | :--- | :--- | :--- |
+           | `db_name` | string | The MoEngage database name for your workspace. |
+           | `segment_name` | string | The name of the segment for which processing failed. |
+           | `request_id` | string | Unique identifier for this processing request. |
+           | `status` | integer | `400` for client errors (for example, file too large, download failed), `500` for server errors. |
+           | `error_message` | string | Description of what caused the processing to fail. |
 
       requestBody:
         description: Configuration for the new file segment.
@@ -160,6 +190,7 @@ paths:
                     message: "File-segment creation request accepted"
                     success: true
                     cs_name: "custom_segment_unique_name"
+                    cs_id: "6a1d8c3292d59351fe910b13"
                 callback_success:
                   summary: Callback - Success
                   description: Callback sent to your callback_url when segment processing completes successfully.
@@ -850,6 +881,9 @@ components:
         cs_name:
           type: string
           description: The unique name of the segment being processed.
+        cs_id:
+          type: string
+          description: The unique identifier of the segment.
     ApiErrorV2:
       type: object
       properties:
@@ -881,13 +915,13 @@ components:
           example: 201
         values_found:
           type: integer
-          description: (Success only) Total number of identifiers found in the file.
+          description: (Success only) Number of rows present in the uploaded file.
         values_processed:
           type: integer
-          description: (Success only) Number of identifiers successfully processed.
+          description: (Success only) Number of values processed from values_found. Values with corrupted or empty data are skipped.
         user_count:
           type: integer
-          description: (Success only) Number of users added to the segment.
+          description: (Success only) Number of users found in MoEngage from the processed values and added to the segment.
         error_message:
           type: string
           description: (Failure only) A description of the error.

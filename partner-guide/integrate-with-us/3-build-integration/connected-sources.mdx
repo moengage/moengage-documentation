@@ -1,0 +1,757 @@
+---
+title: "Connected Sources"
+description: "Stream real-time data from external platforms into MoEngage using webhook integrations and mapper configurations."
+---
+
+## Introduction
+
+Connected Sources is MoEngage's flexible webhook integration framework that allows you to stream real-time data from any external platform directly into MoEngage. Integrate CRMs, e-commerce platforms, marketing tools, or custom applications with a standardized approach.
+
+## How It Works
+
+Connect any external system using three simple steps:
+
+### Webhook POST
+
+Your system sends JSON payload to MoEngage endpoint
+
+### Transform
+
+Mapper extracts and validates data
+
+### Import
+
+Data flows into events & profiles
+
+## Key Capabilities
+
+**Real-Time Events** Stream user actions as they happen
+
+**Profile Sync** Update user attributes automatically
+
+**Bulk Processing** Handle batches in single call
+
+**Flexible Mapping** Transform complex JSON structures
+
+**Date Merging** Combine separate date/time fields
+
+**Dynamic Attrs** Auto-import custom fields
+
+## Use Cases
+
+📝 **Lead Capture** Stream form submissions from Unbounce, Typeform, HubSpot for instant follow-ups
+
+💳 **Payment Events** Track subscriptions from Stripe, Chargebee (created, failed, expiring)
+
+🎫 **Support Tickets** Monitor Zendesk/Intercom interactions for satisfaction tracking
+
+🛒 **E-commerce** Capture orders, carts, views from custom platforms
+
+🛠️ **Custom Apps** Send events from proprietary systems without native SDKs
+
+## 🚀 Build Your Integration
+
+Follow these five steps to go from sample payload to live data flowing into MoEngage.
+
+**1 Prepare** Prerequisites & Payloads
+
+**2 Create** Build Your Mapper
+
+**3 Submit** Send to MoEngage
+
+**4 Configure** Add Webhook URL
+
+**5 Test** Verify Data Flow
+
+### Prepare: Prerequisites & Sample Payloads
+
+Before building your mapper, make sure you have everything ready.
+
+<Info>
+  **You will need:**
+
+  - Webhook capability in your system (HTTP POST)
+  - Authentication support (Basic Auth or custom headers)
+  - Valid JSON webhook payloads
+  - 2-3 sample payloads from your system
+  - MoEngage credentials (Workspace ID, Data API Key from Settings → APIs)
+</Info>
+
+<Note>
+  **⚡ Rate Limits**
+
+  **Recommended maximum:** 200 requests/second
+
+  For higher throughput, contact your Solutions Engineering team with: expected volume, use case description, peak/average patterns, and data center location.
+</Note>
+
+<Note>
+  **💡 Validate early:** Paste your sample payloads into [JSONLint](https://jsonlint.com/) to confirm they are valid JSON before proceeding.
+</Note>
+
+### Create: Build Your Mapper Configuration
+
+The mapper is a JSON configuration that tells MoEngage how to transform your incoming webhook data into events or user profiles. This is the core of your integration.
+
+### 📋 Choose Your Mapping Type
+
+**Two sync types available:**
+
+- `mapping_type: "events"` - Track events AND create/update user profiles
+- `mapping_type: "users"` - Create/Update user profiles ONLY (no events)
+
+<Tabs>
+  <Tab title="Events Mapper">
+    ```json
+    {
+      "partner_name": "integration_name",
+      "mapping_type": "events",
+      "mappings": {
+        "customer_id": "$.user_id",
+        "event_name": "$.event_type",
+        "user_time": "$.timestamp",
+        "platform": "web",
+        "app_version": "1.0.0",
+        "attr": {
+          "custom_field": "$.field_name"
+        },
+        "user_attributes": {
+          "u_em": "$.email"
+        }
+      },
+      "batching": false,
+      "payload_validations": {}
+    }
+    ```
+  </Tab>
+  <Tab title="Users Mapper">
+    ```json
+    {
+      "partner_name": "integration_name",
+      "mapping_type": "users",
+      "mappings": {
+        "customer_id": "$.user_id",
+        "user_attributes": {
+          "u_em": "$.email",
+          "u_fn": "$.first_name",
+          "u_ln": "$.last_name"
+        }
+      },
+      "batching": false,
+      "payload_validations": {}
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### **Field Requirements by Mapping Type**
+
+| **Field** | **For "events"** | **For "users"** |
+| --- | --- | --- |
+| `customer_id` | **Required** - Unique user identifier | **Required** - Unique user identifier |
+| `event_name` | **Required** - Event name | _Not used_ |
+| `user_time` | **Required** - Event timestamp | _Not used_ |
+| `platform` | **Required** - "web", "android", "ios", "api" | _Not used_ |
+| `app_version` | **Required** - Static version string | _Not used_ |
+| `user_attributes` | **Optional** - Update user profile | **Optional** - Update user profile |
+| `attr` | **Optional** - Event attributes | _Not used_ |
+
+### 📍 JSONPath Quick Reference
+
+Use JSONPath expressions to map fields from your payload to MoEngage fields. Here's how to read them:
+
+| **Payload** | **JSONPath** | **Result** |
+| --- | --- | --- |
+| `{"email": "user@example.com"}` | `$.email` | `user@example.com` |
+| `{"user":{"email": "test@ex.com"}}` | `$.user.email` | `test@ex.com` |
+| `{"items": [{"name": "A"}]}` | `$.items[0].name` | `A` |
+| `{"events": [{"id": 1}, {"id": 2}]}` | `$.events[*].id` | Iterates all (batching) |
+
+### 📌 Complete Field Reference
+
+| **Field** | **Type** | **Description** |
+| --- | --- | --- |
+| `partner_name` | String | Unique lowercase identifier (e.g., "typeform") |
+| `mapping_type` | String | **"events"** OR **"users"** |
+| `customer_id` | JSONPath | 🔑 Path to unique user ID (email, phone, custom ID) - links events to profiles |
+| `event_name` | JSONPath/String | Event name path or static string. _Required for "events" type only_ |
+| `user_time` | JSONPath/"#MERGE" | Timestamp path (epoch ms preferred) or "#MERGE" for split date/time. _Required for "events" only_ |
+| `platform` | String | "web", "android", "ios", or "api". _Required for "events" type only_ |
+| `app_version` | String | Version string (default: "1.0.0"). _Required for "events" type only_ |
+| `user_attributes` | Object | User profile attributes: `u_em` (email), `u_fn` (first name), `u_ln` (last name), `u_mb` (mobile) |
+| `attr` | Object | Event attributes (key-value pairs). _Optional for "events" only_ |
+| `batching` | Boolean | `true` for array payloads, `false` for single events |
+
+### 📋 Starter Template
+
+Copy this template and replace the JSONPath expressions with paths from your actual payload:
+
+```json
+{
+  "partner_name": "your_integration_name",
+  "mapping_type": "events",
+  "mappings": {
+    "customer_id": "$.user_id",
+    "event_name": "$.event_type",
+    "user_time": "$.timestamp",
+    "platform": "web",
+    "app_version": "1.0.0",
+    "attr": {
+      "custom_field": "$.field_name"
+    },
+    "user_attributes": {
+      "u_em": "$.email",
+      "u_fn": "$.first_name"
+    }
+  },
+  "batching": false,
+  "payload_validations": {
+    "$.event_type": "string"
+  }
+}
+```
+
+### 💡 See It in Action: Real-World Examples
+
+Click each example to see the payload and its corresponding mapper configuration side by side.
+
+<Accordion title="📝 Example 1: Simple Form Submission">
+  Scenario: Lead form sends contact info on submission
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "email": "john@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "phone": "+14155551234",
+        "form_name": "Contact Us",
+        "submitted_at": 1704067200000,
+        "utm_source": "google"
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "contact_form",
+        "mapping_type": "events",
+        "mappings": {
+          "customer_id": "$.email",
+          "event_name": "Form Submitted",
+          "user_time": "$.submitted_at",
+          "platform": "web",
+          "app_version": "1.0.0",
+          "attr": {
+            "form_name": "$.form_name",
+            "utm_source": "$.utm_source"
+          },
+          "user_attributes": {
+            "u_em": "$.email",
+            "u_fn": "$.first_name",
+            "u_ln": "$.last_name"
+          }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **Key Points:** Email as unique ID • Static event name • Epoch timestamp • Updates user profile
+  </Note>
+</Accordion>
+
+<Accordion title="🛒 Example 2: Bulk E-commerce Orders">
+  **Scenario:** System sends multiple orders in single webhook
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "orders": [
+          {
+            "order_id": "ORD-001",
+            "customer_email": "alice@ex.com",
+            "order_total": 99.99,
+            "currency": "USD",
+            "order_date": 1704067200000
+          },
+          {
+            "order_id": "ORD-002",
+            "customer_email": "bob@ex.com",
+            "order_total": 149.50,
+            "currency": "USD",
+            "order_date": 1704070800000
+          }
+        ]
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "ecommerce",
+        "mapping_type": "events",
+        "mappings": {
+          "customer_id": "$.orders[*].customer_email",
+          "event_name": "Order Completed",
+          "user_time": "$.orders[*].order_date",
+          "platform": "web",
+          "app_version": "1.0.0",
+          "attr": {
+            "order_id": "$.orders[*].order_id",
+            "order_total": "$.orders[*].order_total",
+            "currency": "$.orders[*].currency"
+          },
+          "user_attributes": {
+            "u_em": "$.orders[*].customer_email"
+          }
+        },
+        "batching": true,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **✅ Key Points:** `batching=true` for arrays • `[*]` wildcard iterates • Creates separate event per order
+  </Note>
+</Accordion>
+
+<Accordion title="📅 Example 3: Merging Date & Time">
+  **Scenario:** Separate date and time fields need combining
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "user_email": "user@example.com",
+        "event_type": "Webinar Registration",
+        "webinar_name": "Product Demo",
+        "date_registered": "2024-10-25",
+        "time_registered": "14:30:00"
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "webinar",
+        "mapping_type": "events",
+        "mappings": {
+          "customer_id": "$.user_email",
+          "event_name": "$.event_type",
+          "user_time": "#MERGE",
+          "platform": "web",
+          "app_version": "1.0.0",
+          "attr": { "webinar_name": "$.webinar_name" },
+          "#MERGE": {
+            "user_time": { "date": "$.date_registered", "time": "$.time_registered" }
+          },
+          "formats": { "user_time": "yyyy-MM-dd HH:mm:ss" }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **✅ Key Points:** `user_time="#MERGE"` signals merging • `#MERGE` section defines fields • `formats` specifies pattern
+  </Note>
+</Accordion>
+
+<Accordion title="👤 Example 4: User Profile Sync Only">
+  **Scenario:** CRM sends profile updates without event tracking
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "email": "sarah@example.com",
+        "first_name": "Sarah",
+        "last_name": "Williams",
+        "phone": "+14155559999",
+        "subscription_tier": "Premium",
+        "account_status": "Active"
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "crm_sync",
+        "mapping_type": "users",
+        "mappings": {
+          "customer_id": "$.email",
+          "user_attributes": {
+            "u_em": "$.email", 
+            "u_fn": "$.first_name", 
+            "u_ln": "$.last_name",
+            "u_mb": "$.phone", 
+            "subscription_tier": "$.subscription_tier",
+            "account_status": "$.account_status"
+          }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **✅ Key Points:** `mapping_type="users"` • No event created • No `event_name`/`user_time`/`platform` needed
+  </Note>
+</Accordion>
+
+<Accordion title="🔒 Example 5: Anonymous User Tracking">
+  **Scenario:** Track pre-login behavior, merge after identification
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "session_id": "anon_abc123xyz",
+        "event": "Product Viewed",
+        "product_id": "PROD-001",
+        "product_name": "Wireless Headphones",
+        "timestamp": 1704067200000
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "ecommerce_anon",
+        "mapping_type": "events",
+        "mappings": {
+          "anon_id": "$.session_id",
+          "event_name": "$.event",
+          "user_time": "$.timestamp",
+          "platform": "web",
+          "app_version": "1.0.0",
+          "attr": { "product_id": "$.product_id", "product_name": "$.product_name" }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **🔄 Merging Flow:** After login, send event with both `customer_id` and `anon_id`. MoEngage auto-merges anonymous history to identified profile.
+  </Note>
+</Accordion>
+
+<Accordion title="🔄 Example 6: Dynamic User Properties (create_all)">
+  <Tip>
+    **Pro Tip: Using `create_all`** The `create_all` attribute allows you to iterate through all keys within a specified object from your payload. This is highly recommended when dealing with objects whose keys are dynamic, frequently changing, or constantly expanding. Instead of mapping every new field manually, `create_all` grabs them all at once!
+  </Tip>
+
+  **Scenario:** Syncing user profiles from a CRM where custom fields are constantly added to a `user_attributes` object.
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "customer_id": "CUST-8890",
+        "first_name": "Alex",
+        "last_name": "Taylor",
+        "email": "alex.t@example.com",
+        "phone": "+1234567890",
+        "user_attributes": {
+          "modified_time": "25-10-2024 14:30:00",
+          "lead_score": 85,
+          "industry": "Software",
+          "lifecycle_stage": "MQL"
+        }
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "zoho-crm",
+        "mapping_type": "users",
+        "mappings": {
+          "customer_id": "$.customer_id",
+          "app_version": "1.0.0",
+          "platform": "web",
+          "user_attributes": {
+            "u_fn": "$.first_name",
+            "u_ln": "$.last_name",
+            "u_em": "$.email",
+            "u_mb": "$.phone",
+            "create_all": "$.user_attributes"
+          },
+          "update_existing_only": false,
+          "user_time": "$.user_attributes.modified_time",
+          "formats": {
+            "user_time": "dd-MM-yyyy HH:mm:ss"
+          }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **✅ Key Points:** Standard fields are mapped directly (e.g., `u_fn`) • `create_all` automatically pulls in `lead_score`, `industry`, and `lifecycle_stage` without explicit mapping.
+  </Note>
+</Accordion>
+
+<Accordion title="🔀 Example 7: Dynamic Event Attributes (create_all)">
+  **Scenario:** A CRM sends an event where both the user properties and the event details contain dynamic, unpredictable keys.
+
+  <Tabs>
+    <Tab title="Payload">
+      ```json
+      {
+        "customer_id": "CUST-8890",
+        "event_name": "Deal Advanced",
+        "user_attributes": {
+          "account_manager": "Sarah Jenkins",
+          "region": "EMEA"
+        },
+        "event_attributes": {
+          "modified_time": "26-10-2024 09:15:00",
+          "deal_value": 50000,
+          "previous_stage": "Demo",
+          "new_stage": "Negotiation"
+        }
+      }
+      ```
+    </Tab>
+    <Tab title="Mapper Config">
+      ```json
+      {
+        "partner_name": "zoho-crm",
+        "mapping_type": "events",
+        "mappings": {
+          "customer_id": "$.customer_id",
+          "app_version": "1.0.0",
+          "platform": "web",
+          "user_attributes": {
+            "create_all": "$.user_attributes"
+          },
+          "attr": {
+            "create_all": "$.event_attributes"
+          },
+          "event_name": "$.event_name",
+          "user_time": "$.event_attributes.modified_time",
+          "formats": {
+            "user_time": "dd-MM-yyyy HH:mm:ss"
+          }
+        },
+        "batching": false,
+        "payload_validations": {}
+      }
+      ```
+    </Tab>
+  </Tabs>
+
+  <Note>
+    **✅ Key Points:** `create_all` works inside both `user_attributes` and event `attr` objects simultaneously • Perfect for heavily customized CRM payloads.
+  </Note>
+</Accordion>
+
+<Tip>
+  **Timestamps:** Use **epoch milliseconds (integer)** when possible — no format specification needed! If your payload uses string timestamps, specify the format in the `formats` section.
+</Tip>
+
+<Accordion title="📅 Supported Date Formats Reference">
+  | **Format String** | **Example** |
+  | --- | --- |
+  | `yyyy-MM-dd` | 2024-10-25 |
+  | `yyyy/MM/dd` | 2024/10/25 |
+  | `dd/MM/yyyy` | 25/10/2024 |
+  | `dd-MM-yyyy` | 25-10-2024 |
+  | `yyyy-MM-dd HH:mm:ss` | 2024-10-25 14:30:00 |
+  | `dd-MM-yyyy HH:mm:ss` | 25-10-2024 14:30:00 |
+  | `dd/MM/yyyy HH:mm:ss` | 25/10/2024 14:30:00 |
+  | `yyyy/MM/dd HH:mm:ss` | 2024/10/25 14:30:00 |
+  | `yyyy-MM-dd'T'HH:mm:ssZ` | 2024-10-25T14:30:00\+0530 |
+  | `yyyy-MM-dd HH:mm:ss.SSSSSS` | 2024-10-25 14:30:00.123456 |
+  | `yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'` | 2024-10-25T14:30:00.123456Z |
+
+  _Also supported: dd/MM/yyyy and dd-MM-yyyy variants with T, Z, and microsecond suffixes._
+</Accordion>
+
+🎨 **Prefer a visual tool?**
+
+Use the [**Visual Mapper Generator**](https://connected-sources-with-vcs-2.lovable.app/) to build your JSON configuration with a guided interface.
+
+### Submit: Send Your Mapper to MoEngage
+
+Once your mapper JSON is ready, email [**support@moengage.com**](mailto:support@moengage.com) with:
+
+- Completed mapper JSON (attached)
+- Sample webhook payload(s)
+- Integration details: partner name, Workspace ID, Data Center, use case
+
+### Configure: Add the Webhook URL
+
+MoEngage will provide you a unique webhook URL. Add it to your source system with Basic Auth credentials (Workspace ID as username, Data API Key as password).
+
+**For events:** `https://api-0X.moengage.com/v1/partner/<partner_name>/events/?configName=<config_name>`
+
+**For users:** `https://api-0X.moengage.com/v1/partner/<partner_name>/users/?configName=<config_name>`
+
+### Test: Verify Your Data Flow
+
+Use Postman to send your sample payload to the webhook URL. Verify a 200 OK response, save the `request_id`, then check MoEngage Dashboard → Analytics → Events (allow 1-2 minutes for processing).
+
+### ✅ Understanding API Responses
+
+Different response codes indicate different outcomes:
+
+<Accordion title="✅ 200 OK - Successful Submission">
+  **Status:** Your request was successfully received and queued for processing.
+
+  ```json
+  {
+    "request_id": "uhdvtjxa",
+    "name": "integration_name",
+    "description": "Successfully submitted for processing"
+  }
+  ```
+
+  <Note>
+    **Next Steps:** Save the `request_id`. Your data should appear in MoEngage within 1-2 minutes.
+  </Note>
+</Accordion>
+
+<Accordion title="❌ 400 Bad Request - Missing Required Field">
+  **Cause:** A field defined as mandatory in your mapper is missing from the payload.
+
+  ```json wrap
+  {
+    "error": {
+      "code": "e_9004",
+      "message": "Required field 'Request.data.actions.action' is missing in the payload",
+      "target": "payload_validation",
+      "details": [{ "code": "e_9004", "target": "payload_validation", "message": "Required field 'Request.data.actions.action' is missing in the payload" }]
+    }
+  }
+  ```
+
+  <Info>
+    **🔧 How to Fix:** Verify JSONPath expressions match your payload structure and ensure all required fields are present.
+  </Info>
+</Accordion>
+
+<Accordion title="❌ 400 Bad Request - Invalid Payload Structure">
+  **Cause:** Your JSON payload is malformed or doesn't match the expected structure.
+
+  ```json wrap
+  {
+    "error": {
+      "code": "e_9004",
+      "message": "The provided payload is invalid",
+      "target": "payload_validation",
+      "details": [{ "code": "e_9004", "target": "payload_validation", "message": "The provided payload is invalid" }]
+    }
+  }
+  ```
+
+  <Info>
+    **🔧 How to Fix:** Validate JSON using [**JSONLint**](https://jsonlint.com/) and check for missing braces, brackets, or commas.
+  </Info>
+</Accordion>
+
+<Accordion title="❌ 401 Unauthorized - Authentication Failed">
+  **Cause:** Invalid Basic Auth credentials or missing Authorization header.
+
+  ```json wrap
+  {
+    "status": "fail",
+    "error": { "message": "Invalid authorization format. Expected Basic authentication", "type": "Authentication required", "request_id": "70e2fd" }
+  }
+  ```
+
+  <Info>
+    **🔧 How to Fix:** In Postman, select Basic Auth and enter your Workspace ID as username and Data API Key as password.
+  </Info>
+</Accordion>
+
+<Accordion title="❓ Other Errors - Contact SE">
+  If you encounter an error response not covered above, contact MoEngage Solutions Engineering with:
+
+  - Complete error response (JSON)
+  - Your mapper configuration (JSON)
+  - Sample payload you were testing (JSON)
+  - Expected behavior vs actual behavior
+</Accordion>
+
+### 🔧 Common Issues
+
+❌ **Events not appearing** Verify 200 OK response • Check `customer_id` path • Confirm timestamp format • Wait 2-3 min • Contact MoEngage with request\_id
+
+🔀 **Wrong attributes** Test JSONPath at [jsonpath.com](http://jsonpath.com) • Verify payload structure • Check field name typos (case-sensitive)
+
+⏰ **Timestamp errors** Match format string exactly • Use epoch ms when possible • Include timezone for ISO format
+
+📦 **Bulk not processing** Set `batching=true` • Use `[*]` in all paths • Check array location in payload
+
+✨ **create\_all issues** Verify path points to object • Ensure key-value pairs • Check nesting (works one level deep)
+
+## 🛠️ Helpful Tools
+
+**✅ JSONLint** Validate syntax\
+[Visit jsonlint.com →](https://jsonlint.com/)
+
+**🗺️ JSONPath** Test expressions [Visit jsonpath.com →](https://jsonpath.com/)
+
+**🪝 Webhook.site** Inspect payloads [Visit webhook.site →](https://webhook.site/)
+
+**📮 Postman** Test API calls [Visit postman.com →](https://www.postman.com/)
+
+**⏰ Epoch Converter** Date conversions [Visit epochconverter.com →](https://www.epochconverter.com/)
+
+**🎨 Mapper Generator** Visual config tool [Open Tool →](https://connected-sources-with-vcs-2.lovable.app/)
+
+## ❓ FAQ
+
+<Accordion title="Can I send both user attributes and events together?">
+  Yes. Include both `user_attributes` and `attr` in your mapper. Profile updates and event creation happen simultaneously.
+</Accordion>
+
+<Accordion title="What if customer_id doesn't exist?">
+  A new profile is created automatically. If `customer_id` already exists, the event associates with the existing profile.
+</Accordion>
+
+<Accordion title="Can I update the mapper after deployment?">
+  Yes. Contact MoEngage with the updated JSON. They'll deploy a new version with a new `config_name`. Your old URL continues working with the previous mapper.
+</Accordion>
+
+<Accordion title="What are the payload size limits?">
+  Maximum 1MB recommended. For bulk requests, batch 100-500 events per call for optimal performance.
+</Accordion>
+
+<Accordion title="How do I handle nested arrays?">
+  Use JSONPath notation: `$.orders[0].items[0].name` for specific items or `$.orders[*].items[*].name` for batching. Complex nesting may require flattening first.
+</Accordion>
+
+## 🆘 Support
+
+<Note>
+  **Need Help?**
+
+  - **💬 General Questions:** Contact your MoEngage Customer Success Manager
+  - **🔧 Technical Support:** Email [support@moengage.com](mailto:support@moengage.com) with:
+    - Mapper JSON (attached)
+    - Sample webhook payload
+    - Request ID from response
+    - Issue description
+  - **🎨 Mapper Help:** Share your payload & requirements - our team will assist
+</Note>

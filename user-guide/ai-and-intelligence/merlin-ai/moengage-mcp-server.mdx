@@ -1,63 +1,58 @@
 ---
 title: "MoEngage MCP Server and Connector"
-description: "Connect AI assistants like Claude and ChatGPT to your MoEngage workspace to search campaigns, analyze performance, and review content."
+description: "Connect AI assistants like Claude and ChatGPT to your MoEngage workspace to build, search, and analyze campaigns through natural language."
 ---
 
-MoEngage offers a hosted [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) server that enables AI assistants to access your MoEngage campaign data directly. You can search campaigns, analyze performance metrics, review content, and diagnose delivery issues, all through natural language conversations with your preferred AI assistant.
-The MoEngage MCP server is currently available as a **custom connector**. We are actively working to list it on the Claude and ChatGPT marketplaces for one-click installation.
+MoEngage offers a hosted [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) server that lets AI assistants work with your campaigns directly in your workspace. Your assistant can **build campaign drafts, search and review campaigns, and analyze performance** — all through natural-language conversation.
+
+The MoEngage MCP server is available as a **custom connector**. We are actively working to list it on the Claude and ChatGPT marketplaces for one-click installation.
 
 <Info>
-  The MoEngage AI Connector (MCP server) is currently available only in DC01, DC02, DC03, and DC04.
+  The MoEngage AI Connector (MCP server) is currently available in **DC01, DC02, DC03, and DC04**.
 </Info>
 
-# Available Tools
+## Setup
 
-The MoEngage MCP server provides **nine read-only tools** organized into two categories:
+<Tabs>
+  <Tab title="MCP Server URL">
+    ```text
+    https://mcp.moengage.com
+    ```
 
-## Campaign Search
+    <Info>
+      For the MoEngage **docs** MCP, use `https://www.moengage.com/docs/mcp`
+    </Info>
+  </Tab>
+  <Tab title="Connect with Claude">
+    1. Open **Claude Desktop** or go to [claude.ai](https://claude.ai/login).
+    2. In the sidebar, click **Settings**.
+    3. Under settings, click **Connectors**.
+    4. Click **Add Connector**, then **Custom Connector**.
+    5. Enter the MCP server URL: `https://mcp.moengage.com`
+    6. Click **Connect**. You will be redirected to authenticate with your MoEngage account.
+    7. After authentication, return to Claude — the MoEngage tools appear under **Connectors** in **Settings**.
+    8. Configure **Tool permissions** (_Automatic_, _Ask first_, or _Disabled_) per tool.
+  </Tab>
+  <Tab title="Connect with ChatGPT">
+    1. Open [ChatGPT](https://chatgpt.com/).
+    2. In the sidebar, click **Settings**.
+    3. Select **Connected apps** or **Plugins** (depending on your plan).
+    4. Click **Add**, then choose **Custom MCP Connector**.
+    5. Enter the MCP server URL: `https://mcp.moengage.com`
+    6. Click **Connect** and authenticate with your MoEngage account.
+    7. After authentication, return to ChatGPT — the MoEngage tools are available in your conversations.
+  </Tab>
+</Tabs>
 
-Search and browse campaigns across channels. Filter by name, status, or campaign ID.
+## Authentication
 
-| Tool | Description |
-| :-- | :-- |
-| `search_email_campaigns` | <ul><li>Search Email campaigns by name, status, or ID.</li><li> Returns campaign details including name, status, delivery type, and timestamps.</li></ul> |
-| `search_push_campaigns` | <ul><li>Search Push notification campaigns by name, status, or ID.</li><li> Returns campaign details including name, status, delivery type, and timestamps.</li></ul> |
-| `search_sms_campaigns` | <ul><li>Search SMS campaigns by name, status, or ID.</li><li> Returns campaign details including name, status, delivery type, and timestamps.</li></ul> |
+The MoEngage MCP server uses OAuth-based authentication tied to your MoEngage account. The first time you connect, you authenticate with your MoEngage credentials; if you are already signed in, you will see an authorization prompt. The screen shows:
 
-**Supported status filters**: DRAFT, SCHEDULED, ACTIVE, PAUSED, COMPLETED, STOPPED
-
-## Campaign Analytics
-
-Retrieve performance metrics, delivery diagnostics, and content for your campaigns.
-
-| Tool | Description |
-| :-- | :-- |
-| `get_campaign_stats` | Fetch aggregate performance statistics - delivery rates, opens, clicks, click-through rate (CTR), and channel-specific metrics. Supports up to 50 campaigns at once. |
-| `get_detailed_campaign_stats` | Fetch comprehensive stats with breakdowns by conversion goals, device/platform, locale, and A/B test variations. |
-| `get_delivery_stats` | Analyze the delivery funnel - reachable users, frequency cap removals, send/delivery failures, and per-platform device stats. |
-| `get_click_performance` | Fetch per-URL click breakdown - see which links were clicked, with total and unique click counts. |
-| `get_device_analytics` | Analyze performance by device dimensions - OEM manufacturer, app version, or device dormancy. Supports multi-dimensional splits. |
-| `get_campaign_content` | Retrieve full campaign content - HTML body for email, message text for push, or SMS template content. |
-
-<Info>
-  **Information**
-
-  All analytics tools enforce a maximum date range of **30 days**.
-</Info>
-
-# Authentication
-
-The MoEngage MCP server uses OAuth-based authentication tied to your MoEngage account.
-
-When you connect for the first time, you will be redirected to authenticate with your MoEngage credentials. If you are already logged into MoEngage, you will see an authorization prompt requesting permission to access your workspace data.
-
-The authorization screen displays:
-
-- **Account** - Your MoEngage email
-- **Workspace** - The workspace you are currently logged into
-- **Role** - Your role in the current workspace (for example, Manager, Admin)
-- **Data Center** - Your data center environment
-- **Permissions requested** - The scopes the MCP server requires (for example, Campaigns:read)
+- **Account** — your MoEngage email
+- **Workspace** — the workspace you are currently signed into
+- **Role** — your role in that workspace (for example, Manager, Admin)
+- **Data Center** — your data center environment
+- **Permissions requested** — the scopes the server needs (for example, reading campaign data and creating or managing campaigns)
 
 Click **Accept** to grant access.
 
@@ -68,107 +63,163 @@ Click **Accept** to grant access.
   style={{ width:"46%" }}
 />
 
-## Key Authentication Behaviors
+### Key authentication behaviors
 
-- The MCP server inherits the **environment**, **workspace**, and **role** of your current MoEngage session.
+- The server inherits the **environment**, **workspace**, and **role** of your active MoEngage session.
 - Authentication tokens are derived from your active MoEngage session.
-- If you **log out** or **switch workspaces** in MoEngage, you will be prompted to **re-authenticate** the MCP connection.
-- All data access respects your existing MoEngage role-based permissions.
+- If you **log out** or **switch workspaces**, you are prompted to **re-authenticate**.
+- All actions respect your existing MoEngage role-based permissions — including which tools your role can use. Reading campaign data requires read access; building or editing campaigns requires campaign create/manage permission.
 
-# Setup
+## Built for agents
 
-<Tabs>
-  <Tab title="MCP Server URL">
-    `https://mcp.moengage.com`
-  </Tab>
-  <Tab title="Connect with Claude">
-    1. Open **Claude Desktop** or go to [claude.ai](https://claude.ai/login).
-    2. In the sidebar, click **Settings**.
-    3. Under the settings menu, click **Connectors**.
-    4. Click **Add Connector**, and then click **Custom Connector**.
-    5. Enter the MCP server URL:\
-       [`https://mcp.moengage.com`](https://mcp.moengage.com)
+The server is designed so that _any_ AI assistant — not just one vendor's — can build a correct campaign on the first try. Two capabilities make that possible:
 
-    <Info>
-      **Information**
+- **`discover_schema`** returns the exact, current request shape for whatever you're building (required fields, allowed values, a working example) — so the assistant doesn't guess.
+- **`get_content_guide`** serves validated, on-demand guidance for writing content (Jinja personalization, email HTML) — so the content is correct, not trial-and-error.
 
-      For the MoEngage docs MCP, add [https://www.moengage.com/docs/mcp.](https://www.moengage.com/docs/mcp.)
-    </Info>
+<Note>
+  The MCP builds and validates **drafts**. Publishing a campaign remains a human action in the MoEngage dashboard.
+</Note>
 
-    6. Click **Connect**. You will be redirected to authenticate with your MoEngage account.
-    7. After authentication, return to Claude. You should see the MoEngage tools listed under **Connectors** in **Settings**.
-    8. Configure **Tool permissions** to control when Claude can use each tool - choose between _Automatic, Ask first,_ or _Disabled_ for each tool.
+## What you can do
 
-    Once connected, you can start asking Claude questions like:
+<CardGroup cols={2}>
+  <Card title="Build" icon="pen-to-square">
+    Draft push and email campaigns — including A/B variants, multi-locale, scheduling, segmentation, and content blocks.
+  </Card>
 
-    - _"Show me all active email campaigns"_
-    - _"What's the delivery rate for my last push campaign?"_
-    - _"Compare click performance across my SMS campaigns from last week"_
-  </Tab>
-  <Tab title="Connect with ChatGPT">
-    1. Open [ChatGPT](https://chatgpt.com/).
-    2. In the sidebar, click **Settings**.
-    3. Select **Connected apps** or **Plugins** (depending on your plan).
-    4. Click **Add**, and then choose **Custom MCP Connector.**
-    5. Enter the MCP server URL:\
-       [`https://mcp.moengage.com`](https://mcp.moengage.com)
+  <Card title="Author content" icon="wand-magic-sparkles">
+    Get validated patterns for Jinja personalization and email HTML, and preview how content renders for sample users.
+  </Card>
 
-    <Info>
-      **Information**
+  <Card title="Search & review" icon="magnifying-glass">
+    Find campaigns across every channel; read a campaign's full configuration and content.
+  </Card>
 
-      For the MoEngage docs MCP, add [https://www.moengage.com/docs/mcp.](https://www.moengage.com/docs/mcp.)
-    </Info>
+  <Card title="Analyze" icon="chart-line">
+    Pull performance, delivery funnels, click breakdowns, and device analytics.
+  </Card>
+</CardGroup>
 
-    6. Click **Connect**. You will be redirected to authenticate with your MoEngage account.
-    7. After authentication, return to ChatGPT. The MoEngage tools will be available in your conversations.
+## Available tools
 
-    Once connected, you can start asking ChatGPT questions like:
+Create, edit, and test-send are supported for **Push and Email**. Search and analytics work for **all channels** (Push, Email, SMS, WhatsApp, Webhook); SMS and other non‑Push/Email channels are read-only.
 
-    - _"Search for all completed email campaigns with 'Welcome' in the name"_
-    - _"Get detailed stats for campaign ID abc123 for the last 7 days"_
-    - _"Show me which devices performed best for my latest push campaign"_
-  </Tab>
-</Tabs>
+### Build a campaign
 
-# Example Queries
+| Tool | Description |
+| --- | --- |
+| `discover_schema` | Returns the exact request shape for a campaign type, component, template, or modifier — required/forbidden fields, a proven minimum example, and the rules for that type. **Call this before building any payload.** |
+| `create_campaign_draft` | Create a campaign draft in one call. |
+| `patch_campaign_components` | Update one or more components of an existing draft. |
+| `validate_campaign_draft` | Dry-run the full publish validation against a draft without changing it; returns field-level errors if anything is missing. |
+| `create_personalization_preview` | Render personalization for sample users to spot-check content before creating. |
+| `test_campaign_inline` / `test_campaign_by_draft_id` | Send a test message to verify a draft. |
+| `update_campaign_status` | STOP, PAUSE, or RESUME an already-running campaign (not drafts). |
 
-Here are some things you can ask your AI assistant once connected:
+### Author content
+
+| Tool | Description |
+| --- | --- |
+| `get_content_guide` | Validated authoring guidance for content — how to write Jinja personalization and email HTML well. Request a `topic` (`jinja`, `email_html`, `email_deliverability`) and an optional `section` to get just the part you need. This is authoring _quality_ guidance, distinct from `discover_schema` (which gives the request _shape_). |
+
+### Content blocks
+
+| Tool | Description |
+| --- | --- |
+| `create_content_block` / `edit_content_block` | Create or update a reusable content block (for example, a shared email footer). |
+| `search_content_blocks` / `get_content_blocks_by_ids` | Find content blocks by label, or fetch them by ID. |
+
+### Search & read
+
+| Tool | Description |
+| --- | --- |
+| `search_campaigns` | Search campaigns across all channels by name, status, ID, channel, delivery type, or date range. Include `DRAFT` in the status filter to see drafts. |
+| `get_campaign` / `get_campaign_meta` | Fetch a single campaign's full configuration and content, or just its metadata. |
+| `list_custom_segments` / `get_custom_segment` | Browse and read custom segments for audience targeting. |
+
+**Supported status filters:** `ACTIVE`, `DRAFT`, `EXPIRED`, `NOT_SENT`, `PAUSED`, `SCHEDULED`, `SENDING`, `SENT`, `STOPPED`, `UNDER_REVIEW`, `REJECTED`.
+
+### Analytics
+
+<Info>
+  All analytics tools enforce a maximum date range of **30 days**.
+</Info>
+
+| Tool | Description |
+| --- | --- |
+| `get_campaign_stats` | Aggregate performance — delivery rate, opens, clicks, CTR, and channel-specific metrics. Up to 50 campaigns per call. |
+| `get_detailed_campaign_stats` | Breakdowns by conversion goal, device/platform, locale, and A/B variation. |
+| `get_delivery_stats` | The delivery funnel — reachable users, frequency-cap removals, send/delivery failures, and per-platform device stats. |
+| `get_click_performance` | Per-URL click breakdown, with total and unique counts. |
+| `get_device_analytics` | Performance by device dimensions — OEM, app version, or dormancy, with multi-dimensional splits. |
+
+## Building a campaign, step by step
+
+<Steps>
+  <Step title="Discover the shape">
+    The assistant calls `discover_schema` for your channel and delivery type to get the exact payload structure.
+  </Step>
+  <Step title="Author the content">
+    For email HTML or Jinja personalization, it calls `get_content_guide` for validated patterns.
+  </Step>
+  <Step title="Create the draft">
+    `create_campaign_draft` (or `patch_campaign_components` to refine an existing draft).
+  </Step>
+  <Step title="Preview personalization">
+    `create_personalization_preview` confirms the content renders correctly for sample users.
+  </Step>
+  <Step title="Validate">
+    `validate_campaign_draft` runs the full publish check and reports any field-level issues.
+  </Step>
+  <Step title="Publish">
+    Review and publish the draft from the **MoEngage dashboard**.
+  </Step>
+</Steps>
+
+## Example prompts
 
 | What you want to do | Example prompt |
-| :-- | :-- |
-| Find campaigns | _"List all active push campaigns"_ |
-| Check performance | _"What's the CTR for my email campaigns from the last 2 weeks?"_ |
+| --- | --- |
+| Build a campaign | _"Draft a one-time push to all users for tomorrow 10am IST titled 'Weekend sale'."_ |
+| Personalize content | _"Write the email greeting with a first-name fallback and mention the user's city."_ |
+| Find campaigns | _"List all active push campaigns."_ |
+| Check performance | _"What's the CTR for my email campaigns over the last 2 weeks?"_ |
 | Diagnose delivery | _"Why did my last push campaign have a low delivery rate?"_ |
 | Analyze A/B tests | _"Which variation won in campaign XYZ?"_ |
-| Review content | _"Show me the email content for campaign ABC"_ |
+| Review content | _"Show me the email content for campaign ABC."_ |
 | Device insights | _"How does Android vs iOS performance compare for my push campaigns?"_ |
-| Click analysis | _"Which links got the most clicks in my latest email campaign?"_ |
 
-# Security and Permissions
+## Known behaviors and limitations
 
-- The MCP server provides **read-only** access to your campaign data. It cannot create, modify, or delete campaigns.
-- All data access is scoped to the **workspace and role** of the authenticated user.
-- Data shared with AI assistants is subject to the respective AI provider's data handling policies.
+We document known quirks so you and your assistant can work around them instead of hitting them unexpectedly.
+
+- **Publishing** is not available through the MCP — drafts are published from the MoEngage dashboard.
+- **SMS and other non-Push/Email channels** are read-only: searchable and analyzable, but not creatable.
+- **Date range** for analytics is limited to **30 days** per query.
+- **Batch size**: `get_campaign_stats` accepts up to **50 campaign IDs** per request.
+- **Content size**: email HTML can be large (10–50 KB); fetch full content deliberately.
+- **Campaign-name date format**: campaign names often encode dates as **DDMMYY** (for example, `230326` = 23 March 2026). If analytics return all zeros, check your date range first.
+- **Analytics response shape**: stats are returned as a single cross-channel structure — metrics that don't apply to a campaign's channel come back as `0`, not absent. Don't infer a campaign's channel from which fields are non-zero.
+
+## Security and permissions
+
+- The MCP server can **build and validate campaign drafts** and **read and analyze** campaign data. It does **not** publish campaigns — publishing is a human action in the dashboard.
+- Every action is scoped to the **workspace and role** of the authenticated user. Tools your role lacks permission for are not available to you.
+- Data shared with AI assistants is subject to the respective AI provider's data-handling policies.
 - Review MoEngage's [Privacy Policy](https://www.moengage.com/privacy-policy/) and [Terms of Use](https://www.moengage.com/terms-of-use/) for more information.
 
-# Limitations
+## Troubleshooting
 
-- **Date range**: Analytics queries are limited to a maximum of 30 days.
-- **Batch size**: `get_campaign_stats` supports up to 50 campaign IDs per request.
-- **Content size**: Email HTML content can be large (10-50KB). The `get_campaign_content` tool should be used only when you need to analyze actual campaign content.
+<AccordionGroup>
+  <Accordion title="Cannot access the MCP server or your campaign data">
+    The server inherits the active session from your MoEngage account.
 
-# Troubleshooting
+    1. Verify you are signed in to the correct MoEngage workspace.
+    2. If you signed out or switched workspaces, re-authenticate the MCP connection to restore access.
+  </Accordion>
 
-**Cannot access the MCP server**
-
-If you cannot access the MCP server or your campaign data, check your workspace connection. The MCP server inherits the active session from your MoEngage account.
-
-To resolve this issue:
-
-1. Verify that you are signed in to the correct MoEngage workspace.
-2. If you have signed out or switched to a different workspace, re-authenticate your MCP server connection to restore access to your campaign data.
-
-# Feedback and Suggestions
-
-Have ideas for new tools or activities you'd like to see in the MoEngage MCP server? We'd love to hear from you.\
-Reach out to us at [product@moengage.com](mailto:product@moengage.com) with your suggestions.
+  <Accordion title="A tool you expected isn't available">
+    Tool availability follows your MoEngage role. If you can't see build tools, confirm your role has campaign create/manage permission in the current workspace.
+  </Accordion>
+</AccordionGroup>

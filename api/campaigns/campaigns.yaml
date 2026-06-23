@@ -863,7 +863,7 @@ components:
         campaign_start_time:
           type: string
           format: date-time
-          description: The start time of the campaign in ISO 8601 format.
+          description: The start time of the campaign in ISO 8601 format. This value is returned in UTC.
           example: "2024-11-28T12:18:00"
         parent_campaign_id:
           type: string
@@ -891,7 +891,8 @@ components:
               example: 18182
             last_updated_time:
               type: string
-              description: The timestamp when reachability was last calculated.
+              format: date-time
+              description: The timestamp when reachability was last calculated, in ISO 8601 format. This value is returned in UTC.
               example: "2024-11-27T09:05:42.661000"
 
     # ==================== Campaign Status Change Request ====================
@@ -1013,7 +1014,7 @@ components:
                 example: "camp_child_001"
               sent_time:
                 type: string
-                description: The timestamp when the child campaign was sent.
+                description: The timestamp when the child campaign was sent, in UTC.
                 example: "2024-06-24T14:30:18.908000"
               status:
                 type: string
@@ -1203,14 +1204,14 @@ components:
           description: The email ID of the user who last updated the campaign.
         created_at:
           type: string
-          description: The timestamp when the campaign was created.
+          description: The timestamp when the campaign was created, in UTC.
           example: "2024-07-04 08:00:54.847000"
         updated_at:
           type: string
-          description: The timestamp when the campaign was last updated.
+          description: The timestamp when the campaign was last updated, in UTC.
         sent_time:
           type: string
-          description: The timestamp when the campaign was sent.
+          description: The timestamp when the campaign was sent, in UTC.
           example: "2024-07-04 20:32:00"
         flow_id:
           type: string
@@ -2748,7 +2749,7 @@ components:
     # ==================== Scheduling Details ====================
     SchedulingDetails:
       type: object
-      description: Defines when the campaign should be sent.
+      description: Defines when the campaign should be sent. All date-time values must be passed in UTC.
       required:
         - delivery_type
       properties:
@@ -2764,13 +2765,13 @@ components:
           type: string
           format: date-time
           description: |
-            The start time for the campaign in ISO 8601 format.
-            
+            The start time for the campaign in ISO 8601 format. Pass this value in UTC.
+
             Example: "2024-06-21T12:59:00"
         expiry_time:
           type: string
           format: date-time
-          description: The expiry time for the campaign in ISO 8601 format.
+          description: The expiry time for the campaign in ISO 8601 format. Pass this value in UTC.
         periodic_details:
           $ref: '#/components/schemas/PeriodicDetails'
         bts_details:
@@ -3533,6 +3534,14 @@ paths:
         This API updates an existing Push or Email campaign in MoEngage. You can only update campaigns created via the API, not campaigns created through the MoEngage dashboard.
       x-mint:
         content: |        
+          <Note>
+          **Differences in V5**
+
+          `PATCH /v5/campaigns/{campaign_id}` returns `200 OK` with a response body containing `response_id`, `type`, and `data.id`. V1 returns `204 No Content` with no response body on success. Update any integration that asserts a `204` status code before adopting V5.
+
+          See [Update Campaign (V5)](/api/update-campaigns/update-campaign-v5).
+          </Note>
+
           <Warning>
           **Update Restrictions**
         
@@ -3663,6 +3672,20 @@ paths:
           - Include child campaigns (flow nodes, periodic children)
           - Include archived campaigns
           - Paginated results (max 15 per page)
+
+          <Note>
+          **Differences in V5**
+
+          The V5 Search Campaigns API (`POST /v5/campaigns/search`) introduces the following behavioral changes:
+
+          - **Single-campaign retrieval** is no longer handled by the search endpoint. Use `GET /v5/campaigns/{campaign_id}` instead.
+          - The `campaign_fields.id` field (string) is renamed to `campaign_fields.ids` (array of strings) in V5.
+          - The `campaign_fields.delivery_type` field is renamed to `campaign_fields.campaign_delivery_type` in V5. Sending the V1 field name returns zero results with no error.
+          - `request_id` is required in V1. In V5, it is optional.
+          - The response identifier field `campaign_id` is renamed to `id` in V5.
+
+          For a full comparison, see [V1 vs. V5 Search Campaigns: Behavioral Differences](/api/campaigns/search-campaigns-v5-migration).
+          </Note>
         
 
            #### Rate Limits
@@ -4325,6 +4348,14 @@ paths:
       x-mint:
         content: |
           <Note>
+          **Differences in V5**
+
+          `PATCH /v5/campaigns/{campaign_id}/status` accepts one campaign ID as a path parameter per request. V1 accepts a `campaign_ids` array of up to 10 IDs per request. To perform bulk status changes in V5, call the endpoint once per campaign ID.
+
+          See [Update Campaign Status (V5)](/api/update-campaigns/update-campaign-status-v5).
+          </Note>
+
+          <Note>
             Currently, you can use this API to change the status of Email and Push campaigns. You can update the following statuses of the campaigns:
               - Stop a scheduled One-time campaign (Email and Push)
               - Pause and resume a running Periodic or Event-triggered Email campaign.
@@ -4524,11 +4555,11 @@ paths:
           The rate limit is 10 RPM.
 
           <Note>
-            - One file-processing request must complete before the next API call is accepted.
-            - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
-            - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
-            - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
-            - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
+          - One file-processing request must complete before the next API call is accepted.
+          - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
+          - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
+          - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
+          - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
           </Note>
       tags:
         - Update Campaigns

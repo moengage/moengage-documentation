@@ -1,0 +1,81 @@
+---
+title: "Ticketmaster"
+description: "Pull live event data from the Ticketmaster Discovery API into MoEngage campaign templates using a Content API."
+---
+
+[Ticketmaster](https://developer.ticketmaster.com) is the world's largest live event ticketing marketplace, covering concerts, sports, theatre, and family events across North America, Europe, Australia, New Zealand, and the UAE. They provide data on upcoming events, venues, artists, and ticket availability.
+
+## MoEngage × Ticketmaster
+
+The MoEngage × Ticketmaster integration allows you to dynamically pull live event data from Ticketmaster into your MoEngage campaigns via Content APIs. At send time, MoEngage calls the Ticketmaster Discovery API with each user's location or preferences, retrieves upcoming events relevant to that user, and inserts the data directly into your campaign message, across email, push, SMS, in-app, and WhatsApp.
+
+Common use cases include surfacing upcoming concerts near a user's city in a push notification, personalising email campaigns with sports fixtures for a user's favourite team, or driving ticket sales by showing available events in a user's genre of interest.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  Ensure you have a Ticketmaster developer account with an active API key. Keys are free and available at [developer.ticketmaster.com](https://developer.ticketmaster.com/products-and-docs/apis/getting-started/)
+</Info>
+
+## Step 1: Get your Ticketmaster API key
+
+On your Ticketmaster developer account:
+
+1. Navigate to [developer-acct.ticketmaster.com](https://developer-acct.ticketmaster.com/user/login) and sign in, or create a new account if you do not already have one.
+2. Once logged in, go to *My Apps* in the top navigation and select *Add New App*.
+3. Enter an app name and description, then select *Submit*. Ticketmaster will immediately generate an API key for your app.
+4. Copy the **Consumer Key** from your app dashboard, this is the value you will use as your `apikey` query parameter.
+5. Note the rate limit on your account tier. Free developer keys allow up to **5,000 API calls per day** and 5 requests per second. If your send volumes exceed this, contact Ticketmaster to discuss a higher-tier plan.
+
+![Note the rate limit on your account tier. Free developer keys allow up to 5,000 API calls per day and 5 reques](/images/partner_49391907579412.png)
+
+## Step 2: Set up the Content API on MoEngage
+
+To connect the Ticketmaster Discovery API as a Content API in MoEngage:
+
+- Start by navigating to **Dashboard > Settings > APIs** and opening the **Content API** tab.
+- Click *Add Content API*.
+- Fill in the details using the table below as a reference.
+
+| Key | Value |
+| --- | --- |
+| **Name** | Choose a descriptive name for this Content API, for example `Ticketmaster Events by City`. This name will identify the API when you reference it inside campaign templates. |
+| **Method** | GET |
+| **API URL** | `https://app.ticketmaster.com/discovery/v2/events.json`  This is the Ticketmaster Discovery API events endpoint. It returns a paginated list of upcoming events matching the query parameters you supply. You can filter by city, country code, keyword, classification (music, sports, arts, etc.), and many other dimensions, refer to the [Discovery API v2 documentation](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) for the full parameter reference. |
+| **Key Value** | Add the following parameters. For any parameter where you want to bind a user attribute dynamically, type `@` in the value field to see available user attributes. |
+
+| Parameter | Example value | Notes |
+| --- | --- | --- |
+| `apikey` | *Your Consumer Key from Step 1* | Required for every request. Keep this value static. |
+| `countryCode` | `@user.country` | Two-letter ISO country code. Combine with `city` to disambiguate cities across countries. |
+| `classificationName` | `music` | Optional. Filter by event type: `music`, `sports`, `arts`, `family`, etc. Can also be bound to a user preference attribute. |
+| `size` | 3 | Number of events to return per call. Keep this small (2–5) for campaign personalisation to avoid large payloads. |
+| `sort` | `date,asc` | Sort results by date ascending so the soonest upcoming events appear first. |
+
+![Screenshot 2026-05-19 at 2.36.59 PM.png](/images/partner_49392197072020.png)
+
+- Click **Validate** to confirm the platform returns a response, then click **Save**. The Content API is now available to reference inside any campaign across all supported channels.
+
+![Validating the Content API response in MoEngage](/images/partner_49391884449300.png)
+<Info>
+  **Note**
+
+  The example URL above targets the `/events.json` endpoint, which is the most commonly used endpoint for campaign personalisation. The Ticketmaster Discovery API also provides dedicated endpoints for [venues](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/#search-venues-v2), [attractions](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/#search-attractions-v2), and [classifications](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/#search-classifications-v2), use the relevant ones when your campaign requires venue details or artist metadata rather than event listings.
+</Info>
+
+Once saved, refer to the MoEngage documentation on using [Content APIs in campaigns](/user-guide/campaigns-and-channels/getting-started/campaign-content/content-apis) to learn how to reference the Ticketmaster response fields inside your campaign templates using the variables.
+
+## Understanding the API response
+
+When MoEngage calls the Ticketmaster Discovery API at send time, the response is a JSON object containing an `_embedded.events` array. Each object in that array represents one upcoming event. The fields most commonly referenced in campaign templates are shown below.
+
+| Response field | Template variable example | Description |
+| --- | --- | --- |
+| `_embedded.events[0].name` | `{{ContentApi._embedded.events[0].name}}` | The event name, for example "Coldplay: Music of the Spheres World Tour". |
+| `_embedded.events[0].dates.start.localDate` | `{{ContentApi._embedded.events[0].dates.start.localDate}}` | The event start date in YYYY-MM-DD format. |
+| `_embedded.events[0]._embedded.venues[0].name` | `{{ContentApi._embedded.events[0]._embedded.venues[0].name}}` | The venue name. |
+| `_embedded.events[0]._embedded.venues[0].city.name` | `{{ContentApi._embedded.events[0]._embedded.venues[0].city.name}}` | The city where the event is taking place. |
+| `_embedded.events[0].url` | `{{ContentApi._embedded.events[0].url}}` | The direct Ticketmaster link to purchase tickets for this event. |
+| `_embedded.events[0].images[0].url` | `{{ContentApi._embedded.events[0].images[0].url}}` | A promotional image URL for the event, usable in email or in-app campaigns. |
