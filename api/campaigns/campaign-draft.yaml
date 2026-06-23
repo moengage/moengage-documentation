@@ -3,7 +3,9 @@ info:
   title: MoEngage Campaigns API
   version: '2025-11-20'
   description: |
-    The Campaigns V5 API manages the full campaign lifecycle - draft creation, incremental updates, validation, test sends, publication, and post-publish management.
+    The Campaigns V5 API manages the draft campaign lifecycle — draft creation, incremental updates, validation, test sends, and post-publish management.
+
+    **Note:** Campaign publishing is not yet supported in V5. To publish campaigns, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
 
     **Supported channels:**
     - Push (Android, iOS, Web)
@@ -24,8 +26,7 @@ info:
     2. **Update** - Patch individual components as you refine the setup. Each submitted component is validated in full before the draft is updated.
     3. **Validate** - Check whether a draft would pass publish-time validation without committing any changes.
     4. **Test** - Send a test message to specific users from either a saved draft or inline content before going live.
-    5. **Publish** - Transition the draft to **ACTIVE** by sending `{ "status": "PUBLISH" }` in a PATCH request.
-    6. **Manage** - Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
+    5. **Manage** - Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
 
     **Campaign versioning** is optional per workspace:
     - When enabled, publishing an update to a live campaign creates a new document with an incremented `version_number`.
@@ -112,16 +113,15 @@ components:
       description: |
         Caller's effective Campaigns permissions. When requests pass through the MoEngage IAM gateway, the gateway injects this header from the permissions tied to your API key, and the service treats it as the source of truth. The service reads only the `campaigns:` entry.
 
-        Action vocabulary: `view` (read), `create_manage` (create and edit drafts), and `create_manage_publish` (create, edit, and publish). The hierarchy is `create_manage_publish` ⟹ `create_manage` ⟹ `view`.
+        Action vocabulary: `view` (read), `create_manage` (create and edit drafts), and `create_manage_publish` (reserved for future publish support). The hierarchy is `create_manage_publish` ⟹ `create_manage` ⟹ `view`.
 
         Required action by operation:
         - `PATCH /v5/campaigns/{campaign_id}` (component edits) requires `create_manage`.
-        - `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }` requires `create_manage_publish`.
 
         If your effective permissions do not satisfy the required action, the API returns `403`. Other V5 routes are not gated by this header in the current release.
       schema:
         type: string
-      example: "campaigns:create_manage_publish"
+      example: "campaigns:create_manage"
 
   schemas:
     # ==================== V5 Draft-First Envelopes ====================
@@ -270,13 +270,10 @@ components:
         campaign_audience_limit: { $ref: '#/components/schemas/CampaignAudienceLimit' }
 
     CampaignPatchV5Request:
-      description: |
-        Used for component-level edits OR to publish a campaign.
-        You cannot pass component fields and `{ "status": "PUBLISH" }` in the same body.
+      description: Used for component-level edits on a campaign draft.
       oneOf:
         - $ref: '#/components/schemas/PushComponentPatchRequest'
         - $ref: '#/components/schemas/EmailComponentPatchRequest'
-        - $ref: '#/components/schemas/PublishCampaignRequest'
 
     PushComponentPatchRequest:
       title: Update Push Campaign Draft
@@ -405,11 +402,10 @@ components:
         request_id: 
           type: string
           description: A unique identifier for this update request.
-        status: 
+        status:
           type: string
-          enum: [PUBLISH]
           description: |
-            Trigger publish state transition.
+            Reserved for future use. Campaign publishing is not yet supported in V5. Do not set this field.
 
 
     CampaignStatusV5Request:
@@ -2807,7 +2803,7 @@ components:
         metric:
           type: string
           description: |
-            The type of send event counted toward the limit.
+            The type of send event counted toward the limit. Must be uppercase.
 
             **Required** when `is_campaign_audience_limit_enabled` is `true`.
           enum: [SENT]
@@ -2815,7 +2811,7 @@ components:
         frequency:
           type: string
           description: |
-            The window over which the limit is applied.
+            The window over which the limit is applied. Must be uppercase.
 
             - `TOTAL` - applies the cap across the full lifetime of the campaign. Supported for all campaign types on both Email and Push.
             - `INSTANCE` - applies the cap per campaign instance (for example, per periodic send). Applicable to Periodic Push campaigns only.
@@ -3130,7 +3126,7 @@ components:
       type: object
       required: [id]
       description: >-
-        Returned after a successful component PATCH or after publish with body field `status` set to `PUBLISH`.
+        Returned after a successful component PATCH.
       properties:
         id:
           type: string
@@ -3162,6 +3158,8 @@ components:
 
     CampaignMetaListResponseData:
       type: object
+      description: |
+        The response does not include a `total_count` field. To determine whether you have reached the last page, check whether the number of items returned is less than the `limit` you requested. If `campaigns` contains fewer items than `limit`, you have retrieved all results.
       required: [campaigns]
       properties:
         campaigns:
@@ -3240,7 +3238,7 @@ components:
               message: "Caller does not have the required scope for this operation."
               details:
                 - target: "X-MOE-Scopes"
-                  message: "Required scope: campaigns:create_manage_publish"
+                  message: "Required scope: campaigns:create_manage"
     V5BadRequest:
       description: Wrong state for the requested operation (for example, PATCH a non-draft campaign, or an Idempotency-Key reused with a different body).
       content:
@@ -3254,7 +3252,7 @@ components:
               details: []
     V5UnprocessableEntity:
       description: |
-        Body is well-formed but cannot be acted on (e.g. publish-validator failure when calling PATCH /status {action: PUBLISH}).
+        Body is well-formed but cannot be acted on (e.g. validation failure or an invalid status action).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
@@ -3427,24 +3425,23 @@ paths:
                     delivery_type: "ASAP"
               email_event_triggered_delay:
                 summary: Email - EVENT_TRIGGERED (with delay)
-                description: Field values are illustrative. Replace the connector, content, and trigger values with your own before use.
                 value:
                   request_id: "{{request_id}}"
                   channel: "EMAIL"
                   campaign_delivery_type: "EVENT_TRIGGERED"
                   created_by: "{{user_email}}"
                   basic_details:
-                    name: "Order Confirmation - Email"
+                    name: "{{campaign_name}}"
                     content_type: "TRANSACTIONAL"
                   connector:
-                    connector_type: "sendgrid"
-                    connector_name: "SendGrid Production"
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
                   trigger_condition:
                     included_filters:
                       filter_operator: "and"
                       filters:
                         - filter_type: "actions"
-                          action_name: "order_placed"
+                          action_name: "{{action_name}}"
                           execution:
                             type: "atleast"
                             count: 1
@@ -3458,14 +3455,14 @@ paths:
                   campaign_content:
                     content:
                       email:
-                        subject: "Your order has been placed"
-                        sender_name: "Example Store"
-                        from_address: "orders@example.com"
-                        html_content: "<p>Hi {{UserAttribute['First Name']}}, your order has been confirmed.</p>"
+                        subject: "{{email_subject}}"
+                        sender_name: "{{sender_name}}"
+                        from_address: "{{from_address}}"
+                        html_content: "{{html_body}}"
                   scheduling_details:
                     delivery_type: "AT_FIXED_TIME"
-                    start_time: "2026-07-01T00:00:00"
-                    expiry_time: "2026-12-31T23:59:59"
+                    start_time: "{{start_time}}"
+                    expiry_time: "{{expiry_time}}"
               push_event_triggered:
                 summary: Push - EVENT_TRIGGERED
                 value:
@@ -3684,24 +3681,23 @@ paths:
                         - "TUESDAY"
               email_event_triggered:
                 summary: Email - EVENT_TRIGGERED
-                description: Field values are illustrative. Replace the connector, content, and trigger values with your own before use.
                 value:
                   request_id: "{{request_id}}"
                   channel: "EMAIL"
                   campaign_delivery_type: "EVENT_TRIGGERED"
-                  created_by: "marketer@example.com"
+                  created_by: "{{user_email}}"
                   basic_details:
-                    name: "Order Confirmation - Email"
+                    name: "{{campaign_name}}"
                     content_type: "TRANSACTIONAL"
                   connector:
-                    connector_type: "sendgrid"
-                    connector_name: "SendGrid Production"
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
                   trigger_condition:
                     included_filters:
                       filter_operator: "and"
                       filters:
                         - filter_type: "actions"
-                          action_name: "order_placed"
+                          action_name: "{{action_name}}"
                           execution:
                             type: "atleast"
                             count: 1
@@ -3710,14 +3706,14 @@ paths:
                   campaign_content:
                     content:
                       email:
-                        subject: "Your order has been placed"
-                        sender_name: "Example Store"
-                        from_address: "orders@example.com"
-                        html_content: "<p>Hi {{UserAttribute['First Name']}}, your order has been confirmed. We will send a shipping update soon.</p>"
+                        subject: "{{email_subject}}"
+                        sender_name: "{{sender_name}}"
+                        from_address: "{{from_address}}"
+                        html_content: "{{html_body}}"
                   scheduling_details:
                     delivery_type: "AT_FIXED_TIME"
-                    start_time: "2026-07-01T00:00:00"
-                    expiry_time: "2026-12-31T23:59:59"
+                    start_time: "{{start_time}}"
+                    expiry_time: "{{expiry_time}}"
               email_business_event_triggered:
                 summary: Email - BUSINESS_EVENT_TRIGGERED
                 value:
@@ -4028,19 +4024,30 @@ paths:
           $ref: '#/components/responses/V5ValidationError'
         '401':
           $ref: '#/components/responses/V5Unauthorized'
+        '404':
+          description: The requested campaign does not exist or does not belong to the authenticated workspace.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
+              example:
+                response_id: "abc-404"
+                error:
+                  code: NOT_FOUND
+                  message: "Campaign not found."
+                  details: []
         '500':
           $ref: '#/components/responses/V5InternalError'
     patch:
       operationId: patch_draft_campaign_v5
       summary: Update Campaign
       description: |
-        Updates individual components of a campaign draft, or transitions a draft to ACTIVE by setting `status: PUBLISH`.
+        Updates individual components of a campaign draft.
       x-mint:
         content: |
-          The request body determines which flow runs.
+          <Note>
+          **Campaign publishing is not yet available in V5.** This endpoint only supports updating draft components. To publish campaigns, use the V1 API at `PATCH /core-services/v1/campaigns/{campaign_id}` in the interim. Publishing via V5 will be available in a future release.
+          </Note>
 
-          <Tabs>
-          <Tab title="Update draft campaign">
           Send a `PATCH` request without a `status` key in the body.
 
           The API merges each submitted component into the existing draft, then validates the full merged state (`DRAFT_PATCH`).
@@ -4048,33 +4055,6 @@ paths:
 
           Only the fields you include in the request body are updated. Fields you omit retain their current values.
           For the full field reference per delivery type, see the [Create Campaign API](/api/campaigns/create-campaign).
-
-          ```json
-          {
-            "request_id": "{{request_id}}",
-            "campaign_content": { }
-          }
-          ```
-          </Tab>
-
-          <Tab title="Publish campaign">
-          Send a `PATCH` request with **only** the `status` field set to `PUBLISH` - no other fields.
-
-          The API validates the fully merged draft state (`DRAFT_PUBLISH`) and, if all checks pass, transitions the campaign from `DRAFT` to `ACTIVE` (or `SCHEDULED` for future-dated campaigns).
-
-          ```json
-          {
-            "request_id": "{{request_id}}",
-            "status": "PUBLISH"
-          }
-          ```
-          </Tab>
-          </Tabs>
-
-          <Warning>
-          **Status and component fields are mutually exclusive:** You cannot combine `status: PUBLISH` with any other component fields in the same request body, as doing so returns `400 Bad Request`.
-          Send either a component update or a publish action, never both in a single request.
-          </Warning>
 
           #### Update restrictions by campaign state
 
@@ -4163,11 +4143,6 @@ paths:
                         from_address: "{{from_email}}"
                         html_content: "{{html_body}}"
                         "email_editor": "Froala Editor"
-              publish_campaign:
-                summary: Publish campaign
-                value:
-                  request_id: "{{request_id}}"
-                  status: "PUBLISH"
               push_update_basic_details:
                 summary: Push - Update basic_details
                 value:
@@ -4412,7 +4387,7 @@ paths:
       responses:
         '200':
           description: |
-            Draft updated successfully, or campaign published.
+            Draft updated successfully.
 
             **Note:** V1 returned `204 No Content` for successful updates. V5 returns `200 OK` with a
             response body. Update any integration that checks for `204` to expect `200` instead.
@@ -4432,13 +4407,6 @@ paths:
                     type: "campaign"
                     data:
                       id: "64a1b2c3d4e5f6a7b8c9d0e1"
-                published:
-                  summary: Campaign published
-                  value:
-                    response_id: "abc-302"
-                    type: "campaign"
-                    data:
-                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
@@ -4446,8 +4414,8 @@ paths:
         '403':
           description: |
             The caller does not have the required permission to update this campaign.
-            This occurs when the API credential's scope does not include campaign update or publish rights,
-            or when the caller attempts to publish a campaign owned by a different team with restricted access.
+            This occurs when the API credential's scope does not include campaign update rights,
+            or when the caller attempts to update a campaign owned by a different team with restricted access.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
@@ -4459,9 +4427,9 @@ paths:
                   details: []
         '409':
           description: |
-            The campaign is not in a state that allows updates or publishing.
+            The campaign is not in a state that allows updates.
             This occurs when the campaign is not in `DRAFT` state - for example, it is `ACTIVE`, `PAUSED`,
-            or `STOPPED`. Only `DRAFT` campaigns can be updated or published via this endpoint.
+            or `STOPPED`. Only `DRAFT` campaigns can be updated via this endpoint.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
@@ -4585,7 +4553,7 @@ paths:
       x-mint:
         content: |
           <Note>
-          `PUBLISH` is not accepted on this endpoint. To publish a draft, use `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }`.
+          This endpoint only handles post-publish lifecycle transitions (STOP, PAUSE, RESUME) for campaigns that are already live. Campaign publishing is not yet supported in V5.
           </Note>
 
           <Note>
