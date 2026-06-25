@@ -12,6 +12,50 @@ The MoEngage iOS SDK provides a secure framework for delivering personalized cam
   Before you can fetch personalized experiences, ensure you have called the SDK `initialize()` method within your application entry point ( `didFinishLaunchingWithOptions` on iOS). For more information, refer to [SDK initialization](https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization).
 </Tip>
 
+{/* SDK-TEAM-SUGGESTION:
+The iOS SDK has no `initialize()` method. The actual public init methods are
+`MoEngage.sharedInstance.initializeDefaultLiveInstance(_:)` (production) and
+`initializeDefaultTestInstance(_:)` (dev / test). The existing iOS SDK
+initialization doc at developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization.mdx
+already uses this canonical wording — please align this callout. Also consider
+bolding "**Prerequisite**" to match the Android doc.
+Suggested replacement:
+  Before fetching personalized experiences, ensure the core MoEngage SDK is
+  initialised in your application — typically inside
+  application(_:didFinishLaunchingWithOptions:). Use
+  MoEngage.sharedInstance.initializeDefaultLiveInstance(_:) for production or
+  initializeDefaultTestInstance(_:) for development. For more details, refer to
+  SDK initialization.
+*/}
+
+{/* SDK-TEAM-SUGGESTION:
+Consider adding a new top-level section here, "How It All Fits Together" — the
+Flutter and React Native docs open with this:
+
+  # How It All Fits Together
+
+  Before writing any code, it is helpful to understand the three moving parts of
+  the personalization workflow:
+
+  1. **Dashboard Configuration:** A marketer creates an Experience Campaign in
+     the MoEngage dashboard and assigns it a unique `experienceKey`.
+  2. **The Meta Call:** Your application calls `fetchExperiencesMeta` to
+     discover which experience keys are active for the current user.
+  3. **The Fetch Call:** Your application calls `fetchExperience` or
+     `fetchExperiences` with a specific key to retrieve the actual payload.
+
+  <Info>
+    The SDK returns **raw** JSON only. As the developer, you are responsible
+    for parsing this payload and building the corresponding UI.
+  </Info>
+*/}
+
+{/* SDK-TEAM-SUGGESTION:
+Heading grammar — please use "Integrate MoEngage Personalization" (
+matches the React Native doc) or "Integrating MoEngage Personalization"
+(matches the Flutter doc).
+*/}
+
 # Integration MoEngage Personalization
 
 <Tabs>
@@ -25,6 +69,27 @@ The MoEngage iOS SDK provides a secure framework for delivering personalized cam
     3. Select the master branch or your desired version.
     4. Click **Add Package**.
     5. Add the MoEngagePersonalization product to your app target.
+
+    {/* SDK-TEAM-SUGGESTION:
+    Two related fixes for steps 2-3:
+
+    (a) The second URL (`MoEngage-iOS-SDK.git`) is not useful on this page.
+        The MoEngagePersonalization SPM product is only published from the
+        `apple-sdk` repo starting at version 10.12.0. The older
+        `MoEngage-iOS-SDK` repo does not expose this product at any tag — so
+        a customer who follows that link cannot complete the integration.
+        Please drop the second bullet entirely.
+
+    (b) State the minimum version explicitly in step 3 — anyone pinned to a
+        pre-10.12.0 tag will silently see no product.
+
+    Suggested replacement for steps 2-3:
+
+      2. Enter the repository URL:
+         https://github.com/moengage/apple-sdk.git
+      3. Select the master branch or your desired version.
+         Note: MoEngagePersonalization is available from `apple-sdk` 10.12.0 onwards.
+    */}
   </Tab>
   <Tab title="CocoaPods">
     Integrate the MoEngage Personalize framework by adding the dependency in the pod file as described.
@@ -60,88 +125,257 @@ The MoEngage iOS SDK provides a secure framework for delivering personalized cam
 
 The `MoEngageSDKPersonalize` singleton is designed to simplify the retrieval and interaction with dynamic, personalized content on iOS. The SDK provides native Swift methods as well as Objective-C-compatible overloads.
 
+{/* SDK-TEAM-SUGGESTION:
+Consider adding a short "Entry Point" sub-section here, mirroring how the
+Flutter and React Native docs introduce their entry point.
+
+  ## Entry Point
+
+  The `MoEngageSDKPersonalize` singleton is designed to simplify the retrieval and interaction with dynamic, personalized content on iOS. The SDK provides native Swift methods as well as Objective-C-compatible overloads.
+
+  <Info>
+    All fetch and tracking methods accept an optional trailing `workspaceId`
+    parameter. Multi-workspace apps pass the workspace (App ID) at the end of
+    each call; single-workspace apps omit it — `nil` resolves to the default
+    workspace.
+  </Info>
+*/}
+
 ## 1. Fetching Meta Experience
+
+{/* SDK-TEAM-SUGGESTION:
+Section header style — every other section in this doc uses imperative
+("Fetch Personalized Content", "Track Impressions"). Please rename this
+section to "Fetch Meta Experience" for consistency (also matches the Android doc).
+*/}
 
 Before fetching any specific payload or experience, you must invoke the metadata call. This step provides the SDK with the necessary configuration and context to accurately process subsequent requests. The SDK offers dedicated methods for both Swift and Objective-C.
 
 <CodeGroup>
 
 ```swift Swift wrap
-public func fetchExperiencesMeta(
-        status: [MoEngageExperienceStatus],
-        onSuccess: @escaping MoEngageMetaSuccessCallback,
-        onFailure: @escaping MoEngagePersonalizeFailureCallback,
-        workspaceId: String? = nil
-    )
+import MoEngagePersonalization
+
+// All fetch and tracking methods accept an optional trailing `workspaceId`.
+// Multi-workspace apps pass the workspace (App ID); single-workspace apps
+// can omit it (defaults to nil → the default workspace).
+MoEngageSDKPersonalize.sharedInstance.fetchExperiencesMeta(
+    status: [.active],
+    onSuccess: { metadata in
+        // metadata.source                  — .cache or .network
+        // metadata.experienceCampaignMeta — [MoEngageExperienceCampaignMetaDetail]
+        print("Fetched \(metadata.experienceCampaignMeta.count) experience(s)")
+    },
+    onFailure: { reason in
+        print("Meta fetch failed: \(reason.displayCode) — \(reason.message)")
+    },
+    workspaceId: nil
+)
 ```
 
-```objective-c Objective-c wrap
-@objc(fetchExperiencesMetaWithStatusRawValues:onSuccess:onFailure:workspaceId:)
-    public func fetchExperiencesMetaObjC(
-        statusRawValues: [NSNumber],
-        onSuccess: @escaping MoEngageMetaSuccessCallback,
-        onFailure: @escaping MoEngagePersonalizeFailureCallback,
-        workspaceId: String? = nil
-    )
+```objective-c Objective-C wrap
+@import MoEngagePersonalization;
+
+NSArray<NSNumber *> *statuses = @[ @(MoEngageExperienceStatusActive) ];
+
+[[MoEngageSDKPersonalize sharedInstance]
+    fetchExperiencesMetaWithStatusRawValues:statuses
+    onSuccess:^(MoEngageExperienceCampaignMetaData *metadata) {
+        NSLog(@"Fetched %lu experience(s)",
+              (unsigned long)metadata.experienceCampaignMeta.count);
+    }
+    onFailure:^(MoEngageExperienceFailureReason *reason) {
+        NSLog(@"Meta fetch failed: %@ — %@", reason.displayCode, reason.message);
+    }
+    workspaceId:nil];
 ```
 
 </CodeGroup>
 
 The `onSuccess` callback returns an [`ExperienceCampaignsMetadata`](https://moengage.github.io/ios-api-reference/MoEngagePersonalization.html#/c:@M@MoEngagePersonalization@objc(cs)MoEngageExperienceCampaignMetaData) object containing all necessary metadata for campaign execution. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode`](https://moengage.github.io/ios-api-reference/MoEngagePersonalization.html#/c:@M@MoEngagePersonalization@E@MoEngageExperienceFailureReasonCode) and an optional message to identify the specific reason for the request's failure.
 
+{/* SDK-TEAM-SUGGESTION:
+Consider expanding the paragraph above to mention details the SDK exposes:
+  - metadata.source (.cache or .network) — tells the reader whether the data
+    was served from the local cache or fetched fresh.
+  - MoEngageExperienceFailureReason carries more than just a code/message —
+    it has `displayCode` (HTTP404, E006, etc.) and `httpStatusCode` for HTTP
+    errors.
+Also: passing `status: []` returns experiences in *all* statuses — add a one-liner.
+
+Also please fix the displayed link text in the paragraph above:
+  - "ExperienceCampaignsMetadata" → `MoEngageExperienceCampaignMetaData`
+  - "RequestFailureReasonCode" → `MoEngageExperienceFailureReason` (for the
+    class passed to `onFailure`) or `MoEngageExperienceFailureReasonCode` (for
+    the enum stored on its `.code` property). Neither type is named
+    "RequestFailureReasonCode" in the SDK.
+*/}
+
 Always call the metadata fetch first to initialize core configurations based on the desired experience status. Use the standard method for Swift arrays, or the ObjC variant if passing raw NSNumber values from Objective-C code.
+
+{/* SDK-TEAM-SUGGESTION:
+The line above is slightly inaccurate — the metadata call doesn't "initialize
+core configurations"; it returns the discoverable experience keys you can
+subsequently fetch. The Android doc phrases it well:
+  "Ensure you call fetchExperiencesMeta first to retrieve the experience keys
+  you need."
+*/}
 
 ## 2. Fetch Personalized Content
 
 Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
 
+{/* SDK-TEAM-SUGGESTION:
+Consider splitting this section into "### Fetch a Single Experience" and
+"### Fetch Multiple Experiences" sub-headings (Android, Flutter, RN all do
+this — makes the page scannable). Also consider adding the Android-style
+Info callout about EXPERIENCE_KEY:
+  <Info>
+    `experienceKey` is the unique key configured for the campaign on the
+    MoEngage dashboard. You can discover the available keys in the
+    `experienceCampaignMeta` array returned by `fetchExperiencesMeta`. Calls
+    made with a key not present in the meta result fail with
+    `.invalidExperienceKey`.
+  </Info>
+*/}
+
 The code snippet below to fetch a single experience is compatible with both Swift and Objective-C implementations:
 
-```objective-c Objective-C wrap
- @objc public func fetchExperience(
-        experienceKey: String,
-        attributes: [String: String] = [:],
-        onSuccess: @escaping MoEngageExperienceSuccessCallback,
-        onFailure: @escaping MoEngagePersonalizeFailureCallback,
-        workspaceId: String? = nil
-    )
+{/* SDK-TEAM-SUGGESTION:
+The line above reads as if a single snippet works for both Swift and ObjC, but
+the block below actually has separate Swift and Objective-C tabs. Suggested
+replacement:
+  "The Swift and Objective-C snippets below fetch a single experience."
+*/}
+
+<CodeGroup>
+
+```swift Swift wrap
+let attributes: [String: String] = [
+    "current_page": "home",
+    "cart_value": "500"
+]
+
+// `attributes` is optional — use it for contextual targeting; omit the parameter entirely to skip.
+MoEngageSDKPersonalize.sharedInstance.fetchExperience(
+    experienceKey: "home_banner",
+    attributes: attributes,
+    onSuccess: { result in
+        // result.experiences — campaigns resolved for this key
+        // result.failures    — per-key business-logic failures
+        print("Single experience: \(result)")
+    },
+    onFailure: { reason in
+        print("Fetch failed: \(reason.displayCode) — \(reason.message)")
+    }
+)
 ```
+
+```objective-c Objective-C wrap
+NSDictionary<NSString *, NSString *> *attributes = @{
+    @"current_page": @"home",
+    @"cart_value": @"500"
+};
+
+// `attributes` is optional — use it for contextual targeting; pass @{} to skip.
+[[MoEngageSDKPersonalize sharedInstance]
+    fetchExperienceWithExperienceKey:@"home_banner"
+    attributes:attributes
+    onSuccess:^(MoEngageExperienceCampaignsResult *result) {
+        NSLog(@"Single experience: %@", result);
+    }
+    onFailure:^(MoEngageExperienceFailureReason *reason) {
+        NSLog(@"Fetch failed: %@", reason.message);
+    }
+    workspaceId:nil];
+```
+
+</CodeGroup>
 
 To fetch multiple experiences:
 
 <CodeGroup>
 
 ```swift Swift wrap
-public func fetchExperiences(
-        experienceKeys: Set<String>,// EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call. 
-    // Using a key that is not part of the meta call or incorrect key will result in an invalid key error.
-        attributes: [String: String] = [:],
-        onSuccess: @escaping MoEngageExperienceSuccessCallback,
-        onFailure: @escaping MoEngagePersonalizeFailureCallback,
-        workspaceId: String? = nil
-    )
+// EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+// Using a key that is not part of the meta call will result in an invalid key error.
+// `attributes` is optional — use it for contextual targeting; omit the parameter entirely to skip.
+MoEngageSDKPersonalize.sharedInstance.fetchExperiences(
+    experienceKeys: ["home_banner", "checkout_offer"],
+    attributes: attributes,
+    onSuccess: { result in
+        // result.experiences — successfully resolved campaigns
+        // result.failures    — per-key failures (e.g. user not in segment for one key)
+    },
+    onFailure: { reason in
+        print("Fetch failed: \(reason.displayCode) — \(reason.message)")
+    }
+)
 ```
 
-```objective-c Objective-c wrap
-   // MARK: - Multiple Experiences Fetch    @objc(fetchExperiencesWithKeys:attributes:onSuccess:onFailure:workspaceId:)
-    public func fetchExperiencesObjC(
-        experienceKeys: [String], // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call. 
-    // Using a key that is not part of the meta call or incorrect key will result in an invalid key error.
-        attributes: [String: String] = [:],
-        onSuccess: @escaping MoEngageExperienceSuccessCallback,
-        onFailure: @escaping MoEngagePersonalizeFailureCallback,
-        workspaceId: String? = nil
-    )
+```objective-c Objective-C wrap
+// EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+// Using a key that is not part of the meta call will result in an invalid key error.
+// `attributes` is optional — use it for contextual targeting; pass @{} to skip.
+[[MoEngageSDKPersonalize sharedInstance]
+    fetchExperiencesWithKeys:@[@"home_banner", @"checkout_offer"]
+    attributes:attributes
+    onSuccess:^(MoEngageExperienceCampaignsResult *result) {
+        NSLog(@"%lu succeeded, %lu failed",
+              (unsigned long)result.experiences.count,
+              (unsigned long)result.failures.count);
+    }
+    onFailure:^(MoEngageExperienceFailureReason *reason) {
+        NSLog(@"Fetch failed: %@", reason.message);
+    }
+    workspaceId:nil];
 ```
 
 </CodeGroup>
 
 The `onSuccess` callback returns an  [`ExperienceCampaignsResult`](https://moengage.github.io/ios-api-reference/MoEngagePersonalization.html#/c:@M@MoEngagePersonalization@objc(cs)MoEngageExperienceCampaignsResult) object containing all necessary metadata for campaign execution. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode`](https://moengage.github.io/ios-api-reference/MoEngagePersonalization.html#/c:@M@MoEngagePersonalization@E@MoEngageExperienceFailureReasonCode) and an optional message to identify the specific reason for the request's failure.
 
+{/* SDK-TEAM-SUGGESTION:
+Consider being explicit about the split returned by
+ExperienceCampaignsResult — customers often miss that some keys may succeed
+while others fail in the same response:
+
+  - `experiences` — campaigns resolved successfully.
+  - `failures`    — per-key failures, including BOTH:
+                      • SDK-side `.invalidExperienceKey` entries for any
+                        requested keys not present in the metadata cache
+                        (returned alongside successful keys);
+                      • server-side business-logic failures (user in control
+                        group, user not in segment, key expired, etc.).
+
+System-level failures surface via `onFailure` instead — SDK not initialised,
+network/HTTP/parse errors, and the edge case where **all** requested keys are
+invalid (in which case the entire request is rejected upfront).
+
+Also please fix the displayed link text in the paragraph above:
+  - "ExperienceCampaignsResult" → `MoEngageExperienceCampaignsResult`
+  - "RequestFailureReasonCode" → `MoEngageExperienceFailureReason` (for the
+    class passed to `onFailure`) or `MoEngageExperienceFailureReasonCode` (for
+    the enum on `.code`). Neither type is named "RequestFailureReasonCode".
+*/}
+
 You can fetch :
 
 - Single Experiences: Retrieve a specific payload using a single experienceKey.
 - Bulk Experiences: Retrieve multiple payloads at once. In Swift, pass a Set\<String\>. For Objective-C, use the `fetchExperiencesObjC` method which accepts an NSArray bridged as \[String\].
+
+{/* SDK-TEAM-SUGGESTION:
+The "fetchExperiencesObjC" name in the bullet above is the Swift FUNCTION
+name — an Objective-C consumer never sees it. The actual ObjC selector
+exposed (via @objc(...) on the Swift source) is
+`fetchExperiencesWithKeys:attributes:onSuccess:onFailure:workspaceId:`, which
+takes `NSArray<NSString *>`. Suggested rewrite of the bullet:
+
+  - Bulk Experiences: Retrieve multiple payloads at once. In Swift, pass a
+    Set\<String\>. In Objective-C, call
+    `fetchExperiencesWithKeys:attributes:onSuccess:onFailure:workspaceId:`,
+    which accepts an `NSArray<NSString *>`.
+*/}
 
 Use cases:
 
@@ -151,59 +385,118 @@ Use cases:
 
 To accurately measure campaign performance, you must track user interactions after rendering the personalized content on the UI. The below-mentioned tracking code snippets are compatible with both Swift and Objective-C implementations.
 
+{/* SDK-TEAM-SUGGESTION:
+Consider adding the React Native doc's one-line definition of "impression"
+before this section's first sub-heading:
+  "An *impression* is a telemetry event that notifies the MoEngage SDK that a
+  personalized campaign payload has successfully rendered on the UI and is
+  visible to the user."
+*/}
+
 ### 3a. Track Impressions for Experience Campaigns
 
-```objective-c Objective-C wrap
- // MARK: - Tracking
-    
-    /// Tracks impression for an experience.
-    @objc public func experienceShown(
-        campaign: MoEngageExperienceCampaign, //campaign is a placeholder for the campaign objects returned by the fetchExperiences function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
-        workspaceId: String? = nil
-    )
-    
-    /// Tracks impressions for multiple experiences.
-    @objc public func experiencesShown(
-        campaigns: [MoEngageExperienceCampaign],
-        workspaceId: String? = nil
-    )
+<CodeGroup>
+
+```swift Swift wrap
+// `campaign` is one of the objects returned in result.experiences from a fetch call.
+// Pass the exact same instance back to the tracking call.
+MoEngageSDKPersonalize.sharedInstance.experienceShown(campaign: campaign)
+
+// Or track several campaigns at once:
+MoEngageSDKPersonalize.sharedInstance.experiencesShown(campaigns: campaigns)
 ```
+
+```objective-c Objective-C wrap
+// `campaign` / `campaigns` are objects returned from a fetch call.
+[[MoEngageSDKPersonalize sharedInstance] experienceShownWithCampaign:campaign workspaceId:nil];
+
+[[MoEngageSDKPersonalize sharedInstance] experiencesShownWithCampaigns:campaigns workspaceId:nil];
+```
+
+</CodeGroup>
 
 You can use these methods to log "Impressions" (`experienceShown / experiencesShown`) when the UI renders the content.
 
 ### 3b. Track Impressions for Offering Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content. The SDK provides dedicated tracking functions that accept offering-specific attributes. The below-mentioned tracking code snippets are compatible with both Swift and Objective-C implementations.
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content (such as a product recommendation or a coupon code). Each experience campaign can carry one or more offerings inside its `payload`. A fetched campaign that carries an offerings group has the following shape:
 
-```objective-c Objective-C wrap
- // MARK: - Offering Tracking
-  
-    /// Tracks impression for an offering within an experience.
-    @objc public func offeringShown(
-        offeringPayload: [String: Any],
-        workspaceId: String? = nil
-    )
-    
-    /// Tracks impressions for multiple offerings.
-    @objc public func offeringsShown(
-        offeringPayloads: [[String: Any]],
-        workspaceId: String? = nil
-    )
+```json Sample MoEngageExperienceCampaign
+{
+  "experienceKey": "home_banner",
+  "payload": {
+    "<your_offering_key>": {
+      "value": "[ { \"offering_content\": { ... }, \"offering_context\": { ... }, \"...\": \"...\" }, ... ]",
+      "data_type": "string"
+    }
+  },
+  "experienceContext": { ... },
+  "source": "network"
+}
 ```
 
-These methods send the full offering dict (one element from the `offerings` array in `campaign.payload`) to the server, providing highly granular analytics for custom offers.
+- `payload` is the campaign's content dictionary — offerings live one level below it.
+- `<your_offering_key>` is configured for this campaign on the MoEngage dashboard — you decide its name when authoring the campaign.
+- `value` is a **stringified JSON array**. Decode it to obtain the list of offering dicts.
+- Each offering dict contains:
+  - `offering_content` — the data you render into your UI.
+  - `offering_context` — attribution data used by the SDK; do not modify it.
+
+Once you have decoded one or more offering dicts out of `campaign.payload`, pass them back to the SDK when the corresponding UI renders:
+
+<CodeGroup>
+
+```swift Swift wrap
+// `offeringPayload` is one decoded offering dict from campaign.payload.
+// `offeringPayloads` is an array of such dicts.
+let offeringPayload: [String: Any] = [:]
+let offeringPayloads: [[String: Any]] = []
+
+// Track a single offering:
+MoEngageSDKPersonalize.sharedInstance.offeringShown(offeringPayload: offeringPayload)
+
+// Or track multiple offerings at once:
+MoEngageSDKPersonalize.sharedInstance.offeringsShown(offeringPayloads: offeringPayloads)
+```
+
+```objective-c Objective-C wrap
+// `offeringPayload` is one decoded offering dict from campaign.payload.
+// `offeringPayloads` is an array of such dicts.
+[[MoEngageSDKPersonalize sharedInstance]
+    offeringShownWithOfferingPayload:offeringPayload
+    workspaceId:nil];
+
+[[MoEngageSDKPersonalize sharedInstance]
+    offeringsShownWithOfferingPayloads:offeringPayloads
+    workspaceId:nil];
+```
+
+</CodeGroup>
+
+{/* SDK-TEAM-SUGGESTION:
+Section 3b above replaces the older brief paragraph and the misleading line
+"These methods send the full offering dict (one element from the `offerings`
+array in campaign.payload)…" — there is no literal `"offerings"` key at the
+top level of payload; the key is configurable per campaign (shown as
+`<your_offering_key>` in the sample). Please review the rewritten 3b section
+and adopt as-is if accurate.
+*/}
 
 ## 4. Track Clicks
 
 ### 4a. Track Clicks for Experience Campaigns
 
-```objective-c Objective-C wrap
- /// Tracks click for an experience.
-    @objc public func experienceClicked(
-        campaign: MoEngageExperienceCampaign,
-        workspaceId: String? = nil
-    )
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKPersonalize.sharedInstance.experienceClicked(campaign: campaign)
 ```
+
+```objective-c Objective-C wrap
+[[MoEngageSDKPersonalize sharedInstance] experienceClickedWithCampaign:campaign workspaceId:nil];
+```
+
+</CodeGroup>
 
 You can use these methods to log "Clicks" (`experienceClicked`) when the user interacts with the UI element.
 
@@ -211,20 +504,66 @@ You can use these methods to log "Clicks" (`experienceClicked`) when the user in
 
 [Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content. The SDK provides dedicated tracking functions that accept offering-specific attributes. The below-mentioned tracking code snippets are compatible with both Swift and Objective-C implementations.
 
-```objective-c Objective-C wrap
-  /// Tracks click for an offering.
-    @objc public func offeringClicked(
-        campaign: MoEngageExperienceCampaign,
-        offeringPayload: [String: Any],
-        workspaceId: String? = nil
-    )
+{/* SDK-TEAM-SUGGESTION:
+The current paragraph re-defines what offerings are (already covered in §3b)
+and only loosely orients the reader to the click-tracking case. Consider
+trimming the duplicated definition while keeping the offering-click framing,
+e.g.:
+
+  "Use `offeringClicked` to log a click on a specific offering item (a product
+  recommendation, a coupon code, etc.) within an offering campaign. Pass both
+  the parent `campaign` and the specific offering dict you extracted from
+  `campaign.payload` — see [§3b](#3b-track-impressions-for-offering-campaigns)
+  for the payload shape."
+
+Keeps the orientation that "this section is about clicks on offerings", but
+removes the duplicated "offerings are a distinct subtype…" line.
+*/}
+
+<CodeGroup>
+
+```swift Swift wrap
+// `offeringPayload` is the decoded offering dict for the offering the user just clicked
+// (decoded from campaign.payload as shown in §3b).
+let offeringPayload: [String: Any] = [:]
+
+MoEngageSDKPersonalize.sharedInstance.offeringClicked(
+    campaign: campaign,
+    offeringPayload: offeringPayload
+)
 ```
+
+```objective-c Objective-C wrap
+// `offeringPayload` is the decoded offering dict for the offering the user just clicked
+// (decoded from campaign.payload as shown in §3b).
+[[MoEngageSDKPersonalize sharedInstance]
+    offeringClickedWithCampaign:campaign
+    offeringPayload:offeringPayload
+    workspaceId:nil];
+```
+
+</CodeGroup>
 
 <Info>
   You can use these Offering-specific functions only if the data is part of an offering payload. For all other experience data, use the standard experience shown/clicked functions.
 </Info>
 
 These methods send the full offering dict (one element from the `offerings` array in `campaign.payload`) to the server, providing highly granular analytics for custom offers.
+
+{/* SDK-TEAM-SUGGESTION:
+Keep the `<Info>` callout above as-is — it usefully distinguishes
+offering-specific tracking from the standard experience shown/clicked
+functions. Only the *next* line is inaccurate: it references "the `offerings`
+array in `campaign.payload`", but there is no literal `offerings` key — the
+top-level key inside `campaign.payload` is configurable per campaign and the
+offerings live one level deeper, inside that key's `value` field (see §3b).
+
+Suggested replacement for the next line only:
+
+  "Each call sends one offering dict — one element of the JSON array decoded
+  from the `value` field inside `campaign.payload` — to the server, providing
+  highly granular analytics for custom offers."
+*/}
 
 For more information, refer to the [API documentation](https://moengage.github.io/ios-api-reference/MoEngagePersonalization.html#/c:@M@MoEngagePersonalization@objc(cs)MoEngageSDKPersonalize).
 
