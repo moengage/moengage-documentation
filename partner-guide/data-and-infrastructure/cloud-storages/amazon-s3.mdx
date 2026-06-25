@@ -51,23 +51,23 @@ Select the authentication method that matches how you plan to use the connection
   <Accordion title="Cross account role (Preferred) — supports both imports and exports">
     In this method, you create one IAM role in your AWS account and allow a single MoEngage role to assume it. You need two values from MoEngage:
 
-    - **MoEngage AWS Account ID**: The MoEngage account that your role trusts.
-    - **MoEngage External ID**: A value unique to your workspace, in the format `moe-external-xxxxxxxxxx` (for example, `moe-external-f82a6992-9c75-5d4c-f985-a0c3b8f3bcf2`).
+    - **MoEngage AWS Account ARN**: The only MoEngage identity your role will trust.
+    - **MoEngage External ID**: A value unique to your workspace, in the format `moe-external-xxxxxxxxxx`.
 
     <Info>
       **Where to find these values**
 
-      In MoEngage, go to **Amazon S3** \> **Integrations** \> **Add Connection**. The **MoEngage AWS Account ID** and your workspace's **MoEngage External ID** appear on the **Add Connection** form (see [Step 3: Connect Amazon S3 on the App Marketplace](#step-3-connect-amazon-s3-on-the-app-marketplace)). Copy them before you configure AWS.
+      In MoEngage, go to **Amazon S3** \> **Integrations** \> **Add Connection**. The **MoEngage AWS Account ARN** and your workspace's **MoEngage External ID** appear on the **Add Connection** form (see [Step 3: Connect Amazon S3 on the App Marketplace](#step-3-connect-amazon-s3-on-the-app-marketplace)). Copy them before you configure AWS.
     </Info>
 
-    ![Add Connection form highlighting the MoEngage AWS Account ID and MoEngage External ID fields](/images/s3-add-connection-form.png)
+    ![Add Connection form highlighting the MoEngage AWS Account ID and MoEngage External ID fields](/images/s3-cross-1.png)
 
     **Create the cross account role**
 
     1. Sign in to the **AWS Management Console** and open the **IAM** service.
     2. In the left navigation, choose **Roles**, and then click **Create role**.
     3. For **Trusted entity type**, select **Custom trust policy**.
-    4. In the **Custom trust policy** editor, paste the following trust policy (replace the placeholders first), and then click **Next**. The trust policy defines who may assume your role.
+    4. In the **Custom trust policy** editor, paste the following trust policy, replace the placeholders with the values from the App marketplace, and then click **Next**. The trust policy defines who may assume your role.
 
        ```json
        {
@@ -77,12 +77,12 @@ Select the authentication method that matches how you plan to use the connection
              "Sid": "AllowMoEngageToAssume",
              "Effect": "Allow",
              "Principal": {
-               "AWS": "arn:aws:iam::582272135730:root"
+               "AWS": "<<MoEngage AWS Account ARN>>"
              },
              "Action": "sts:AssumeRole",
              "Condition": {
                "StringEquals": {
-                 "sts:ExternalId": "moe-external-xxxxxxxxxx"
+                 "sts:ExternalId": "<<MoEngage External ID>>"
                }
              }
            }
@@ -101,6 +101,8 @@ Select the authentication method that matches how you plan to use the connection
 
   <Accordion title="Access key [Imports] — supports imports only">
     Instead of a role, you provide an AWS access key pair that has read access to your bucket.
+
+    ![Add Connection form highlighting the Access Key ID and Secret Access Key input fields](/images/s3-cross-2.png)
 
     1. In your AWS account, create an **IAM user** (or use an existing programmatic user) and generate an **Access Key ID** and **Secret Access Key**.
     2. Attach a permission policy granting read access to your bucket (see [Step 2: Grant Permissions](#step-2-grant-permissions) → **Imports** tab).
@@ -131,7 +133,7 @@ Select the authentication method that matches how you plan to use the connection
             "AWS": "arn:aws:iam::612427630422:role/service-role/core_s3_export-role-e1qw8ulf"
           },
           "Action": "s3:PutObject",
-          "Resource": "arn:aws:s3:::your-bucket-name/*"
+          "Resource": "arn:aws:s3::<INSERTBUCKETNAME>/*"
         }
       ]
     }
@@ -163,18 +165,13 @@ In each example, the bucket is named `your-bucket-name` and files live under the
           "Sid": "MoEngageImportReadObjects",
           "Effect": "Allow",
           "Action": ["s3:GetObject"],
-          "Resource": "arn:aws:s3:::your-bucket-name/moengage/*"
+          "Resource": "arn:aws:s3:::<INSERTBUCKETNAME>/*"
         },
         {
           "Sid": "MoEngageImportListBucket",
           "Effect": "Allow",
           "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-          "Resource": "arn:aws:s3:::your-bucket-name",
-          "Condition": {
-            "StringLike": {
-              "s3:prefix": "moengage/*"
-            }
-          }
+          "Resource": "arn:aws:s3:::<INSERTBUCKETNAME>/*"
         }
       ]
     }
@@ -199,7 +196,7 @@ In each example, the bucket is named `your-bucket-name` and files live under the
           "Sid": "MoEngageExportListBucket",
           "Effect": "Allow",
           "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-          "Resource": "arn:aws:s3:::your-bucket-name"
+          "Resource": "arn:aws:s3:::<INSERTBUCKETNAME>/*"
         }
       ]
     }
@@ -240,7 +237,7 @@ To connect your S3 bucket in the MoEngage dashboard:
 
 6. Click **Test** to validate your credentials, and then click **Connect** to activate the Amazon S3 integration.
 
-   ![Test and Connect buttons for the Amazon S3 integration](/images/s3-test-connect.png)
+   ![Test and Connect buttons for the Amazon S3 integration](/images/s3-cross-4.png)
 
    <Info>
      Configuration changes can take up to 15 minutes to propagate to your active campaigns and connections.
