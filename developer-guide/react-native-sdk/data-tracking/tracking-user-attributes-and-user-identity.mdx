@@ -5,13 +5,20 @@ description: "Track user attributes and set identifiers for identity resolution 
 
 User attributes are pieces of information you know about a user. They could be demographics such as age and gender, account-specific like plan, or whether a user has seen a particular A/B test variation. User attributes are customer properties you can reference throughout the customer's lifecycle.
 
+## Prerequisites
+
+To track user attributes and identifiers successfully, ensure that:
+
+- The MoEngage React Native SDK is installed and initialized in your application.
+- For workflows that use multiple identifiers, Identity Resolution is enabled in your MoEngage workspace and the relevant identifiers are activated. For configuration steps, see [Configure multiple identifiers](/user-guide/data/user-data/unified-identity-identity-resolution#configure-multiple-identifiers).
+
 ## Difference Between User Attributes and User Identifiers
 
 User attributes and user identifiers serve different purposes in MoEngage: 
 
 **User Identifiers:**
 
-User identifiers are unique values that persist across multiple sessions and devices, allowing MoEngage to recognise a user as the same individual, even when they switch between different platforms or log in later. This process, known as identity resolution, is crucial for maintaining a unified user profile, providing a consistent user experience, and tracking user behaviour accurately.
+User identifiers are unique values that persist across multiple sessions and devices, allowing MoEngage to recognize a user as the same individual, even when they switch between different platforms or log in later. This process, known as identity resolution, is critical for maintaining a unified user profile, providing a consistent user experience, and tracking user behavior accurately.
 
 Common examples of user identifiers include:
 
@@ -20,39 +27,44 @@ Common examples of user identifiers include:
 - User ID: MoEngage assigns each user a unique ID upon registration. This ID is used as a reliable identifier within the MoEngage platform.
 - Customer ID: In e-commerce and customer relationship management (CRM) systems, a customer ID is assigned to track individual customers across various interactions.
 
-These identifiers are set using the **_identifyUser()_** method.
+Set these identifiers using the `identifyUser()` method.
 
-By default, parameter **_ID_** is the identifier used for your workspaces, unless [Identity resolution](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#overview) is enabled and identifiers are activated in your workspace.
+By default, the `ID` parameter is the identifier used for your workspaces, unless [Identity Resolution](/user-guide/data/user-data/unified-identity-identity-resolution#overview) is enabled and identifiers are activated in your workspace.
 
-**User Attributes**:
+**User Attributes:**
 
-Descriptive information about a user that enhances their profile - Used for segmentation, personalisation, and analytics - Examples: name, age, gender, preferences, purchase history - Set using dedicated methods like **_setFirstName()_** or **_setUserAttribute()_** - Help create personalised user experiences 
+User attributes are descriptive information about a user that enhances their profile. They:
+
+- Support segmentation, personalization, and analytics.
+- Include details such as name, age, gender, preferences, and purchase history.
+- Are set using dedicated methods such as `setUserFirstName()` or `setUserAttribute()`.
+- Help you create personalized user experiences. 
 
 In simple terms, identifiers answer "Who is this user?" while attributes answer "What do we know about this user?"
 
 ## Powering MoEngage Features
 
-User attributes and identifiers are crucial for leveraging MoEngage effectively:
+User attributes and identifiers are central to using MoEngage effectively:
 
 - **Segmentation:**
-  - Use attributes to create targeted user groups based on demographics, behavior, etc.
-  - Example: Segment users by age, purchase history for specific campaigns.
-- **Personalisation:**
-  - Identifiers ensure consistent user experience across devices.
-  - Attributes enable tailored content (messages, recommendations).
-  - Example: Personalise emails with names, recommend relevant products.
+  - Use attributes to create targeted user groups based on demographics, behavior, and similar factors.
+  - Example: Segment users by age or purchase history for specific campaigns.
+- **Personalization:**
+  - Identifiers ensure a consistent user experience across devices.
+  - Attributes enable tailored content such as messages and recommendations.
+  - Example: Personalize emails with names and recommend relevant products.
 - **Analytics:**
   - Attributes provide context to user actions and behavior data.
-  - Analyze conversion rates by segments, feature engagement by demographics.
+  - Analyze conversion rates by segment and feature engagement by demographics.
   - Gain deeper insights for data-driven decisions.
 
-By using attributes and identifiers, you can build more relevant and engaging user experiences.
+Using attributes and identifiers helps you build more relevant and engaging user experiences.
 
-# Implementing Login/Logout
+## Implementing Login/Logout
 
-For SDK versions below 11.2.00 refer to this document.
+For SDK versions below 11.2.00, refer to [Setting Unique ID for SDK versions below 11.2.0](/developer-guide/react-native-sdk/data-tracking/setting-unique-id-for-sdk-versions-below-1120).
 
-## Login User
+### Login User
 
 **Single Identifier**
 
@@ -67,7 +79,9 @@ ReactMoE.identifyUser("abc@xyz.com"); //Pass any unique value for your user
 
 </CodeGroup>
 
-**Note**: If a key is not specified, the SDK defaults to `uid`, the unique user identifier in MoEngage.
+<Note>
+  If a key is not specified, the SDK defaults to `uid`, the unique user identifier in MoEngage.
+</Note>
 
 **Multiple Identifiers**
 
@@ -91,49 +105,51 @@ import ReactMoE from 'react-native-moengage'
   - If you call the _IdentifyUser_ function without logging out, then the existing logged-in user's ID is updated.
 </Info>
 
-**Note**: Before implementing **_identifyUser()_** with multiple identifiers, you must activate the defined identifiers on the MoEngage dashboard. For configuration steps, see [this documentation](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#configure-multiple-identifiers).
+<Note>
+  Before implementing `identifyUser()` with multiple identifiers, you must activate the defined identifiers on the MoEngage dashboard. For configuration steps, see [Configure multiple identifiers](/user-guide/data/user-data/unified-identity-identity-resolution#configure-multiple-identifiers).
+</Note>
 
-**_Behaviour of Multiple identifyUser() calls_**
+**Behavior of multiple `identifyUser()` calls**
 
-- When calling **_identifyUser()_** multiple times, the new identifiers are appended to the existing list rather than replacing them. Here's an example of how this works:
-
-<CodeGroup>
-
-```javascript JavaScript
-import ReactMoE from 'react-native-moengage';
-            //First call with email
-            ReactMoE.identifyUser({"u_em":"abc@xyz.com"});
-          //Later call identifyUser() with mobile Number
-          ReactMoE.identifyUser({"u_mb":"999999999"});
-          //Result now the user has both email and mobile identifiers;
-```
-
-</CodeGroup>
-
-- If you call **_identifyUser()_** with an identifier key that already exists, the new value will be update the existing one. Here's an example of how this works:
+- When you call `identifyUser()` multiple times, the new identifiers are appended to the existing list rather than replacing them. Here's an example of how this works:
 
 <CodeGroup>
 
 ```javascript JavaScript
 import ReactMoE from 'react-native-moengage';
-            //First call with initial email
-            ReactMoE.identifyUser({"u_em":"abc@xyz.com"});
-          //Later call identifyUser() when User updates their email
-          ReactMoE.identifyUser({"u_em":"jfk@xyz.com"});
-          //Result now the user email is updated with the later one;
+// First call with email
+ReactMoE.identifyUser({"u_em": "abc@xyz.com"});
+// Later call to identifyUser() with the mobile number
+ReactMoE.identifyUser({"u_mb": "999999999"});
+// The user now has both email and mobile identifiers.
 ```
 
 </CodeGroup>
 
-This behaviour allows you to:
+- If you call `identifyUser()` with an identifier key that already exists, the new value replaces the existing one. Here's an example of how this works:
+
+<CodeGroup>
+
+```javascript JavaScript
+import ReactMoE from 'react-native-moengage';
+// First call with the initial email
+ReactMoE.identifyUser({"u_em": "abc@xyz.com"});
+// Later call to identifyUser() when the user updates their email
+ReactMoE.identifyUser({"u_em": "jfk@xyz.com"});
+// The user's email is now updated to the most recent value.
+```
+
+</CodeGroup>
+
+This behavior allows you to:
 
 - Add new identifiers as they become available
 - Update specific identifiers without affecting others
 - Build a complete user identity profile over time
 
-Here, `u_em`, `u_mb` are standard user attributes. Please refer to [this section](/developer-guide/react-native-sdk/data-tracking/tracking-user-attributes-and-user-identity) to identify user with more standard user attributes
+Here, `u_em` and `u_mb` are standard user attributes. To identify a user with more standard user attributes, see [Standard and Custom Attributes](#standard-and-custom-attributes).
 
-## Standard and Custom Attributes
+### Standard and Custom Attributes
 
 **Standard attributes:** These are common user attributes that are pre-defined within the MoEngage dashboard, such as email address and mobile phone number. The table below lists these standard attributes and their corresponding key names
 
@@ -170,9 +186,9 @@ ReactMoE.identifyUser({ cust_attr_1: 'value1', cust_attr_2: 'value2', u_em: 'ema
 
 </CodeGroup>
 
-For detailed instructions on selecting both custom and standard attributes when configuring multiple identifiers, please refer to [this document](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#step-1-select-identifiers).
+For detailed instructions on selecting both custom and standard attributes when configuring multiple identifiers, see [Select identifiers](/user-guide/data/user-data/unified-identity-identity-resolution#step-1-select-identifiers).
 
-## Logout User
+### Logout User
 
 <CodeGroup>
 
@@ -189,17 +205,17 @@ ReactMoE.logout();
   Never use both the login methods - `identifyUser` and `setUserUniqueID()`(method to assign identifier present in versions below 11.2.0) in your project. Use only either one of the methods. Using both the methods can lead to inconsistent user profile creation and merging in your MoEngage account.
 </Warning>
 
-### Logout Callback Listener
+#### Logout Callback Listener
 
 To receive a callback when logout is complete, register a listener for the `logoutComplete` event:
 
 <CodeGroup>
 
 ```javascript JavaScript
-ReactMoE.setEventListener("logoutComplete", (data) =>
-  console.log(("Logout completed", data)
+ReactMoE.setEventListener("logoutComplete", (data) => {
+  console.log("Logout completed", data);
   // process your logout complete here
-);
+});
 ```
 
 </CodeGroup>
@@ -208,7 +224,7 @@ ReactMoE.setEventListener("logoutComplete", (data) =>
   The logout callback listener requires React Native SDK version 12.8.0 or later.
 </Note>
 
-# Tracking User Attributes
+## Tracking User Attributes
 
 Use the following helper methods to set User attributes like Name, Email, Mobile, Gender, etc.
 
@@ -269,17 +285,17 @@ ReactMoE.setUserAttributeLocation(
   You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
 </Info>
 
-## Custom Boolean User Attribute
+### Custom Boolean User Attribute
 
-### iOS (optional)
+#### iOS (Optional)
 
-Starting from version 11.x.x of react-native-moengage, the default tracking for the custom boolean attribute will be changed to **_boolean(true/false)_** from **_double(0/1_**). To configure this, use **_MoEAnalyticsConfig_** and pass true to track the boolean as double. By default, this is set as **false** to track the boolean as true/false.
+Starting from version 11.x.x of `react-native-moengage`, the default tracking for the custom boolean attribute is `boolean (true/false)` instead of `double (0/1)`. To track the boolean as a double, use `MoEAnalyticsConfig` and pass `true`. By default, this value is `false`, which tracks the boolean as `true`/`false`.
 
-Refer to the initialisation code snippet below.
+Refer to the initialization code snippet below.
 
 <CodeGroup>
 
-```java JavaScript
+```javascript JavaScript
 import ReactMoE from 'react-native-moengage';
 import { MoEInitConfig, MoEPushConfig, MoEngageLogConfig, MoEngageLogLevel } from "react-native-moengage";
 const moEInitConfig = new MoEInitConfig(
@@ -299,7 +315,7 @@ Refer to the example code below for tracking the boolean user attribute 
 ```javascript JavaScript
 import ReactMoE, {
   MoEGeoLocation,
-} from “react-native-moengage”;
+} from "react-native-moengage";
       
 // If MoEAnalyticsConfig is passed as true then `boolean attribute True` will tracked with value 1 else true
 ReactMoE.setUserAttribute("boolean attribute True", true);
@@ -310,7 +326,7 @@ ReactMoE.setUserAttribute("boolean attribute False", false);
 
 </CodeGroup>
 
-## Reserved keywords for User Attributes
+### Reserved Keywords for User Attributes
 
 Below is the list of keys that should not be used when tracking user attributes.
 
