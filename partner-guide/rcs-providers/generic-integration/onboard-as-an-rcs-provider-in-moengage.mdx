@@ -1,5 +1,6 @@
 ---
 title: "Onboard as an RCS Provider in MoEngage"
+description: "Standard request payload and callback formats for vendors onboarding as a native RCS service provider in MoEngage."
 ---
 
 This article describes the standard payload formats that MoEngage uses for sending RCS template messages and standard callback formats for delivering callback information to MoEngage.
@@ -124,7 +125,7 @@ the Product team",
                     "orientation": "HORIZONTAL",
                     "height": "",
                     "alignment": "LEFT",
-                    "parameters": &#123;
+                    "parameters": {
                        "name": "John",
                        "company": "Moengage",
                        "teamname": "Product"
@@ -215,7 +216,7 @@ the Product team",
    "type": "TEXT",
    "data": {
         "text": "Text message to be sent",
-        "parameters": &#123; // Template parameters object
+        "parameters": { // Template parameters object
                  "param_1": "value_1",
                   ...
                 }
@@ -238,8 +239,11 @@ the Product team",
    "type": "CARD",
       "data": {
           "media": {
-               "media _url": "media_url",
-               "content_type": "content type"
+               "media_url": "media_url",
+               "content_type": "content type",
+               "thumbnail": {                   //Optional
+                     "thumbnail_url": "thumbnail_url"
+                       }
                },
             "title": "Title message", // resolved message
             "description": "Description of the card", // resolved message
@@ -260,11 +264,58 @@ the Product team",
 | --- | --- | --- | --- |
 | media\["media\_url"\] | Required | Object | This field denotes the type of templates. Supported values are: <ul><li>TEXT</li><li>CARD</li></ul> |
 | media\["content\_type"\] | Required | String | This field denotes the content type of the media. Supported values are: <ul><li>PDF</li><li>VIDEO</li><li>IMAGE</li></ul> |
+| media\["thumbnail"\] | Optional | Object | This field denotes the thumbnail information. |
 | title | Required | String | This field denotes the resolved title. This is for vendors who do not support dynamic parameters can use this to do a string match. |
 | description | Optional | Array | This field denotes the resolved description. This is for vendors who do not support dynamic parameters. They can use this to do a string match. |
 | orientation | Required | String | This field denotes the media orientation. Supported values are: <ul><li>HORIZONTAL</li><li>VERTICAL</li></ul> |
 | height | Optional | String | This field denotes the media height. Supported values are: <ul><li>SHORT</li><li>MEDIUM <br />**Note**: This field is optional only in case of vertical orientation.</li></ul> |
 | alignment | Optional | String | This field denotes the media alignment. Supported values are: <ul><li>LEFT</li><li>RIGHT<br />**Note**: This field is optional only in case of horizontal orientation.</li></ul> |
+
+**Note**: Other parameters remain the same as specified above, hence not mentioned, but for reference, check above.
+
+## Message Content for Carousel
+
+```json wrap
+{
+  "type": "CAROUSEL",
+  "data": {
+    "width": "SMALL | MEDIUM",
+    "cards": [
+      {
+        "data": {
+          "media": {
+            "media_url": "media_url",
+            "content_type": "content type", //optional
+            "thumbnail": {
+              "thumbnail_url": "thumbnail_url"
+            }
+          },
+          "title": "Title message",
+          "description": "Description of the card",
+          "orientation": "HORIZONTAL | VERTICAL",
+          "height": "SHORT | MEDIUM", // comes only in case of VERTICAL
+          "alignment": "LEFT | RIGHT", // comes only in case of HORIZONTAL
+          "parameters": { // Template parameters object
+            "param_1": "value_1",
+            ...
+          }
+        },
+        "suggestions": [SUGGESTION_1, SUGGESTION_2 ...] //Optional suggestions array of objects
+      },
+      {
+        card 2 body
+      }
+    ]
+  }
+}
+```
+
+| **Key** | **Optional/Required** | **Data Type** | **Description** |
+| --- | --- | --- | --- |
+| width | Required | String | This field denotes the width of the carousel. |
+| cards | Required | Array of Card Template Object | This field contains the list of card template objects. |
+
+**Note**: Other parameters remain the same as specified above, hence not mentioned, but for reference, check above.
 
 ## Message Content for Media
 
@@ -306,13 +357,17 @@ Following are the types of _suggestion_ JSON objects:
    "type": "OPEN_URL",
    "text": "Suggestion text",
    "postback_data": "postback data string",
-   "url": "url"
+   "url": "url",
+   "application": "WEBVIEW" | "BROWSER",    //Optional
+   "webview_view_mode": "FULL" | "HALF" | "TALL" //Optional
 }
 ```
 
 | **Key** | **Optional/Required** | **Data Type** | **Description** |
 | --- | --- | --- | --- |
 | url | Required | String | This field denotes the URL specified for redirection. |
+| application | Optional | String | This field denotes that the application is opened in a browser or a webview. |
+| webview\_view\_mode | Optional | String | This field is required only if a webview is used within the application. |
 
 ### Dial Phone
 
