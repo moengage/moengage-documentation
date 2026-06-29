@@ -2740,9 +2740,9 @@ components:
       properties:
         connector_type:
           type: string
-          enum: [SENDGRID, MAILGUN, MAILJET, SES, SMTP, SPARKPOST]
+          enum: [SENDGRID, AMAZON_SES, SPARKPOST, MANDRILL, CUSTOM_SMTP, CUSTOM_API, NETCORE]
           description: |
-            The type of connector service. Must match a connector configured in your MoEngage workspace. To find valid values, go to **Settings** > **Email** > **Connectors** in the MoEngage dashboard.
+            The email service provider for this campaign. Must match a connector configured in your MoEngage workspace. Accepted values: `SENDGRID`, `AMAZON_SES`, `SPARKPOST`, `MANDRILL`, `CUSTOM_SMTP`, `CUSTOM_API`, `NETCORE`. To find which connectors are active, go to **Settings** > **Email** > **Connectors** in the MoEngage dashboard.
         connector_name: 
           type: string
           description: The name of the connector configuration as configured in your MoEngage workspace.
@@ -3226,7 +3226,7 @@ components:
               message: "Invalid or missing credentials."
               details: []
     V5Forbidden:
-      description: Caller's `X-MOE-Scopes` does not satisfy the required scope for this operation.
+      description: The authenticated caller does not have permission to perform this operation.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/V5ErrorEnvelope' }
@@ -3234,11 +3234,8 @@ components:
             response_id: "abc-450"
             error:
               code: FORBIDDEN
-              target: "X-MOE-Scopes"
-              message: "Caller does not have the required scope for this operation."
-              details:
-                - target: "X-MOE-Scopes"
-                  message: "Required scope: campaigns:create_manage"
+              message: "Caller does not have permission to perform this operation."
+              details: []
     V5BadRequest:
       description: Wrong state for the requested operation (for example, PATCH a non-draft campaign, or an Idempotency-Key reused with a different body).
       content:
@@ -4460,14 +4457,58 @@ paths:
       operationId: validate_draft_campaign_v5
       summary: Validate Campaign
       description: |
-        Validates whether a draft would pass publish-time checks (`DRAFT_PUBLISH`) without making any changes to the draft.
+        Runs full publish-time validation (`DRAFT_PUBLISH`) on a saved draft without mutating it. Returns `valid: true` if the campaign would pass, or a list of blocking errors if it would not.
 
-        The request body is the same regardless of channel — all campaign data is read from the saved draft identified by `campaign_id` in the path, so there is no channel-specific payload.
+        All campaign data is read from the saved draft identified by `campaign_id` in the path. There is no channel-specific payload.
       x-mint:
         content: |
           <Info>
-          You do not need an idempotency key for this endpoint.
+          You do not need an idempotency key for this endpoint. The validate endpoint is read-only and safe to retry freely.
           </Info>
+
+          ### Validation Modes
+
+          The V5 API applies validation in two modes:
+
+          | Mode | Triggered by | Strictness |
+          | :--- | :--- | :--- |
+          | Lenient | Draft create (`POST /v5/campaigns`) and component patch (`PATCH /v5/campaigns/{id}`) | Partial — individual components are validated in isolation as they are written |
+          | Full (`DRAFT_PUBLISH`) | `POST /v5/campaigns/{id}/validate` and publish | Strict — all components are validated together as a complete, publish-ready campaign |
+
+          Use this endpoint to catch `DRAFT_PUBLISH` failures before triggering a publish.
+
+          ### Validation Failures
+
+          All validation failures are blocking. There is no warning or non-blocking tier. A campaign that fails validation returns `valid: false` with a list of field-level errors. Each error identifies the `field` path and the `issue`.
+
+          ### Channel-Specific Rules
+
+          The following rules are enforced at `DRAFT_PUBLISH` for each channel:
+
+          **Push**
+          - `campaign_content` must be present and include content for all platforms listed in `basic_details.platforms`.
+          - `template_type` must be valid for the target platform (Android, iOS, Web).
+          - Platform-specific required fields (for example, `title` and `message` for Android basic templates) must be non-empty.
+
+          **Email**
+          - `connector.connector_type` and `connector.connector_name` must be present and match a connector configured in your workspace.
+          - `basic_details.from_address` must be set and match a verified sender in the configured connector.
+          - `basic_details.subscription_category` must be present for `PROMOTIONAL` content type.
+          - `campaign_content` must include at least one variation with a non-empty `subject` and `html_content`.
+
+          ### Delivery-Type-Specific Rules
+
+          The following rules are enforced at `DRAFT_PUBLISH` based on `campaign_delivery_type`:
+
+          | Delivery Type | Additional Requirements |
+          | :--- | :--- |
+          | `ONE_TIME`, `PERIODIC` | `scheduling_details` must be present. |
+          | `AT_FIXED_TIME` scheduling | `scheduling_details.timezone` must be present. |
+          | `PERIODIC` | `scheduling_details.periodic_details` must be present with a valid `sending_frequency`. |
+          | `EVENT_TRIGGERED` | `trigger_condition` must be present with at least one `included_filters` entry. |
+          | `DEVICE_TRIGGERED` | `trigger_condition` must be present. Trigger delay fields (`trigger_delay_type`, `trigger_delay_value`, `trigger_delay_granularity`) must **not** be set — they are only valid for `EVENT_TRIGGERED`. |
+          | `BUSINESS_EVENT_TRIGGERED` | `basic_details.business_event` must be present. |
+          | `LOCATION_TRIGGERED` | `basic_details.geofences` must contain at least one valid geofence entry. |
 
           #### Rate Limits
 
