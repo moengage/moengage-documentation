@@ -44,7 +44,8 @@ To create a new SFTP connection, perform the following steps:
    | Port | Enter or select the port to which you want to connect your SFTP server. Valid ports range from 1 to 65535. The default port is 22. | 22 |
    | Username | Enter the username for the SFTP connection. You can enter an existing user with read and write access or create a new one for MoEngage. | John Doe |
    | Authentication Method | You must select one of the following methods for MoEngage to connect to your SFTP server: <ul><li>**Password**: Enter the password of the SFTP user (username) in the **Password** box.</li><li>**Key**: MoEngage connects to your SFTP server using the key pair authentication method. You must use this option to generate a key. For more information, refer to [Manage Your SFTP Key (Key Rotation)](#manage-your-sftp-key-key-rotation).</li><li>**2FA (Both)**: MoEngage attempts to connect using both Password and Key authentication. The connection proceeds successfully if either the password or the key matches; it does not perform a strict check requiring both.</li></ul> For **Key** and **2FA (Both)** authentication: <ol><li>Select **Key** or **2FA (Both)** as your Authentication method.</li><li>Click the **Generate Key** icon, and MoEngage displays your public key. You must add this public key to your SFTP server. For more information, refer to [How to add a new SSH key to a cloud server](https://www.servers.com/support/knowledge/linux-administration/how-to-add-new-ssh-key-to-a-cloud-server) (unverified public article).</li></ol> **Note**: The key generated is a public key. For 2FA (Both), you must enter the Password and generate/use the Key. | Password / Key / 2FA (Both) |
-   | <img src="/images/partner_43256271555348.png" /> |  |  |
+
+   ![Generated public key displayed when you select Key or 2FA (Both) authentication](/images/partner_43256271555348.png)
 6. You can click **Test connect** to verify the credentials and test your details before saving the connection. When you're ready, click **Connect** to save the connection and proceed.
    <Note>
      If you generate a new key for rotation, you must test the connection successfully to complete the rotation, or MoEngage will continue using the old Key.
@@ -87,12 +88,9 @@ To enable SFTP Exports on the MoEngage App Marketplace:
    | User properties | Select user properties (user properties and device properties) you want to export with your events. User attributes (such as user attributes, device attributes, and custom attributes) are available in Data Management for that Database/App. | (drop-down) |
    | Select events | Select the events you want to export to your SFTP server. The available options are: <ul><li>**All events**</li><li>**Select events manually**</li></ul> You can choose to export "All events" (existing and new events coming into MoEngage in the future) or cherry-pick events manually and export only those events. | All events / Select events manually |
    | Select events (drop-down) | This drop-down list is visible only if you select **Select events manually** under **Select events**. The events on this drop-down list are auto-populated with all the events in Data Management for that Workspace. | (drop-down) |
-   | Frequency | Select how often you want to export these events. We offer three frequencies: <ul><li>**Every 15 mins**: We will dump files at 15-minute intervals.</li><li>**Daily**: We will dump files at the end of each day, 00:00 UTC.</li><li>**Weekly**: We will dump files on every Monday, 00:00 UTC.</li></ul> A preview of next dump is displayed in case of Daily and Weekly. | Every 15 mins / Daily / Weekly |
+   | Frequency | Select how often you want to export these events. We offer three frequencies: <ul><li>**Every 15 mins**: We will dump files at 15-minute intervals.</li><li>**Daily**: We will dump files at the end of each day, 02:00 UTC.</li><li>**Weekly**: We will dump files on every Monday, 02:00 UTC.</li></ul> A preview of next dump is displayed in case of Daily and Weekly. | Every 15 mins / Daily / Weekly |
    <Warning>
-     - MoEngage does not recommend frequently changing your export frequency, as this might result in data loss or duplication.
-     - **Effective January 20, 2026**, MoEngage is updating the S3 and SFTP export processes as part of upcoming enhancements.
-       - **New export time**: For daily and weekly exports, the file generation time will change from 00:00 UTC to 02:00 UTC.
-       - **New file naming convention**: The file naming format will change from using an epoch timestamp to a unique string. For more information, refer to [Data Export Format](https://www.moengage.com/docs/user-guide/data/event-data/derived-events-and-attributes). If you have existing automations or pipelines that rely on the old export time or file name format, please update them before January 20, 2026.
+     MoEngage does not recommend frequently changing your export frequency, as this might result in data loss or duplication.
    </Warning>
 5. Click **Save export**. Your export will be saved and when the **Export status** toggle is turned on, MoEngage will start exporting files to the specified folder path on your SFTP server based on the selected export frequency.
 
@@ -111,15 +109,13 @@ With the MoEngage and SFTP integration, you can export all events coming into Mo
 | File Format | JSON |
 | Compression Type | GZip |
 | Export Frequency | Every 15 mins, Daily, or Weekly |
-| Sample Folder Path | `sftp://<host_name>/[<folder_path>/]<connection_name>/export_date={DD-MM-YYYY}/{filename=event_export}_<unique_string>[_<file_number>].json.gz` |
+| Sample Folder Path | `sftp://<host>/[<folder_path>/]<connection_name>/export_day=YYYY-MM-DD/event_exports_<UNIQUE_ID>.json.gz` |
 
 In the sample folder path:
 
 - `<folder_path>` is the prefix folder path given by you.
 - `<connection_name>` is the connection name sluggified as entered by you.
-- File number is optional in case we split the files.
-
-**Note** : The file naming convention change will be effective December 25, 2025. The file naming format for exports is being updated from an epoch timestamp to a unique string. Ensure any data pipelines are configured to handle the new format.
+- `<UNIQUE_ID>` is a unique identifier generated for each export file.
 
 - **Current name (epoch timestamps)** : export\_day=2025-10-28/event\_exports\_1761689701.json.gz
 - **New name (unique str)** : export\_day=2025-10-28/event\_exports\_50492790da7cc2a0674fb51fa5046e3c.json.gz
