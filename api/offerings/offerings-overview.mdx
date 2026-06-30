@@ -35,20 +35,6 @@ The Offerings API includes the following endpoints:
   There is no endpoint to fetch a single offering by ID.
 </Note>
 
-## Prerequisites
-
-Creating an offering requires several workspace-level resources to already exist. Ensure the following are configured before calling the Create endpoint.
-
-| Resource | How to get the ID | API available? |
-| :--- | :--- | :--- |
-| **Tags** | MoEngage dashboard → **Offer Decisioning** → **Tags**. Copy the tag ID from the tag detail view. | No - tags must be created and managed in the dashboard. |
-| **Offering attributes** | MoEngage dashboard → **Offer Decisioning** → **Attributes**. Copy the attribute ID from the attribute detail view. | No - attributes must be configured in the dashboard. |
-| **Personalization templates** | Use `GET /v5/offers/templates` and copy the `id` from the response. | Yes - use [List Templates](/api/public-offerings/list-templates). |
-
-<Info>
-  Passing an unknown tag ID returns `400 INVALID_TAG_ID`. Passing an unknown attribute ID returns a validation error at the `offering_attribute_configuration` field. Resolve all IDs before constructing your Create request.
-</Info>
-
 ## Authentication
 
 All endpoints use Basic Auth. Pass your MoEngage Workspace ID (App ID) as the username and your API key (from the **Personalize** tile) as the password.
@@ -81,26 +67,6 @@ Two conflict cases return `409`:
 
 Use the **same key** only when retrying an identical request after a network failure or timeout. Use a **new key** for every logically distinct operation, including any request where the payload has changed.
 
-## Rate Limits
-
-Rate limits apply at the workspace level across all Offerings API endpoints. Each endpoint allows 100 requests per minute, 300 per hour, and 600 per day. The per-day limit uses a rolling 24-hour window - it does not reset at midnight UTC.
-
-Each response includes the following headers:
-
-| Header | Description |
-| :--- | :--- |
-| `X-RateLimit-Limit` | The maximum number of requests allowed in the current per-minute window. |
-| `X-RateLimit-Remaining` | Requests remaining in the current per-minute window. |
-| `X-RateLimit-Reset` | UTC epoch second when the current per-minute window resets. |
-
-If any limit is exceeded, the API returns `429` with a `Retry-After` header indicating how many seconds to wait before retrying. The `429` response does not count against your quota.
-
-<Note>
-  If your use case requires creating more than 600 offerings per day, contact your MoEngage CSM to discuss higher limits.
-</Note>
-
----
-
 ## FAQs
  
 ### Getting Started
@@ -110,7 +76,7 @@ If any limit is exceeded, the API returns `429` with a `Retry-After` header indi
     Yes. Make sure the Offer Decisioning feature is enabled for your workspace — if it isn't, all API calls return `403 FORBIDDEN`. Contact your MoEngage CSM or the Support team to request enablement.
     Before calling Create Offering, ensure the following workspace resources already exist:
  
-    - **Tags** — create and manage them in the MoEngage dashboard under **Offer Decisioning → Tags**. The tag IDs you pass in the `tags` array must already exist.
+    - **Tags** — create and manage them in the MoEngage dashboard under **Settings → Advanced Settings → Tags**. The tag IDs you pass in the `tags` array must already exist.
     - **Offering attributes** — configured under **Offer Decisioning → Attributes** in the dashboard. Pass their IDs in `offering_attribute_configuration`.
     - **Personalization templates** — list available templates using `GET /v5/offers/templates` and use the returned `id` as `meta.templateId` in your content.
   </Accordion>
@@ -125,11 +91,8 @@ If any limit is exceeded, the API returns `429` with a `Retry-After` header indi
     An offering is always in one of five states: `scheduled`, `active`, `expired`, `archived`, or `draft`.
     See the [Offering lifecycle](#offering-lifecycle) section above for the full state table.
   </Accordion>
-  <Accordion title="Is there a draft or publish step like the Campaigns API?">
-    No. The Offerings API does not have a draft lifecycle. An offering is created directly in `scheduled`, `active`, or `expired` state based on its scheduling dates. There is no separate publish or validate step.
-  </Accordion>
   <Accordion title="Can I fetch a single offering by ID?">
-    There is no dedicated `GET /v5/offers/{offer_id}` endpoint. To retrieve a specific offering, call [List Offerings](/api/public-offerings/list-offerings) with the `id` query parameter set to the offering's ID (including the `offer_` prefix). This returns a single-item list for that offering.
+    Currently, there is no dedicated `GET /v5/offers/{offer_id}` endpoint. To retrieve a specific offering, call [List Offerings](/api/public-offerings/list-offerings) with the `id` query parameter set to the offering's ID (including the `offer_` prefix). This returns a single-item list for that offering.
   </Accordion>
 </AccordionGroup>
 ### Create Offering
@@ -154,9 +117,6 @@ If any limit is exceeded, the API returns `429` with a `Retry-After` header indi
   </Accordion>
   <Accordion title="What characters are allowed in an offering name?">
     Offering names must be 5–100 characters and contain only letters, numbers, and underscores. Spaces, hyphens, and special characters are not allowed. Names must be unique within the workspace. Example of a valid name: `Summer_Sale_Promo_2026`.
-  </Accordion>
-  <Accordion title="Can I create multiple offerings in bulk?">
-    Yes, by making sequential Create requests. The rate limits are 100 requests per minute, 300 per hour, and 600 per day (rolling 24-hour window), per workspace. Monitor the `X-RateLimit-Remaining` header to implement proactive throttling. If your use case requires more than 600 offerings per day, contact your MoEngage CSM.
   </Accordion>
 </AccordionGroup>
 ### Update Offering
@@ -200,24 +160,5 @@ If any limit is exceeded, the API returns `429` with a `Retry-After` header indi
   </Accordion>
   <Accordion title="What format is required for the Idempotency-Key?">
     UUID v4 (for example, `550e8400-e29b-41d4-a716-446655440000`). For automated workflows, generate a fresh UUID v4 per distinct operation. Do not derive the key from the request payload — if the payload is identical to a previous request, an intentional replay would return the cached response.
-  </Accordion>
-</AccordionGroup>
-### Rate Limits
- 
-<AccordionGroup>
-  <Accordion title="Are rate limits per endpoint or across the entire API?">
-    Rate limits apply at the workspace level across all Offerings API endpoints combined — not per endpoint. List Offerings calls, Create Offering calls, and Update Offering calls all count against the same quota.
-  </Accordion>
-  <Accordion title="Is the 600/day limit a rolling window or a calendar-day reset?">
-    The per-day limit uses a rolling 24-hour window. It does not reset at midnight UTC. If you make 600 requests between 10:00 and 23:00, you will not be able to make further requests until 24 hours after the first request in that window.
-  </Accordion>
-  <Accordion title="How do I know how many requests I have left?">
-    Every API response includes `X-RateLimit-Remaining`, which tells you how many requests remain in the current per-minute window. Monitor this header proactively to throttle before hitting the limit rather than reacting to `429` responses.
-  </Accordion>
-  <Accordion title="What should I do when I receive a 429 response?">
-    Read the `Retry-After` header — it tells you the number of seconds to wait before retrying. The `429` response itself does not count against your quota. For automated workflows, implement exponential backoff with jitter to avoid synchronized retries from multiple workers hitting the limit at the same time.
-  </Accordion>
-  <Accordion title="What if 600 offerings per day is not enough for my use case?">
-    Contact your MoEngage CSM to discuss higher rate limits for your workspace.
   </Accordion>
 </AccordionGroup>
