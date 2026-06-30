@@ -1,0 +1,434 @@
+---
+title: "Configure and Integrate AMP Event Analytics"
+---
+
+MoEngage AMP event analytics plugin helps in track user attributes and events, and run third-party javascript. MoEngage AMP event analytics plugin ensures to address the differences in AMP pages and HTML page restriction for tracking user attributes and events.
+
+The MoEngage AMP event analytics plugin is different from the AMP analytics module.
+
+To add event tracking and user attribute tracking to your AMP pages follow these steps-
+
+# Add AMP Analytics Script
+
+Ensure to include the script in all of your AMP pages in the `&lt;head&gt;` section of your .amp file where you want to use AMP analytics and track user attributes and events.
+
+```html
+<script async custom-element="amp-analytics" src="https://cdn.ampproject.org/v0/amp-analytics-0.1.js"></script&gt;
+```
+
+## Add Anywhere in your HTML
+
+```html
+<amp-analytics type="moengage" id="moengage">
+<script type="application/json">
+{
+  "vars": {
+    "appId": "YOUR_WORKSPACE_ID",
+    "dataCenter": "sdk-01",
+  }
+}
+</script>
+</amp-analytics>
+```
+
+<Info>
+  Note Ensure to replace Your\_Workspace\_ID with the actual Workspace Id from MoEngage Dashboard -\> Settings -\> Account -\> General Settings For dataCenter, please contact our support team to know more.
+</Info>
+
+<Info>
+  Note To redirect data to test environment, append '\_DEBUG' to appId. For example, if your appId is\
+  YOUR\_WORKSPACE\_ID then for test environment, it would be YOUR\_WORKSPACE\_ID\_DEBUG
+</Info>
+
+# Tracking Users
+
+All the users visiting your AMP pages will be tracked automatically once you followed the above steps.\
+But these users will be anonymous users by default.\
+However, if any user of your website who visited your normal HTML pages earlier and has not deleted their cookies, will be treated as the same user in AMP pages also.
+
+# Tracking Events
+
+Page Viewed event is tracked by default if you followed the above steps.\
+However with AMP framework limitations on event tracking, only a few kinds of events can be tracked such as `Page Viewed`, `Element Clicked`, `Page Scroll`.
+
+For more information on the list of events, refer to [AMP Analytics Examples](https://amp.dev/documentation/examples/components/amp-analytics/).
+
+## Example 1: Element Click Event
+
+You can track a Click Event when an HTML element with id `test` is clicked as described:
+
+```html
+<button id="test" data-vars-title="Example request title">
+  Click here to generate an event
+  </button>
+
+
+  &lt;amp-analytics type="moengage" id="moengage"&gt;
+  &lt;script type="application/json"&gt;
+  &#123;
+    "vars": &#123;
+      "appId": "XXXXXXXXXXXXXXXX",
+      "dataCenter": "sdk-01"
+    &#125;,
+    "triggers": &#123;
+      "clickTrigger": &#123;
+        "on": "click",
+        "selector": "#test",
+        "request": "event",
+        "extraUrlParams": &#123;
+          "a": &#123;
+            "title": "$&#123;title&#125;"
+          &#125;,
+          "e": "amp example button click"
+        &#125;
+      &#125;
+    &#125;
+  &#125;
+  &lt;/script&gt;
+  &lt;/amp-analytics&gt;
+```
+
+| Parameter | Description |
+| --- | --- |
+| `on` | Type of event |
+| `selector` | standard CSS selector |
+| `request` | Should always be an event |
+| `a` | Event attributes. In this example, the `title` is an attribute. Verify the change in the variable `title` using `data-vars-title` from the button element. |
+| `e` | Event name |
+
+## Example 2: Page Scroll Event
+
+```html
+<amp-analytics type="moengage" id="moengage">;
+<script type="application/json">
+{
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
+    "scrollPings": {
+      "on": "scroll",
+      "scrollSpec": {
+        "verticalBoundaries": [25, 50, 90]
+      &#125;,
+      "request": "event",
+      "extraUrlParams": {
+        "a":{
+          "scrolledUpto": "{scrollTop&#125;"
+        },
+        "e": "PageScroll"
+     }
+    }
+  }
+}
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+The scroll event needs `scrollSpec` object, that contains `verticalBoundaries` and `horizontalBoundaries`. At least one of the two properties is required for a scroll event to fire. The values for both of the properties should be arrays of numbers containing the boundaries on which a scroll event is generated. For instance, in the following code snippet, the scroll event will be fired when the page is scrolled vertically by 25%, 50% and 90%. The attributes sent here is `scrolledUpto` which holds an inbuilt variable `scrollTop` that provides the number of pixels that the user has scrolled from the top.
+
+For more information about the list of all supported variables, refer to [Supported Variables](https://github.com/ampproject/amphtml/blob/main/docs/spec/amp-var-substitutions.md).
+
+## Example 3: Form Submit Event
+
+```html
+&lt;form id="testForm" method="post" action-xhr="YOUR_SUBMIT_URL" target="YOUR_TARGET_VALUE"&gt;
+   &lt;input type="text" name="name" placeholder="Name..." required&gt;
+   &lt;input type="submit" value="Subscribe"&gt;
+&lt;/form&gt;
+
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+  "vars": &#123;
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  &#125;,
+  "triggers": &#123;
+    "formSubmit": &#123;
+      "on": "amp-form-submit",
+      "request": "event",
+      "selector": "#testForm",
+      "extraUrlParams": &#123;
+        "a": &#123;
+          "anyKey": "anyValue"
+        &#125;,
+        "e": "FormSubmit"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+In the above example, we are setting the id of the form as the selector value (**#testForm**). Inside "extraUrlParams", "e" is the event name and "a" contains the key and the value which we want to track for this event.
+
+# Tracking User Attributes
+
+You can track user attributes using the "EVENT\_ACTION\_USER\_ATTRIBUTE" event. For example, you have this button on your website:
+
+```html
+<button id="first-name" data-vars-first-name="someFirstName">  
+  Click here to track first name  
+</button>
+```
+
+Then, track the first name (considering it to be the user's first name) like this:
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+  "vars": &#123;
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  &#125;,
+  "triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#first-name",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+          "USER_ATTRIBUTE_USER_FIRST_NAME": "$&#123;first-name&#125;"
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+Similarly, to track the user's email upon clicking the below button
+
+```html
+<button id="email" data-vars-email="someEmail">  
+  Click here to track email  
+</button>
+```
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+  "vars": &#123;
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  &#125;,
+  "triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#email",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+          "USER_ATTRIBUTE_USER_EMAIL": "$&#123;email&#125;"
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+In the same way, you can track other **pre-defined user attributes**
+
+```html
+<button id="btnId" data-vars-attribute-value="someValue">  
+  Click here to track the user attribute  
+</button>
+```
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+  "vars": &#123;
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  &#125;,
+  "triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#btnId",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+         "USER_ATTRIBUTE_NAME": "$&#123;attribute-value&#125;"
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+Here, USER\_ATTRIBUTE\_NAME has to be replaced with one of the following
+
+```javascript
+USER_ATTRIBUTE_USER_EMAIL //for user email - value needs to be string, eg: "dom@level5.com"
+USER_ATTRIBUTE_USER_NAME //for user name - value needs to be string, eg: "Dominick (Dom) Cobb"
+USER_ATTRIBUTE_USER_FIRST_NAME //for user first name - value needs to be string, eg: "Dominick"
+USER_ATTRIBUTE_USER_LAST_NAME //for user last name - value needs to be string, eg: "Cobb"
+USER_ATTRIBUTE_USER_MOBILE //for user mobile - value needs to be string, eg: "+12399999999"
+USER_ATTRIBUTE_USER_GENDER //for user gender - value needs to be string, eg: "M"
+USER_ATTRIBUTE_USER_BDAY //for user birthday - value needs to be in date format, eg: new Date(1980, 2, 31)
+```
+
+To track a **custom user attribute** , in place of USER\_ATTRIBUTE\_NAME you have to use your own custom attribute name. For example-
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+"vars": &#123;
+"appId": "XXXXXXXXXXXXXXXX",
+"dataCenter": "sdk-01"
+&#125;,
+"triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#btnId",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+         "colors": ["blue","green","red"]
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+In the above example, we are tracking a custom attribute named "colors". This attribute's value is an array- `["blue","green","red"]`
+
+# Tracking User Login and Logout
+
+A unique ID is used to uniquely identify a user within the MoEngage dashboard.
+
+Ensure log in and log out of users are implemented correctly during the visit to your website and users are authenticated.
+
+<Warning>
+  Important If the user log in and log out is not handled correctly, user data may get corrupted. Refer [this section](https://developers.moengage.com/hc/en-us/articles/360061114832-Web-SDK-User-Attributes-Tracking) for more details
+</Warning>
+
+## Track Login
+
+```html
+<button id="login" data-vars-unique-id="someUniqueId">Click here to track user login</button>
+```
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+"vars": &#123;
+"appId": "XXXXXXXXXXXXXXXX",
+"dataCenter": "sdk-01"
+&#125;,
+"triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#login",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+         "USER_ATTRIBUTE_UNIQUE_ID": "$&#123;unique-id&#125;"
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE",
+        "identifiers": &#123;
+            "moe_user_id": "$&#123;unique-id&#125;"
+        &#125;
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+Here, "someUniqueId" is the unique ID with which you want to login the user
+
+<Warning>
+  Important After tracking the login, all further attributes and events tracking should have the "identifiers" object defined inside the tracking code (with the "moe\_user\_id") as above, until logout event is performed. Otherwise, that attribute or event tracking will not be associated with this logged-in user in your MoEngage dashboard.
+</Warning>
+
+For example, if we want to track the above logged-in user's last name-
+
+```html
+<button id="lastName" data-vars-last-name="lastNameOfLoggedInUser">Click here to track logged-in user's last name</button>
+```
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+"vars": &#123;
+"appId": "XXXXXXXXXXXXXXXX",
+"dataCenter": "sdk-01"
+&#125;,
+"triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#lastName",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;
+         "USER_ATTRIBUTE_USER_LAST_NAME": "$&#123;last-name&#125;"
+        &#125;,
+        "e": "EVENT_ACTION_USER_ATTRIBUTE",
+        "identifiers": &#123;
+            "moe_user_id": "someUniqueId" //because we logged-in the user with "someUniqueId" as the unique ID
+        &#125;
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+## Track Logout
+
+```html
+<button id="logout">Click here to track user logout</button>
+```
+
+```html
+&lt;amp-analytics type="moengage" id="moengage"&gt;
+&lt;script type="application/json"&gt;
+&#123;
+"vars": &#123;
+"appId": "XXXXXXXXXXXXXXXX",
+"dataCenter": "sdk-01"
+&#125;,
+"triggers": &#123;
+    "clickTrigger": &#123;
+      "on": "click",
+      "selector": "#logout",
+      "request": "event",
+      "extraUrlParams": &#123;
+        "a": &#123;&#125;,
+        "e": "MOE_LOGOUT"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+&lt;/script&gt;
+&lt;/amp-analytics&gt;
+```
+
+<Warning>
+  Important After performing the above Moengage logout event, do NOT send "identifiers" with any further tracking code. Because the user had logged-out and further attribute/event tracking must not be associated with this user.
+</Warning>

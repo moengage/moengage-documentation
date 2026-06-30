@@ -1,0 +1,207 @@
+---
+title: "Tableau"
+---
+
+# Introduction
+
+[Tableau](https://www.tableau.com/) is a powerful data visualization tool renowned for its interactive data visualization capabilities. It allows organizations to view, comprehend, and process large volumes of data in an easy-to-understand, visual manner. Tableau promotes data exploration and understanding, enabling organizations to make data-driven decisions and strategies.
+
+# MoEngage × Tableau
+
+The integration of MoEngage with Tableau offers a direct and seamless connection between MoEngage user engagement data and your Tableau dashboards. This integration allows you to visualize and understand your user engagement data more effectively and intuitively, enhancing your ability to make data-backed strategic decisions.
+
+With the MoEngage and Tableau integration, you can:
+
+1. Sync user engagement data to your Tableau on a scheduled basis - the syncs can be as frequent as every hour or as infrequent as once per week, depending on the data source.
+2. Visualize and analyze your user engagement data in Tableau using various interactive charts, graphs, and other visualization tools.
+3. Use these insights to segment your users more effectively and send personalized campaigns aimed at improving user engagement.
+
+## Use Cases
+
+1. **Performance Tracking and Reporting:** Marketers can use the integration to track and analyze the performance of their marketing campaigns and engagement initiatives. Tableau can pull data from MoEngage, consolidate it, and present visual reports and dashboards for easy interpretation.
+2. **Campaign Optimization:** The integration can be used to analyze and optimize marketing campaigns. Marketers can track key metrics like click-through rates, open rates, conversions, and revenue generated from each campaign. Tableau can then help visualize these metrics across different channels and campaigns, allowing marketers to identify successful strategies and allocate budgets accordingly.
+3. **Predictive Analytics:** By integrating MoEngage and Tableau, marketers can leverage predictive analytics capabilities. Tableau can analyze historical engagement data from MoEngage and use it to predict future customer behavior, enabling marketers to make data-driven decisions and design proactive marketing strategies.
+
+# Integration
+
+<Info>
+  - You will need access to your Tableau dashboard and have sufficient permissions to add a data source and create reports.
+    - You will need to enable [Data Warehouses Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports) for your account.
+</Info>
+
+To retrieve Campaign Data from MoEngage, it must be exported to a destination that is compatible with Tableau:
+
+- Snowflake
+- Amazon Redshift
+- Google BigQuery
+
+Tableau also extends its support to cloud storage services such as Amazon S3 and Google Cloud Storage. However, you might need to perform additional transformations as data can be imported directly from these files. To understand the schema of these files, please refer to our [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+
+## Step 1: Add your preferred data source to Tableau
+
+<Tabs>
+  <Tab title="Snowflake">
+    To add Snowflake as a Data Source on Tableau, you can follow the steps mentioned in the [Tableau Help Docs](https://help.tableau.com/current/pro/desktop/en-us/examples_snowflake.htm). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+  </Tab>
+  <Tab title="Redshift">
+    To add Redshift as a Data Source on Tableau, you can follow the steps mentioned in the [Tableau Help Docs](https://help.tableau.com/current/pro/desktop/en-us/examples_amazonredshift.htm). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+  </Tab>
+  <Tab title="BigQuery">
+    To add BigQuery as a Data Source on Tableau, you can follow the steps mentioned in the [Tableau Help Docs](https://help.tableau.com/current/pro/desktop/en-us/examples_googlebigquery.htm). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossaryy).
+  </Tab>
+</Tabs>
+
+## Step 2: Prepare your data for visualizations
+
+If you wish to do basic campaign data analytics, you can always make use of the event attribute columns that contain all the standard information for creating charts and reports:
+
+- event\_attributes\_campaign\_channel
+- event\_attributes\_campaign\_id
+- event\_attributes\_readable\_campaign\_id
+- event\_attributes\_campaign\_name
+- event\_attributes\_campaign\_type
+- event\_attributes\_parent\_campaign\_id
+- event\_attributes\_parent\_flow\_id
+- event\_attributes\_parent\_flow\_name
+- event\_attributes\_locale\_id
+- event\_attributes\_locale\_name
+- event\_attributes\_variation\_id
+- event\_attributes\_logged\_in\_status
+- event\_attributes\_platform
+- event\_attributes\_first\_session
+
+All the event attributes will be also stored as part of a JSON column called event\_attributes.
+
+### Extracting attributes as separate columns
+
+Tableau does not have native support for changing JSON structures and hence it is recommended to extract the attributes required for computation to make the computation faster. This can be done by creating a view on top of the tables created by MoEngage. Below is an example for a few attributes, but the same can be extended to any of your use cases:
+
+<AccordionGroup>
+  <Accordion title="Snowflake">
+    To create a view in Snowflake, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```text SQL wrap
+    CREATE VIEW moe_event_add_to_cart COMMENT='Add to cart' AS
+          SELECT *,
+          e.event_attributes['cart_value'] as cart_value,
+          e.event_attributes['total_items'] as total_items,
+          e.event_attributes['discount'] as discount,
+          FROM moe_events_1714216012 AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="Redshift">
+    To create a view in Redshift, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```sql SQL wrap
+    CREATE VIEW moe_event_add_to_cart AS
+          SELECT *,
+          json_extract_path_text(e.event_attributes, 'cart_value') as cart_value,
+          json_extract_path_text(e.event_attributes, 'total_items') as total_items,
+          json_extract_path_text(e.event_attributes, 'discount') as discount
+          FROM moe_events_1714216012 AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="BigQuery">
+    To create a view in BigQuery, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```sql SQL wrap
+    CREATE VIEW moe_event_add_to_cart AS
+          SELECT *,
+          JSON_VALUE(e.event_attributes, '$.cart_value') AS cart_value,
+          JSON_VALUE(e.event_attributes, '$.total_items') AS total_items,
+          JSON_VALUE(e.event_attributes, '$.discount') AS discount
+          FROM `moe_events_1714216012` AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+## Step 3: Load the data inside Tableau
+
+After creating various views to analyze necessary events, you have the ability to load these views as a new data source within Tableau:
+
+<AccordionGroup>
+  <Accordion title="Snowflake">
+    To connect your Snowflake database to Tableau:
+
+    1. Open Tableau Desktop, and under Connect, select Snowflake.
+
+    ![](/images/partner_27625561972500.png)
+
+    2. Fill in your connection details and click "Sign In". Tableau supports signing in a username and password, Okta username and password, or by signing in using OAuth. You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![](/images/partner_27625571093780.png)
+
+    3. You will now be taken to the Data Source page, wherein you can select all the tables/views you want to import. Start with selecting your Warehouse, Database and Schema. For example, we will load the view that we created from the MoEngage Exports table.
+
+    ![](/images/partner_27626028566676.png)
+
+    4. \[Optional\] If you wish to transform your data, you can do so by adding more tables or views to create relations between then and add/remove columns as well. For large datasets or certain operations, you might have to select the "Extract" connection method. Once you're done, you can Save the Data Source page.
+    5. Your data should now be available to use inside Tableau for powerful visualizations and reports.
+
+    Note: Snowflake as a Data Source is only available on the Tableau Desktop Version. Additional drivers might be required to download.
+  </Accordion>
+
+  <Accordion title="Redshift">
+    To connect your Redshift database to Tableau:
+
+    1. Open Tableau Desktop, and under Connect, select Redshift.
+
+    ![](/images/partner_27625619408020.png)
+
+    2. Fill in your connection details and click "Sign In". You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![](/images/partner_27625628736532.png)
+
+    3. You will now be taken to the Data Source page, wherein you can select all the tables/views you want to import. Start with selecting your Warehouse, Database and Schema. For example, we will load the view that we created from the MoEngage Exports table.
+
+    ![](/images/partner_27626035977364.png)
+
+    4. \[Optional\] If you wish to transform your data, you can do so by adding more tables or views to create relations between then and add/remove columns as well. For large datasets or certain operations, you might have to select the "Extract" connection method. Once you're done, you can Save the Data Source page.
+    5. Your data should now be available to use inside Tableau for powerful visualizations and reports.
+
+    Note: Redshift as a Data Source is only available on the Tableau Desktop Version. Additional drivers might be required to download.
+  </Accordion>
+
+  <Accordion title="BigQuery">
+    To connect your BigQuery database to Tableau:
+
+    1. Open Tableau Desktop, and under Connect, select BigQuery.
+    2. Fill in your connection details and click "OK". You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![](/images/partner_27625733898388.png)
+
+    3. The Google BigQuery connector supports connecting through OAuth or a service account sign-in. When connecting via a Service Account, you will need to upload the service account credentials file. Then select Sign In.
+    4. You will now be taken to the Data Source page, wherein you can select all the tables/views you want to import. Start with selecting your Warehouse, Database and Schema. For example, we will load the view that we created from the MoEngage Exports table.
+
+    ![](/images/partner_27626035978004.png)
+
+    5. \[Optional\] If you wish to transform your data, you can do so by adding more tables or views to create relations between then and add/remove columns as well. For large datasets or certain operations, you might have to select the "Extract" connection method. Once you're done, you can Save the Data Source page.
+    6. Your data should now be available to use inside Tableau for powerful visualizations and reports.
+
+    Note: BigQuery as a Data Source is only available on the Tableau Desktop Version. Additional drivers might be required to download.
+  </Accordion>
+</AccordionGroup>
+
+## Examples use cases
+
+With Tableau, you can create a dashboard with metrics such as Daily Active Users count, Monthly Active Users count, Daily New Users, Daily Uninstalled Users, etc. Below are some examples to get you started -
+
+1. **User Activity Monitoring:** This report can showcase how frequently users engage with the app. Events such as "App/Site Open", "App Exit" can inform daily or monthly user activity. This might include metrics such as Daily Active Users (DAU), Monthly Active Users (MAU), and session duration.
+2. **User Engagement Tracking:** Events like "Notification Clicked Android", "Notification Clicked iOS", or "Notification Clicked Web" can be used to track user engagement on different platforms.
+3. **Campaign Performance Analysis:** For email-specific campaigns, you could use the events such as "Email Sent", "Email Opened", "Email Clicked", "Email Bounced", "Email Complained" and "Email Unsubscribed". These would provide insights into aspects such as email delivery success rate, open rate, click-through rate, bounce rate, complaint rate, and unsubscribe rate. This information can be used to gauge the efficacy of your email campaigns and identify areas for improvement.
+4. **User acquisition and churn report:** Using "Install", "ReInstall", "Device Uninstall" and "User ReInstall" events, create a report to monitor user acquisition and churn rate. You can break it down based on various dimensions such as geographical location, device type, and so on.
+5. **Behavior Flow Analysis:** With events such as "App/Site Opened", "Notification Clicked" (or "Card Clicked"), and a custom event of "Added to Cart" event, you're able to track key user actions within a typical purchase funnel. This can allow you to visualize the user's journey from opening the app, interacting with a promotional notification or in-app message, and adding an item to their shopping cart.

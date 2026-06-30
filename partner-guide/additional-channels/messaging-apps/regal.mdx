@@ -1,0 +1,158 @@
+---
+title: "Regal "
+---
+
+# Introduction
+
+[Regal.io](https://regal.io/) is the phone and SMS sales solution built to drive more conversations so you can hit your growth goals way faster.
+
+# MoEngage × Regal
+
+MoEngage and Regal integration via MoEngage Connectors allows you to trigger a call in Regal when the person performs a specific action on your app. It allows you to use MoEngage advanced segmentation, predictive capabilities, personalization, and triggering features to call your users via Regal.
+
+# Use case
+
+- Update Regal every time a user (who you want to be available for calls and texts in Regal) is created on MoEngage
+- Send up-to-date opt-in information to Regal, if you have an event on MoEngage that represents user opting in or unsubscribing
+- Send any custom event (that are important for triggering SMS and Calls in Regal) from MoEngage to Regal
+
+# Integration
+
+<Info>
+  - Ensure you have a Regal account.
+  - Ensure you have Regal API key. If not, please reach out to [support@regal.io](mailto:support@regal.io) to get it.
+</Info>
+
+You can add any key events you want to send Regal - Regal recommends sending any events that are important for triggering SMS and Calls in Regal (such as an event at each step of the signup or purchase flow) or will that be used as exit criteria for contacts to fall out of Regal campaigns.
+
+## Steps
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \> Connectors \> Custom and choose delivery type most suitable to your needs
+
+![Screenshot\_2022-02-21\_at\_10.48.46\_PM.png](/images/partner_17358527402260.png)
+
+2. Choose Segment of users for whom line\_id exists (You can combine with other Segment criteria)
+
+![Screen\_Shot\_2022-02-22\_at\_4.45.12\_PM.png](/images/partner_17358540181908.png)
+
+You can filter users based on your criteria and use-case.
+
+3. On step 2 of the campaign,
+
+- Select method as POST
+- Add Webhook URL as : `https://events.regalvoice.com/events`
+- In Headers, add
+  - Content-Type as application/json
+  - Authorization as `{regal_API_key}`
+- In Body, choose Raw and use the body depending on what kind of event you want to send out.
+
+Here are some examples based on your use-case:
+
+### A) Update contact in Regal
+
+The example assumes all your contacts have accepted opt-in for voice and SMS. If that’s not true, you can remove the optIn property from the above and set up a separate flow or campaign to update a contact in Regal when optIn is collected.
+
+### B) Update opt-in details on Regal
+
+If opt-in and out can happen at different parts of your user experience on your app, it’s important to update Regal as users opt in or out. You can use this body for sending up-to-date opt-in information to Regal. It assumes you save this as a MoEngage user attribute, but if not, the trigger can just as easily be an event in your MoEngage account that represents a user opting in or unsubscribing.
+
+- _The example here is for phone opt-in, but you can set up a similar flow or campaign for SMS opt-in if you collect those separately_.
+- _You can also add additional user attributes in this payload as well if you want to ensure more attributes are up to date simultaneously._
+
+### C) Send custom events to Regal
+
+You can also set up a campaign for each of the key events you want to send Regal - Regal recommends sending any events that are important for triggering SMS and Calls in Regal (such as an event at each step of the signup or purchase flow) or will that be used as exit criteria for contacts to fall out of Regal campaigns.
+
+Update contact in Regal Update opt-in details Custom events
+
+<Tabs>
+  <Tab title="Update contact in Regal">
+    ```json
+    {
+        "userId": "", //Optional
+        "traits": {
+            "phone": "",
+            "email": "",
+            "firstName": "",
+            "lastName": "",
+            "optIn": [
+                {
+                    "channel": "voice",
+                    "source": "",
+                    "subscribed": true
+                },
+                {
+                    "channel": "sms",
+                    "source": "",
+                    "subscribed": true
+                }
+            ],
+            "custom1": "",
+            "custom2": ""
+        },
+        "eventSource": "MoEngage"
+    }
+    ```
+  </Tab>
+  <Tab title="Update opt-in details">
+    ```json
+    {
+        "userId": "", //Optional
+        "traits": {
+            "phone": "",
+            "email": "",
+            "firstName": "",
+            "lastName": "",
+            "optIn": [
+                {
+                    "channel": "voice",
+                    "source": "",
+                    "subscribed": true
+                },
+                {
+                    "channel": "sms",
+                    "source": "",
+                    "subscribed": true
+                }
+            ],
+            "custom1": "",
+            "custom2": ""
+        },
+        "eventSource": "MoEngage"
+    }
+    ```
+  </Tab>
+  <Tab title="Custom events">
+    ```json wrap
+    {
+        "userId": "<uniqueIdentifier>", //Optional 
+        "traits": { 
+            "phone": "<phoneNumber>", 
+            "firstName": "<firstName>", 
+            "lastName": "<lastName>", 
+            "custom1": "<custom1>", 
+            "custom2": "<custom2>", 
+            "custom3": "<custom3>" }, 
+        "name": "Application Step 1 Completed", 
+        "properties": { 
+            "educationalLevel": "<educationalLevel>", 
+            "preferredLocation": "<preferredLocation>", 
+            "preferredSubject": "<preferredSubject>", 
+            "readytoCommit": true }, 
+        "eventSource": "MoEngage"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+4. At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available on Step 2 of Create Connector Campaign
+
+![Screen\_Shot\_2022-02-22\_at\_11.12.42\_AM.png](/images/partner_17358512580884.png)
+
+If your test user successfully receives the message, your set-up is good to go. You can go ahead and Publish the campaign.
+
+## Up-to-date contact attributes
+
+While it’s not necessary, Regal recommends also sending any key user profile data fields on the event payloads of your event workflows to ensure Regal has access to the most up-to-date contact attributes at the time key events become available.

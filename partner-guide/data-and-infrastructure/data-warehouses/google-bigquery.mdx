@@ -1,0 +1,160 @@
+---
+title: "Google BigQuery"
+---
+
+# Introduction
+
+[BigQuery](https://cloud.google.com/bigquery) is a fully managed and serverless data warehouse solution available in the Google Cloud Storage (GCS) Platform. It allows users to perform complex analytics on terabytes of data in real time without managing any infrastructure.
+
+# MoEngage × BigQuery
+
+MoEngage and BigQuery integration uses GCS Data Imports and Exports on MoEngage to transfer data to Google BigQuery for advanced analytics.
+
+## Use Cases
+
+BigQuery integration with MoEngage helps you with the following use cases:
+
+- Sync real-time audiences from BigQuery
+- Import users and events from BigQuery
+- Export campaign interaction events to BigQuery (via GCS)
+
+## Advantages
+
+The integration of BigQuery with MoEngage helps you with the following advantages:
+
+### Reduce Integration Time
+
+- No more searching for the right Extract, Transform, and Load (ETL) tool, as MoEngage directly integrates with BigQuery.
+- Long and complicated ETL pipelines are now replaced with a one-time integration setup that gives MoEngage direct access to your data.
+- This decreases the dependency on tech teams significantly.
+
+### Faster Data Processing
+
+- BigQuery infrastructure enables MoEngage to store, process, and query massive amounts of data in near real-time.
+- Any changes in the original schema are propagated immediately without having to change any configuration on MoEngage’s end, which is a significant advantage over traditional ETL pipelines.
+- The cost of import is significantly lower than that of traditional data pipelines, so ETL tools and external cloud providers are not required.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  Ensure you have a BigQuery account with permission to create new users, schemas, or tables.
+</Info>
+
+## Step 1: Grant Permissions to MoEngage
+
+<Tabs>
+  <Tab title="Audience Sync and Import">
+    To grant permission to MoEngage, you must grant read access to specific BigQuery tables and allow MoEngage to submit jobs and download query results via the BigQuery Jobs API. These instructions assume you have administrative privileges in the Google Cloud Platform project hosting your BigQuery dataset.
+
+    **Create a Service Account for MoEngage**
+
+    To create a service account for MoEngage, perform the following steps:
+
+    1. Open the **Google Cloud Console**.
+    2. Navigate to the project that contains the BigQuery dataset.
+    3. Navigate to the **IAM & Admin** section and select **Service Accounts**. <img src="/images/partner_39929968858260.png" />
+    4. Click **Create Service Account**.
+    5. Enter a name and description (for example, moengage-access). <img src="/images/partner_39929953595284.png" />
+    6. Select the role for the service account as **BigQuery Job User**. <img src="/images/partner_39929968858900.png" />
+    7. Create the service account.
+    8. Navigate to the service account and select the **KEYS** tab.
+    9. Click the **ADD KEY** list and then select **Create new key**. <img src="/images/partner_39929968859412.png" />
+    10. Select **JSON** as the key type on the pop-up window.
+    11. Click **CREATE** to generate and download the JSON key file.
+    12. Keep the JSON key file secure.
+
+    **Share Access to Specific Tables with MoEngage**
+
+    To share access to specific tables with MoEngage, perform the following steps:
+
+    1. In the **BigQuery console** , navigate to the dataset containing the tables you want MoEngage to access.
+    2. Click the **Sharing** drop-down list, and then select **Permissions**. <img src="/images/partner_39929953596308.png" />
+    3. Add the service account's email address (found in the JSON key file) as a member with the "**BigQuery Data Viewer** " role. <img src="/images/partner_39929953597716.png" />
+    4. Click **Save** to grant access to the dataset.
+
+    **Grant Access to BigQuery Jobs API**
+
+    **Note** : Skip this step if this access was already granted when creating the service account. To Grant Access to the BigQuery Jobs API, perform the following steps:
+
+    1. In the **Google Cloud Console** , go to the **IAM & Admin** section, and then select **IAM**.
+    2. Click **Grant Access** to add a new member.
+    3. Enter the service account's email address (from the JSON key file).
+    4. Assign the role as **BigQuery Job User** to enable interaction with the BigQuery Jobs API.
+    5. Click **Save** to grant access. <img src="/images/partner_39929953598228.png" />
+
+    **Limit Access to Specific Tables (Optional)**
+
+    To limit access to specific tables, perform the following steps:
+
+    1. In the **BigQuery console** , open the dataset with the desired tables.
+    2. Select the table(s) you want to restrict access to and click **Share Table** from the context menu.
+    3. Add the service account's email address as a member and assign the **BigQuery Data Viewer** role only for these specific tables.
+
+    By following these steps, you have successfully granted MoEngage read access to specific BigQuery tables and authorized access to the BigQuery Jobs API.
+  </Tab>
+  <Tab title="Exports">
+    To export data from MoEngage to BigQuery, you must connect MoEngage to your Google Cloud project. Ensure you have the necessary administrative privileges within your project and that the service account credentials remain valid:
+
+    - **To create a connection** : You must have the BigQuery Data Viewer and BigQuery Job User roles to validate project and dataset details within the MoEngage App Marketplace.
+    - **To perform exports** : The service account requires the BigQuery Data Editor role to read and write data to your BigQuery tables. For more information, refer to the [BigQuery Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports).
+  </Tab>
+</Tabs>
+
+## Step 2: Connect BigQuery on the App Marketplace
+
+To connect BigQuery on the App marketplace, perform the following steps:
+
+1. On the left navigation menu in the MoEngage dashboard, click **App marketplace**.
+2. On the App Marketplace page, search for **BigQuery**. <img src="/images/partner_39929968863124.png" />
+3. Click the **BigQuery** tile.
+4. On the **BigQuery** page, go to the**Integrate** tab and click \+**Add Connection**.
+5. Enter the following details:
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | Connection name | Yes | Enter a name for the BigQuery connection. |
+   | Project ID | No | This refers to the unique identifier assigned to your project within the Google Cloud Platform (GCP). MoEngage needs this ID to know exactly which Google Cloud project to connect to. You can find this ID on your Google Cloud Console dashboard. |
+   | Service account credentials | Yes | This field requires you to upload a JSON key file that you generate from a Service Account in your Google Cloud project. The JSON file contains a private key that acts as a password, allowing MoEngage to securely and automatically access your BigQuery data without sharing your personal login details. Alternatively, you can follow the steps mentioned [here](/partner-guide/data-and-infrastructure/data-warehouses/google-bigquery#step-1-grant-permissions-to-moengage) (From 10 through 12). |
+   | Enable GCS for faster segmentation and exports | Optional | Turn on the GCS staging toggle to improve the speed and efficiency of MoEngage reading and writing data to BigQuery. This feature allows MoEngage to use Google Cloud Storage (GCS) as a temporary staging area for your data. **Note**: You must contact the MoEngage Support team to enable this feature for Warehouse Audiences, and you do not require a support ticket for Exports. |
+   | GCS Bucket name | Optional | Enter the name of the GCS bucket you have created in your GCP project. MoEngage will use this bucket to temporarily store the segment data exported from BigQuery before importing it. |
+   | GCS Folder path | Optional | You must specify the folder name within your GCS bucket where MoEngage should store the temporary files. This helps in keeping your data organized (for example, `moengage_imports/`). |
+   ![BigQuery connection form](/images/partner_45896783209364.png)
+6. Click **Connect**. Your BigQuery connection is now integrated.
+
+After you have set up a BigQuery connection, you can use it to set up various imports and exports in MoEngage.
+
+### Supported Datetime Formats
+
+| Date and Time Format | Examples |
+| --- | --- |
+| `"datetime_format": "YYYY-MM-DD"` | <ul><li>2022-01-22</li></ul> |
+| `"datetime_format": "YYYY/MM/DD"` | <ul><li>2022/01/22</li></ul> |
+| `"datetime_format": "DD/MM/YYYY"` | <ul><li>22/01/2022</li></ul> |
+| `"datetime_format": "DD-MM-YYYY"` | <ul><li>22-01-2022</li></ul> |
+| `"datetime_format": "DD-MM-YYYY hh:mm:ss"` | <ul><li>31-12-2022 12:10:33</li></ul> |
+| `"datetime_format": "DD/MM/YYYY hh:mm:ss"` | <ul><li>31/12/2022 12:10:33</li></ul> |
+| `"datetime_format": "YYYY-MM-DD hh:mm:ss"` | <ul><li>2019-02-22 17:54:14</li></ul> |
+| `"datetime_format": "YYYY/MM/DD hh:mm:ss"` | <ul><li>2019/02/22 17:54:14</li></ul> |
+| `"datetime_format": "DD-MM-YYYYThh:mm:ss.s"` | <ul><li>31-12-2022T12:10:33.882</li></ul> |
+| `"datetime_format": "DD/MM/YYYYThh:mm:ss.s"` | <ul><li>31/12/2022T12:10:33.882</li></ul> |
+| `"datetime_format": "DD-MM-YYYYThh:mm:ssTZD"` | <ul><li>31-12-2022T12:10:33Z, 31-12-2022T12:10:33\+08:00, 31-12-2022T12:10:33-08:00</li></ul> |
+| `"datetime_format": "DD/MM/YYYYThh:mm:ssTZD"` | <ul><li>31/12/2022T12:10:33Z, 31/12/2022T12:10:33\+08:00, 31/12/2022T12:10:33-08:00</li></ul> |
+| `"datetime_format": "YYYY-MM-DD hh:mm:ss.s"` | <ul><li>2019-02-22 17:54:14.933</li></ul> |
+| `"datetime_format": "YYYY/MM/DD hh:mm:ss.s"` | <ul><li>2019/02/22 17:54:14.933</li></ul> |
+| `"datetime_format": "YYYY-MM-DDThh:mm:ssTZD"` | <ul><li>2019-11-14T00:01:02Z</li><li>2019-11-14T00:01:02\+08:00</li><li>2019-11-14T00:01:02Z-08:00</li></ul> |
+| `"datetime_format": "YYYY/MM/DDThh:mm:ssTZD"` | <ul><li>2019/11/14T00:01:02Z</li><li>2019/11/14T00:01:02\+08:00</li><li>2019/11/14T00:01:02-08:00</li></ul> |
+| `"datetime_format": "YYYY-MM-DDThh:mm:ss.sTZD"` | <ul><li>2019-02-22T17:54:14.957Z</li><li>2019-02-22T17:54:14.957299-08:00</li><li>2019-02-22T17:54:14.957299\+08:00</li></ul> |
+| `"datetime_format": "YYYY/MM/DDThh:mm:ss.sTZD"` | <ul><li>2019/02/22T17:54:14.957Z</li><li>2019/02/22T17:54:14.957299-08:00</li><li>2019/02/22T17:54:14.957299\+08:00</li></ul> |
+
+## Warehouse Segments Using BigQuery
+
+BigQuery is available in our Warehouse Segments. For more information, refer to [Warehouse Segments](https://www.moengage.com/docs/user-guide/segment/segment-operations/warehouse-segments).
+
+## Import Users and Events from BigQuery into MoEngage
+
+To set up MoEngage × BigQuery imports for your account, refer to the [BigQuery Imports guide](https://www.moengage.com/docs/user-guide/data/imports/data-warehouses-imports/bigquery-imports).
+
+## Export Events from MoEngage to BigQuery
+
+You can export events from MoEngage to your BigQuery tables. To set up an export, refer to the [BigQuery Exports guide](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports).

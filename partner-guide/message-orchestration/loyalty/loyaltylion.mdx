@@ -1,0 +1,109 @@
+---
+title: "LoyaltyLion"
+---
+
+# Introduction
+
+[LoyaltyLion](https://loyaltylion.com/) is an e-commerce customer loyalty and engagement platform, that powers growth and retention through data-driven loyalty programs.
+
+# MoEngage × LoyaltyLion
+
+The MoEngage and LoyaltyLion integration enables you to track your customers' activities via MoEngage and reward them accordingly inside LoyaltyLion. Using the LoyaltyLion Rest APIs, you can forward purchases made on your app to LoyaltyLion and send out personalized campaigns to engage them post-purchase.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  - You would need your LoyaltyLion token and a secret to use their APIs.
+</Info>
+
+## Forward purchases on MoEngage to LoyaltyLion
+
+With MoEngage's Connector Campaigns, you can forward your Purchase events to LoyaltyLion when they perform a purchase on your app or website.
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \>\> Connectors \>\> Custom and choose the delivery type most suitable to your needs. For this example, we will select "Event Triggered" and select the event as "Purchased". <img src="/images/partner_19614809395604.png" />
+2. On step 2 of the campaign:
+
+### Call the LoyaltyLion API
+
+To send your Purchase event to LoyaltyLion, use the `POST` method and configure the payload.
+
+- Select the method as POST
+- URL Parameters:
+  - `api_key`: `<your_api_key>`
+- Headers
+  - `Authorization`: Use an online tool to create your basic auth with `token` as a username and your `secret` as a password:\
+    <img src="/images/partner_19614378396692.png" />\
+    In the above example, the value of this header would be `Basic dG9rZW46c2VjcmV0`
+  - `Content-Type`: `application/json`
+- Add the endpoint as Webhook URL: `https://api.loyaltylion.com/v2/orders`
+- Body:\
+  Type @ to personalize your payload.
+  <CodeGroup>
+  ```json JSON
+  {
+      "merchant_id": "6253e03b",
+      "merchant_number": "1001",
+      "customer_id": {{UserAttribute['customer_id']}},
+      "customer_email": "{{UserAttribute['Email (Standard)']}}",
+      "total": "{{EventAttribute['price']}}",
+      "total_shipping": "{{EventAttribute['price']}}",
+      "payment_status": "paid",
+      "date": "{{EventAttribute['event_time']}}",
+      "discount_codes": [
+        {
+          "code": "{{EventAttribute['coupon_code']}}",
+          "amount": "{{EventAttribute['coupon_code_discount']}}"
+        }
+      ]
+    }
+  ```
+  </CodeGroup>
+
+![](/images/partner_19614782841364.png)
+
+- Refer to the [LoyaltyLion API documentation](https://developers.loyaltylion.com/api/resources/orders#post-v2orders) for more information.
+
+### Preview your request
+
+At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available in Step 2 of Create Connector Campaign.<img src="/images/partner_19614809409684.png" alt="Screen_Shot_2022-02-22_at_11.12.42_AM.png" />
+
+You can go ahead and Publish the campaign.
+
+## Display customer rewards in MoEngage Campaigns
+
+Using MoEngage's Content APIs, you can dynamically pull customers' reward points inside MoEngage campaigns for a more personalized experience.
+
+### Step 1: Set up a MoEngage Content API
+
+1. Navigate to **Settings** -\> **Advanced settings** -\> **Content API**. Click **\+ Add content API** at the top right corner of the Content API screen.<img src="/images/partner_21979026575124.png" alt="ContentAPI_Navogation.png" />
+2. Add your LoyaltyLion API to the endpoint URL. Depending on your use case, the endpoint will change.
+
+![](/images/partner_19615149966356.png)
+
+To display your customers' rewards, use LoyaltyLion's [Get Available Rewards API](https://developers.loyaltylion.com/api/resources/rewards#get-v2customersmerchant_idavailable_rewards).
+
+While setting up your content API, insert the following URL:
+
+`https://api.loyaltylion.com/v2/customers/{{UserAttribute['customer_id']}}/available_rewards`
+
+Under Headers, add the following:
+
+1. `Authorization`: Use an online tool to create your basic auth with `token` as a username and your `secret` as a password: <img src="/images/partner_19614378396692.png" />\
+   In the above example, the value of this header would be `Basic dG9rZW46c2VjcmV0`
+2. `Content-Type`: `application/json`
+3. Click on "Save" and then "Done" once you see a successful response.
+   **Note** - You can also test your APIs. To test your APIs, from the Content API's action menu, click on "Test". You can your API response and validate it.
+
+### Step 2: Display your customers' rewards inside MoEngage campaigns
+
+To use this API in your MoEngage campaigns,
+
+1. On step 2 on your campaign creation, enter @.
+2. In the pop up, you can select the LoyaltyLion Content API configured in Step 1.
+3. You can use [MoEngage Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language) to parse through the API response and use the content in your campaigns. <img src="/images/partner_19616447980820.png" />
+4. You can click on the Preview tab to view your campaign in real-time personalization: <img src="/images/partner_19616419328532.png" />
+5. Once you are satisfied with the results, you can publish your campaign.

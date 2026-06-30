@@ -1,0 +1,310 @@
+---
+title: "Microsoft Dynamics 365 Customer Service"
+---
+
+## Introduction
+
+[Microsoft Dynamics 365 Customer Service](https://www.microsoft.com/en-us/dynamics-365/products/customer-service) is an enterprise-grade solution designed to manage and streamline customer support operations. It provides tools for case management, omnichannel engagement, and service analytics to enhance customer interactions. This integration connects to MoEngage via Microsoft Power Automate, allowing real-time service data (like case creation or resolution) to flow from D365 to MoEngage. The primary benefit is the ability to trigger highly contextual, personalized campaigns from MoEngage based on live customer service activities.
+
+## Key Features/Functionality
+
+With this integration, you can:
+
+- Synchronize contacts and accounts from D365 Customer Service to MoEngage.
+- Import service activities like case creation, resolution, and SLA updates as behavioral events.
+- Capture CSAT, NPS, and other feedback data as events for segmentation.
+- Trigger contextual campaigns based on support interactions and case lifecycle events.
+
+### Sync Modules
+
+The following table outlines the data sync for each D365 Customer Service module:
+
+| Module | MoEngage Sync Type |
+| --- | --- |
+| Contacts | Users |
+| Cases | Events |
+| CSAT/SLA | Events |
+| Onboarding (Custom) | Events (custom) |
+| Custom Entities | Events (custom) |
+
+## Use Cases
+
+- **Case-Based Engagement**: When a new case is created in D365, instantly push the data to MoEngage to trigger a confirmation email with the case number and expected resolution time.
+- **Resolution & Feedback**: Once a case is marked "Resolved" in D365, trigger a CSAT or NPS survey via a MoEngage campaign to capture immediate feedback.
+- **SLA & Escalation**: Monitor SLA status updates. If an SLA is "Nearing Breach," trigger a proactive update campaign to the customer and an internal alert to the support manager.
+- **Feedback-Driven Journeys**: When a low CSAT score is received from a survey, automatically add the user to a specific re-engagement journey in MoEngage and create a follow-up task in D365.
+
+# Step-by-Step Integration Guide
+
+<Info>
+  **Prerequisites**
+
+  Admin access to Power Platform and D365 Customer Service environment.
+</Info>
+
+## Step 1: Get Your MoEngage Endpoint
+
+1. Contact the MoEngage Support Team and raise a request for a dedicated integration endpoint.
+2. In your request, specify: The common identifier you'll use to link profiles (email address, external\_id, or D365 GUID).
+3. MoEngage will provide you with:
+   1. Dedicated Webhook URL (format: `https://api-0X.moengage.com/v1/partner/d365-service/{events/users}/?configName={config_name}`)
+   2. Configuration name for your integration.
+
+## Step 2: Create Power Automate Flow
+
+All flows for this integration use the Microsoft Dataverse connector. For a detailed overview of how this connector works, see the official [Microsoft Dataverse documentation](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/dataverse-connector).
+
+1. Open [Power Automate](https://flow.microsoft.com/).
+2. Click **Create** \> **Automated Cloud Flow**.
+3. Name the flow: `D365 - Sync [Entity] to MoEngage` (e.g., `D365 - Sync Case Created to MoEngage`).
+4. Select trigger: **When a row is added, modified or deleted (Dataverse)**.
+5. Configure trigger details:
+   1. **Change type**: Select **Added**, **Modified**, or **Added or Modified** based on the payload.
+   2. **Table name**: Select the entity (e.g., Cases, Contacts, SLA KPI Instances).
+   3. **Scope**: **Organization**.
+
+![Power Automate flow creation showing the Dataverse trigger configuration](/images/partner_43266552718484.png)
+
+### Which Trigger to Use and When (Your Scenarios)
+
+You will use the same trigger (**When a row is added, modified or deleted**) for all your scenarios, but you will configure it differently each time.
+
+![Power Automate trigger configuration options for Dataverse entities](/images/partner_43266552718868.png)
+
+#### 1. Case Created/Updated (and User Profile Sync)
+
+**Goal**: Send an event and the customer's details when a new case is logged/updated.
+
+**Trigger Configuration:**
+
+- **Change type**: Added
+- **Table name**: Cases (or incident)
+
+#### 2. SLA Breach / Warning
+
+**Goal**: Send an event when an SLA status changes to "Nearing Noncompliance" or "Noncompliant."
+
+**Trigger Configuration:**
+
+- **Change type**: Added or Modified
+- **Table name**: SLA KPI Instances
+
+#### 3. CSAT Survey Submitted
+
+**Goal**: Send the customer's score and feedback after they submit the survey.
+
+**Trigger Configuration:**
+
+- **Change type**: Added
+- **Table name**: Survey Responses
+
+![Power Automate trigger configuration for Survey Responses table](/images/partner_43266552720148.png)
+
+## Step 3: Configure HTTP Webhook Action
+
+1. Click **New Step** \> Select **HTTP**.
+2. Fill in the following:
+   | Field | Value |
+   | --- | --- |
+   | **Method** | **POST** |
+   | **URI** | Enter the Dedicated Webhook URL provided by MoEngage. |
+   | **Headers** | `Authorization: Basic [Base64(Workspace_ID:API_Key)]`<br />`Content-Type: application/json` |
+   | **Body** | Use sample payloads below. |
+
+### Generating the Basic Authentication Token
+
+1. Get your Basic Token by using an online [Basic Auth Header Generator tool](https://www.debugbear.com/basic-auth-header-generator).
+2. **Username**: Your MoEngage Workspace ID (found in MoEngage Dashboard \>\> Settings \>\> APIs).
+3. **Password**: Your MoEngage Data API Key (found in MoEngage Dashboard \>\> Settings \>\> APIs).
+4. The tool will generate the `Basic {base64_encoded_credentials}` value, which you will paste into the Authorization header.
+
+![Basic Auth Header Generator tool showing the generated authorization token](/images/partner_43267024664980.png)
+
+## Step 4: Add Request Body Payload
+
+Copy the appropriate payload template below and paste into the HTTP action Body field.
+
+Replace placeholder values with dynamic fields from D365 using Power Automate expressions. To add dynamic fields, click on the Body field and select **Dynamic content** \> browse available D365 fields.
+
+## Sample Payloads
+
+### Case Created/Updated (with User Upsert)
+
+Use this payload to create an event and create/update the user's profile in MoEngage. This is the only payload that needs to send the full `user_attributes`.
+
+**Trigger Configuration:**
+
+- **Change type**: Added or Modified
+- **Table name**: Cases
+
+```json wrap
+{
+  "customer_id": "@{triggerOutputs()?['body/_customerid_value']}",
+  "updated_at": "@{triggerOutputs()?['body/createdon']}",
+  "user_attributes": {
+    "email": "@{outputs('Get_Customer_Details')?['body/emailaddress1']}",
+    "mobile": "@{outputs('Get_Customer_Details')?['body/mobilephone']}",
+    "first_name": "@{outputs('Get_Customer_Details')?['body/firstname']}",
+    "last_name": "@{outputs('Get_Customer_Details')?['body/lastname']}",
+    "type": "@{triggerOutputs()?['body/_customerid_value@Microsoft.Dynamics.CRM.lookuplogicalname']}"
+  },
+  "event_name": "Case Created",
+  "event_attributes": {
+    "case_id": "@{triggerOutputs()?['body/incidentid']}",
+    "case_number": "@{triggerOutputs()?['body/ticketnumber']}",
+    "title": "@{triggerOutputs()?['body/title']}",
+    "description": "@{triggerOutputs()?['body/description']}",
+    "case_type": "@{triggerOutputs()?['body/casetypecode@OData.Community.Display.V1.FormattedValue']}",
+    "priority": "@{triggerOutputs()?['body/prioritycode@OData.Community.Display.V1.FormattedValue']}",
+    "status": "@{triggerOutputs()?['body/statecode@OData.Community.Display.V1.FormattedValue']}"
+  }
+}
+```
+
+<Info>
+  **Note**
+
+  This payload requires a "Get row by ID" (Dataverse) step. Add this step before the HTTP action to fetch the Contact's details (email, phone, etc.) using the `_customerid_value` from the Case trigger. Name this step `Get_Customer_Details`.
+</Info>
+
+### Case Created/Updated (Without User Upsert)
+
+Use this payload to send an event without updating the user's profile in MoEngage.
+
+**Trigger Configuration:**
+
+- **Change type**: Added or Modified
+- **Table name**: Cases
+
+```json wrap
+{
+  "customer_id": "@{triggerOutputs()?['body/_customerid_value']}",
+  "updated_at": "@{triggerOutputs()?['body/modifiedon']}",
+  "event_name": "Case Created/Updated",
+  "event_attributes": {
+    "case_id": "@{triggerOutputs()?['body/incidentid']}",
+    "case_number": "@{triggerOutputs()?['body/ticketnumber']}",
+    "title": "@{triggerOutputs()?['body/title']}",
+    "description": "@{triggerOutputs()?['body/description']}",
+    "case_type": "@{triggerOutputs()?['body/casetypecode@OData.Community.Display.V1.FormattedValue']}",
+    "priority": "@{triggerOutputs()?['body/prioritycode@OData.Community.Display.V1.FormattedValue']}",
+    "status": "@{triggerOutputs()?['body/statecode@OData.Community.Display.V1.FormattedValue']}"
+  }
+}
+```
+
+<Info>
+  **Note**
+
+  This payload does not require any additional Dataverse steps since it only sends event data without user attributes.
+</Info>
+
+### SLA Status Updated (Event)
+
+Use this payload to send an event when an SLA status changes (e.g., to "Nearing Noncompliance" or "Noncompliant").
+
+**Trigger Configuration:**
+
+- **Change type**: Added or Modified
+- **Table name**: SLA KPI Instances
+
+```json wrap
+{
+  "customer_id": "@{triggerOutputs()?['body/_customerid_value']}",
+  "updated_at": "@{triggerOutputs()?['body/modifiedon']}",
+  "event_name": "SLA Updated",
+  "event_attributes": {
+    "case_id": "@{outputs('Get_Case_Details')?['body/incidentid']}",
+    "first_response": "@{outputs('Get_Case_Details')?['body/_firstresponsebykpiid_value']}",
+    "sla": "@{outputs('Get_Case_Details')?['body/_slaid_value']}",
+    "sla_id": "@{triggerOutputs()?['body/slakpiinstanceid']}",
+    "resolve_sla": "@{outputs('Get_Case_Details')?['body/resolvebyslastatus']}"
+  }
+}
+```
+
+<Info>
+  **Note**
+
+  This payload requires a "Get row by ID" (Dataverse) step. Add this step before the HTTP action to get the parent Case (using `_regarding_value` as the Row ID) and retrieve its `_customerid_value`. Name this step `Get_Case_Details`.
+</Info>
+
+### Survey Response Received (Event)
+
+Use this payload to send CSAT/NPS scores and feedback comments as an event.
+
+**Trigger Configuration:**
+
+- **Change type**: Added
+- **Table name**: Survey Responses (or `msdyn_surveyresponse` / Customer Voice entity)
+
+```json wrap
+{
+  "customer_id": "@{triggerOutputs()?['body/_regardingobjectid_value']}",
+  "updated_at": "@{triggerOutputs()?['body/modifiedon']}",
+  "event_name": "Survey Response Received",
+  "event_attributes": {
+    "response_id": "@{triggerOutputs()?['body/activityid']}",
+    "survey_name": "@{triggerOutputs()?['body/_msdyn_surveyid_value@OData.Community.Display.V1.FormattedValue']}",
+    "case_id": "@{triggerOutputs()?['body/_msdyn_caseid_value']}",
+    "csat_score": "@{triggerOutputs()?['body/msdyn_csatscore']}",
+    "feedback_comment": "@{triggerOutputs()?['body/msdyn_feedbackcomment']}"
+  }
+}
+```
+
+### Custom Onboarding Status Updated (Event)
+
+Use this payload for a custom entity (e.g., `cr123_onboarding`). This sends an event when a customer's onboarding status changes.
+
+**Trigger Configuration:**
+
+- **Change type**: Modified
+- **Table name**: Onboardings (or your custom entity schema name)
+- **Select columns**: `cr123_statuscode` (This ensures the flow only runs when the status field changes, saving flow runs).
+
+```json wrap
+{
+  "customer_id": "@{triggerOutputs()?['body/_cr123_contactid_value']}",
+  "updated_at": "@{triggerOutputs()?['body/modifiedon']}",
+  "event_name": "Onboarding Status Updated",
+  "event_attributes": {
+    "onboarding_id": "@{triggerOutputs()?['body/cr123_onboardingid']}",
+    "status": "@{triggerOutputs()?['body/cr123_statuscode@OData.Community.Display.V1.FormattedValue']}",
+    "stage_name": "@{triggerOutputs()?['body/cr123_stagename']}",
+    "owner_id": "@{triggerOutputs()?['body/_ownerid_value']}"
+  }
+}
+```
+
+## Required Fields
+
+All payloads must include these fields (keys) for proper data processing in MoEngage:
+
+| Field | Description | Required |
+| --- | --- | --- |
+| `customer_id` | Unique identifier to link the user profile. | Yes |
+| `updated_at` | Timestamp of the event. | Yes |
+| `event_name` | Event type (e.g., "Case Created", "SLA Updated"). | Yes (for all events) |
+| `event_attributes` | Event-specific details (case ID, status, etc.). | Yes (for all events) |
+| `user_attributes` | Custom key-value pairs (email, name, etc.). | Yes (for User Upsert), No (for other events) |
+
+## Data Mapping Guidelines
+
+- **Unique Identifier (`customer_id`)**: Use a consistent, immutable identifier to link user profiles between D365 and MoEngage. This is critical for data merging and preventing duplicate user profiles. Common options:
+  - Email address (if unique)
+  - D365 record GUID (`contactid`, `leadid`, etc.)
+  - External ID (if configured in D365)
+- **Event Name**: Always include a descriptive `event_name` to identify and categorize actions in MoEngage for analysis and segmentation.
+
+## Step 5: Test the Integration
+
+1. In Power Automate, click **Test** \> **Manually**.
+2. Create or modify a test record in D365 to fire your trigger (e.g., create a new Case, update an SLA).
+3. Monitor the flow execution:
+   - Check for a successful HTTP 200/201 response.
+   - Review flow run details for any errors.
+4. Verify in MoEngage:
+   - Go to MoEngage Dashboard \> Users or Events.
+   - Search for the test user/event.
+   - Confirm data appears correctly within 1-5 minutes.

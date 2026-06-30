@@ -1,0 +1,90 @@
+---
+title: "Facebook Messenger"
+---
+
+# Introduction
+
+[Facebook Messenger](https://developers.facebook.com/docs/messenger-platform/) is one of the world’s most popular instant messaging platforms, used by nearly one billion monthly active users. Through this platform, brands can create engaging chatbots to interact intelligently and automatically with their customers.
+
+## MoEngage × Facebook Messenger
+
+The MoEngage and Facebook integration leverages MoEngage Connectors to message your users in Facebook Messenger through the Messenger Platform API. The Facebook Messenger platform is intended for “non-promotional messages that facilitate a pre-existing transaction, provide other customer support actions, or deliver content requested by a person.” To read more, see [Facebook’s platform guidelines ](https://developers.facebook.com/docs/messenger-platform)and [examples of acceptable use cases](https://developers.facebook.com/docs/messenger-platform/app-review#examples_acceptable).
+
+# Integration
+
+<Info>
+  Acknowledge the following before proceeding with integration:
+
+  - Facebook does not allow the usage of the Messenger platform to send marketing messages.
+  - You will need the user’s explicit permission for messages from your page.
+  - To send messages to users who are not test users of your Facebook App, your app will need to pass Facebook’s [app review](https://developers.facebook.com/docs/messenger-platform/app-review).
+</Info>
+
+| REQUIREMENT | DESCRIPTION |
+| --- | --- |
+| Facebook Messenger page | [https://www.facebook.com/pages/create](https://www.facebook.com/pages/create)<br />A Facebook page will be used as the identity of your bot. When people chat with your app, they will see the page name and profile picture. |
+| Facebook Messenger app | [https://developers.facebook.com/apps](https://developers.facebook.com/apps)<br />The Facebook app contains the settings for your Messenger bot, including access tokens. |
+| App bot review and approval | [https://developers.facebook.com/docs/messenger-platform/app-review](https://developers.facebook.com/docs/messenger-platform/app-review)<br />When you are ready to release your bot to the public, you must submit it to Facebook for review and approval. This review process allows us to ensure your Messenger bot abides by our policies and functions as expected before making it available to everyone on Messenger. |
+| Page-scope IDs (PSIDs) | [https://developers.facebook.com/docs/messenger-platform/reference/webhook-events/messages](https://developers.facebook.com/docs/messenger-platform/reference/webhook-events/messages)<br />You need to have users PSIDs to send messages on Facebook Messenger. Once a user interacts with your app via Messenger, Facebook will create a PSID. This PSID can be sent to MoEngage as a string custom attribute. |
+| Page access token | [https://developers.facebook.com/docs/messenger-platform/getting-started/app-setup#page\_access\_token](https://developers.facebook.com/docs/messenger-platform/getting-started/app-setup#page_access_token)<br />These access tokens are similar to user access tokens, except that they provide permission to APIs that read, write or modify the data belonging to a Facebook Page. To obtain a page access token, you need to obtain a user access token and ask for the`manage_pagespermission`. Once you have the user access token, you then get the page access token via the Graph API. |
+
+The following shows how to set up a MoEngage Facebook Messenger connector -
+
+## Step 1: Collect customer PSIDs
+
+To send messages on Facebook Messenger, you need to collect your users’ page-specific IDs (PSIDs) to identify your user and interact with them consistently. PSIDs are not the same as the user’s Facebook ID. Facebook creates this identifier whenever you message a customer or when a customer messages you.
+
+PSIDs can be found using one of the various [entry points ](https://developers.facebook.com/docs/messenger-platform/discovery)Facebook offers. Once the user messages your app or takes an action in a conversation, such as tapping a button or sending a message, their PSID will be included in the`sender.id`property, so your bot can identify who took the action.
+
+<CodeGroup>
+
+```json JSON
+{
+  "sender": {
+  	"id": "<PSID>"
+  },
+  "recipient": {
+  	"id": "<PAGE_ID>"
+  },
+  "timestamp": 1458692752478,
+  "message": {
+  	"mid": "mid.1457764197618:41d102a3e1ae206a38",
+    "text": "hello, world!",
+    "quick_reply": {
+    	"payload": "<DEVELOPER_DEFINED_PAYLOAD>"
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+Whenever you send a message, their PSID will be included in the`recipient.id`property of the request to identify who should receive the message.
+
+## Step 2: Save PSIDs on MoEngage as custom attributes
+
+PSIDs are strings that can be accessed by making an [API call](https://developers.facebook.com/docs/messenger-platform/reference/send-api) to Facebook APIs. Once you obtain a list of PSIDs, you will send them to MoEngage.
+
+- If you have a user identifier such as phone number, you can add them on MoEngage as a `ps_id` - custom tracked user attribute/property (like phone number). You can save this data to MoEngage either using:
+  - [User Data APIs](https://developers.moengage.com/hc/en-us/articles/4413167462804) or
+  - Upload them using [User Imports](/user-guide/data/imports/file-based-imports/import-user-data-using-csv) inside MoEngage.
+- If you do not have any user identifier (meaning the user has not shared his personal details with your bot), you can upload them as [Anonymous users](/user-guide/use-cases/segmentation/find-users-in-moengage#anonymous-users-0-1).
+
+## Step 3: Create Connector Campaign on MoEngage to send message
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \>\> Connectors \>\> Custom and choose delivery type most suitable to your needs
+
+![Screenshot\_2022-02-21\_at\_10.48.46\_PM.png](/images/partner_4455800640660.png)
+
+2. Choose Segment of users for whom ps\_id exists (You can combine with other Segment criteria)
+3. On step 2 of the campaign, enter the FB url, add parameters and payload for your message. Read more about [Facebook messenger send API here.](https://developers.facebook.com/docs/messenger-platform/reference/send-api)
+
+![Screenshot\_2022-10-18\_at\_4.09.47\_PM.png](/images/partner_10170701003924.png)
+
+4. At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available on Step 2 of Create Connector Campaign
+
+![Screen\_Shot\_2022-02-22\_at\_11.12.42\_AM.png](/images/partner_4460596653716.png)
+
+If your test user successfully receives the message, your set-up is ready. You can go ahead and Publish the campaign.

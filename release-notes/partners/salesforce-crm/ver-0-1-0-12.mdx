@@ -1,0 +1,56 @@
+---
+title: "ver 0.1 (0.12)"
+---
+
+Package Link: Click [here](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOS00000IwjX4YAJ).  
+  
+This release enhances system reliability by addressing sync execution behavior related to governor limits, introducing flexible and fail-safe trigger/test class deployments that utilize configurable test data, and refining retry logic and test class naming.
+
+# What's New?
+
+The following are the new features and improvements introduced in this version:
+
+### New Sync Queue Record Creation
+
+Sync Queue records are created even if existing records for the same underlying Record ID have failed and are not eligible for retry:
+
+  * Applies to non-retriable errors (for example, Missing Attribute, Max retries exceeded).
+  * This ensures that subsequent updates to records can be synced correctly.
+
+
+
+### Custom Test Data Support for Deployment
+
+If test class deployment fails due to existing code logic or validations in the client organization, the user can now enter custom test data:
+
+  * This test data will be used to generate the test class, ensuring the syncing capabilities are properly enabled on the object.
+
+
+
+### Enhanced Handling for 413 Response Types
+
+MoEngage supports both HTML and JSON response formats when handling 413 (Request Entity Too Large - Payload too large) errors:
+
+  * Previously, only JSON was expected, which caused parsing errors when servers responded with HTML.
+  * This change improves robustness and ensures cleaner error processing during large sync attempts.
+
+
+
+# Issue Fixes
+
+### Historical Sync Remained in Processing
+
+**Problem** : Syncs remain in the Processing status due to Apex governor limits being hit (10,000 DML rows) when all records were successfully processed.
+
+**Solution** : Failed Sync Queue records are processed and updated during each batch execution, instead of at the end in the finish method. This reduces the risk of exceeding DML limits.
+
+### Test Class Name Exceeded the 40-Character Limit
+
+**Problem** : Test class names exceeded the 40-character limit of Salesforce, causing deployment failures.
+
+**Solution** : Test class names are now:
+
+  * Trimmed to stay within the character limit.
+  * If a trimmed name results in duplicates, a unique number is appended to differentiate them.
+
+
