@@ -6,7 +6,7 @@ This article describes the standard payload formats that MoEngage uses for sendi
 
 This article describes how to onboard as an RCS provider in MoEngage. It provides the standard payload formats that MoEngage uses to send RCS template messages and standard callback formats to deliver callback information to MoEngage.
 
-# Onboard Yourself as a Native RCS Service Provider
+## Onboard Yourself as a Native RCS Service Provider
 
 Follow the process below if you want to become an RCS provider in MoEngage:
 
@@ -20,7 +20,7 @@ Follow the process below if you want to become an RCS provider in MoEngage:
    - The MoEngage documentation team reviews the user guide.
 7. After the quality checks are performed, MoEngage lists you as one of the native RCS providers in MoEngage and publishes the user guide as the partner guide of MoEngage.
 
-# Message Payload Details
+## Message Payload Details
 
 This section details the message payload in the request that MoEngage sends to your API.
 
@@ -68,6 +68,12 @@ This is the request that MoEngage sends to your API.
 | sms\["message"\] | Required | String | This field denotes the entire SMS content. |
 
 ## Sample Payload
+
+To ensure compatibility across all RCS vendor integrations, MoEngage uses a standardized, generic payload. This payload is designed to accommodate the two primary processing methodologies currently used by vendors:
+ 
+- **Parameter-based processing:** The vendor expects dynamic message content as a discrete set of parameters.
+- **Resolved text processing:** The vendor expects the fully resolved message text (where MoEngage merges the dynamic content into the complete text string prior to sending).
+The payloads detailed below include the necessary data to satisfy both requirements. Vendors can extract and process the payload according to their supported methodology.
 
 The following is a sample payload for sending RCS messages:
 
@@ -120,7 +126,7 @@ The following is a sample payload for sending RCS messages to users in India:
               },
                     "title": "Welcome John to Moengage",
                     "description": "John is happily welcomed to Moengage and will be a crucial part of
-the Product team",
+ the Product team",
                     "orientation": "HORIZONTAL",
                     "height": "",
                     "alignment": "LEFT",
@@ -143,7 +149,7 @@ the Product team",
   "sender": "Sender_2,
        }
    },
-{
+ {
  ...Other messages..
     }
  ]
@@ -266,7 +272,54 @@ the Product team",
 | height | Optional | String | This field denotes the media height. Supported values are: <ul><li>SHORT</li><li>MEDIUM <br />**Note**: This field is optional only in case of vertical orientation.</li></ul> |
 | alignment | Optional | String | This field denotes the media alignment. Supported values are: <ul><li>LEFT</li><li>RIGHT<br />**Note**: This field is optional only in case of horizontal orientation.</li></ul> |
 
-## Message Content for Media
+**Note:** Other parameters remain the same as specified above, hence not mentioned, but for reference, check above.
+
+## Message Content for Carousel
+ 
+```json
+{
+"type": "CAROUSEL",
+"data":{
+    "width": "SMALL | MEDIUM",
+    "cards":[
+        {
+           "data":{
+             "media":{
+                 "media_url": "media_url",
+                 "content_type": "content type",
+                 "thumbnail":{
+                     "thumbnail_url": "thumbnail_url"
+                     }
+                  },
+              "title": "Title message",
+              "description": "Description of the card",
+              "orientation": "HORIZONTAL | VERTICAL",
+              "height": "SHORT | MEDIUM",
+              "alignment": "LEFT | RIGHT",
+              "parameters":{
+                  "param_1": "value_1",
+                       ...
+                 }
+              },
+      "suggestions":[SUGGESTION_1, SUGGESTION_2 ...]
+              },
+             {
+            ...card 2 body...
+            }
+          ]
+       }
+    }
+```
+ 
+| Key | Optional/Required | Data Type | Description |
+|---|---|---|---|
+| width | Required | String | This field denotes the width of the carousel |
+| cards | Required | Array of Card Template Object | This field contains the list of card template objects |
+ 
+> **Note:** Other parameters remain the same as specified above, hence not mentioned, but for reference, check above.
+
+
+## Message Content for Media Message
 
 ```json
 { 
@@ -297,7 +350,7 @@ Following are the types of _suggestion_ JSON objects:
 | --- | --- | --- | --- |
 | type | Required | String | This field denotes the type of suggestions. Supported values are: <ul><li>OPEN\_URL</li><li>DIAL\_PHONE</li><li>SHOW\_LOCATION</li><li>QUERY\_LOCATION</li><li>REQUEST\_LOCATION</li><li>CREATE\_CAL\_EVENT</li></ul> |
 | text | Required | String | This field denotes the text to be shown as a reply. |
-| postback\_data | Required | String | This field denotes the text to be sent back to MoEngage for reconciliation. |
+| postback_data | Required | String | This field denotes the text to be sent back to MoEngage for reconciliation. |
 
 ### Open URL
 
@@ -306,13 +359,17 @@ Following are the types of _suggestion_ JSON objects:
    "type": "OPEN_URL",
    "text": "Suggestion text",
    "postback_data": "postback data string",
-   "url": "url"
+   "url": "url",
+   "application": "WEBVIEW" | "BROWSER", //optional 
+   "webview_view_mode": "FULL"| "HALF" | "TALL" //optional 
 }
 ```
 
 | **Key** | **Optional/Required** | **Data Type** | **Description** |
 | --- | --- | --- | --- |
 | url | Required | String | This field denotes the URL specified for redirection. |
+| application | Optional | String | This field denotes that the application is opened in a browser or a webview. |
+| webview_view_mode | Optional | String | This field is required only if a webview is used within the application. |
 
 ### Dial Phone
 
@@ -389,12 +446,12 @@ Following are the types of _suggestion_ JSON objects:
 
 | **Key** | **Optional/Required** | **Data Type** | **Description** |
 | --- | --- | --- | --- |
-| start\_time | Required | String | This field denotes the start time of the calendar event in the timestamp format. |
-| end\_time | Required | String | This field denotes the end time of the calendar event in the timestamp format. |
+| start_time | Required | String | This field denotes the start time of the calendar event in the timestamp format. |
+| end_time | Required | String | This field denotes the end time of the calendar event in the timestamp format. |
 | title | Required | String | This field denotes the title of the calendar event. |
 | description | Optional | String | This field denotes the description of the calendar event. |
 
-# Callback Data
+## Callback Data
 
 MoEngage sets the value to this string while sending the request. Ensure to return this string in the callbacks. The string can be of a maximum of 200 characters and alphanumeric with “\_” as a separation character. For example,
 
@@ -445,7 +502,7 @@ curl --location '<api_url provided by the vendor>' \
 | 4XX | Client errors | This response is returned when a client error occurs. |
 | 5XX | Unknown errors | This response is returned when the system runs into an unexpected error. |
 
-# Sample Response
+## Sample Response
 
 <Tabs>
   <Tab title="200">
@@ -481,14 +538,14 @@ curl --location '<api_url provided by the vendor>' \
 | status | Required | String | This field denotes the status of the request and indicates whether the message was sent successfully or not. It is present only in the case of a 2xx response. Supported values are: <ul><li>Success</li><li>Failure</li></ul> |
 | message | Optional | String | This field contains the description of errors when there are 4xx and 5xx errors. |
 
-# Types of Callback
+## Types of Callback
 
 There are two types of callback:
 
 - Message status callback
 - RCS suggestions interaction callback
 
-## Message Status Callback
+### Message Status Callback
 
 ```json wrap
 { 
@@ -545,7 +602,7 @@ The following table displays the callback status and its description:
 }
 ```
 
-### Limitation of Callbacks
+## Limitation of Callbacks
 
 Callbacks have the following limitations :
 
