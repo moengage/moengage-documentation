@@ -4,7 +4,7 @@ description: "Create, update, and list offerings for Offer Decisioning in MoEnga
 icon: "gift"
 ---
 
-Use the Offerings API to manage offerings programmatically. You can create time-bounded promotions and personalized content, update scheduling or targeting on existing offerings, list offerings for reporting or orchestration workflows, and list the personalization templates available for offering content.
+The Offerings API allows you to manage offerings. You can create time-bound promotions and personalized content, update scheduling or targeting on existing offerings, list offerings for reporting or orchestration workflows, and list the personalization templates available for offering content.
 
 <Info>
   If this API is not enabled for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team to request enablement.
@@ -102,10 +102,15 @@ Use the **same key** only when retrying an identical request after a network fai
     The required top-level fields are: `request_id`, `name`, `priority`, `delivery`, `created_by`, `scheduling` (with both `start_datetime` and `expiry_datetime`), `segment_info`, `offer_content`, and `variation_meta`. All other fields — `tags`, `capping_rules`, `conversion`, `imp_track_hours`, `offering_attribute_configuration` — are optional and can be omitted.
   </Accordion>
   <Accordion title="Can I change variation_meta after creation?">
-    No. `variation_meta` is immutable after creation. The variation type (`SMV`, `AB`, or `CONTROL_ONLY`), variant names, and split percentages cannot be changed once the offering is created. If you need a different variation configuration, create a new offering.
+    It depends on the offering's status and variation `type`:
+
+    - While the offering is `scheduled`, the entire `variation_meta` object is editable.
+    - Once the offering is `active`, the `type` and the `variantsPerLocale` key set are locked. For `SMV`, you can still update the `smv_distribution` split percentages and `control_group.percentage`. For `DMV`, only `control_group.percentage` is editable.
+
+    Editing a locked field returns `IMMUTABLE_FIELD`. The variation types are `SMV` (static allocation you control), `DMV` (dynamic allocation MoEngage optimizes), and `CONTROL_ONLY`.
   </Accordion>
   <Accordion title="Can I include all fields in a single Create request, or do I build it incrementally?">
-    The Offerings API creates the offering in a single request and it enters `scheduled` state immediately.
+    You include all fields in a single Create request — there is no incremental or draft-building flow. The offering's initial status is set from the scheduling dates: `scheduled` when `start_datetime` is in the future, `active` when the current time is within the scheduling window, or `expired` when `start_datetime` is already in the past.
   </Accordion>
   <Accordion title="What does priority control?">
     Priority is an integer from 1 to 100 used by Decision Policies to rank eligible offerings for a user. Higher values rank the offering higher relative to others with lower priority. The exact ranking behavior also depends on any scoring formulas configured in the associated Decision Policy and any `offering_attribute_configuration` scores.
@@ -118,7 +123,7 @@ Use the **same key** only when retrying an identical request after a network fai
  
 <AccordionGroup>
   <Accordion title="Which fields can I update after creation?">
-    You can update `name`, `description`, `priority`, `tags`, `scheduling` (within state-based rules below), `segment_info`, `offer_content`, `capping_rules`, `is_global_control_enabled`, `imp_track_hours`, `offering_attribute_configuration`, and `conversion`. You cannot update `variation_meta` — it is locked at creation.
+    You can update `name`, `description`, `priority`, `tags`, `scheduling` (within state-based rules below), `segment_info`, `offer_content`, `capping_rules`, `is_global_control_enabled`, `imp_track_hours`, `offering_attribute_configuration`, and `conversion`. You can also update `variation_meta`, but only within the status- and type-based rules described below.
   </Accordion>
   <Accordion title="What can I change when an offering is active vs. scheduled?">
     | Field | `scheduled` | `active` |
@@ -128,7 +133,10 @@ Use the **same key** only when retrying an identical request after a network fai
     | `conversion` | ✅ Editable | ❌ Locked |
     | `offer_content` | ✅ Editable | ✅ Editable |
     | `name`, `tags`, `priority`, `segment_info` | ✅ Editable | ✅ Editable |
-    | `variation_meta` | ❌ Always locked | ❌ Always locked |
+    | `variation_meta.type`, `variantsPerLocale` | ✅ Editable | ❌ Locked |
+    | `variation_meta.smv_distribution` (`SMV`) | ✅ Editable | ✅ Editable |
+    | `variation_meta.smv_distribution` (`DMV`) | ✅ Editable | ❌ Locked |
+    | `variation_meta.control_group.percentage` | ✅ Editable | ✅ Editable |
   </Accordion>
   <Accordion title="Do I need to send the full offering payload when updating?">
     No. The Update endpoint is a PATCH — only the fields you include in the request body are changed. Omitted fields retain their current values. However, `tags` and `offering_attribute_configuration` are **replaced entirely** when included, not merged. To add a single tag, send the current tag list plus the new one. To remove all tags, send an empty array.
