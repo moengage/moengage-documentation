@@ -332,11 +332,11 @@ paths:
                             content_1:
                               type: json
                               value: '{"headline":"Save 20% today","cta_text":"Claim offer","cta_url":"https://example.com/offer/summer"}'
-              abTest:
-                summary: A/B test offering with two variants
+              dmvTest:
+                summary: Dynamic multi-variant (DMV) offering with two variants
                 value:
                   request_id: req_550e8400-e29b-41d4-a716-446655440001
-                  name: Homepage_Banner_AB_Test
+                  name: Homepage_Banner_DMV_Test
                   priority: 5
                   delivery: scheduled
                   created_by: growth-team@example.com
@@ -346,7 +346,7 @@ paths:
                   segment_info:
                     filters: {}
                   variation_meta:
-                    type: AB
+                    type: DMV
                     variantsPerLocale: [Variant_A, Variant_B]
                     smv_distribution:
                       split:
@@ -629,7 +629,7 @@ paths:
             - `INVALID_TYPE` — a field has the wrong type or format.
             - `OUT_OF_RANGE` — a numeric field is outside its allowed range.
             - `INVALID_SCHEDULING` — `expiry_datetime` is not after `start_datetime`, or is less than 10 minutes from now.
-            - `IMMUTABLE_FIELD` — an attempt to change `variation_meta` (always locked), `scheduling.start_datetime` when the offering is `active`, or `conversion` when the offering is not `scheduled`.
+            - `IMMUTABLE_FIELD` — an attempt to change a field that is locked in the offering's current state: on an `active` offering, `variation_meta.type` or the `variantsPerLocale` key set (and, for `DMV`, the `smv_distribution` split); `scheduling.start_datetime` when the offering is `active`; or `conversion` when the offering is not `scheduled`.
             - `INVALID_TEMPLATE_ID` — `meta.templateId` is not a template registered in this workspace.
             - `MISSING_TEMPLATE_FIELD` — a field the template marks as required is missing or blank in `value`.
             - `INVALID_TAG_ID` — one or more tag IDs do not exist in the workspace.
@@ -644,8 +644,8 @@ paths:
                   target: offering
                   details:
                     - code: IMMUTABLE_FIELD
-                      target: variation_meta
-                      message: Field 'variation_meta' is immutable after creation and cannot be updated.
+                      target: variation_meta.type
+                      message: Field 'variation_meta.type' cannot be changed while the offering is ACTIVE.
                     - code: IMMUTABLE_FIELD
                       target: scheduling.start_datetime
                       message: Field 'scheduling.start_datetime' cannot be changed while the offering is ACTIVE.
@@ -1023,8 +1023,9 @@ components:
         Request body for `POST /v5/offers`. Required fields: `request_id`, `name`, `priority`,
         `delivery`, `created_by`, `scheduling`, `segment_info`, `offer_content`, and `variation_meta`.
 
-        `variation_meta` is immutable after creation, so set the variation type and split carefully
-        on the first call.
+        Once the offering becomes `active`, the `variation_meta` `type` and `variantsPerLocale` key
+        set lock, so set the variation type and variant set carefully on the first call. Split
+        percentages (`SMV`) and the control-group holdout stay editable while active.
       type: object
       required: [request_id, name, priority, delivery, created_by, scheduling, segment_info, offer_content, variation_meta]
       properties:
@@ -1119,7 +1120,10 @@ components:
         omitted fields keep their current values.
 
         Immutable and state-gated fields:
-        - `variation_meta` cannot be sent; it is locked at creation. Sending it returns `IMMUTABLE_FIELD`.
+        - `variation_meta` is fully editable while the offering is `scheduled`. Once `active`, `type`
+          and the `variantsPerLocale` key set lock and return `IMMUTABLE_FIELD`; what stays editable
+          depends on `type` — for `SMV`, the `smv_distribution` split percentages and
+          `control_group.percentage`; for `DMV`, only `control_group.percentage`.
         - `conversion` can be updated only while the offering is `scheduled`.
         - `scheduling.start_datetime` can be changed only while the offering is `scheduled`. `expiry_datetime` can be updated in any modifiable state.
       type: object
@@ -1169,6 +1173,8 @@ components:
           $ref: '#/components/schemas/OfferSegmentInfo'
         offer_content:
           $ref: '#/components/schemas/OfferContent'
+        variation_meta:
+          $ref: '#/components/schemas/OfferVariationMeta'
         capping_rules:
           $ref: '#/components/schemas/OfferCappingRules'
         is_global_control_enabled:
@@ -1310,9 +1316,9 @@ components:
         Content delivered to the user. Choose one of two formats:
 
         - Flat format (single variant, single locale): send a `content_1` object at the root.
-        - Nested format (A/B variants or multiple locales): send a `locales` map. Each key is a
-          locale identifier; within each locale, a `variations` map keys variation IDs (matching
-          the keys in `variation_meta.smv_distribution.split`) to their content.
+        - Nested format (multiple variants or multiple locales): send a `locales` map. Each key is a
+          locale identifier; within each locale, a `variations` map keys variation IDs (matching the
+          names in `variation_meta.variantsPerLocale`) to their content.
 
         Do not send both `content_1` and `locales` in the same request.
       type: object
@@ -1331,8 +1337,8 @@ components:
               variations:
                 type: object
                 description: >
-                  Per-variation content map. Each key is a variation ID that must match a key in
-                  `variation_meta.smv_distribution.split`.
+                  Per-variation content map. Each key is a variation ID that must match a name in
+                  `variation_meta.variantsPerLocale`.
                 additionalProperties:
                   type: object
                   properties:
@@ -1383,18 +1389,28 @@ components:
 
     OfferVariationMeta:
       description: |
-        Variation configuration for the offering. This object is immutable after creation.
+        Variation configuration for the offering. Editability depends on the offering's status and
+        variation `type`:
 
-        - `SMV` (Static Multi-Variant): fixed percentage splits across named variation IDs.
-        - `AB`: A/B test across variations.
+        - While the offering is `scheduled`, the entire object is editable.
+        - Once `active`, the `type` and `variantsPerLocale` key set are locked and return
+          `IMMUTABLE_FIELD`. For `SMV` you can still update the `smv_distribution` split percentages
+          and `control_group.percentage`; for `DMV` only `control_group.percentage` is editable.
+
+        Variation strategies:
+
+        - `SMV` (Static Multi-Variant): static allocation that you control. Variations are served
+          according to the fixed percentage `smv_distribution` split you define.
+        - `DMV` (Dynamic Multi-Variant): dynamic allocation that MoEngage optimizes automatically.
+          You still provide an `smv_distribution` split, but the system adjusts how variations are served.
         - `CONTROL_ONLY`: control group only, with no content variations served.
       type: object
       required: [type]
       properties:
         type:
           type: string
-          description: Variation strategy. One of `SMV`, `AB`, or `CONTROL_ONLY`.
-          enum: [SMV, AB, CONTROL_ONLY]
+          description: Variation strategy. One of `SMV`, `DMV`, or `CONTROL_ONLY`.
+          enum: [SMV, DMV, CONTROL_ONLY]
           example: SMV
         variantsPerLocale:
           type: array
@@ -1406,17 +1422,16 @@ components:
           example: [Variant_A, Variant_B]
         smv_distribution:
           type: object
-          description: Variation percentage allocation. Required when `type` is `SMV` or `AB`.
+          description: Variation percentage allocation. Required when `type` is `SMV` or `DMV`. For `DMV` it sets the starting split, which the system then optimizes.
           properties:
             split:
               type: object
               description: >
                 Map of variation ID to integer percentage. The same variation IDs are used as keys
-                in `offer_content`. Values must be positive integers that sum to exactly 100.
+                in `offer_content`. The only constraint is that the values must sum to exactly 100;
+                there is no enforced minimum or maximum on an individual value.
               additionalProperties:
                 type: integer
-                minimum: 1
-                maximum: 99
               example:
                 Variant_A: 70
                 Variant_B: 30
