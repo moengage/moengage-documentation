@@ -1,0 +1,263 @@
+---
+title: "Native Browser API Support"
+description: "Integrate Native Browser API Support for the MoEngage Web SDK in applications that patch native browser APIs, such as Angular apps using Zone.js."
+---
+
+## Overview
+
+<Note>
+  Native Browser API Support requires MoEngage Web SDK version `{MIN_SUPPORTED_WEB_SDK_VERSION}` and later. Use a Native Browser API Support script version that is compatible with the MoEngage Web SDK version integrated in your application.
+</Note>
+
+## Integration
+
+To enable Native Browser API Support, complete the following steps.
+
+### Step 1: Add the Native Browser API Support Script
+
+Add the following script to your application.
+
+MoEngage recommends loading this script as early as possible, preferably in the `<head>` section of the page, before Angular, Zone.js, application scripts, or third-party libraries that may patch browser APIs.
+
+```html HTML
+<script src="https://cdn.moengage.com/release/{DATA_CENTER}/versions/{SDK_VERSION}/moe_webSdk_native_methods.min.latest.js"></script>
+```
+
+Replace the following placeholders:
+
+| Placeholder | Description |
+|---|---|
+| `{DATA_CENTER}` | Your MoEngage data center. |
+| `{SDK_VERSION}` | The MoEngage Web SDK version used in your application. |
+
+<Warning>
+  The Native Browser API Support script must be loaded before any code that patches native browser APIs. If the script is loaded after the APIs are patched, it may capture the patched implementations instead of the original browser implementations.
+</Warning>
+
+### Step 2: Enable Native Browser API Support During SDK Initialization
+
+Set `nativeMethodsUsed` to `true` while initializing the MoEngage Web SDK.
+
+```javascript JavaScript
+Moengage = moe({
+  appId: moeAppID,
+  projectId: "your_projectId",
+  nativeMethodsUsed: true
+});
+```
+
+<Note>
+  Loading the Native Browser API Support script without setting `nativeMethodsUsed` to `true` will not enable the Web SDK to use the preserved native browser APIs.
+</Note>
+
+## Recommended Setup for Angular Applications
+
+Angular applications commonly use Zone.js. Zone.js patches browser APIs such as `Promise`, `setTimeout`, `setInterval`, and `MutationObserver` to track asynchronous operations and trigger Angular change detection.
+
+For Angular applications, MoEngage recommends enabling Native Browser API Support.
+
+Load the Native Browser API Support script before Zone.js and Angular are loaded.
+
+```html HTML
+<head>
+  <script src="https://cdn.moengage.com/release/{DATA_CENTER}/versions/{SDK_VERSION}/moe_webSdk_native_methods.min.latest.js"></script>
+
+  <!-- Zone.js, Angular, and other application scripts should be loaded after this script -->
+</head>
+```
+
+Initialize the MoEngage Web SDK with `nativeMethodsUsed` set to `true`.
+
+```javascript JavaScript
+Moengage = moe({
+  appId: moeAppID,
+  projectId: "your_projectId",
+  nativeMethodsUsed: true
+});
+```
+
+## Load Order Requirements
+
+Correct load order is required for Native Browser API Support to work as expected.
+
+<Tabs>
+  <Tab title="Recommended Load Order">
+    1. Native Browser API Support script
+    2. Framework or third-party scripts that may patch browser APIs
+    3. MoEngage Web SDK initialization with `nativeMethodsUsed: true`
+  </Tab>
+  <Tab title="Angular Applications">
+    1. Native Browser API Support script
+    2. Zone.js
+    3. Angular application scripts
+    4. MoEngage Web SDK initialization with `nativeMethodsUsed: true`
+  </Tab>
+</Tabs>
+
+If the Native Browser API Support script is loaded after Zone.js or another patching library, it may not capture the original browser implementations.
+
+## What Happens If Native Browser API Support Is Not Enabled?
+
+If your application does not patch native browser APIs, there is no expected impact. However, if your application or a third-party library patches native browser APIs and Native Browser API Support is not enabled, the MoEngage Web SDK may use the patched implementations of those APIs.
+
+This may result in inconsistent or timing-related SDK behavior.
+
+**Possible symptoms include:**
+
+- SDK initialization taking longer than expected
+- SDK callbacks being delayed or not invoked as expected
+- In-app messages not rendering or triggering reliably
+- Push opt-in or subscription flows behaving inconsistently
+- Events not being queued, processed, or sent as expected
+- Behavior that occurs only in specific frameworks, such as Angular
+- Differences in SDK behavior between a plain JavaScript environment and the actual application environment
+
+<Note>
+  This issue may not always produce a specific MoEngage error in the browser console. In many cases, developers may observe inconsistent SDK behavior instead of a clear JavaScript error.
+</Note>
+
+## How to Identify Whether Native Browser API Support Is Required
+
+Native Browser API Support is recommended in the following cases:
+
+- Your application uses Angular with Zone.js.
+- Your application uses a framework or library that patches asynchronous browser APIs.
+- SDK behavior is inconsistent only inside your application framework.
+- The SDK works as expected in a simple test page but behaves differently in your production application.
+- Browser console logs or stack traces show references to wrappers around timers, promises, or DOM observers.
+
+Developers can perform an indicative check in the browser console:
+
+```javascript JavaScript
+console.log(Promise.toString());
+console.log(setTimeout.toString());
+console.log(MutationObserver.toString());
+```
+
+Native browser implementations often contain:
+
+```
+[native code]
+```
+
+If the output shows framework-specific wrappers or custom code, the API may have been patched.
+
+<Note>
+  This check is only indicative. Browser behavior may vary. If your application uses Angular with Zone.js, MoEngage recommends enabling Native Browser API Support regardless of the console output.
+</Note>
+
+## How It Works
+
+The Native Browser API Support script performs the following actions:
+
+1. Captures the original browser implementations of supported APIs.
+2. Stores these implementations before application or third-party code modifies them.
+3. Allows the MoEngage Web SDK to use the preserved implementations internally when `nativeMethodsUsed` is enabled.
+
+This reduces the impact of framework-level or third-party patching on MoEngage Web SDK functionality.
+
+## Important Considerations
+
+- Native Browser API Support is not required for every Web SDK integration.
+- Use this feature when native browser APIs are patched or when MoEngage recommends it for your implementation.
+- The support script must be loaded before APIs are patched.
+- Always set `nativeMethodsUsed` to `true` when using the support script.
+- If the support script is loaded but `nativeMethodsUsed` is not set to `true`, the Web SDK will not use the preserved native browser APIs.
+- If the support script is loaded after APIs are patched, it may not provide the intended protection.
+- For Angular applications using Zone.js, MoEngage recommends enabling this feature.
+
+## Troubleshooting
+
+### The SDK still behaves inconsistently after enabling Native Browser API Support
+
+Verify the following:
+
+- The Native Browser API Support script is loaded before Zone.js or any library that patches browser APIs.
+- `nativeMethodsUsed` is set to `true` during SDK initialization.
+- The script version is compatible with the Web SDK version.
+- The script is not blocked by Content Security Policy, ad blockers, or network restrictions.
+- The correct MoEngage data center and SDK version are used in the script URL.
+
+### The script is loaded, but the SDK does not appear to use native browser APIs
+
+Ensure that the SDK is initialized with:
+
+```javascript JavaScript
+nativeMethodsUsed: true
+```
+
+The support script alone does not enable the feature. The Web SDK uses preserved native browser APIs only when this configuration is enabled.
+
+### The application uses Angular. Is this feature mandatory?
+
+Native Browser API Support is not mandatory for all Angular applications, but MoEngage recommends enabling it for Angular applications using Zone.js.
+
+Without this feature, the MoEngage Web SDK may use Zone.js-patched implementations of browser APIs. In some cases, this can result in timing-related or inconsistent SDK behavior.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Is Native Browser API Support required for all websites?">
+    No. Native Browser API Support is not required for all websites. It is intended for applications where native browser APIs are patched or overridden.
+  </Accordion>
+
+  <Accordion title="Does this feature change application behavior?">
+    No. This feature is intended to allow the MoEngage Web SDK to use preserved browser APIs internally. It does not modify application logic.
+  </Accordion>
+
+  <Accordion title="Will there always be a browser console error if this feature is not enabled?">
+    No. There may not be a specific browser console error. Developers may observe inconsistent SDK behavior instead.
+  </Accordion>
+
+  <Accordion title="Can I load the support script after Angular or Zone.js?">
+    No. The support script should be loaded before Angular, Zone.js, or any other script that patches browser APIs.
+
+    If it is loaded after these scripts, it may capture already-patched implementations instead of the original browser implementations.
+  </Accordion>
+
+  <Accordion title="Should I enable nativeMethodsUsed without loading the support script?">
+    No. Enable `nativeMethodsUsed` only when the Native Browser API Support script is loaded correctly.
+  </Accordion>
+
+  <Accordion title="What APIs are preserved by this feature?">
+    The feature preserves supported native browser APIs used by the MoEngage Web SDK, including:
+
+    - `Promise`
+    - `setTimeout`
+    - `clearTimeout`
+    - `setInterval`
+    - `clearInterval`
+    - `MutationObserver`
+  </Accordion>
+</AccordionGroup>
+
+## Sample Implementation
+
+```html HTML
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://cdn.moengage.com/release/{DATA_CENTER}/versions/{SDK_VERSION}/moe_webSdk_native_methods.min.latest.js"></script>
+
+    <!-- Load framework and application scripts after this script -->
+  </head>
+
+  <body>
+    <script>
+      Moengage = moe({
+        appId: moeAppID,
+        projectId: "your_projectId",
+        nativeMethodsUsed: true
+      });
+    </script>
+  </body>
+</html>
+```
+
+## Summary
+
+Native Browser API Support is a compatibility feature for applications that patch native browser APIs.
+
+MoEngage recommends using this feature for Angular applications using Zone.js and for applications where third-party libraries modify APIs such as `Promise`, `setTimeout`, `setInterval`, or `MutationObserver`.
+
+For standard Web SDK integrations where native browser APIs are not patched, this feature is not required.
