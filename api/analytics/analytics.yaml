@@ -176,17 +176,96 @@ paths:
                     description: The resolved chart data, as an array of metric rows.
                     items:
                       $ref: '#/components/schemas/ChartSeriesPoint'
-              example:
-                response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
-                type: chart_data
-                data:
-                  - metric: 4
-                    granularity: 2026/05
-                    splitby: []
-                    grouped_by: []
-                    step: A
-                    tseq: 0
-                    cseq: 0
+              examples:
+                behavior:
+                  summary: Behavior analysis
+                  value:
+                    response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                    type: chart_data
+                    data:
+                      - metric: 1.0
+                        granularity: 2026/06/29
+                        splitby: []
+                        grouped_by: []
+                        step: A
+                        tseq: 0
+                        cseq: 0
+                funnel:
+                  summary: Funnel analysis
+                  value:
+                    response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                    type: chart_data
+                    data:
+                      - step: 1
+                        metric: 4
+                        splitby: []
+                        granularity: entire
+                        split_by_weight: 4
+                        tseq: 0
+                        cseq: 0
+                      - step: 2
+                        metric: 0
+                        splitby: []
+                        granularity: entire
+                        split_by_weight: 4
+                        tseq: 0
+                        cseq: 0
+                retention:
+                  summary: Retention analysis
+                  value:
+                    response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                    type: chart_data
+                    data:
+                      - metric: 0.0
+                        granularity: 2026/06/29
+                        splitby: []
+                        total_users: 1
+                        retained_user: 0
+                        retention_comparison_index: 0
+                        retention_compared_by: 2026/06/29
+                        tseq: 0
+                        cseq: 0
+                user:
+                  summary: User analysis
+                  value:
+                    response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                    type: chart_data
+                    data:
+                      - metric: 14
+                        granularity: entire
+                        splitby: []
+                        step: A
+                        tseq: 0
+                        cseq: 0
+                        bucket: "1.0"
+                      - metric: 8559
+                        granularity: entire
+                        splitby: []
+                        step: A
+                        tseq: 0
+                        cseq: 0
+                        bucket: "0.0"
+                      - metric: 2
+                        granularity: entire
+                        splitby: []
+                        step: A
+                        tseq: 0
+                        cseq: 0
+                        bucket: "2.0"
+                sessionAndSource:
+                  summary: Session and Source analysis
+                  value:
+                    response_id: b3f1c0d2-2a4e-4f9b-9c1a-6d2e8f0a1b23
+                    type: chart_data
+                    data:
+                      - analysis_type: session_count
+                        splitby: []
+                        granularity: 2026/06/29
+                        metric: 48.0
+                        fseq: 0
+                        event_name: MOE_SESSION
+                        tseq: 0
+                        cseq: 0
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -309,28 +388,28 @@ components:
     ChartSeriesPoint:
       type: object
       description: |
-        One row of a chart's resolved data series. The exact keys vary by the chart's analysis type, so a chart may return additional fields beyond those listed here.
+        One row of a chart's resolved data series. The keys below are common across analysis types, but each analysis type returns additional, type-specific keys. For example:
+
+        - **Behavior** adds `grouped_by` and `step`.
+        - **Funnels** add `step` (the step number) and `split_by_weight`.
+        - **Retention** adds `total_users`, `retained_user`, `retention_comparison_index`, and `retention_compared_by`.
+        - **User** adds `step` and `bucket`.
+        - **Session and Source** adds `analysis_type`, `event_name`, and `fseq`.
+
+        See the response examples for a sample of each analysis type.
       properties:
         metric:
           type: number
           description: The metric value for this data point.
-          example: 4
+          example: 48.0
         granularity:
           type: string
-          description: The time bucket for this data point, such as a month, week, or day.
-          example: 2026/05
+          description: The time bucket for this data point, such as a day, week, or month. Returns `entire` when the result is not bucketed by time.
+          example: 2026/06/29
         splitby:
           type: array
           description: The split-by dimension values applied to this data point, if any.
           items: {}
-        grouped_by:
-          type: array
-          description: The group-by dimension values applied to this data point, if any.
-          items: {}
-        step:
-          type: string
-          description: The step label for this data point, used in funnel and similar multi-step analyses.
-          example: A
         tseq:
           type: integer
           description: The time-sequence index of this data point within the series.
