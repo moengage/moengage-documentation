@@ -6,6 +6,7 @@ description: "Maintain your email suppression list in MoEngage by importing boun
 # Overview
 
 _Suppression Updates_ helps maintain your global email subscription list. You can use this feature to ensure that users who should not be contacted are restricted from receiving emails. This is essential for maintaining compliance and protecting your sender reputation.
+Suppression applies only to **non-transactional** sends (marketing, promotional). Transactional emails and Inform alerts continue to be delivered even if a user is Unsubscribed or has Complained — the only exception is **Bounce**, which blocks all sends, transactional included, since the address itself is undeliverable.
 
 <Info>
   If you use MoEngage Managed Email, reachability updates are automatically propagated to SendGrid. However, if you integrate your own SendGrid account, this automatic sync is not supported; you must manage suppression updates directly within your SendGrid dashboard.
@@ -17,6 +18,19 @@ _Suppression Updates_ helps maintain your global email subscription list. You ca
 - **Automate SendGrid sync:** Automatically propagate suppression updates to SendGrid to keep your non-transactional senders compliant without manual work. This applies only if you select [**SendGrid Tracking**](https://partners.moengage.com/hc/en-us/articles/4422510567700-Sendgrid#h_01J1VJTR9DT27WCVRCYBDPZ8R2) in **Unsubscribe Settings** while configuring an email sender in MoEngage.
 - \*\*Protect critical emails: \*\*Maintain a global suppression list for marketing campaigns without blocking essential transactional alerts, such as one-time passwords (OTPs) or password resets.
 - **Manage suppression requests independently**: Unsubscribe or resubscribe users in [self-service](/user-guide/campaigns-and-channels/email/getting-started-with-email/self-service-for-email-onboarding) enabled workspaces, eliminating the need to raise support tickets for individual status updates.
+
+# Unsubscribe vs. Suppression
+
+Unsubscribe and Suppression are often used interchangeably but are not the same mechanism.
+
+| | Unsubscribe | Suppression |
+|---|---|---|
+| **Trigger** | User clicks an unsubscribe/list-unsubscribe link, or updates preferences | Bounce, Unsubscribe, or Spam Complaint event (Unsubscribe is one of three suppression signals) |
+| **Scope** | Applies only to the specific unsubscribe type triggered (Global, List, or Category) | Global — blocks all non-transactional sends once any one of Bounce/Unsubscribe/Complaint is true |
+| **Reversibility** | Reversible; user can resubscribe or update preferences anytime | Reversible via CSV upload or API, but requires explicit action — does not reset automatically |
+| **Who controls it** | End user (via email link or preference center) | Brand/admin (via Suppression Updates upload, API, or ESP sync) |
+
+An unsubscribe is one of the three inputs that can put a user on the suppression list; the suppression list is the actual block enforced against sends.
 
 # Bulk Import of Users
 
@@ -126,6 +140,9 @@ To maintain system stability and prevent excessive load on the Suppression Manag
   <Accordion title="Can I use the Bulk Import file to resubscribe users?">
     Yes. You can make a user reachable again by setting their attribute values to false. A user is considered "suppressed" if any of these are set to true.
     To resubscribe, upload a CSV where the **Bounce**, **Unsubscribe**, and **Complaint** columns are all set to false for that user.
+    <Warning>
+     **Compliance note on resubscribing users:** Removing a user from the suppression list (setting Unsubscribe to false) only lifts MoEngage's send-block — it does not restore consent. Before resuming marketing emails to a previously unsubscribed user, confirm you have valid, up-to-date consent as required under applicable regulations (e.g., CAN-SPAM, GDPR, CCPA). Re-adding a user without fresh consent can result in compliance violations even though MoEngage will technically deliver the email.
+    </Warning>
   </Accordion>
 
   <Accordion title="What happens if I leave a cell blank (empty) in the CSV file?">
