@@ -2495,20 +2495,30 @@ components:
         queuing_enabled:
           type: boolean
           description: |
-            Whether queuing is enabled for this campaign. When `true`, messages that cannot be delivered immediately are queued for later delivery within the `queue_duration` window.
+            Enables message queuing for this campaign. When set to `true`, messages that are temporarily blocked by DND, frequency capping, or minimum delay restrictions are held in a queue and delivered as soon as the restriction clears, rather than being dropped.
 
-            Push only. Not supported for device-triggered or location-triggered campaigns.
+            **Supported delivery types:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`. Not applicable to `DEVICE_TRIGGERED` or `LOCATION_TRIGGERED` campaigns.
 
-            This is a flag-gated feature. Contact your MoEngage account team to enable it for your workspace.
+            **DND interaction:**
+            - When `bypass_dnd` is `false` (DND respected): messages blocked during a DND window are queued and delivered once the window passes.
+            - When `bypass_dnd` is `true` (DND ignored): queuing applies to frequency capping and minimum delay blocks only.
+
+            **Auto-disabled:** When both `ignore_frequency_capping` and `minimum_delay_between_two_notification_in_hour` are configured to bypass all delivery restrictions, queuing is automatically disabled.
+
+            **Queue limits:** Up to 10,000,000 messages for `ONE_TIME`, `PERIODIC`, and `BUSINESS_EVENT_TRIGGERED` campaigns; up to 1,000,000 for `EVENT_TRIGGERED` campaigns.
+
+            **Delivery order:** Queued messages are delivered in first-in, first-out (FIFO) order.
 
         queue_duration:
           type: integer
           minimum: 0
           maximum: 48
           description: |
-            Duration in hours during which queued messages will be attempted for delivery. Valid range is 1–48 hours. Must be `0` when `queuing_enabled` is `false`.
-            
-            This is a flag-gated feature. Contact your MoEngage account team to enable it for your workspace.
+            The duration in hours during which a queued message will be retried for delivery. Accepted range: `1`–`48` hours. Set to `0` when `queuing_enabled` is `false`.
+
+            If a user does not become eligible for delivery within the configured window, the message is dropped and the outcome is recorded in campaign analytics.
+
+            For active `PERIODIC` and triggered campaigns, changes to this value apply only to messages queued after the update. Messages already in the queue retain the original duration.
 
     EmailDeliveryControls:
       type: object
