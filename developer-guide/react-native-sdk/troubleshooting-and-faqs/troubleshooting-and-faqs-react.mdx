@@ -26,3 +26,42 @@ Sample code for inapp/nudge callbacks - [GitHub](https://github.com/moengage/Rea
 Refer to [this documentation](/developer-guide/react-native-sdk/in-app-messages/inapp-nativ#inapp-callbacks) to set up inapp callbacks. Additionally, you must register the callbacks in your application's app.js or app.ts, and after setting them up, you must call the MoEngage Plugin's initialize () method.
 
 Sample code for inapp/nudge callbacks - [GitHub](https://github.com/moengage/React-Native-Sample-App/blob/master/SampleApplication/App.tsx)
+
+# Android - Why does the MoEngage debugger deeplink scheme appear in production builds?
+
+The MoEngage Android SDK registers the `moengage://debugger` deep link scheme through the `MoEDebuggerActivity` activity to support the [SDK Logger](/developer-guide/android-sdk/troubleshooting-and-faqs/how-to-use-the-moengage-sdk-logger), which lets you inspect SDK logs from your dashboard without sharing a build with the MoEngage support team. The SDK adds this activity to every build variant, including release builds, so the scheme can show up in a deeplink-scheme audit of your production app.
+
+<Info>
+  A third party can launch `MoEDebuggerActivity`, but doing so only opens the SDK Logger screen. Without a session ID generated from your MoEngage dashboard, it doesn't expose user data, app data, or SDK credentials. Exclude the activity if your organization's deeplink-scheme audits or app store review checks flag unrecognized schemes — not because the scheme is a vulnerability.
+</Info>
+
+To exclude `MoEDebuggerActivity` from your production build, remove it from the merged Android manifest using Android's manifest merger `tools:node="remove"` directive.
+
+<Tabs>
+  <Tab title="Expo">
+    Use a custom Expo config plugin to remove the activity during prebuild. Refer to [Exclude the MoEngage Debugger Scheme From Production Builds](/developer-guide/react-native-sdk/sdk-integration/expo/configure-the-moengage-expo-sdk#exclude-the-moengage-debugger-scheme-from-production-builds) for the plugin code and setup steps.
+  </Tab>
+  <Tab title="Bare Workflow">
+    Add a release-specific manifest so the activity is removed only from your release (production) build variant, keeping it available for debug builds.
+
+    1. Create `android/app/src/release/AndroidManifest.xml` if it doesn't already exist.
+    2. Add the following content:
+
+    <CodeGroup>
+
+    ```xml android/app/src/release/AndroidManifest.xml
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools">
+        <application>
+            <activity
+                android:name="com.moengage.sdk.debugger.MoEDebuggerActivity"
+                tools:node="remove" />
+        </application>
+    </manifest>
+    ```
+
+    </CodeGroup>
+
+    3. Rebuild your release APK or AAB. Gradle merges this manifest into the release variant only, so `moengage://debugger` no longer registers in that build.
+  </Tab>
+</Tabs>

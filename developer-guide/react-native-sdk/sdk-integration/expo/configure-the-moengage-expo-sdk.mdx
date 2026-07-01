@@ -167,6 +167,84 @@ Add the properties listed below inside the react-native-expo-moengage plugin ent
   </Tab>
 </Tabs>
 
+## Exclude the MoEngage Debugger Scheme From Production Builds
+
+The MoEngage Android SDK registers the `moengage://debugger` deep link scheme through the `MoEDebuggerActivity` activity to support the SDK Logger. The SDK adds this activity to every build variant, including release builds, so the scheme can end up in your production app.
+
+<Info>
+  Read [why the SDK registers this scheme, and the security implications of shipping it to production](/developer-guide/react-native-sdk/troubleshooting-and-faqs/troubleshooting-and-faqs-react#android-why-does-the-moengage-debugger-deeplink-scheme-appear-in-production-builds).
+</Info>
+
+If you don't need the SDK Logger in your production build, remove `MoEDebuggerActivity` from the merged Android manifest with a custom Expo config plugin. The plugin applies Android's manifest merger `tools:node="remove"` directive during prebuild.
+
+1. Create a plugin file, for example `plugins/withRemoveMoEngageDebugger.js`:
+
+   <CodeGroup>
+
+   ```js plugins/withRemoveMoEngageDebugger.js
+   const { withAndroidManifest } = require('@expo/config-plugins');
+
+   const MOE_DEBUGGER_ACTIVITY = 'com.moengage.sdk.debugger.MoEDebuggerActivity';
+
+   function addToolsNamespace(manifest) {
+     manifest.$ = manifest.$ || {};
+     manifest.$['xmlns:tools'] = manifest.$['xmlns:tools'] || 'http://schemas.android.com/tools';
+   }
+
+   const withRemoveMoEngageDebugger = (config) =>
+     withAndroidManifest(config, async (config) => {
+       const manifest = config.modResults.manifest;
+       const mainApplication = manifest.application?.[0];
+       if (!mainApplication) {
+         return config;
+       }
+
+       addToolsNamespace(manifest);
+       mainApplication.activity = mainApplication.activity || [];
+       const activityExists = mainApplication.activity.some(
+         (activity) => activity.$?.['android:name'] === MOE_DEBUGGER_ACTIVITY
+       );
+       if (!activityExists) {
+         mainApplication.activity.push({
+           $: {
+             'android:name': MOE_DEBUGGER_ACTIVITY,
+             'tools:node': 'remove',
+           },
+         });
+       }
+       return config;
+     });
+
+   module.exports = withRemoveMoEngageDebugger;
+   ```
+
+   </CodeGroup>
+
+2. Register the plugin in your `app.json` or `app.config.js`, alongside `react-native-expo-moengage`:
+
+   <CodeGroup>
+
+   ```json app.json
+   {
+     "expo": {
+       "plugins": [
+         "react-native-expo-moengage",
+         "./plugins/withRemoveMoEngageDebugger"
+       ]
+     }
+   }
+   ```
+
+   </CodeGroup>
+
+3. Run `npx expo prebuild --clean` to regenerate the native Android project with the updated manifest.
+
+<Tip>
+  Keep the SDK Logger available in development and staging by applying the plugin only for your production build profile. Read `process.env` (or your EAS build profile name) inside `app.config.js` and add the plugin to the `plugins` array conditionally.
+</Tip>
+
+Adjust the plugin to match your project structure if you use a different Expo config plugin layout. For the plugin MoEngage uses internally, refer to [withMoEngageAndroid.ts](https://github.com/moengage/React-Native/blob/master/sdk/expo/src/android/withMoEngageAndroid.ts) on GitHub.
+
 ## Configure iOS App Extensions with EAS Build
 
 EAS Build automatically handles standard iOS app configurations. However, if your app uses features that require separate native targets, you must configure them in `eas.json`. This includes features like:
