@@ -7,10 +7,14 @@ MoEngage supports the following ways of creating email content using the Custom 
 
 - [Edit/Paste HTML template](/user-guide/campaigns-and-channels/email/create/create-content-with-custom-html-editor#edit/paste-html-template)
 - [Upload HTML template in ZIP format](/user-guide/campaigns-and-channels/email/create/create-content-with-custom-html-editor#upload-an-html-template-in-zip-format)
-
+- [Known Limitations](/user-guide/campaigns-and-channels/email/create/create-content-with-custom-html-editor#known-limitations)
 <Info>
   If custom fonts are enabled for your workspace, this editor's functionality changes accordingly. For more information, refer to [Custom Fonts](/user-guide/campaigns-and-channels/email/getting-started-with-email/custom-fonts).
 </Info>
+
+<Warning>
+  Before building complex layouts, review [Known Limitations](#known-limitations) — Outlook and other email clients don't support several common CSS properties (like `position: absolute` and `flex`), and this can cause silent rendering failures at send time.
+</Warning>
 
 # Edit/Paste HTML Template
 
@@ -86,6 +90,58 @@ To upload a ZIP file, make sure to follow the specifications below:
   style={{ width:"49%" }}
 />
 
-This will load your template in the Drag and Drop editor. If you see an error, follow the guidelines in the [ZIP File Format](#h_01GW6Q6M2Q0HR80JYQ8YJTVN2E) section.
+This will load your template in the Drag and Drop editor. If you see an error, follow the guidelines in the [ZIP File Format](/user-guide/campaigns-and-channels/email/create/create-content-with-custom-html-editor#zip-file-format) section.
 
 For further assistance, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
+
+
+# Known Limitations
+
+The Custom HTML Editor renders the HTML/CSS you provide, but final rendering also depends on the recipient's email client — several of which (Outlook in particular) use limited, non-standard rendering engines. Review the limitations below before building complex templates to avoid surprises at send time.
+
+## Unsupported or Partially Supported CSS Properties
+
+| CSS Property | Support | Use Instead |
+|---|---|---|
+| `position: absolute` / `relative` / `fixed` | Not supported in Outlook (Word rendering engine); inconsistent elsewhere | Table-based layout with cell alignment |
+| `float` | Not supported in Outlook | Tables with `align` attribute |
+| `display: flex` / `grid` | Not supported in Outlook, Yahoo, and several mobile clients | Nested HTML tables |
+| `z-index` | Not supported in Outlook | Reorder HTML elements instead of layering |
+| `box-shadow` | Not supported in Outlook | Use a background image to simulate shadow, or omit |
+| `background-size` / CSS gradients | Not supported in Outlook | Use a static background image sized to the container |
+| `@font-face` (custom web fonts) | Not supported in Outlook, Gmail app; falls back to system font | Define a web-safe fallback font stack |
+| CSS animations / transitions | Not supported in Outlook, Gmail, Yahoo | Use static content or an animated GIF |
+| `max-width` on non-image elements | Inconsistent in Outlook | Set explicit `width` on tables/cells |
+| Negative margins | Can break layout in Outlook | Avoid; use padding on parent element instead |
+
+<Info>
+  These are email-client rendering limitations, not MoEngage editor restrictions — the HTML editor will accept and save this CSS without an error, but the property may be silently ignored or rendered incorrectly on send, especially in Outlook.
+</Info>
+
+## Nested Tables and Outlook Compatibility
+
+Outlook (desktop, 2007 onward) uses Microsoft Word's rendering engine rather than a browser engine. This causes specific issues with nested tables:
+
+- Deeply nested tables (3+ levels) can render with unexpected spacing, misaligned columns, or collapsed layouts.
+- Cell padding and spacing set via CSS (`padding`, `border-spacing`) may be ignored — use the HTML `cellpadding` and `cellspacing` attributes directly on the `<table>` tag instead.
+- Percentage-based widths on nested tables can render inconsistently — use fixed pixel widths for nested tables where precise layout matters.
+- Line-height and font rendering inside nested tables can differ from the outer table — explicitly set `font-family`, `font-size`, and `line-height` on each nested table's cells rather than relying on inheritance.
+
+**Recommendation:** Keep nesting to a maximum of 2 levels where possible, and always validate the rendered output specifically in Outlook before sending.
+
+## Test Before You Send
+
+Because the builder preview reflects browser-based rendering, it does not guarantee how the email will appear across all clients. Before sending any template with custom CSS, nested tables, or advanced layout:
+
+- [ ] Test in Outlook desktop (2016, 2019, 365) — most restrictive rendering engine
+- [ ] Test in Gmail (web and mobile app)
+- [ ] Test in Apple Mail (macOS and iOS)
+- [ ] Test in Yahoo Mail
+- [ ] Test on both desktop and mobile screen widths
+- [ ] Confirm fallback fonts render acceptably if using custom fonts
+- [ ] Use MoEngage's [Test Campaign](/user-guide/campaigns-and-channels/email/getting-started-with-email/test-email-campaign) feature to send test emails to real inboxes across these clients before scheduling
+
+## Cross-Client Preview Tools
+
+For a comprehensive rendering check across 90+ email clients and devices without manually testing each one, use a third-party pre-send testing tool such as [Litmus](https://www.litmus.com/) or [Email on Acid](https://www.emailonacid.com/). Paste your HTML into either tool to get client-by-client screenshots and CSS support warnings before sending your campaign in MoEngage.
+
