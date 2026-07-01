@@ -1,10 +1,41 @@
 ---
 title: "Flows API Overview"
-description: "Overview of the MoEngage Flows API for creating, updating, and managing flows programmatically."
+description: "List, read, and control MoEngage Flows, and retrieve flow and channel analytics, using the Flows public APIs."
 ---
 
-Use the Flows API to manage MoEngage flows programmatically.
+Use the Flows APIs to discover flows, read a single flow with its version breakdown and node graph, drive lifecycle transitions, and retrieve analytics. These APIs read and control flows; they do not author them.
 
 <Note>
-  This overview is a work in progress. The endpoint reference and detailed content will be added from the source specification.
+  The Flows APIs are in BETA. The schema is frozen at launch — no breaking changes are made during the BETA period.
 </Note>
+
+## APIs
+
+The Flows surface is split into two APIs:
+
+| API | Purpose |
+| --- | --- |
+| **Flows API** | Search flows, get a single flow (or a specific version) with its node graph, and change a flow's lifecycle status. |
+| **Flow Analytics API** | Retrieve flow-level trip analytics and channel-level performance and delivery analytics. |
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/v5/flows/search` | List flows with filters and keyset pagination. |
+| `GET` | `/v5/flows/{flow_id}` | Get a single flow; optionally project a specific version with `version_no`. |
+| `GET` | `/v5/flows/{flow_id}/versions/{version_id}` | Get a flow projected from a specific version ID. |
+| `PATCH` | `/v5/flows/{flow_id}/status` | Pause, resume, stop, retire, archive, or unarchive a flow. |
+| `GET` | `/v5/flows/{flow_id}/analytics` | Get flow-level trip, drop/exit, split-stage, and conversion analytics. |
+| `GET` | `/v5/flows/{flow_id}/analytics/channels/{channel}` | Get channel-scoped aggregated and per-campaign analytics. |
+
+## Authentication
+
+Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the username and your API Key as the password. Read endpoints require the `campaigns:view` permission; the status endpoint requires `campaigns:create_manage`.
+
+## Conventions
+
+- IDs are raw 24-character ObjectIds. `flow_id` addresses the flow; `version_id` addresses one version.
+- Every successful response uses the envelope `{response_id, type, data}`.
+- Datetimes are ISO 8601 UTC (`YYYY-MM-DDThh:mm:ssZ`).
+- Search results use keyset pagination — pass the previous page's `next_cursor` back as `cursor`.
