@@ -38,4 +38,43 @@ Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the us
 - IDs are raw 24-character ObjectIds. `flow_id` addresses the flow; `version_id` addresses one version.
 - Every successful response uses the envelope `{response_id, type, data}`.
 - Datetimes are ISO 8601 UTC (`YYYY-MM-DDThh:mm:ssZ`).
-- Search results use keyset pagination — pass the previous page's `next_cursor` back as `cursor`.
+- Search results are paginated — pass the previous page's `next_cursor` back as `cursor`.
+
+## FAQs
+
+### Flows API
+
+<AccordionGroup>
+  <Accordion title="Can I create or edit flows with these APIs?">
+    No. This phase supports reading and controlling existing flows — searching, getting a flow or a specific version, and changing a flow's status. Creating, updating, cloning, and publishing flows are planned for a later phase.
+  </Accordion>
+  <Accordion title="How do I enroll users into a flow through the API?">
+    You do not enroll users directly. For event-triggered flows, use the Track Event API — a user enters the flow when a tracked event matches the flow's entry condition. For business-event-triggered flows, use the Trigger Business Event API. Periodic flows are audience-driven and do not support API enrollment.
+  </Accordion>
+  <Accordion title="What is the difference between flow_id and version_id?">
+    `flow_id` identifies the flow. `version_id` identifies one of its versions. To read a specific version, either pass `version_no` on **Get a single flow**, or call **Get a specific version of a flow** with the `version_id`.
+  </Accordion>
+  <Accordion title="Why is Search flows a POST instead of a GET?">
+    Search accepts many optional, multi-valued filters (status, delivery type, tags, and so on). These are cleaner and more reliable to send in a JSON request body than in a query string.
+  </Accordion>
+  <Accordion title="Which status changes can I make?">
+    You can `pause`, `resume`, `stop`, `retire`, `archive`, and `unarchive` a flow. Each change is validated against the flow's current status; an invalid change returns a `409`. The `publish` action is not available in this phase.
+  </Accordion>
+  <Accordion title="What permissions do I need?">
+    The read endpoints (search, get flow, get version) require the `campaigns:view` permission. The status endpoint requires the `campaigns:create_manage` permission.
+  </Accordion>
+</AccordionGroup>
+
+### Flow Analytics
+
+<AccordionGroup>
+  <Accordion title="What time range do the analytics endpoints cover?">
+    By default, the last 90 days or since the flow was first published, whichever is shorter. You can narrow the window with `activity_after` and `activity_before`. The filter is based on activity, not entry — a user journey is included if any activity happened within the window.
+  </Accordion>
+  <Accordion title="Which attribution models are available?">
+    `VIEW_THROUGH`, `CLICK_THROUGH`, `IN_SESSION`, `TOTAL_CONVERSIONS`, and `CLICK_CONVERSIONS`. Pass the model you want in the `attribution_type` parameter.
+  </Accordion>
+  <Accordion title="Why is the flow-level analytics split from channel analytics?">
+    A flow can contain many campaign nodes across several channels. Splitting flow-level metrics from channel-level metrics keeps each response focused and its response time predictable.
+  </Accordion>
+</AccordionGroup>
