@@ -42,37 +42,57 @@ The Manifest file can be found in the **Assets--\> Plugins --\> Android** folde
 
 # SDK Initialization
 
-Get the Workspace**ID** from the **Settings Page\*\*\*\*Dashboard --\> Settings --\> Workspace --\> General** on the MoEngage dashboard and initialize the MoEngage SDK in the **Application class's onCreate()** method.
+Get the Workspace ID from **Dashboard → Settings → Workspace → General** on the MoEngage dashboard and initialize the MoEngage SDK in the **Application class's onCreate()** method.
 
 <Info>
-  It is recommended that you initialize the SDK on the main thread inside **onCreate()** and not create a worker thread and initialize the SDK on that thread.
+  It is recommended that you initialize the SDK on the main thread inside **onCreate()** and not create a worker thread and initialize the SDK on that thread.
 </Info>
+
+<Warning>
+  `MoEInitializer.initialize()` and `MoEInitializer.initialiseDefaultInstance()` are removed in this release. Replace all usages with `MoEInitializer.initializeDefaultInstance()` as shown below.
+</Warning>
 
 <CodeGroup>
 
-```Kotlin kotlin
+```kotlin Kotlin
 import com.moengage.unity.wrapper.MoEInitializer
-import com.moengage.core.MoEngageimport com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.DataCenter
 
-// this is the instance of the application class and "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
+// "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
 val moEngage = MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-  
-MoEInitializer.initialize(getApplicationContext(), moEngage)
+
+MoEInitializer.initializeDefaultInstance(applicationContext, moEngage)
 ```
 
-
-```Java Java
+```java Java
 import com.moengage.unity.wrapper.MoEInitializer;
-import com.moengage.core.MoEngage;import com.moengage.core.DataCenter;
+import com.moengage.core.MoEngage;
+import com.moengage.core.DataCenter;
 
-// this is the instance of the application class and "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
-MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID",[YOUR_DATA_CENTER]);
+// "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
+MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X);
 
-MoEInitializer.initialiseDefaultInstance(applicationContext, moEngage)
+MoEInitializer.initializeDefaultInstance(applicationContext, moEngage);
 ```
 
 </CodeGroup>
 
+## File-Based Initialization
+
+As an alternative to programmatic initialization, you can initialize the SDK using a configuration file. Create `moengage_init_config.xml` in your Android library plugin at `Assets/Plugins/Android/<YOUR_ANDROID_LIBRARY_PLUGIN>.androidlib/res/values/moengage_init_config.xml` and specify your workspace ID and data center:
+
+```xml moengage_init_config.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="moengage_workspace_id">YOUR_Workspace_ID</string>
+    <string name="moengage_data_center">DATA_CENTER_X</string>
+</resources>
+```
+
+For more information on creating an Android library plugin, refer to the [Unity documentation](https://docs.unity3d.com/6000.4/Documentation/Manual/android-library-plugin-create.html).
+
+You must also call `MoEInitializer.initialiseDefaultInstance(application)` in your Application class alongside the file-based config. When this file is present, the SDK reads configuration from it at startup. Programmatic initialization takes precedence if both are provided.
 Following details of the different data centers you need to set based on the dashboard hosts
 
 | Data Center              | Dashboard host            |

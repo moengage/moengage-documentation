@@ -1,0 +1,1792 @@
+openapi: 3.0.0
+info:
+  title: Offerings Public API
+  version: 1.0.0
+  description: |
+    This API creates, updates, and lists offerings in a MoEngage
+    workspace, and lists the personalization templates available for offering content.
+
+    An offering is a targeted piece of personalized content — such as a promotional card or
+    banner — that MoEngage Offer Decisioning serves to a chosen user segment within a
+    scheduled window.
+
+    **Tags**: Attach tags to an offering to group offerings and let Decision Policies select
+    them by tag. Tags are referenced by tag ID and must already exist in the workspace.
+
+    **Capping rules**: Limit how often an offering is delivered with two independent rules —
+    an overall cap across all users and a per-user cap. Each rule uses a single time-based
+    schedule (daily, weekly, or monthly) and a limit value.
+
+    **Rate Limits**: The following limits apply to each endpoint, per workspace.
+
+     | Rate Limit Name | Rate Limit |
+     | :--- | :--- |
+     | Requests per minute | The total number of requests per minute per workspace allowed is 100. |
+     | Requests per hour | The total number of requests per hour per workspace allowed is 300. |
+     | Requests per day | The total number of requests per day per workspace allowed is 600. |
+
+     <Note>
+       * Breaching any limit rejects the request with a `429` response that includes a `Retry-After` header.
+       * A `429` response does not count against your quota.
+     </Note>
+
+servers:
+  - url: https://api-{dc}.moengage.com
+    variables:
+      dc:
+        default: "01"
+        description: >
+          MoEngage data center identifier. Replace it with the number assigned to your account,
+          such as 01 (US), 02 (EU), 03 (India), 05 (Singapore), or 06 (Indonesia). For example,
+          https://api-01.moengage.com.
+        enum: ["01", "02", "03", "05", "06"]
+
+paths:
+  /v5/offers:
+    get:
+      operationId: listPublicOfferings
+      summary: List Offerings
+      description: |
+        This API returns a paginated list of offerings in the authenticated workspace. Use the query
+        parameters to filter by ID, name, status, tags, creation date, or creator, and to
+        request a sparse set of fields. Requires the `read:offers` scope.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limits are at the workspace level. Each endpoint allows 100 requests per minute, 300 requests per hour, and 600 requests per day.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by exact offering ID, including the `offer_` prefix.
+          example: offer_683abc123def456789012345
+        - name: name_contains
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+          description: >
+            Case-insensitive substring match on the offering name. Maximum 100 characters;
+            a longer value returns `400 OUT_OF_RANGE`.
+        - name: status_in
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            Comma-separated list of statuses to match (OR semantics — an offering is returned
+            if its status matches any value). Case-insensitive. Valid values: `active`,
+            `scheduled`, `expired`, `archived`, `draft`. 
+            Example: `status_in=active,scheduled`.
+        - name: tags
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: >
+            Filter by tag ID (AND semantics — an offering is returned only if it has all
+            specified tags). Repeat the parameter for each tag: `tags=tag_summer_sale&tags=tag_loyalty`.
+        - name: created_date_gte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Return offerings created on or after this date (`YYYY-MM-DD`).
+        - name: created_date_lte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Return offerings created on or before this date (`YYYY-MM-DD`).
+        - name: created_by
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: >
+            Filter by creator email address. Repeat the parameter for multiple creators:
+            `created_by=john.doe@example.com&created_by=jane.smith@example.com`.
+        - name: fields
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            Comma-separated list of fields to include for each item. Case-sensitive. Defaults
+            to all six fields: `id`, `name`, `status`, `tags`, `created_at`, `created_by`.
+            An unrecognized field name returns `400 INVALID_FIELDS_PARAM`.
+            Example: `fields=id,name,status`.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            maximum: 500
+          description: >
+            Page number to retrieve, starting at 1. Maximum 500; a higher value returns
+            `400 OUT_OF_RANGE`. When the page number exceeds the total number of available
+            pages, returns an empty `items` array (not an error).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Number of items per page. Default 20, maximum 100.
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-supplied trace ID (UUID v4). The server echoes it in the `X-MOE-Request-Id`
+            response header and records it in its logs, so you can correlate a client request
+            with server-side activity. If you omit it, the server generates one.
+      responses:
+        '200':
+          description: Paginated list of offerings.
+          headers:
+            X-MOE-Request-Id:
+              schema:
+                type: string
+              description: Trace ID echoed from the request, or server-generated if none was sent.
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+                example: 100
+              description: Maximum requests allowed in the current per-minute window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current per-minute window.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current per-minute window resets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    description: Server-generated UUID for tracing this response.
+                  type:
+                    type: string
+                    enum: [offer]
+                    description: Resource type discriminator. Always `offer`.
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OfferingListItem'
+                      pagination:
+                        $ref: '#/components/schemas/PagePagination'
+              example:
+                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                type: offer
+                data:
+                  items:
+                    - id: offer_683abc123def456789012345
+                      name: Summer_Sale_Promo_2026
+                      status: active
+                      tags: [tag_summer_sale, tag_returning_users]
+                      created_at: "2026-06-01T08:30:00Z"
+                      created_by: marketing-team@example.com
+                  pagination:
+                    page: 1
+                    limit: 20
+                    has_more: true
+                    total_count: 42
+        '400':
+          description: |
+            Invalid query parameter. Common error codes in `error.details[].code`:
+            - `OUT_OF_RANGE` — `page` exceeds 500, `limit` exceeds 100, or `name_contains` exceeds 100 characters.
+            - `INVALID_ENUM_VALUE` — unrecognized value in `status_in`.
+            - `INVALID_FIELDS_PARAM` — unrecognized field name in `fields`.
+            - `INVALID_TYPE` — `created_date_gte` or `created_date_lte` is not in `YYYY-MM-DD` format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_FAILED
+                  message: One or more query parameters are invalid.
+                  target: status_in
+                  details:
+                    - code: INVALID_ENUM_VALUE
+                      target: status_in
+                      message: "'invalid_status' is not a valid status. Allowed values: active, scheduled, expired, archived, draft."
+                  doc_url: https://docs.moengage.com/errors/VALIDATION_FAILED
+                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '403':
+          $ref: '#/components/responses/FeatureNotEnabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+    post:
+      operationId: createPublicOffering
+      summary: Create Offering
+      description: |
+        This API creates an offering in the authenticated workspace. The offering is created directly in
+        `active`, `scheduled`, or `expired` state, determined by the scheduling dates. The API
+        validates the entire payload and returns all validation errors together in one response.
+        Requires the `write:offers` scope. Send an `Idempotency-Key` header to prevent duplicate
+        creation on retries.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limits are at the workspace level. Each endpoint allows 100 requests per minute, 300 requests per hour, and 600 requests per day.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-generated UUID v4. Reusing the same key within 24 hours returns the original
+            `201` response without creating a new offering. A concurrent request that reuses an
+            in-progress key returns `409 DUPLICATE_IDEMPOTENCY_KEY`; reusing a key with a
+            different body returns `409 IDEMPOTENCY_CONFLICT`.
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-supplied trace ID (UUID v4). The server echoes it in the `X-MOE-Request-Id`
+            response header so you can correlate the request with server-side logs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientOfferCreateRequest'
+            examples:
+              jsonContentFlat:
+                summary: Single-variant offering with JSON content
+                value:
+                  request_id: req_550e8400-e29b-41d4-a716-446655440000
+                  name: Summer_Sale_Promo_2026
+                  description: 20% off for returning users who have not purchased in 30 days
+                  priority: 10
+                  delivery: scheduled
+                  created_by: marketing-team@example.com
+                  tags: [tag_summer_sale, tag_returning_users]
+                  scheduling:
+                    start_datetime: "2026-07-01T00:00:00+05:30"
+                    expiry_datetime: "2026-09-30T23:59:59+05:30"
+                    timezone: Asia/Kolkata
+                  segment_info:
+                    filters: {}
+                  variation_meta:
+                    type: SMV
+                    variantsPerLocale: [Variant_A]
+                    smv_distribution:
+                      split:
+                        Variant_A: 100
+                    control_group:
+                      is_enabled: false
+                  offer_content:
+                    locales:
+                      "0":
+                        variations:
+                          Variant_A:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Save 20% today","cta_text":"Claim offer","cta_url":"https://example.com/offer/summer"}'
+              dmvTest:
+                summary: Dynamic multi-variant (DMV) offering with two variants
+                value:
+                  request_id: req_550e8400-e29b-41d4-a716-446655440001
+                  name: Homepage_Banner_DMV_Test
+                  priority: 5
+                  delivery: scheduled
+                  created_by: growth-team@example.com
+                  scheduling:
+                    start_datetime: "2026-07-01T00:00:00+00:00"
+                    expiry_datetime: "2026-07-31T23:59:59+00:00"
+                  segment_info:
+                    filters: {}
+                  variation_meta:
+                    type: DMV
+                    variantsPerLocale: [Variant_A, Variant_B]
+                    smv_distribution:
+                      split:
+                        Variant_A: 70
+                        Variant_B: 30
+                    control_group:
+                      is_enabled: false
+                  offer_content:
+                    locales:
+                      "0":
+                        variations:
+                          Variant_A:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Big Summer Sale","cta_text":"Shop Now"}'
+                          Variant_B:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Limited Time Offer","cta_text":"Grab Deal"}'
+              withCapping:
+                summary: Offering with frequency capping and conversion tracking
+                value:
+                  request_id: req_550e8400-e29b-41d4-a716-446655440002
+                  name: Flash_Sale_Capped
+                  priority: 8
+                  delivery: scheduled
+                  created_by: marketing-team@example.com
+                  scheduling:
+                    start_datetime: "2026-07-15T10:00:00+00:00"
+                    expiry_datetime: "2026-07-15T22:00:00+00:00"
+                  segment_info:
+                    filters: {}
+                  variation_meta:
+                    type: SMV
+                    variantsPerLocale: [Variant_A]
+                    smv_distribution:
+                      split:
+                        Variant_A: 100
+                    control_group:
+                      is_enabled: true
+                      percentage: 10
+                  offer_content:
+                    locales:
+                      "0":
+                        variations:
+                          Variant_A:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Flash Sale — 50% off today only"}'
+                  capping_rules:
+                    overall:
+                      enabled: true
+                      limit_value: 5000
+                      limit_schedule: DAILY
+                    user_level:
+                      enabled: true
+                      limit_value: 1
+                      limit_schedule: DAILY
+                  conversion:
+                    primary:
+                      goal_name: Purchase
+                      action: purchase
+                      filter_type: actions
+                      r_track: true
+                      ra: order_value
+                      rc: USD
+      responses:
+        '201':
+          description: >
+            Offering created. Check `data.status` — if `start_datetime` was in the past at the
+            time of the request, the offering is created with `status: expired` and will not be
+            served to users.
+          headers:
+            X-MOE-Request-Id:
+              schema:
+                type: string
+              description: Trace ID echoed from the request, or server-generated if none was sent.
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+                example: 100
+              description: Maximum requests allowed in the current per-minute window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current per-minute window.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current per-minute window resets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOfferCreateResponse'
+        '400':
+          description: |
+            Validation failed. The API collects every error before responding, so a single `400`
+            may list multiple entries in `error.details`. Common error codes:
+            - `REQUIRED_FIELD_MISSING` — a required field is absent (for example, `variation_meta`).
+            - `INVALID_TYPE` — a field has the wrong type or format.
+            - `OUT_OF_RANGE` — a numeric field is outside its allowed range.
+            - `INVALID_ENUM_VALUE` — an enum field has an unrecognized value.
+            - `INVALID_SCHEDULING` — `expiry_datetime` is not after `start_datetime`, is in the past, or is less than 10 minutes from now.
+            - `INVALID_SPLIT` — the values in `smv_distribution.split` do not sum to 100.
+            - `SPLIT_KEY_MISMATCH` — the keys in `smv_distribution.split` do not match the variation keys in `offer_content`.
+            - `VARIANT_COUNT_MISMATCH` — the number of entries in `variantsPerLocale` does not match the variation keys in a locale.
+            - `INVALID_TEMPLATE_ID` — `meta.templateId` is not a template registered in this workspace.
+            - `MISSING_TEMPLATE_FIELD` — a field the template marks as required is missing or blank in `value`. The `target` is `offer_content.locales.<locale>.variations.<variant>.content_1.value.<fieldKey>`.
+            - `INVALID_TAG_ID` — one or more tag IDs do not exist in the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_FAILED
+                  message: One or more fields failed validation.
+                  target: offering
+                  details:
+                    - code: REQUIRED_FIELD_MISSING
+                      target: scheduling.expiry_datetime
+                      message: Field 'scheduling.expiry_datetime' is required.
+                    - code: INVALID_SPLIT
+                      target: variation_meta.smv_distribution.split
+                      message: Split percentages must sum to exactly 100. Received values sum to 90.
+                  doc_url: https://docs.moengage.com/errors/VALIDATION_FAILED
+                response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '403':
+          $ref: '#/components/responses/FeatureNotEnabled'
+        '409':
+          description: |
+            Idempotency conflict. Two error codes are possible:
+            - `DUPLICATE_IDEMPOTENCY_KEY` — a request with the same `Idempotency-Key` is already
+              in progress. Wait for it to finish before retrying.
+            - `IDEMPOTENCY_CONFLICT` — the `Idempotency-Key` was already used within the 24-hour
+              window with a different request body. Use a new key to submit a different payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicateInFlight:
+                  summary: Concurrent duplicate (in progress)
+                  value:
+                    error:
+                      code: DUPLICATE_IDEMPOTENCY_KEY
+                      message: A request with this Idempotency-Key is already being processed.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                bodyMismatch:
+                  summary: Same key, different body
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: The Idempotency-Key was already used with a different request body.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d480
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v5/offers/{offer_id}:
+    patch:
+      operationId: updatePublicOffering
+      summary: Update Offering
+      description: |
+        This API partially updates an existing offering. Only the fields present in the request body are
+        changed; omitted fields keep their current values. You can update offerings in the
+        `active` and `scheduled` states. Requires the `write:offers` scope and an
+        `Idempotency-Key` header.
+
+      x-mint:
+        content: |
+          <Info>
+            Array fields are replaced entirely, not merged. `tags` and `offering_attribute_configuration` overwrite the existing values when included. To add one tag, send the current list plus the new tag ID. To remove all tags, send an empty array.
+          </Info>
+
+          #### Rate Limit
+          The rate limits are at the workspace level. Each endpoint allows 100 requests per minute, 300 requests per hour, and 600 requests per day.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - name: offer_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Prefixed offering ID returned by the create endpoint, including the `offer_` prefix.
+          example: offer_683abc123def456789012345
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-generated UUID v4. Reusing the same key within 24 hours returns the original
+            `200` response without re-applying the update. A concurrent in-progress key returns
+            `409 DUPLICATE_IDEMPOTENCY_KEY`; reusing a key with a different body returns
+            `409 IDEMPOTENCY_CONFLICT`.
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-supplied trace ID (UUID v4). The server echoes it in the `X-MOE-Request-Id`
+            response header so you can correlate the request with server-side logs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientOfferPatchRequest'
+            examples:
+              extendExpiry:
+                summary: Extend the expiry date
+                value:
+                  request_id: req_7b3f9200-c14a-42e8-b891-557766330002
+                  updated_by: marketing-team@example.com
+                  scheduling:
+                    expiry_datetime: "2026-12-31T23:59:59+05:30"
+              updateNameAndTags:
+                summary: Rename the offering and replace its tags
+                value:
+                  request_id: req_7b3f9200-c14a-42e8-b891-557766330003
+                  updated_by: marketing-team@example.com
+                  name: Summer_Sale_Promo_2026_V2
+                  tags: [tag_summer_sale, tag_vip_users]
+              updateContent:
+                summary: Update offering content
+                value:
+                  request_id: req_7b3f9200-c14a-42e8-b891-557766330004
+                  updated_by: marketing-team@example.com
+                  offer_content:
+                    locales:
+                      "0":
+                        variations:
+                          Variant_A:
+                            content_1:
+                              type: json
+                              value: '{"headline":"Flash Sale - 30% Off!","cta_text":"Claim Now","cta_url":"https://example.com/flash"}'
+      responses:
+        '200':
+          description: Offering updated.
+          headers:
+            X-MOE-Request-Id:
+              schema:
+                type: string
+              description: Trace ID echoed from the request, or server-generated if none was sent.
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+                example: 100
+              description: Maximum requests allowed in the current per-minute window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current per-minute window.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current per-minute window resets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOfferPatchResponse'
+        '400':
+          description: |
+            Validation failed. The API collects every error before responding. Common error codes:
+            - `REQUIRED_FIELD_MISSING` — a required field is absent (`request_id` or `updated_by`).
+            - `INVALID_TYPE` — a field has the wrong type or format.
+            - `OUT_OF_RANGE` — a numeric field is outside its allowed range.
+            - `INVALID_SCHEDULING` — `expiry_datetime` is not after `start_datetime`, or is less than 10 minutes from now.
+            - `IMMUTABLE_FIELD` — an attempt to change a field that is locked in the offering's current state: on an `active` offering, `variation_meta.type` or the `variantsPerLocale` key set (and, for `DMV`, the `smv_distribution` split); `scheduling.start_datetime` when the offering is `active`; or `conversion` when the offering is not `scheduled`.
+            - `INVALID_TEMPLATE_ID` — `meta.templateId` is not a template registered in this workspace.
+            - `MISSING_TEMPLATE_FIELD` — a field the template marks as required is missing or blank in `value`.
+            - `INVALID_TAG_ID` — one or more tag IDs do not exist in the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_FAILED
+                  message: One or more fields failed validation.
+                  target: offering
+                  details:
+                    - code: IMMUTABLE_FIELD
+                      target: variation_meta.type
+                      message: Field 'variation_meta.type' cannot be changed while the offering is ACTIVE.
+                    - code: IMMUTABLE_FIELD
+                      target: scheduling.start_datetime
+                      message: Field 'scheduling.start_datetime' cannot be changed while the offering is ACTIVE.
+                  doc_url: https://docs.moengage.com/errors/VALIDATION_FAILED
+                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '403':
+          description: |
+            The offering is `expired` or `archived` and can no longer be modified, or the Offer
+            Decisioning feature is not enabled for this workspace. Error codes: `EXPIRED_OFFERING`,
+            `ARCHIVED_OFFERING`, or `FORBIDDEN`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                expired:
+                  summary: Offering is expired
+                  value:
+                    error:
+                      code: EXPIRED_OFFERING
+                      message: "Offering 'offer_683abc123def456789012345' expired on 2026-05-01T00:00:00Z and can no longer be modified."
+                      target: offer_id
+                    response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                archived:
+                  summary: Offering is archived
+                  value:
+                    error:
+                      code: ARCHIVED_OFFERING
+                      message: "Offering 'offer_683abc123def456789012345' is archived and can no longer be modified."
+                      target: offer_id
+                    response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567891
+        '404':
+          description: No offering with the given `offer_id` exists in this workspace (`OFFER_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: OFFER_NOT_FOUND
+                  message: "No Offering with ID 'offer_683abc123def456789012345' was found in this workspace."
+                  target: offer_id
+                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        '409':
+          description: |
+            Idempotency conflict. `DUPLICATE_IDEMPOTENCY_KEY` when a request with the same key is
+            in progress; `IDEMPOTENCY_CONFLICT` when the key was reused with a different body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicateInFlight:
+                  summary: Concurrent duplicate (in progress)
+                  value:
+                    error:
+                      code: DUPLICATE_IDEMPOTENCY_KEY
+                      message: A request with this Idempotency-Key is already being processed.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                bodyMismatch:
+                  summary: Same key, different body
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: The Idempotency-Key was already used with a different request body.
+                      target: Idempotency-Key
+                    response_id: f47ac10b-58cc-4372-a567-0e02b2c3d480
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v5/offers/templates:
+    get:
+      operationId: listPublicOfferTemplates
+      summary: List Templates
+      description: |
+        This API returns a paginated list of the personalization templates available in the workspace.
+        Requires the `read:offers` scope.
+      x-mint:
+        content: |
+          <Info>
+            Use the `id` of a template as the value for `meta.templateId` in `offer_content` when you create or update an offering with content `type` set to `template`.
+          </Info>
+
+          #### Rate Limit
+          The rate limits are at the workspace level. Each endpoint allows 100 requests per minute, 300 requests per hour, and 600 requests per day.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            maximum: 500
+          description: >
+            Page number to retrieve, starting at 1. Range 1–500. A value outside this range
+            returns `400 INVALID_REQUEST`.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: >
+            Number of items per page. Default 20, range 1–100. A value outside this range
+            returns `400 INVALID_REQUEST`.
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-supplied trace ID (UUID v4). The server echoes it in the `X-MOE-Request-Id`
+            response header so you can correlate the request with server-side logs.
+      responses:
+        '200':
+          description: Paginated list of templates.
+          headers:
+            X-MOE-Request-Id:
+              schema:
+                type: string
+              description: Trace ID echoed from the request, or server-generated if none was sent.
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+                example: 100
+              description: Maximum requests allowed in the current per-minute window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current per-minute window.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current per-minute window resets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    description: Server-generated UUID for tracing this response.
+                  type:
+                    type: string
+                    enum: [template_list]
+                    description: Resource type discriminator. Always `template_list`.
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TemplateListItem'
+                      pagination:
+                        $ref: '#/components/schemas/PagePagination'
+              example:
+                response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                type: template_list
+                data:
+                  items:
+                    - id: app_small
+                      value: app_small
+                      label: App small
+                      template_type: []
+                    - id: web_promo_card
+                      value: web_promo_card
+                      label: Web promo card
+                      template_type: [web]
+                  pagination:
+                    page: 1
+                    limit: 20
+                    has_more: false
+                    total_count: 2
+        '400':
+          description: >
+            `page` or `limit` is outside its allowed range. Error code: `INVALID_REQUEST`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: page must be between 1 and 500.
+                  doc_url: https://docs.moengage.com/errors/INVALID_REQUEST
+                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '403':
+          $ref: '#/components/responses/FeatureNotEnabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code in `ALL_CAPS_SNAKE_CASE`.
+              example: VALIDATION_FAILED
+            message:
+              type: string
+              description: Human-readable description of the error.
+            target:
+              type: string
+              description: The field or parameter the error relates to.
+            details:
+              type: array
+              description: Per-field errors. The create and update endpoints return every error together.
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: Machine-readable error code for this field.
+                  target:
+                    type: string
+                    description: Dot-notation path to the field that failed validation.
+                  message:
+                    type: string
+                    description: Human-readable description of this field error.
+            doc_url:
+              type: string
+              description: Link to documentation for this error code.
+        response_id:
+          type: string
+          description: Server-generated UUID for tracing this response.
+
+    OfferingListItem:
+      description: >
+        Summary of an offering returned by `GET /v5/offers`. Use the `fields` query parameter to
+        request a subset of these fields.
+      type: object
+      properties:
+        id:
+          type: string
+          description: >
+            Offering identifier assigned at creation, including the `offer_` prefix. Use this value
+            as the `offer_id` path parameter in `PATCH /v5/offers/{offer_id}`.
+          example: offer_683abc123def456789012345
+        name:
+          type: string
+          description: Display name of the offering, unique within the workspace.
+          example: Summer_Sale_Promo_2026
+        status:
+          type: string
+          description: >
+            Current lifecycle status. `active` — live and eligible for decisioning.
+            `scheduled` — the start time is in the future. `expired` — the expiry time has passed.
+            `archived` — manually archived and excluded from decisioning. `draft` — not yet published.
+          enum: [active, scheduled, expired, archived, draft]
+          example: active
+        tags:
+          type: array
+          description: Tag IDs attached to the offering.
+          items:
+            type: string
+          example: [tag_summer_sale, tag_returning_users]
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 UTC timestamp when the offering was created.
+          example: "2026-06-01T08:30:00Z"
+        created_by:
+          type: string
+          description: Email address of the user who created the offering.
+          example: marketing-team@example.com
+
+    TemplateListItem:
+      description: >
+        A personalization template available in the workspace. Returned by `GET /v5/offers/templates`.
+      type: object
+      properties:
+        id:
+          type: string
+          description: >
+            Template identifier. Use this value as `meta.templateId` in `offer_content` when the
+            content `type` is `template`. Template IDs are human-readable strings, not prefixed IDs.
+          example: app_small
+        value:
+          type: string
+          description: Always identical to `id`. Retained for compatibility with existing workflows.
+          example: app_small
+        label:
+          type: string
+          description: Human-readable display name of the template.
+          example: App small
+        template_type:
+          type: array
+          description: Surface tags for the template, such as `web`. Empty array if none are set.
+          items:
+            type: string
+          example: [web]
+        fields:
+          type: array
+          description: >
+            Field definitions for this template. Use these to construct the `value` object when
+            `content_1.type` is `template`. Fields marked `required: true` must be present in
+            `value` or the API returns `400 MISSING_TEMPLATE_FIELD`.
+          items:
+            $ref: '#/components/schemas/TemplateField'
+
+    TemplateField:
+      description: A single field definition within a personalization template.
+      type: object
+      properties:
+        key:
+          type: string
+          description: Field key name used as the property name in the `value` object.
+          example: headline
+        required:
+          type: boolean
+          description: >
+            Whether this field must be present in `value` when creating or updating an offering
+            with this template. Omitting a required field returns `400 MISSING_TEMPLATE_FIELD`.
+          example: true
+        type:
+          type: string
+          description: Expected data type of the field value.
+          enum: [string, number, boolean, url]
+          example: string
+
+    PagePagination:
+      description: Pagination metadata included in list responses.
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number, starting at 1.
+          example: 1
+        limit:
+          type: integer
+          description: Number of items per page, matching the `limit` parameter.
+          example: 20
+        has_more:
+          type: boolean
+          description: >
+            Whether more pages exist beyond this one. Use this as the primary pagination signal —
+            when `true`, increment `page` to fetch the next page.
+          example: true
+        total_count:
+          type: integer
+          format: int64
+          description: Total number of items matching the applied filters.
+          example: 42
+
+    ClientOfferCreateRequest:
+      description: |
+        Configuration for creating a new offering. Required fields: `request_id`, `name`, `priority`, `delivery`, `created_by`, `scheduling`, `segment_info`, `offer_content`, and `variation_meta`.
+
+        Once the offering is `active`, the `variation_meta` `type` and `variantsPerLocale` key set are locked, so set the variation type and variant set carefully on the first call. Split percentages (`SMV`) and the control-group holdout stay editable while active.
+      type: object
+      required: [request_id, name, priority, delivery, created_by, scheduling, segment_info, offer_content, variation_meta]
+      properties:
+        request_id:
+          type: string
+          description: >
+            Client-generated tracing ID for server-side log correlation. Format: the `req_` prefix
+            followed by a UUID v4. This is not the idempotency token — use the `Idempotency-Key`
+            header to prevent duplicates.
+          pattern: '^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          example: req_550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: >
+            Display name of the offering, unique within the workspace. 5–100 characters. Allowed
+            characters: letters, numbers, and underscores.
+          minLength: 5
+          maxLength: 100
+          pattern: '^[a-zA-Z0-9_]+$'
+          example: Summer_Sale_Promo_2026
+        description:
+          type: string
+          description: Free-text description of the offering. Maximum 500 characters.
+          maxLength: 500
+          example: 20% discount for returning users who have not purchased in 30 days
+        priority:
+          type: integer
+          description: >
+            Priority value used to rank this offering during decisioning. Integer from 1 to 100.
+          minimum: 1
+          maximum: 100
+          example: 10
+        delivery:
+          type: string
+          description: >
+            How the offering is delivered. `scheduled` — time-bound by the scheduling window.
+            `trigger` — event-driven, with the scheduling window applied as a validity gate.
+          enum: [trigger, scheduled]
+          example: scheduled
+        created_by:
+          type: string
+          format: email
+          description: Email address of the user creating the offering. Recorded in the audit log.
+          example: marketing-team@example.com
+        tags:
+          type: array
+          description: >
+            Tag IDs to attach to the offering. Each tag must already exist in the workspace; an
+            unknown tag ID returns `400 INVALID_TAG_ID`. Maximum 10 tags.
+          items:
+            type: string
+          maxItems: 10
+          example: [tag_summer_sale, tag_returning_users]
+        scheduling:
+          $ref: '#/components/schemas/OfferSchedulingCreate'
+        segment_info:
+          $ref: '#/components/schemas/OfferSegmentInfo'
+        offer_content:
+          $ref: '#/components/schemas/OfferContent'
+        variation_meta:
+          $ref: '#/components/schemas/OfferVariationMeta'
+        capping_rules:
+          $ref: '#/components/schemas/OfferCappingRules'
+        is_global_control_enabled:
+          type: boolean
+          description: >
+            When `true`, the offering honors the account-level Global Control Group (GCG): users in
+            the GCG holdout do not receive it. Default `false`.
+          default: false
+        imp_track_hours:
+          type: integer
+          description: >
+            Impression tracking window in hours. After the offering is shown to a user, it is not
+            shown again to that user within this window. Range 1–240.
+          minimum: 1
+          maximum: 240
+          example: 24
+        offering_attribute_configuration:
+          type: array
+          description: >
+            Custom attribute assignments used in Decision Policy scoring. Each entry references an
+            offering attribute already configured in the workspace. Maximum 5 entries.
+          items:
+            $ref: '#/components/schemas/OfferAttributeConfigurationRequest'
+          maxItems: 5
+        conversion:
+          $ref: '#/components/schemas/ConversionDto'
+
+    ClientOfferPatchRequest:
+      description: |
+        Only the fields you include are updated; omitted fields keep their current values.
+
+        Immutable and state-gated fields:
+        - `variation_meta` is fully editable while the offering is `scheduled`. Once `active`, `type`
+          and the `variantsPerLocale` key set are locked and return `IMMUTABLE_FIELD`; what stays editable
+          depends on `type` — for `SMV`, the `smv_distribution` split percentages and
+          `control_group.percentage`; for `DMV`, only `control_group.percentage`.
+        - `conversion` can be updated only while the offering is `scheduled`.
+        - `scheduling.start_datetime` can be changed only while the offering is `scheduled`. `expiry_datetime` can be updated in any modifiable state.
+      type: object
+      required: [request_id, updated_by]
+      properties:
+        request_id:
+          type: string
+          description: >
+            Client-generated tracing ID for server-side log correlation. Format: the `req_` prefix
+            followed by a UUID v4.
+          pattern: '^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          example: req_7b3f9200-c14a-42e8-b891-557766330002
+        updated_by:
+          type: string
+          format: email
+          description: Email address of the user making the update. Always recorded in the audit log.
+          example: marketing-team@example.com
+        name:
+          type: string
+          description: >
+            New display name, unique within the workspace. 5–100 characters. Allowed characters:
+            letters, numbers, and underscores.
+          minLength: 5
+          maxLength: 100
+          pattern: '^[a-zA-Z0-9_]+$'
+        description:
+          type: string
+          description: New free-text description. Maximum 500 characters.
+          maxLength: 500
+        priority:
+          type: integer
+          description: New priority value used to rank this offering. Integer from 1 to 100.
+          minimum: 1
+          maximum: 100
+        tags:
+          type: array
+          description: >
+            Replacement tag list. This overwrites the existing tags entirely rather than adding to
+            them. To add one tag, send the current tags plus the new one; to remove all tags, send
+            an empty array. Each tag ID must already exist. Maximum 10 tags.
+          items:
+            type: string
+          maxItems: 10
+        scheduling:
+          $ref: '#/components/schemas/OfferSchedulingPatch'
+        segment_info:
+          $ref: '#/components/schemas/OfferSegmentInfo'
+        offer_content:
+          $ref: '#/components/schemas/OfferContent'
+        variation_meta:
+          $ref: '#/components/schemas/OfferVariationMeta'
+        capping_rules:
+          $ref: '#/components/schemas/OfferCappingRules'
+        is_global_control_enabled:
+          type: boolean
+          description: Toggle the account-level Global Control Group holdout for this offering.
+        imp_track_hours:
+          type: integer
+          description: New impression tracking window in hours. Range 1–240.
+          minimum: 1
+          maximum: 240
+        offering_attribute_configuration:
+          type: array
+          description: >
+            Replacement custom attribute configuration. This overwrites the existing list entirely.
+            Maximum 5 entries.
+          items:
+            $ref: '#/components/schemas/OfferAttributeConfigurationRequest'
+          maxItems: 5
+        conversion:
+          $ref: '#/components/schemas/ConversionDto'
+
+    OfferSchedulingCreate:
+      description: |
+        Scheduling window that bounds when an offering is eligible for delivery. Both
+        `start_datetime` and `expiry_datetime` are required. The offering status moves
+        automatically: `scheduled` before the start time, `active` between start and expiry,
+        `expired` after the expiry time.
+      type: object
+      required: [start_datetime, expiry_datetime]
+      properties:
+        start_datetime:
+          type: string
+          format: date-time
+          description: >
+            ISO 8601 datetime when the offering becomes eligible. Include a UTC offset in the
+            timestamp, or send a naive datetime together with `timezone`. If this value is in the
+            past, the offering is created with `status: expired` and will not be served to users.
+          example: "2026-07-01T09:00:00+05:30"
+        expiry_datetime:
+          type: string
+          format: date-time
+          description: >
+            ISO 8601 datetime when the offering stops being served. Must be after `start_datetime`
+            and at least 10 minutes in the future.
+          example: "2026-09-30T23:59:59+05:30"
+        timezone:
+          type: string
+          description: >
+            IANA timezone name used to anchor the schedule, such as `Asia/Kolkata` or
+            `America/New_York`. Defaults to UTC when omitted.
+          example: Asia/Kolkata
+
+    OfferSchedulingPatch:
+      description: |
+        Partial scheduling update. All fields are optional. `start_datetime` can be changed only
+        while the offering is `scheduled`. `expiry_datetime` can be updated in any modifiable state
+        to extend or shorten the window.
+      type: object
+      properties:
+        start_datetime:
+          type: string
+          format: date-time
+          description: >
+            New start datetime. Editable only while the offering is `scheduled`. Sending it for an
+            `active` offering returns `400 IMMUTABLE_FIELD`.
+          example: "2026-07-05T09:00:00+05:30"
+        expiry_datetime:
+          type: string
+          format: date-time
+          description: >
+            New expiry datetime. Must be after `start_datetime` and at least 10 minutes in the
+            future.
+          example: "2026-10-31T23:59:59+05:30"
+        timezone:
+          type: string
+          description: New IANA timezone name. Relevant when you also change `start_datetime` or `expiry_datetime`.
+          example: Asia/Kolkata
+
+    OfferSegmentInfo:
+      description: |
+        Audience targeting that controls which users are eligible for the offering. The filter
+        structure is forwarded as-is to the MoEngage segmentation service. Use `included_filters`
+        for criteria a user must match and `excluded_filters` for criteria that disqualify a user.
+        To target all users, send an empty filters object: `{ "filters": {} }`.
+      type: object
+      properties:
+        filters:
+          type: object
+          description: Container for the inclusion and exclusion filter blocks. Send an empty object to target all users.
+          properties:
+            included_filters:
+              type: object
+              description: >
+                Inclusion criteria. Users matching these filters are eligible. Contains a `filters`
+                array and a `filter_operator` that combines them.
+              properties:
+                filters:
+                  type: array
+                  description: >
+                    Filter criteria. Each item is a filter object whose structure depends on its
+                    `filter_type` — for example, `user_attributes` (a profile attribute filter) or
+                    `actions` (an event-based filter).
+                  items:
+                    type: object
+                    description: A single segmentation filter. Structure varies by `filter_type`.
+                filter_operator:
+                  type: string
+                  description: >
+                    Logical operator across the filters array. `and` requires all filters to match;
+                    `or` requires at least one.
+                  enum: [and, or]
+                  example: and
+            excluded_filters:
+              type: object
+              description: >
+                Exclusion criteria. Users matching any of these filters are disqualified even if
+                they satisfy `included_filters`.
+              properties:
+                filters:
+                  type: array
+                  items:
+                    type: object
+                filter_operator:
+                  type: string
+                  enum: [and, or]
+      example:
+        filters:
+          included_filters:
+            filter_operator: and
+            filters:
+              - filter_type: user_attributes
+                name: country
+                operator: equals
+                data_type: string
+                value: IN
+
+    OfferContent:
+      description: |
+        Content delivered to the user. Choose one of two formats:
+
+        - Flat format (single variant, single locale): send a `content_1` object at the root.
+        - Nested format (multiple variants or multiple locales): send a `locales` map. Each key is a
+          locale identifier; within each locale, a `variations` map keys variation IDs (matching the
+          names in `variation_meta.variantsPerLocale`) to their content.
+
+        Do not send both `content_1` and `locales` in the same request.
+      type: object
+      properties:
+        content_1:
+          $ref: '#/components/schemas/ContentBlock'
+        locales:
+          type: object
+          description: >
+            Per-locale content map. Each key is a locale identifier, such as `0` for the default
+            locale or `en`. Each value contains a `variations` map.
+          additionalProperties:
+            type: object
+            required: [variations]
+            properties:
+              variations:
+                type: object
+                description: >
+                  Per-variation content map. Each key is a variation ID that must match a name in
+                  `variation_meta.variantsPerLocale`.
+                additionalProperties:
+                  type: object
+                  properties:
+                    content_1:
+                      $ref: '#/components/schemas/ContentBlock'
+      example:
+        content_1:
+          type: json
+          value: '{"headline":"Save 20% today","cta_text":"Claim offer","image_url":"https://cdn.example.com/banner.png","cta_url":"https://example.com/offer/summer"}'
+
+    ContentBlock:
+      description: |
+        A single content payload. The `type` field controls how `value` is interpreted:
+        - `json` — `value` is a serialized JSON string with the personalization payload.
+        - `content_block` — `value` is the ID of a content block in the MoEngage Content Block library.
+        - `template` — `value` is an object of template field values; `meta.templateId` identifies the template.
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          description: Format of the content payload.
+          enum: [json, content_block, template]
+          example: json
+        value:
+          description: >
+            Content payload, interpreted according to `type`:
+            for `json`, a serialized JSON string of the personalization data;
+            for `content_block`, the content block reference ID string;
+            for `template`, an object whose keys are the template field names (retrieve available
+            templates from `GET /v5/offers/templates`).
+          oneOf:
+            - type: string
+              description: For the `json` and `content_block` types.
+            - type: object
+              description: For the `template` type — a map of template field names to their values.
+              additionalProperties: true
+          example: '{"headline":"Save 20% today","cta_text":"Claim offer"}'
+        meta:
+          type: object
+          description: >
+            Metadata for the content block. Required for the `template` type: include `templateId`
+            set to the template's `id` from `GET /v5/offers/templates`. The server uses it to look
+            up the template schema and validate the required fields in `value`.
+          additionalProperties: true
+          example:
+            templateId: app_small
+
+    OfferVariationMeta:
+      description: |
+        Variation configuration for the offering. Editability depends on the offering's status and
+        variation `type`:
+
+        - While the offering is `scheduled`, the entire object is editable.
+        - Once `active`, the `type` and `variantsPerLocale` key set are locked and return
+          `IMMUTABLE_FIELD`. For `SMV` you can still update the `smv_distribution` split percentages
+          and `control_group.percentage`; for `DMV` only `control_group.percentage` is editable.
+
+        Variation strategies:
+
+        - `SMV` (Static Multi-Variant): static allocation that you control. Variations are served
+          according to the fixed percentage `smv_distribution` split you define.
+        - `DMV` (Dynamic Multi-Variant): dynamic allocation that MoEngage optimizes automatically.
+          You still provide an `smv_distribution` split, but the system adjusts how variations are served.
+        - `CONTROL_ONLY`: control group only, with no content variations served.
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          description: Variation strategy. One of `SMV`, `DMV`, or `CONTROL_ONLY`.
+          enum: [SMV, DMV, CONTROL_ONLY]
+          example: SMV
+        variantsPerLocale:
+          type: array
+          description: >
+            Variation display names that apply to each locale. The number of entries must match the
+            number of variation keys in each locale's `variations` map.
+          items:
+            type: string
+          example: [Variant_A, Variant_B]
+        smv_distribution:
+          type: object
+          description: Variation percentage allocation. Required when `type` is `SMV` or `DMV`. For `DMV` it sets the starting split, which the system then optimizes.
+          properties:
+            split:
+              type: object
+              description: >
+                Map of variation ID to integer percentage. The same variation IDs are used as keys
+                in `offer_content`. The only constraint is that the values must sum to exactly 100;
+                there is no enforced minimum or maximum on an individual value.
+              additionalProperties:
+                type: integer
+              example:
+                Variant_A: 70
+                Variant_B: 30
+        control_group:
+          type: object
+          description: >
+            Offer-level control group. When enabled, a percentage of eligible users is held out and
+            receives no offer.
+          properties:
+            is_enabled:
+              type: boolean
+              description: Whether the control group holdout is active.
+              example: false
+            percentage:
+              type: integer
+              description: Percentage of eligible users to hold out. Required when `is_enabled` is `true`. Range 1–100.
+              minimum: 1
+              maximum: 100
+              example: 10
+      example:
+        type: SMV
+        variantsPerLocale: [Variant_A, Variant_B]
+        smv_distribution:
+          split:
+            Variant_A: 70
+            Variant_B: 30
+        control_group:
+          is_enabled: true
+          percentage: 10
+
+    OfferCappingRules:
+      description: |
+        Frequency capping that limits how often the offering is delivered. Two independent rules
+        can be enabled at the same time:
+        - `overall` — caps total deliveries across all users within the schedule period.
+        - `user_level` — caps deliveries to a single user within the schedule period.
+      type: object
+      properties:
+        overall:
+          $ref: '#/components/schemas/OfferCappingRule'
+        user_level:
+          $ref: '#/components/schemas/OfferCappingRule'
+      example:
+        overall:
+          enabled: true
+          limit_value: 10000
+          limit_schedule: DAILY
+        user_level:
+          enabled: true
+          limit_value: 3
+          limit_schedule: WEEKLY
+
+    OfferCappingRule:
+      description: A single frequency capping rule.
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether this capping rule is enforced. When `false`, the other fields are ignored.
+          example: true
+        limit_value:
+          type: integer
+          description: >
+            Maximum number of deliveries allowed within one schedule period. Required when `enabled`
+            is `true`. For an overall rule the range is 1–1,000,000; for a user-level rule the range
+            is 1–10,000.
+          minimum: 1
+          example: 3
+        limit_schedule:
+          type: string
+          description: >
+            Time window for the capping counter, which resets at the start of each new period.
+            `DAILY` resets each day, `WEEKLY` resets each week, `MONTHLY` resets each month.
+          enum: [DAILY, WEEKLY, MONTHLY]
+          example: WEEKLY
+
+    ConversionDto:
+      description: |
+        Conversion goal configuration used to measure offering effectiveness. You can set or change
+        `conversion` only while the offering is `scheduled`; on an `active` offering it returns
+        `400 IMMUTABLE_FIELD`.
+      type: object
+      properties:
+        primary:
+          $ref: '#/components/schemas/ConversionGoal'
+        secondary:
+          type: array
+          description: Additional conversion goals tracked alongside the primary goal. Maximum 4 goals.
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/ConversionGoal'
+
+    ConversionGoal:
+      description: A single conversion goal that tracks a specific user action.
+      type: object
+      required: [goal_name, action]
+      properties:
+        goal_name:
+          type: string
+          description: Display name for the conversion goal shown in reporting, such as `Purchase`.
+          example: Purchase
+        action:
+          type: string
+          description: >
+            MoEngage event name tracked as the conversion. Must match the event name tracked by the
+            SDK (case-sensitive).
+          example: purchase
+        filter_type:
+          type: string
+          description: How the conversion event is matched. Use `actions` to match by event name and optional attribute filters.
+          example: actions
+        attributes:
+          $ref: '#/components/schemas/ConversionAttributesDto'
+        r_track:
+          type: boolean
+          description: >
+            When `true`, the conversion also records the monetary value from the event. Requires
+            `ra` and `rc`.
+          default: false
+        ra:
+          type: string
+          description: >
+            Name of the event attribute that holds the revenue value. Required when `r_track` is
+            `true`.
+          example: order_value
+        rc:
+          type: string
+          description: >
+            ISO 4217 three-letter currency code for revenue tracking, such as `USD`. Required when
+            `r_track` is `true`.
+          example: USD
+
+    ConversionAttributesDto:
+      type: object
+      description: >
+        Attribute-level filters that narrow which occurrences of the action count as a conversion,
+        such as only purchases where category equals `Electronics`.
+      properties:
+        filter_operator:
+          type: string
+          description: Logical operator across the filters. `and` requires all conditions; `or` requires at least one.
+          enum: [and, or]
+          example: and
+        filters:
+          type: array
+          description: >
+            Array of attribute filter objects. Each object targets a specific event attribute.
+            Follows the same filter structure as `segment_info.filters.included_filters.filters`.
+          items:
+            type: object
+            description: A single attribute filter. Structure varies by filter type.
+
+    OfferAttributeConfigurationRequest:
+      description: |
+        Assignment of a custom offering attribute and its value(s) to the offering. Offering
+        attributes are configured in the workspace beforehand and are used in Decision Policy
+        scoring formulas to rank offers per user.
+      type: object
+      required: [offering_attribute_id, selected_values]
+      properties:
+        offering_attribute_id:
+          type: string
+          description: ID of the offering attribute definition to reference. Must be an existing, non-archived attribute.
+          example: attr_64a1b2c3d4e5
+        offering_attribute_name:
+          type: string
+          description: >
+            Display name of the offering attribute. The server populates this on responses; if you
+            send it, it is ignored in favor of the ID.
+          example: Product Category
+        type:
+          type: string
+          description: >
+            Attribute type matching the definition. `FIXED` has predefined options; `DYNAMIC` is
+            matched against a user profile attribute at query time. Resolved from the definition if omitted.
+          enum: [FIXED, DYNAMIC]
+          example: FIXED
+        selected_values:
+          type: array
+          description: >
+            Selected value(s) for this attribute. At least one is required. A `DYNAMIC` attribute
+            allows at most one value; a `FIXED` attribute allows multiple, up to the definition's limit.
+          items:
+            type: object
+            required: [value]
+            properties:
+              id:
+                type: string
+                description: Option ID from the attribute definition. Provide it to match correctly when option names change.
+                nullable: true
+              value:
+                type: string
+                description: >
+                  Option value. For a `FIXED` attribute, it must match an existing option. For a
+                  `DYNAMIC` attribute, it is the user profile attribute name to match at query time.
+                example: Electronics
+              score:
+                type: integer
+                description: >
+                  Priority score for this option, used in custom formula weighting. Range 0–100. Set
+                  to null for dynamic attributes scored at runtime.
+                minimum: 0
+                maximum: 100
+                nullable: true
+                example: 85
+          minItems: 1
+
+    PublicOfferCreateResponse:
+      description: Response returned by `POST /v5/offers` on success.
+      type: object
+      properties:
+        response_id:
+          type: string
+          description: Server-generated UUID for tracing this response.
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        type:
+          type: string
+          enum: [offer]
+          description: Resource type discriminator. Always `offer`.
+        data:
+          type: object
+          description: Summary of the created offering.
+          properties:
+            id:
+              type: string
+              description: Offering ID assigned by the server, including the `offer_` prefix. Use it in later PATCH calls.
+              example: offer_683abc123def456789012345
+            status:
+              type: string
+              enum: [active, scheduled, expired]
+              description: Status of the new offering, evaluated from the scheduling dates at creation.
+              example: scheduled
+            created_at:
+              type: string
+              format: date-time
+              description: ISO 8601 UTC timestamp when the offering was created.
+              example: "2026-06-01T08:30:00Z"
+      example:
+        response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        type: offer
+        data:
+          id: offer_683abc123def456789012345
+          status: scheduled
+          created_at: "2026-06-01T08:30:00Z"
+
+    PublicOfferPatchResponse:
+      description: Response returned by `PATCH /v5/offers/{offer_id}` on success.
+      type: object
+      properties:
+        response_id:
+          type: string
+          description: Server-generated UUID for tracing this response.
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        type:
+          type: string
+          enum: [offer]
+          description: Resource type discriminator. Always `offer`.
+        data:
+          type: object
+          description: Summary of the updated offering.
+          properties:
+            id:
+              type: string
+              description: Offering ID, including the `offer_` prefix.
+              example: offer_683abc123def456789012345
+            status:
+              type: string
+              enum: [active, scheduled, expired]
+              description: Current status after the update.
+              example: active
+            updated_at:
+              type: string
+              format: date-time
+              description: ISO 8601 UTC timestamp of the update.
+              example: "2026-06-16T11:00:00Z"
+      example:
+        response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        type: offer
+        data:
+          id: offer_683abc123def456789012345
+          status: active
+          updated_at: "2026-06-16T11:00:00Z"
+
+  responses:
+    GatewayAuthError:
+      description: >
+        Authentication failed because the `Authorization` header is missing, malformed, or invalid
+        (`401 UNAUTHORIZED`). This response is returned by the APISIX gateway.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Authentication failed. Ensure the Authorization header is set to Basic with a valid API key.
+              target: Authorization
+            response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    FeatureNotEnabled:
+      description: >
+        The Offer Decisioning feature is not enabled for this workspace (`403 FORBIDDEN`). Contact
+        your MoEngage account team to request access.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: The Offer Decisioning feature is not enabled for this workspace.
+              target: workspace
+            response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    RateLimited:
+      description: >
+        Rate limit exceeded (`429`). The `Retry-After` header gives the number of seconds until the
+        most restrictive window resets. Limits are 100 requests per minute, 300 per hour, and 600
+        per day, per workspace.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the most restrictive rate-limit window resets.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: "Rate limit exceeded: per-minute limit of 100 requests reached. Retry after 30 seconds."
+            response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    InternalError:
+      description: An unexpected server-side error occurred (`500 INTERNAL_ERROR`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: An unexpected error occurred processing your request. Reference the X-MOE-Request-Id when contacting support.
+            response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    ServiceUnavailable:
+      description: >
+        The APISIX gateway is temporarily unable to route the request (`503`), for example when the
+        upstream service is unreachable. The response body is HTML from the gateway, not JSON.
+      content:
+        text/html:
+          schema:
+            type: string
+            example: "<html><body><h1>503 Service Temporarily Unavailable</h1></body></html>"
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format 'username:password'.
+
+        - **Username**: Use your MoEngage Workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+        - **Password**: Use your API Key, which you can find within the **Personalize** tile.
+
+        For more information on authentication and getting your credentials, refer [here](https://www.moengage.com/docs/api/introduction#getting-your-credentials).
