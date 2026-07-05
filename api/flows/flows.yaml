@@ -509,13 +509,15 @@ paths:
               - drop_stats
               - branch_stats
               - business_trigger_stats
-        - $ref: '#/components/parameters/XMoeRequestIdHeader'
+        - $ref: '#/components/parameters/XMoeTenantId'
+        - $ref: '#/components/parameters/XMoeScopes'
+        - $ref: '#/components/parameters/XMoeRequestIdRequired'
       responses:
         '200':
           description: Flow analytics returned successfully.
           headers:
             X-MOE-Request-Id:
-              $ref: '#/components/headers/XMoeRequestId'
+              $ref: '#/components/headers/XMoeRequestIdEchoed'
           content:
             application/json:
               schema:
@@ -651,13 +653,15 @@ paths:
             enum:
               - aggregated_stats
               - campaign_stats
-        - $ref: '#/components/parameters/XMoeRequestIdHeader'
+        - $ref: '#/components/parameters/XMoeTenantId'
+        - $ref: '#/components/parameters/XMoeScopes'
+        - $ref: '#/components/parameters/XMoeRequestIdRequired'
       responses:
         '200':
           description: Channel analytics returned successfully.
           headers:
             X-MOE-Request-Id:
-              $ref: '#/components/headers/XMoeRequestId'
+              $ref: '#/components/headers/XMoeRequestIdEchoed'
           content:
             application/json:
               schema:
@@ -733,6 +737,11 @@ components:
       schema:
         type: string
 
+    XMoeRequestIdEchoed:
+      description: Echoes the caller-supplied X-MOE-Request-Id.
+      schema:
+        type: string
+
   parameters:
     FlowId:
       name: flow_id
@@ -753,6 +762,33 @@ components:
       description: >
         Client-supplied trace ID. The server echoes it in the `X-MOE-Request-Id` response header
         and in `response_id`. If you omit it, the server generates one.
+      schema:
+        type: string
+
+    XMoeTenantId:
+      name: X-MOE-Tenant-ID
+      in: header
+      required: true
+      description: Identifies the tenant/workspace making the request.
+      schema:
+        type: string
+
+    XMoeScopes:
+      name: X-MOE-SCOPES
+      in: header
+      required: true
+      description: Comma-separated list of scopes authorized for this request.
+      schema:
+        type: string
+
+    XMoeRequestIdRequired:
+      name: X-MOE-Request-Id
+      in: header
+      required: true
+      description: >
+        Caller-supplied request ID. Required for the Flow Analytics endpoints — the server does
+        not generate a fallback. It is echoed in the `X-MOE-Request-Id` response header and in
+        `response_id`.
       schema:
         type: string
 
@@ -1594,6 +1630,8 @@ components:
       description: >
         The request failed schema or input validation (bad filter value, malformed cursor,
         non-integer `version_no`, invalid date range, or a `flow_id` that is actually a version ID).
+        On the Flow Analytics endpoints, a missing or malformed `X-MOE-Request-Id` header also
+        returns `400`, because that header is required there.
       content:
         application/json:
           schema:
