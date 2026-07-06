@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoEngage Push API
-  version: '2.0'
+  version: '2.1'
   description: |
     # Overview
     Push API is used to:
@@ -14,21 +14,31 @@ tags:
     description: Operations to create and send push notification campaigns.
 
 servers:
-  - url: 'https://pushapi-{dc}.moengage.com/v2'
+  - url: 'https://pushapi-{dc}.moengage.com'
     description: MoEngage Push API Server
     variables:
       dc:
         default: '01'
+        enum: ['01', '02', '03', '04', '05', '06', '101']
         description: "The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101."
 
 paths:
-  /transaction/sendpush:
+  /v2.1/transaction/sendpush:
     post:
+      operationId: send_push_v2_1
       tags:
         - Transactional
-      summary: Send Push Notification
+      summary: Send Push Notification (V2.1)
       description: |
         This API creates and sends a push notification campaign. You can use this API to create campaigns (targeting all users or a group of users) to send notifications, target a single user using a unique user attribute, and personalize payload for each user.
+
+        In addition to the `signature` field in the request body, this endpoint accepts three request headers that mirror values already present in the request body: `X-MOE-APPKEY` (mirrors `appId`), `X-MOE-PushAPI-Signature` (mirrors `signature`), and `X-MOE-Query-Type` (mirrors `targetAudience`).
+      security:
+        - signatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XMoeAppKey'
+        - $ref: '#/components/parameters/XMoePushSignature'
+        - $ref: '#/components/parameters/XMoeQueryType'
       x-mint:
         content: |
           
@@ -73,8 +83,21 @@ paths:
            print(signature)
            ```
            </Tab>
-           </Tabs>   
-           
+           </Tabs>
+
+          Send this same signature value in the `X-MOE-PushAPI-Signature` header, in addition to the `signature` field in the request body; the two must match.
+
+          #### Rate Limiting (429 Responses)
+
+          When the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category is exceeded, the request is rejected with HTTP `429` and an empty response body. The category is resolved as `seg_user_search` for `user`, and `seg_user_query` for `all users`, `custom segment`, and `bulk users`. The rate-limit details are returned in the following response headers:
+
+          | Header | Description | Example |
+          | :--- | :--- | :--- |
+          | `x-envoy-ratelimited` | Present and set to `true` when the request was rate limited. | `true` |
+          | `x-ratelimit-limit` | The configured limit for the resolved category. | `5, 5;w=60` |
+          | `x-ratelimit-remaining` | Requests remaining in the current window (`0` when throttled). | `0` |
+          | `x-ratelimit-reset` | Seconds until the current rate-limit window resets. | `23` |
+
       requestBody:
         required: true
         description: "The complete configuration for the push campaign."
@@ -84,7 +107,7 @@ paths:
               $ref: '#/components/schemas/PushRequest'
             examples:
               Base Sample Request:
-                summary: 1. Base Sample Request
+                summary: Base Sample Request
                 value:
                   appId: "{{your Workspace ID}}"
                   campaignName: "{{your campaign name}}"
@@ -103,7 +126,7 @@ paths:
                   campaignDelivery:
                     type: "soon"
               Android App:
-                summary: 2. Ex 1 - Android App
+                summary: Android - Rich Content
                 value:
                   appId: "{{appId}}"
                   campaignName: "{{campaignName}}"
@@ -145,7 +168,7 @@ paths:
                           iconURL: "abc"
                       fallback: {}
               iOS App:
-                summary: 3. Ex 1 - iOS App
+                summary: iOS - Rich Content
                 value:
                   appId: "{{appId}}"
                   campaignName: "{{campaignName}}"
@@ -188,7 +211,7 @@ paths:
                         additionalActions:
                           - category: "INVITE_CATEGORY"
               Web Chrome:
-                summary: 4. Ex 1 - Web (Chrome)
+                summary: Web - Basic Notification
                 value:
                   appId: "{{appId}}"
                   campaignName: "{{campaignName}}"
@@ -209,7 +232,7 @@ paths:
                       iconURL: "https://app.moengage.com/v3/images/favicon.ico"
                       imageURL: "https://cdn.dribbble.com/users/146881/screenshots/1180383/despicable_me_1x.jpg"
               Target All Android:
-                summary: 5. Ex 2 - Target All (Android)
+                summary: Android - All Users
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -259,7 +282,7 @@ paths:
                     sendAtHighPriority: "true"
                     inboxExpiry: 360
               Target All iOS:
-                summary: 6. Ex 2 - Target All (iOS)
+                summary: iOS - All Users
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -291,7 +314,7 @@ paths:
                     ignoreFC: "false"
                   inboxExpiry: 360
               Target All Web:
-                summary: 7. Ex 2 - Target All (Web)
+                summary: Web - All Users
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -322,7 +345,7 @@ paths:
                     ignoreFC: "false"
                     sendAtHighPriority: "true"
               All Platforms:
-                summary: 8. Ex 2 - All Platforms
+                summary: All Platforms - All Users
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -386,7 +409,7 @@ paths:
                     sendAtHighPriority: "true"
                     inboxExpiry: 360
               Target Single User:
-                summary: 9. Ex 3 - Target Single User
+                summary: Android - Target Single User
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -439,7 +462,7 @@ paths:
                     sendAtHighPriority: "true"
                     inboxExpiry: 360
               Custom Segment:
-                summary: 10. Ex 3 - Custom Segment
+                summary: All Platforms - Custom Segment
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -504,7 +527,7 @@ paths:
                     sendAtHighPriority: "true"
                     inboxExpiry: 360
               Custom Attribute:
-                summary: 11. Ex 3 - Custom Attribute
+                summary: Android - Custom Attribute Targeting
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -558,7 +581,7 @@ paths:
                     sendAtHighPriority: "true"
                     inboxExpiry: 360
               All Users Detailed:
-                summary: 12. Ex 3 - All Users (Detailed)
+                summary: All Platforms - All Users (Detailed)
                 value:
                   appId: "XXXXXXXXXXXXXXXXXXXXXXXX"
                   campaignName: "Test Push"
@@ -668,6 +691,36 @@ paths:
                 code: 404
                 status: error
                 reason: "Page not found. Please recheck the URL"
+        '429':
+          description: |
+            Too Many Requests. The Envoy gateway rejected the request because the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category was exceeded (`seg_user_search` for `user`; `seg_user_query` for `all users`, `custom segment`, and `bulk users`). The response body is empty; rate-limit details are returned in the `x-ratelimit-*` and `x-envoy-ratelimited` response headers.
+          content:
+            application/json:
+              schema:
+                type: string
+                description: The response body is empty for a 429.
+              example: []
+          headers:
+            x-envoy-ratelimited:
+              description: Present and set to `true` when the request was rate limited.
+              schema:
+                type: string
+                example: "true"
+            x-ratelimit-limit:
+              description: "The configured limit for the resolved category, e.g. `5, 5;w=60`."
+              schema:
+                type: string
+                example: "5, 5;w=60"
+            x-ratelimit-remaining:
+              description: "Requests remaining in the current window (`0` when throttled)."
+              schema:
+                type: string
+                example: "0"
+            x-ratelimit-reset:
+              description: Seconds until the current rate-limit window resets.
+              schema:
+                type: string
+                example: "23"
         '500':
           description: Internal Server Error.
           content:
@@ -695,6 +748,41 @@ components:
       in: header
       name: MOE-APPKEY
       description: This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+    signatureAuth:
+      type: apiKey
+      in: header
+      name: X-MOE-PushAPI-Signature
+      description: |
+        Used by the v2.1 endpoint. Requests are authenticated with the same signature described in the Authentication section above, sent both in the `X-MOE-PushAPI-Signature` header and in the `signature` request-body field; the two must match. An invalid or mismatched signature returns HTTP 200 with `{"status":"Fail","Error_Message":"Signature is not verified"}`.
+
+  parameters:
+    XMoeAppKey:
+      name: X-MOE-APPKEY
+      in: header
+      required: true
+      description: "This field mirrors the `appId` field in the request body (your Workspace ID)."
+      schema:
+        type: string
+    XMoePushSignature:
+      name: X-MOE-PushAPI-Signature
+      in: header
+      required: true
+      description: "This field mirrors the `signature` field in the request body (the SHA-256 hash used for authorization). Refer to the Authentication section above for how to generate this value."
+      schema:
+        type: string
+    XMoeQueryType:
+      name: X-MOE-Query-Type
+      in: header
+      required: true
+      description: |
+        This field mirrors the `targetAudience` field in the request body. The value `bulk users` corresponds to a request where `bulkUserRequest` is `true` in the request body.
+      schema:
+        type: string
+        enum:
+          - all users
+          - user
+          - custom segment
+          - bulk users
 
   schemas:
     TargetUserAttributes:
@@ -1149,6 +1237,9 @@ components:
             * All Users: Pass this value to target all users of your App/Website.
             * Custom Segment: Pass this value to target pre-created user segments. Custom segments can be created using the MoEngage dashboard or [custom segment API](/api/filter-segments/create-filter-segment). Note that the custom segment name should exactly match the name of the target segment.
             * User: Pass this value to target a user with an attribute. It will target a maximum of 100 users of the associated targetUserAttributes definition.
+        bulkUserRequest:
+          type: boolean
+          description: "This field denotes whether the request targets a bulk list of users. Set this to true for a bulk users request. When using the v2.1 endpoint, set the `X-MOE-Query-Type` header to `bulk users` for these requests."
         customSegmentName:
           type: string
           description: "Required if targetAudience is 'Custom Segment'."
@@ -1574,8 +1665,9 @@ components:
 
     PushSuccessResponse:
       type: object
+      title: Success Response
       properties:
-        status: 
+        status:
           type: string
           enum: [Success]
           description: "This field indicates the campaign status."
@@ -1585,8 +1677,9 @@ components:
 
     PushFailureResponse:
       type: object
+      title: Failure Response
       properties:
-        status: 
+        status:
           type: string
           enum: [Fail]
           description: "This field indicates the campaign status."
