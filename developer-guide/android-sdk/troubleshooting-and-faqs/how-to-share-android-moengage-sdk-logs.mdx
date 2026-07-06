@@ -9,9 +9,11 @@ In this document, we list a few steps that you can execute to share the MoEngage
 
 <iframe src="https://www.youtube.com/embed/kQjcdzQkOq4" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
 
-## Enable SDK logs globally at runtime
+To enable logs for **native Android**, complete the below steps: 
 
-Use the following API to enable MoEngage SDK logs globally at runtime, without modifying initialization code. This applies to native Android, React Native (Android side), and Flutter apps.
+## Step 1: Enable SDK logs globally at runtime
+
+Use the following API to enable MoEngage SDK logs globally at runtime, without modifying initialization code.
 
 <CodeGroup>
 
@@ -30,12 +32,12 @@ MoESdkStateHelper.enableAllLogs();
 </CodeGroup>
 
 <Warning>
-  `enableAllLogs()` only captures logs generated after it is called — it does not replay earlier logs. To capture workspace instance-level logs, you must also add `configureLogs` to your initialization code (see the platform-specific sections below). Call `disableAllLogs()` to turn off all logs, including instance-level ones. Remove both calls before pushing to production.
+  `enableAllLogs()` only captures logs generated after it is called — it does not replay earlier logs. Call `disableAllLogs()` to turn off all logs, including instance-level ones. Remove both calls before pushing to production.
 </Warning>
 
-## Enable debug logs for Android
+## Step 2: Enable instance-level verbose logs
 
-MoEngage SDK logs are best read in verbose format, which prints almost all the steps the SDK takes at any given time. Add `configureLogs` to your MoEngage builder in `Application.kt` (or `Application.java`) before calling `MoEngage.initialise()`:
+Add `configureLogs` to your MoEngage builder in `Application.kt` (or `Application.java`) before calling `MoEngage.initialise()`:
 
 <CodeGroup>
 
@@ -61,9 +63,11 @@ MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.D
   Set `isEnabledForReleaseBuilds` to `false` and remove verbose logging before pushing the app to production.
 </Warning>
 
-## Enable debug logs for React Native
+If you are using React Native, complete [Step 1](#step-1-enable-sdk-logs-globally-at-runtime) and [Step 2](#step-2-enable-instance-level-verbose-logs), then follow [Step 3](#step-3-enable-debug-logs-for-react-native) to enable TypeScript-level log control.
 
-React Native provides log control at the TypeScript level. Update your MoEngage initialization code in `App.tsx` (or your app entry file) to pass a log configuration:
+## Step 3: Enable debug logs for React Native
+
+React Native also provides log control at the TypeScript level. Update your MoEngage initialization code in `App.tsx` (or your app entry file) to pass a log configuration:
 
 ```typescript TypeScript
 import { MoEInitConfig, MoEPushConfig, MoEngageLogConfig, MoEngageLogLevel } from "react-native-moengage";
@@ -76,34 +80,6 @@ const moEInitConfig = new MoEInitConfig(
 
 ReactMoE.initialize("YOUR_WORKSPACE_ID", moEInitConfig);
 ```
-
-<Warning>
-  Set `isEnabledForReleaseBuilds` to `false` and remove verbose logging before pushing the app to production.
-</Warning>
-
-## Enable debug logs for Flutter
-
-Flutter does not expose a Dart-level log configuration API. To enable verbose logging, open the Android initialization file at `android/app/src/main/java/<your-package>/MainApplication.kt` (or `MainApplication.java`) and add `configureLogs` to the MoEngage builder:
-
-<CodeGroup>
-
-```kotlin Kotlin
-val moEngage = MoEngage.Builder(
-        application = this,
-        appId = "YOUR_WORKSPACE_ID",
-        dataCenter = DataCenter.DATA_CENTER_X
-    )
-    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuilds = true))
-    .build()
-```
-
-```java Java
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
-    .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
-    .build();
-```
-
-</CodeGroup>
 
 <Warning>
   Set `isEnabledForReleaseBuilds` to `false` and remove verbose logging before pushing the app to production.
