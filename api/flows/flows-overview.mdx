@@ -6,14 +6,14 @@ description: "List, read, and control MoEngage Flows, and retrieve flow and chan
 Use the Flows endpoints to discover flows, view a single flow (including its versions and stages), change a flow's status, and retrieve analytics. These endpoints read and control flows; they do not create them.
 
 <Note>
-  The Flows endpoints are in BETA. The schema is frozen at launch — no breaking changes are made during the BETA period.
+  The Flows endpoints are in BETA. We won't make breaking changes during the BETA period.
 </Note>
 
-## APIs
+## Endpoint groups
 
-Flows are covered by two sets of endpoints:
+The Flows API has two endpoint groups:
 
-| Set | Purpose |
+| Endpoint group | Purpose |
 | --- | --- |
 | **Flows** | Search flows, get a single flow (or a specific version) with its stages, and change a flow's status. |
 | **Flow Analytics** | Retrieve flow-level trip analytics and channel-level performance and delivery analytics. |
@@ -23,22 +23,29 @@ Flows are covered by two sets of endpoints:
 | Method | Path | Description |
 | --- | --- | --- |
 | `POST` | `/v5/flows/search` | List flows with filters and keyset pagination. |
-| `GET` | `/v5/flows/{flow_id}` | Get a single flow; optionally project a specific version with `version_no`. |
-| `GET` | `/v5/flows/{flow_id}/versions/{version_id}` | Get a flow projected from a specific version ID. |
+| `GET` | `/v5/flows/{flow_id}` | Get a single flow; optionally view a specific version with `version_no`. |
+| `GET` | `/v5/flows/{flow_id}/versions/{version_id}` | Get a flow as it was in a specific version, addressed by its version ID. |
 | `PATCH` | `/v5/flows/{flow_id}/status` | Pause, resume, stop, retire, archive, or unarchive a flow. |
 | `GET` | `/v5/flows/{flow_id}/analytics` | Get flow-level trip, drop/exit, split-stage, and conversion analytics. |
 | `GET` | `/v5/flows/{flow_id}/analytics/channels/{channel}` | Get channel-scoped aggregated and per-campaign analytics. |
 
 ## Authentication
 
-Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the username and your API Key as the password. Read endpoints require the `campaigns:view` permission; the status endpoint requires `campaigns:create_manage`.
+Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the username and your API Key as the password.
+
+Flows reuse the Campaigns permissions. Enable the matching checkboxes on your API key:
+
+- **View** (`campaigns:view`) for the read endpoints — Search Flows, Get a Single Flow, Get a Specific Version of a Flow, and the analytics endpoints.
+- **Create & Manage** (`campaigns:create_manage`) for Update Flow Status.
+
+For more information on authentication and getting your credentials, refer to [Getting your credentials](https://www.moengage.com/docs/api/introduction#getting-your-credentials).
 
 ## Conventions
 
 - IDs are raw 24-character ObjectIds. `flow_id` addresses the flow; `version_id` addresses one version.
 - Every successful response uses the envelope `{response_id, type, data}`.
 - Datetimes are ISO 8601 UTC (`YYYY-MM-DDThh:mm:ssZ`).
-- Search results are paginated — pass the previous page's `next_cursor` back as `cursor`.
+- Search results are paginated. Each response includes a `next_cursor`. To get the next page, send that value as the `cursor` parameter in your next request.
 
 ## FAQs
 
@@ -46,7 +53,7 @@ Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the us
 
 <AccordionGroup>
   <Accordion title="Can I create or edit flows with these endpoints?">
-    No. This phase supports reading and controlling existing flows — searching, getting a flow or a specific version, and changing a flow's status. Creating, updating, cloning, and publishing flows are planned for a later phase.
+    No, this isn't supported. You can search, read, and change the status of existing flows.
   </Accordion>
   <Accordion title="How do I enroll users into a flow through the API?">
     You do not enroll users directly. For event-triggered flows, use the Track Event API — a user enters the flow when a tracked event matches the flow's entry condition. For business-event-triggered flows, use the Trigger Business Event API. Periodic flows are audience-driven and do not support API enrollment.
@@ -54,11 +61,8 @@ Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the us
   <Accordion title="What is the difference between flow_id and version_id?">
     `flow_id` identifies the flow. `version_id` identifies one of its versions. To read a specific version, either pass `version_no` on **Get a single flow**, or call **Get a specific version of a flow** with the `version_id`.
   </Accordion>
-  <Accordion title="Why is Search flows a POST instead of a GET?">
-    Search accepts many optional, multi-valued filters (status, delivery type, tags, and so on). These are cleaner and more reliable to send in a JSON request body than in a query string.
-  </Accordion>
   <Accordion title="Which status changes can I make?">
-    You can `pause`, `resume`, `stop`, `retire`, `archive`, and `unarchive` a flow. Each change is validated against the flow's current status; an invalid change returns a `409`. The `publish` action is not available in this phase.
+    You can `pause`, `resume`, `stop`, `retire`, `archive`, and `unarchive` a flow. Each change is validated against the flow's current status; an invalid change returns a `409`. Publish isn't available.
   </Accordion>
   <Accordion title="What permissions do I need?">
     The read endpoints (search, get flow, get version) require the `campaigns:view` permission. The status endpoint requires the `campaigns:create_manage` permission.
