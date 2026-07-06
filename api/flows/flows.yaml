@@ -8,8 +8,7 @@ info:
     endpoints read and control existing flows; they do not create them.
 
     <Note>
-      This API is in BETA. The schema is frozen at launch — no breaking changes are made
-      during the BETA period.
+      The Flows endpoints are in BETA. We won't make breaking changes during the BETA period.
     </Note>
 
     The API exposes the following endpoints:
@@ -17,7 +16,7 @@ info:
     - `POST /v5/flows/search` — paginated listing with filters (status, delivery type, tags,
       teams, name, creator, creation-date range).
     - `GET /v5/flows/{flow_id}` — single flow detail. Use the optional `version_no` query
-      parameter to project a specific version; the default is the last published version, or
+      parameter to view a specific version; the default is the last published version, or
       the draft if none is published.
     - `GET /v5/flows/{flow_id}/versions/{version_id}` — the details of a flow as it was in a
       specific version, identified by its ID.
@@ -84,8 +83,9 @@ paths:
         rather than the query string because they are multi-valued, and the call is read-only and
         safe to repeat. Archived flows are excluded unless `include_archived` is `true`. Each
         response includes a `next_cursor`. To get the next page, send that value as the `cursor`
-        parameter in your next request. Your API key must have the `campaigns:view` permission (see
-        the [Authentication](/api/flows/flows-overview#authentication) section).
+        parameter in your next request. Sorting is not supported in this version; results are
+        returned in creation order. Your API key must have the `campaigns:view` permission (see the
+        [Authentication](/api/flows/flows-overview#authentication) section).
       x-mint:
         content: |
           #### Rate Limit
@@ -201,7 +201,7 @@ paths:
           in: query
           required: false
           description: >
-            Project a specific version of the flow by its version number (the trailing integer of
+            View a specific version of the flow by its version number (the trailing integer of
             the version name, for example `Version 3` becomes `3`). When omitted, the last
             published version is returned, or the draft if none is published. A non-integer value
             returns `400`; a number that does not exist for this flow returns `404`.
@@ -347,6 +347,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FlowDetailResponse'
+              example:
+                response_id: abc-102
+                type: flow
+                data:
+                  flow_id: 69f1de84f9e401a2d7d9a931
+                  name: Welcome journey
+                  status: RETIRED
+                  archived: false
+                  delivery_type: EVENT_TRIGGERED
+                  tags: [onboarding]
+                  created_at: "2026-01-05T10:00:00Z"
+                  updated_at: "2026-01-20T09:30:00Z"
+                  published_at: "2026-01-06T08:00:00Z"
+                  created_by: agent@example.com
+                  published_by: agent@example.com
+                  global_control_group_enabled: false
+                  active_version_name: Version 1
+                  versions:
+                    - version_id: 7a02ef95f9e401a2d7d9aa42
+                      version_name: Version 1
+                      version_no: 1
+                      status: RETIRED
+                  settings:
+                    control_group:
+                      enabled: false
+                    frequency_capping:
+                      ignore: false
+                      ignore_and_count: false
+                    bypass_dnd: false
+                  attribution:
+                    click_track_hours: 24
+                    impression_track_hours: 24
+                  conversion_goal_details:
+                    primary_goal:
+                      event: Purchase
+                      goal_name: Made a purchase
+                    secondary_goals: []
+                    revenue_tracking: true
+                    revenue_attribute: amount
+                    revenue_currency: USD
+                    exit_on_conversion: false
+                  structure:
+                    nodes:
+                      - stage_id: n1
+                        type: TRIGGER
+                        sub_type: EVENT
+                        parent_stage_id: null
+                        child_stage_ids: [n2]
+                        label: App Opened
+                        config:
+                          schedule:
+                            delivery: one_time
+                            start_time: "2026-01-06T08:00:00Z"
+                            timezone: Asia/Kolkata
+                          segmentation:
+                            audience_type: all_users
+                      - stage_id: n2
+                        type: ACTION
+                        sub_type: EMAIL
+                        parent_stage_id: n1
+                        child_stage_ids: []
+                        label: Welcome email
+                        config:
+                          campaign_id: 69f1de84f9e401a2d7d9a999
+                          channel: EMAIL
+                          campaign_name: Welcome email
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -519,7 +585,7 @@ paths:
                 response_id: "resp_a1b2c3d4"
                 type: "flow_analytics"
                 data:
-                  flow_id: "flow_abc123"
+                  flow_id: "69f1de84f9e401a2d7d9a931"
                   version_name: "Version 2"
                   summary:
                     - timestamp: 1706745600
@@ -571,11 +637,11 @@ paths:
                       - stage_id: "sdmimd"
                         stage_name: "My Custom Split Name"
                         branches:
-                          - branch_id: "branch_a_id"
+                          - branch_id: "br7f3a9c"
                             branch_name: "Control"
                             entered: 6200
                             converted: 980
-                          - branch_id: "branch_b_id"
+                          - branch_id: "br2e8d1f"
                             branch_name: "Test"
                             entered: 6200
                             converted: 750
@@ -583,7 +649,7 @@ paths:
                       - stage_id: "ipoabc"
                         stage_name: "Intelligent Path Optimizer 1"
                         branches:
-                          - branch_id: "ipo_branch_1"
+                          - branch_id: "ipo9c4a2"
                             branch_name: "Branch A"
                             entered: 4100
                             converted: 610
@@ -661,7 +727,7 @@ paths:
                 response_id: "resp_b2c3d4e5"
                 type: "flow_channel_analytics"
                 data:
-                  flow_id: "flow_abc123"
+                  flow_id: "69f1de84f9e401a2d7d9a931"
                   channel: "EMAIL"
                   version_name: "Version 2"
                   aggregated_stats:
@@ -688,7 +754,7 @@ paths:
                             description: "Successfully Sent"
                         delivery_failure_breakdown: {}
                   campaign_stats:
-                    - action_id: "action_id_1"
+                    - action_id: "a3f9c2e1"
                       campaign_id: "camp_xyz001"
                       stage_name: "Welcome Email"
                       performance: {}
@@ -884,7 +950,7 @@ components:
       properties:
         flow_id:
           type: string
-          example: "flow_abc123"
+          example: "69f1de84f9e401a2d7d9a931"
         version_name:
           type: string
           example: "Version 2"
@@ -926,15 +992,19 @@ components:
       properties:
         trips_started:
           type: integer
+          description: Number of user journeys that started within the requested activity window.
           example: 12400
         trips_completed:
           type: integer
+          description: Number of user journeys that reached the end of the flow within the window.
           example: 8900
         trips_in_progress:
           type: integer
+          description: Number of user journeys still active in the flow at the end of the window.
           example: 1200
         trips_dropped:
           type: integer
+          description: Number of user journeys that exited or dropped before completing, within the window.
           example: 2300
 
     ConversionGoalStat:
@@ -953,17 +1023,21 @@ components:
       properties:
         total:
           type: integer
+          description: Total number of conversions attributed under this model.
           example: 1200
         unique:
           type: integer
+          description: Number of unique users who converted under this model.
           example: 980
         cvr:
           type: number
           format: float
+          description: Conversion rate for this attribution model, as a decimal (0.079 = 7.9%).
           example: 0.079
         revenue:
           type: number
           format: float
+          description: Attributed revenue in the flow's configured currency.
           example: 45000.0
 
     DropStatsEntry:
@@ -1046,16 +1120,18 @@ components:
       properties:
         branch_id:
           type: string
-          example: "branch_a_id"
+          example: "br7f3a9c"
         branch_name:
           type: string
           description: User-defined name; defaults to "Branch A", "Branch B", and so on.
           example: "Control"
         entered:
           type: integer
+          description: Number of users who entered this branch within the requested window.
           example: 6200
         converted:
           type: integer
+          description: Number of users in this branch who converted within the window.
           example: 980
 
     FlowChannelAnalyticsResponse:
@@ -1078,7 +1154,7 @@ components:
       properties:
         flow_id:
           type: string
-          example: "flow_abc123"
+          example: "69f1de84f9e401a2d7d9a931"
         channel:
           $ref: '#/components/schemas/ChannelEnum'
         version_name:
@@ -1155,7 +1231,7 @@ components:
         action_id:
           type: string
           description: Unique ID of the action node within the flow.
-          example: "action_id_1"
+          example: "a3f9c2e1"
         campaign_id:
           type: string
           example: "camp_xyz001"
@@ -1623,10 +1699,10 @@ components:
   responses:
     BadRequest:
       description: >
-        The request failed schema or input validation (bad filter value, malformed cursor,
-        non-integer `version_no`, invalid date range, or a `flow_id` that is actually a version ID).
-        On the Flow Analytics endpoints, a missing or malformed `X-MOE-Request-Id` header also
-        returns `400`, because that header is required there.
+        The request failed validation — for example, a bad filter value, a malformed cursor, a
+        non-integer `version_no`, an invalid date range, or a `flow_id` that is actually a version
+        ID. On the Flow Analytics endpoints specifically, a missing or malformed `X-MOE-Request-Id`
+        header also returns `400`, since that header is required there.
       content:
         application/json:
           schema:
