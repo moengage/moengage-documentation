@@ -775,7 +775,7 @@ components:
       in: header
       required: true
       description: |
-        This field mirrors the `targetAudience` field in the request body. The value `bulk users` corresponds to a request where `bulkUserRequest` is `true` in the request body.
+        This field mirrors the `targetAudience` field in the request body, but uses lowercase values. For example, when `targetAudience` is "User", send `X-MOE-Query-Type: user`. The value `bulk users` corresponds to a request where `bulkUserRequest` is `true` in the request body.
       schema:
         type: string
         enum:
@@ -1071,10 +1071,19 @@ components:
       properties:
         ttl:
           type: object
-          description: "This field denotes the duration for which the push notification service keeps a push message before it's discarded if it can't be delivered. If not delivered, Push Services (GCM/WEB) retry to send the message until the TTL (in minutes) does not expire. Send ‘0’ if it is not applicable to you. After the TTL has expired, push notifications will not be shown to the user. The default value for TTL is 36 hours and applies only to Android push or Web push notifications."
+          description: |
+            Time-To-Live (TTL) specifies how long the push notification service attempts to deliver your message. After TTL expires, the notification is discarded if not yet delivered. Default: 2160 minutes (36 hours). Android and Web only; iOS notifications expire per APNS policy.
+
+            **Use cases:**
+            * **Short-lived messages** (OTPs, time-sensitive deals): 15–60 minutes
+            * **Standard transactional** (order updates, shipping): 1440 minutes (24 hours)
+            * **Persistent notifications** (announcements, app updates): 2160+ minutes (36+ hours)
+            * **Urgent time-windows** (flash sales ending in 2 hours): Set TTL to 120 minutes
+
+            **Important:** Set to 0 to disable retries (message sent once; if device is offline, discarded immediately).
           properties:
-            ANDROID: { type: integer, description: "TTL in minutes for Android." }
-            WEB: { type: integer, description: "TTL in minutes for Web." }
+            ANDROID: { type: integer, description: "TTL in minutes for Android. Default: 2160 (36 hours). Range: 0–10080 (7 days)." }
+            WEB: { type: integer, description: "TTL in minutes for Web. Default: 2160 (36 hours). Range: 0–10080 (7 days)." }
         ignoreFC:
           oneOf:
             - type: string
@@ -1102,24 +1111,23 @@ components:
             * "false" value - Push campaigns are not counted in the frequency cap count.
         notificationPrioritySettings:
           type: object
-          description: "This field denotes whether the notification priority settings are configured. Supported values are \"true\" or \"false\" only for Android push / Web push notifications. It uses the GCM/FCM flag to send time-critical messages with high priority and drains the user's device battery more than normal messages. This object contains information about notification priority settings. For more information, refer to [notificationPrioritySettings](/hc/en-us/articles/32986034181268#h_01JJ3VXZZQ1Z4N9VVNGWGE6B9J)."
+          description: "This field configures notification priority to control delivery timing and battery impact. Higher priority ensures immediate delivery and visibility but increases device battery drain. Use for time-sensitive notifications (OTPs, order confirmations, alerts). For less urgent messages (promotions, digest emails), use lower priority to respect device battery and user experience. Android and iOS support different priority scales. For more information, refer to [notificationPrioritySettings](/hc/en-us/articles/32986034181268#h_01JJ3VXZZQ1Z4N9VVNGWGE6B9J)."
           properties:
             Android:
               type: string
               enum: [High, Low]
               description: |
-                This field denotes the notification priority configured for Android devices for this campaign.
-                Supported values are:
-                * High
-                * Low
+                Notification priority for Android devices. Use cases:
+                * **High** — Time-critical messages: OTPs, payment confirmations, emergency alerts. Delivered immediately with heads-up notification.
+                * **Low** — Standard messages: promotions, digests, non-urgent updates. Delivered in notification drawer without interrupting user.
             iOS:
               type: integer
               enum: [1, 5, 10]
               description: |
-                This field denotes the notification priority configured for iOS devices for this campaign. Supported values are:
-                * 1
-                * 5
-                * 10
+                Notification urgency for iOS devices (0–10 scale). Use cases:
+                * **1** — Low urgency: Promotions, newsletters, non-critical updates. Delivered without alerting user.
+                * **5** — Normal urgency: Standard transactional messages, updates.
+                * **10** — Critical: Emergency alerts, time-sensitive actions (OTPs, payment confirmations). Delivered with immediate alert.
         "pushAmp+":
           oneOf:
             - type: string
@@ -1134,16 +1142,28 @@ components:
           description: "This field denotes whether the preCacheSegment is enabled. Supported values are \"true\" or \"false.\" Applicable for scheduled and periodic campaigns. If enabled, pre-caches the segmentation and improves campaign sending time. For caching, it is recommended that the campaign be created at least 2 hours before the scheduled time."
         campaignThrottleTime:
           type: integer
-          description: "This field denotes if the campaign throttle time is configured. Push throttling allows you to control the rate of sending a push notification. The value to be passed can be between 1 and 360 (minutes)."
+          description: |
+            Controls campaign delivery speed using a time-based interval. Specify the delay (in minutes) between batches of notifications to spread delivery across your user base.
+
+            **Use cases:**
+            * Avoid overwhelming your backend systems with simultaneous user interactions (purchases, signups)
+            * Reduce server load during peak hours
+            * Improve user experience by pacing notifications
+            * Respect push notification fatigue for large segments
+
+            **Range:** 1–360 minutes. If both `campaignThrottleTime` and `campaignThrottleRpm` are specified, `campaignThrottleRpm` takes precedence.
         campaignThrottleRpm:
           type: integer
           description: |
-            The default throughput for the Push API is 100K RPM. You can send either of the key-value pairs in the Push API payload between campaignThrottleRpm and campaignThrottleTime. Both of the key-value pairs are optional.
-            * If you send both, the value for campaignThrottleRpm takes precedence over the value for campaignThrottleTime.
-            * If you send either of them, the value you send is considered.
-            * If you do not send any of them, the value defined in settings is considered.
-            * If the RPM value is not defined in settings, the default RPM for Push channel (that is, 100K) is enforced.
-            For personalized campaigns, the maximum RPM value MoEngage supports is 250K.
+            Controls campaign delivery speed using requests-per-minute (RPM). Default: 100K RPM. Maximum for personalized campaigns: 250K RPM.
+
+            **Use cases:**
+            * High-throughput campaigns: Send to millions of users quickly (100K–250K RPM for personalized)
+            * Balanced delivery: Use default 100K RPM for typical transactional campaigns
+            * Gentle delivery: Set custom lower RPM to reduce backend load during maintenance windows
+            * API-limited backends: Set conservative RPM if your backend can't handle high throughput
+
+            **Priority:** If both `campaignThrottleRpm` and `campaignThrottleTime` are specified, RPM takes precedence. If neither is set, account-level settings apply; if those are undefined, default 100K RPM is used.
         useJinjaPersonalization:
           oneOf:
             - type: string
@@ -1164,16 +1184,26 @@ components:
           type: string
           enum: [apns_device_default_push, apns_device_provisional_push, apns_device_non_provisional_push]
           description: |
-            Supported values are:
-            * apns_device_default_push
-            * apns_device_provisional_push
-            * apns_device_non_provisional_push
+            Specifies which iOS notification opt-in status to target. Apple offers three authorization levels:
+
+            * **apns_device_default_push** — Users who explicitly approved notifications. Most reliable; full visibility (banner, sound, badge). Use for transactional and marketing.
+            * **apns_device_provisional_push** — Users on iOS 12+ who haven't opted in. Delivered silently to notification center only (no banner/sound). Use for soft engagement (digest, subtle updates).
+            * **apns_device_non_provisional_push** — Users who explicitly disabled notifications. Delivery fails. Rare use case.
+
+            Default: `apns_device_default_push`. Omit to target all users.
         deliverWhenActive:
           oneOf:
             - type: string
               enum: ["true", "false"]
             - type: boolean
-          description: "This field specifies whether the push notifications will be delivered when the device is in an active state. supported value: \"true\" and \"false\"."
+          description: |
+            Restricts notification delivery to times when the device is actively in-use. Useful for in-app messages and real-time engagement.
+
+            **Use cases:**
+            * **true** — In-app messages, real-time alerts (price drops, live game scores). Notification only shows if user is actively using the app.
+            * **false** — Standard behavior. Delivers whether device is active or idle. Use for transactional, reminders, promotions.
+
+            Default: false (delivery unrestricted by activity state).
         bypassDND:
           type: boolean
           description: "This field specifies whether to deliver the notification immediately, bypassing device restrictions such as battery optimizations or low-power modes."
