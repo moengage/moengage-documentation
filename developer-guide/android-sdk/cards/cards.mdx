@@ -389,3 +389,51 @@ To get a callback for sync completion on application launch/foreground implement
 ## Click Callback
 
 To get a callback on the card, click implement the [_OnCardClickListener_](https://moengage.github.io/android-api-reference/cards-ui/com.moengage.cards.ui.listener/-on-card-click-listener/index.html) interface and register for the callback using the [_MoECardUiHelper.setClickListener()._](https://moengage.github.io/android-api-reference/cards-ui/com.moengage.cards.ui/-mo-e-card-ui-helper/set-click-listener.html)
+
+# Cards Data Refresh
+
+The SDK syncs card data automatically via WorkManager on a schedule (approximately every 15 minutes when the device is idle and connected to a network). The synced data is cached locally on the device.
+
+## Local Cache vs Server Fetch
+
+| Method | What it does |
+|--------|-------------|
+| `MoECardHelper.getCards()` | Returns cards from the **local cache**. Fast, no network call. May show slightly stale data. |
+| `MoECardHelper.refreshCards()` | Forces an **immediate server fetch**. Use this when the user opens the Cards screen to ensure fresh data. |
+
+<Tip>
+  Call `MoECardHelper.refreshCards()` when the user opens your inbox/feed screen for the best experience. The `SyncCompleteListener` callback fires when the refresh is complete — use it to update the UI.
+</Tip>
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import com.moengage.cards.core.MoECardHelper
+
+// Force an immediate refresh when the user opens the Cards screen
+MoECardHelper.getInstance().refreshCards(context)
+```
+
+```java Java
+import com.moengage.cards.core.MoECardHelper;
+
+// Force an immediate refresh when the user opens the Cards screen
+MoECardHelper.getInstance().refreshCards(context);
+```
+
+</CodeGroup>
+
+# Cards Expiry and Deletion
+
+Card campaigns are created with an expiry date in the MoEngage dashboard. The SDK does **not** auto-hide expired cards from the local cache until the next sync cycle.
+
+<Warning>
+  If a user opens the Cards screen before the next WorkManager sync, they may see expired cards for up to 15 minutes after the campaign end time. To minimize this, call `refreshCards()` when the user opens the screen — this fetches the latest server state and removes expired cards from the cache.
+</Warning>
+
+| Behavior | Details |
+|----------|---------|
+| **Campaign expiry** | Set in the MoEngage dashboard when creating the campaign |
+| **Auto-removal from cache** | On the next WorkManager sync (up to 15 min after expiry) |
+| **Immediate removal** | Call `refreshCards()` on screen open to force a server sync |
+| **User deletion** | When a user deletes a card, it is removed from the local cache immediately and excluded from the next server sync |

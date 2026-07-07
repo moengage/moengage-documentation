@@ -5,13 +5,20 @@ description: "Initialize the MoEngage Android SDK in your Application class usin
 
 import ExcludeMoEngageStorageFileAndroidStart from '/snippets/ExcludeMoEngageStorageFile_Android_Start.mdx';
 
-# SDK Configuration
+# SDK Initialization
 
-Get the Workspace ID from the Settings Page of the dashboard **Dashboard** --\> **Settings** --\> **App** --\> **General** on the MoEngage dashboard and initialize the MoEngage SDK in the Application class `onCreate()`.
+<Check>
+  Before you begin, ensure you have completed the following:
 
-<Info>
-  **Note** Initialize the SDK on the main thread inside `onCreate()` and not create a worker thread and initialize the SDK on that thread.
-</Info>
+  - Completed the [SDK Integration](/developer-guide/android-sdk/sdk-integration/basic-integration/Install-Using-BOM) steps.
+  - Retrieved your Workspace ID from **Dashboard → Settings → App → General**.
+</Check>
+
+<Tip>
+**Initialize on the main thread in `Application.onCreate()`**
+
+Initialize the MoEngage SDK on the main thread inside `Application.onCreate()`. Do not initialize on a worker thread or inside an `Activity`/`Fragment`. Initializing on the wrong thread can cause **ANR (Application Not Responding) errors, missed push token registration, and impression loss** for in-app messages. The SDK must be fully initialized before any lifecycle callbacks (such as FCM `onNewToken`) fire.
+</Tip>
 
 <CodeGroup>
 
@@ -19,9 +26,9 @@ Get the Workspace ID from the Settings Page of the dashboard **Dashboard** --\> 
 import com.moengage.core.DataCenter
 import com.moengage.core.MoEngage
 
-val moEngage = MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
+val moEngage = MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_1)
                      .build()
-//replace X with your data center number
+// Replace DATA_CENTER_1 with your data center. See the data center table below.
 MoEngage.initialiseDefaultInstance(moEngage)
 ```
 
@@ -29,30 +36,65 @@ MoEngage.initialiseDefaultInstance(moEngage)
 import com.moengage.core.DataCenter;
 import com.moengage.core.MoEngage;
            
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-                     .build(); 
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_1)
+                     .build();
 MoEngage.initialiseDefaultInstance(moEngage);
 ```
 
 </CodeGroup>
 
+## Environment Configuration
+
+By default, the SDK automatically detects the environment based on your app's build type:
+
+- **Debug build** → Data is sent to the **TEST** environment of your workspace
+- **Release build** → Data is sent to the **LIVE** environment of your workspace
+
+<AccordionGroup>
+<Accordion title="How do I override the default environment?">
+  The SDK requires no additional configuration for environment auto-detection. If you need to override it, use [MoEngageEnvironmentConfig](https://moengage.github.io/android-api-reference/core/com.moengage.core.config/-mo-engage-environment-config/index.html) on the builder:
+
+  ```kotlin
+  import com.moengage.core.config.MoEngageEnvironmentConfig
+  import com.moengage.core.model.environment.MoEngageEnvironment
+
+  val moEngage = MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_1)
+      .configureEnvironment(MoEngageEnvironmentConfig(MoEngageEnvironment.LIVE))
+      .build()
+  MoEngage.initialiseDefaultInstance(moEngage)
+  ```
+</Accordion>
+</AccordionGroup>
+
+<Warning>
+  Shipping a release build with a Test environment App ID sends all user data to the Test workspace, which may be periodically purged. Always use a Production App ID for release builds.
+</Warning>
+
 ## Portfolio (Optional)
 
-In your MoEngage account, if your [portfolio](https://www.moengage.com/docs/user-guide/settings/account/portfolio/portfolio) is configured with multiple projects, use the methods as shown below.
+In your MoEngage account, if your [portfolio](/user-guide/settings/account/portfolio/portfolio) is configured with multiple projects, use the methods as shown below.
 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-val moEngage = MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureProject(ProjectConfig("<YOUR ProjectID>"))
+import com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.config.ProjectConfig
+
+val moEngage = MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_1)
+              .configureProject(ProjectConfig("<YOUR_PROJECT_ID>"))
               .build()
 MoEngage.initialiseDefaultInstance(moEngage)
 ```
 
 ```java Java wrap
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-                     .configureProject(new ProjectConfig("<YOUR ProjectID>"));
-                     .build(); 
+import com.moengage.core.DataCenter;
+import com.moengage.core.MoEngage;
+import com.moengage.core.config.ProjectConfig;
+
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_1)
+                     .configureProject(new ProjectConfig("<YOUR_PROJECT_ID>"))
+                     .build();
 MoEngage.initialiseDefaultInstance(moEngage);
 ```
 
@@ -72,12 +114,33 @@ Following details of the different data centers you need to set based on the das
 For more information about the detailed list of possible configurations, refer to the [API reference](https://moengage.github.io/android-api-reference/core/com.moengage.core/-mo-engage/-builder/index.html).
 
 <Warning>
-  **Critical** All the configurations are added to the builder before initialization. If you are calling initialize at multiple places, ensure that all the required flags and configurations are set each time you initialize to maintain consistency in behavior.
+  All configurations must be added to the builder before initialization. If you call initialize at multiple places, ensure all required flags and configurations are set each time to maintain consistent behavior.
 </Warning>
 
-# Data Flow
+## Development Setup: Enable Verbose Logging
 
-SDK detects the build type of the installed application and the basis that it decides whether data should be sent to the Test/Live Environment of the MoEngage Platform.
+<Info>
+  During development, enable verbose logging on the builder so you can see all SDK activity in logcat:
 
-- UnSigned/Debug Build — Data flows to Test environment
-- Signed/Live Build — Data flows to Live environment.
+  ```kotlin
+  .configureLogs(LogConfig(LogLevel.VERBOSE, true))
+  ```
+
+  Always disable verbose logging in release builds.
+</Info>
+
+## Verify the Integration
+
+To confirm the SDK has initialized successfully, call [`isSDKInitialised()`](https://moengage.github.io/android-api-reference/core/com.moengage.core/is-sdk-initialised.html):
+
+```kotlin
+import com.moengage.core.MoEngage
+
+if (MoEngage.isSDKInitialised()) {
+    // SDK is ready — proceed with tracking and push setup
+}
+```
+
+## Next Steps
+
+With the SDK initialized, proceed to [track user attributes](/developer-guide/android-sdk/data-tracking/basic/track-user-attributes) or [set up push notifications](/developer-guide/android-sdk/push/basic/push-configuration).

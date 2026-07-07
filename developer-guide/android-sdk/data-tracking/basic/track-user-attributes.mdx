@@ -15,6 +15,15 @@ Setting identifiers is important to:
 - This is to ensure unnecessary or stale users are not created.
 - To identify users across installs/re-installs.
 
+## Integration Checklist
+
+Before going to production, verify your identity management implementation:
+
+- [ ] Call `identifyUser()` immediately after a user logs in with their unique identifier (email, phone, or internal user ID)
+- [ ] Call `identifyUser()` on every app launch if the user is already logged in — the SDK does not persist the identifier across cold starts unless it is re-set
+- [ ] Call `MoECoreHelper.logoutUser()` when the user logs out — do not rely on session timeout for logout flows
+- [ ] Do not call `identifyUser()` before SDK initialization is complete
+
 ## Single Identifier
 
 Call the API below to pass the identifier on to the MoEngage SDK.
@@ -100,63 +109,88 @@ For more information on supported data types and data tracking policies, please 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-MoEAnalyticsHelper.setFirstName()
-MoEAnalyticsHelper.setLastName()
-MoEAnalyticsHelper.setUserName()
-MoEAnalyticsHelper.setLocation()
-MoEAnalyticsHelper.setGender()
-MoEAnalyticsHelper.setMobileNumber()
-MoEAnalyticsHelper.setBirthDate()
-MoEAnalyticsHelper.setEmailId()
+import com.moengage.core.analytics.MoEAnalyticsHelper
+import com.moengage.core.model.GeoLocation
+import java.util.Date
+
+MoEAnalyticsHelper.setFirstName(context, "John")
+MoEAnalyticsHelper.setLastName(context, "Doe")
+MoEAnalyticsHelper.setUserName(context, "johndoe")
+MoEAnalyticsHelper.setLocation(context, GeoLocation(40.77, 73.98))
+MoEAnalyticsHelper.setGender(context, "male")
+MoEAnalyticsHelper.setMobileNumber(context, "+14155552671")
+MoEAnalyticsHelper.setBirthDate(context, Date())
+MoEAnalyticsHelper.setEmailId(context, "john@example.com")
 ```
 
 
 ```java Java
-MoEAnalyticsHelper.INSTANCE.setFirstName();
-MoEAnalyticsHelper.INSTANCE.setLastName();
-MoEAnalyticsHelper.INSTANCE.setUserName();
-MoEAnalyticsHelper.INSTANCE.setLocation();
-MoEAnalyticsHelper.INSTANCE.setGender();
-MoEAnalyticsHelper.INSTANCE.setMobileNumber();
-MoEAnalyticsHelper.INSTANCE.setBirthDate();
-MoEAnalyticsHelper.INSTANCE.setEmailId();
+import com.moengage.core.analytics.MoEAnalyticsHelper;
+import com.moengage.core.model.GeoLocation;
+import java.util.Date;
+
+MoEAnalyticsHelper.INSTANCE.setFirstName(context, "John");
+MoEAnalyticsHelper.INSTANCE.setLastName(context, "Doe");
+MoEAnalyticsHelper.INSTANCE.setUserName(context, "johndoe");
+MoEAnalyticsHelper.INSTANCE.setLocation(context, new GeoLocation(40.77, 73.98));
+MoEAnalyticsHelper.INSTANCE.setGender(context, "male");
+MoEAnalyticsHelper.INSTANCE.setMobileNumber(context, "+14155552671");
+MoEAnalyticsHelper.INSTANCE.setBirthDate(context, new Date());
+MoEAnalyticsHelper.INSTANCE.setEmailId(context, "john@example.com");
 ```
 
 </CodeGroup>
 
-For setting other User Attributes, use the generic method **setUserAttribute(key, value).** Supported types for attribute value are `String`, `int`, `double`, `num`, `bool`, `List<int>`, `List<String>`, `List<double>` & `List<num>`.
+For setting other User Attributes, use the generic method **setUserAttribute()** which accepts multiple overloads. You can pass attributes either individually (key-value pairs) or as a Map. The SDK handles type conversion internally. Supported types are `String`, `Int`, `Long`, `Double`, `Float`, `Boolean`, `Date`, `GeoLocation`, `JSONObject`, and `JSONArray`.
 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
+import com.moengage.core.analytics.MoEAnalyticsHelper
+import com.moengage.core.model.GeoLocation
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.Date
+
 // Tracking a String Attribute
-MoEAnalyticsHelper.setUserAttribute(context,"locality", "SF")
+MoEAnalyticsHelper.setUserAttribute(context, "locality", "SF")
 // Tracking a Date Attribute
-MoEAnalyticsHelper.setUserAttribute(context,"signedUpOn", Date())
+MoEAnalyticsHelper.setUserAttribute(context, "signedUpOn", Date())
 // Tracking a location attribute
-MoEAnalyticsHelper.setUserAttribute(context,"lastLocation", GeoLocation(40.77, 73.98))
+MoEAnalyticsHelper.setUserAttribute(context, "lastLocation", GeoLocation(40.77, 73.98))
 // Tracking Array Attributes
-MoEAnalyticsHelper.setUserAttribute(context,"int_array",arrayOf<Int>(1,2,3))
-MoEAnalyticsHelper.setUserAttribute(context,"string_array",arrayOf<String>("English","French"))
-MoEAnalyticsHelper.setUserAttribute(context,"double_array",arrayOf<Double>(40.0,20.0))
-MoEAnalyticsHelper.setUserAttribute(context,"json_array", JSONArray(listOf(1, 2, 3)))      
-MoEAnalyticsHelper.setUserAttribute(context,"json_object", JSONObject().put("key", "value"))
+MoEAnalyticsHelper.setUserAttribute(context, "int_array", arrayOf<Int>(1, 2, 3))
+MoEAnalyticsHelper.setUserAttribute(context, "string_array", arrayOf<String>("English", "French"))
+MoEAnalyticsHelper.setUserAttribute(context, "double_array", arrayOf<Double>(40.0, 20.0))
+MoEAnalyticsHelper.setUserAttribute(context, "json_array", JSONArray(listOf(1, 2, 3)))
+MoEAnalyticsHelper.setUserAttribute(context, "json_object", JSONObject().put("key", "value"))
 ```
 
 
 ```java Java
+import com.moengage.core.analytics.MoEAnalyticsHelper;
+import com.moengage.core.model.GeoLocation;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.Date;
+
 // Tracking a String Attribute
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"locality", "SF");
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "locality", "SF");
 // Tracking a Date Attribute
 MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "signedUpOn", new Date());
 // Tracking a location attribute
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"lastLocation", new GeoLocation(40.77, 73.98));
-// Tracking Array Attributes    
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"int_array",new int[]{1,2,3});
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"string_array",new String[]{"English","French"});
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"double_array",new double[]{1.5,2.5});
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"json_array", new JSONArray());
-MoEAnalyticsHelper.INSTANCE.setUserAttribute(context,"json_object", new JSONObject());
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "lastLocation", new GeoLocation(40.77, 73.98));
+// Tracking Array Attributes
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "int_array", new Integer[]{1, 2, 3});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "string_array", new String[]{"English", "French"});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "double_array", new Double[]{40.0, 20.0});
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "json_array", new JSONArray(Arrays.asList(1, 2, 3)));
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, "json_object", new JSONObject().put("key", "value"));
+// Map-based overload
+Map<String, Object> attributes = new HashMap<>();
+attributes.put("locality", "SF");
+attributes.put("json_object", new JSONObject().put("key", "value"));
+MoEAnalyticsHelper.INSTANCE.setUserAttribute(context, attributes);
 ```
 
 </CodeGroup>

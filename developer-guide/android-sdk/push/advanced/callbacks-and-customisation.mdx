@@ -11,6 +11,75 @@ description: "Customize push notification display and behavior in your Android a
 
 MoEngage SDK allows the client application to optionally customize the notification display and extend/customize the behavior of the notification. Some of the possible customizations are deciding whether to show a notification or not, and tweaking the _NotificationCompat.Builder_ object, etc. To do so you need to extend a class called [PushMessageListener](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.push/-push-message-listener/index.html) provided by the MoEngage SDK and pass on the instance of this class to the MoEngage SDK. Once you have done this you can override the default implementation as per the requirement. Let's look at the above steps in more detail.
 
+# Delegating Push to MoEngage from Your Own FirebaseMessagingService
+
+If your app already has its own `FirebaseMessagingService`, you need to check each incoming push message to determine if it came from MoEngage. If it did, pass it to the MoEngage SDK. If it didn't, handle it with your own logic.
+
+Here's how:
+
+1. In `onMessageReceived()`, check the payload with `MoEPushHelper.getInstance().isFromMoEngagePlatform(pushPayload)`
+2. If the payload is from MoEngage, call `MoEFireBaseHelper.getInstance().passPushPayload(context, pushPayload)` to let the SDK process it
+3. If the payload is not from MoEngage, handle it in your own `else` block
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import com.moengage.firebase.MoEFireBaseHelper
+import com.moengage.pushbase.MoEPushHelper
+
+class YourFirebaseMessagingService : FirebaseMessagingService() {
+
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        val pushPayload = remoteMessage.data
+        if (MoEPushHelper.getInstance().isFromMoEngagePlatform(pushPayload)) {
+            MoEFireBaseHelper.getInstance().passPushPayload(applicationContext, pushPayload)
+        } else {
+            // Handle your own push messages here
+        }
+    }
+
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        MoEFireBaseHelper.getInstance().passPushToken(applicationContext, token)
+    }
+}
+```
+
+```java Java wrap
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+import com.moengage.firebase.MoEFireBaseHelper;
+import com.moengage.pushbase.MoEPushHelper;
+import java.util.Map;
+
+public class YourFirebaseMessagingService extends FirebaseMessagingService {
+
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        Map<String, String> pushPayload = remoteMessage.getData();
+        if (MoEPushHelper.getInstance().isFromMoEngagePlatform(pushPayload)) {
+            MoEFireBaseHelper.getInstance().passPushPayload(getApplicationContext(), pushPayload);
+        } else {
+            // Handle your own push messages here
+        }
+    }
+
+    @Override
+    public void onNewToken(String token) {
+        super.onNewToken(token);
+        MoEFireBaseHelper.getInstance().passPushToken(getApplicationContext(), token);
+    }
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  If you are using the SDK's default `MoEFireBaseMessagingService` (declared in your `AndroidManifest.xml`), this delegation step is not needed — the SDK handles payload routing automatically. Only follow this pattern if you have **your own** `FirebaseMessagingService`.
+</Warning>
+
 # Extending PushMessageListener
 
 The first thing required to customize the notification is creating a class that extends [_PushMessageListener_](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.push/-push-message-listener/index.html). We will call this class **CustomPushMessageListener** (only for illustration purposes you can have any class name you want). The barebones of this class would look something like below.
@@ -88,6 +157,18 @@ public class CustomPushMessageListener extends PushMessageListener {
 ```
 
 </CodeGroup>
+
+<Tip>
+  **Selective interception pattern** — Use `isNotificationRequired()` to intercept only specific notifications based on their payload while letting the SDK handle all others. Return `false` to take full control of a notification (you display it, no SDK impression is tracked). Return `true` to let the SDK show and track it as normal.
+
+  ```kotlin
+  override fun isNotificationRequired(context: Context, payload: Bundle): Boolean {
+      // Return false to handle this notification yourself
+      val notificationType = payload.getString("notification_type")
+      return notificationType != "custom_ui_type"
+  }
+  ```
+</Tip>
 
 For more information, refer to [API Reference](https://moengage.github.io/android-api-reference/pushbase/com.moengage.pushbase.push/-push-message-listener/is-notification-required.html).
 

@@ -1,5 +1,5 @@
 ---
-title: "Release checklist"
+title: "Release Checklist"
 description: "Verify your MoEngage Android SDK integration against this checklist before releasing your app."
 ---
 
@@ -11,12 +11,19 @@ Before releasing your application with MoEngage SDK integrated verify if the fol
 * Disable logging for release build if enabled.
 * Enable Java 8 target and source compatibility.
 
+## Production Deployment
+
+* **Production App ID** — Verify the App ID in your release build points to your Production workspace. Any workspace created for QA or internal testing should never be present in a production app.
+* **Environment** — The SDK automatically detects the environment based on your app's build flavor: debug builds send data to the Test environment, release builds send data to the Live environment. No additional configuration is required unless you override this behavior.
+* **Log level** — Set `LogLevel.WARN` or `LogLevel.NO_LOG` for release builds. Do not ship with `LogLevel.VERBOSE`.
+* **`setAppStatus(INSTALL)`** — Call `MoEAnalyticsHelper.setAppStatus(context, AppStatus.INSTALL)` on first install and `MoEAnalyticsHelper.setAppStatus(context, AppStatus.UPDATE)` on version upgrade. These are not auto-tracked and must be called after SDK initialization.
+
 # Data Tracking
 
 * Install/Update Differentiation
 * Exhaustive Events and Attributes are tracked based on use-cases.
 * User attributes tracked for both new and existing users
-* Track the unique identifier for the user on login using *setUniqueId()*
+* Track the unique identifier for the user on login using `identifyUser()`
 * The logout method is called when the user is logged out of the application
 
 # Push Notification
@@ -39,6 +46,10 @@ Before releasing your application with MoEngage SDK integrated verify if the fol
 ## Push Amp Plus
 
 ### Mi
+
+<Warning>
+  Mi Push (Xiaomi) has been discontinued and is no longer supported. Remove all Mi-specific configuration from your integration. The checklist items below are retained for legacy reference only.
+</Warning>
 
 * Check version compatibility of Mi push dependency with **moe-android-sdk**
 * Configured App Key and App-id during SDK initialization
@@ -64,9 +75,9 @@ Before releasing your application with MoEngage SDK integrated verify if the fol
 
 # In-App
 
-* Check version compatibility of the Push Templates dependency with **moe-android-sdk**
-* Call *showInApp()* on all Activity or Fragment where you want to show In-Apps
-* NudgeView is embedded in the required Activity or Fragment.
+* Check version compatibility of the In-App dependency with **moe-android-sdk**
+* Call `showInApp()` on all Activity or Fragment where you want to show In-Apps
+* Call `showNudge()` on all Activity or Fragment where you want to show nudges. (`NudgeView` was deprecated in InApp SDK 7.0.0.)
 * Test In-App Campaigns on a device.
 
 # Inbox
@@ -82,5 +93,25 @@ Before releasing your application with MoEngage SDK integrated verify if the fol
 # Geofence
 
 * Check version compatibility of the Geofence dependency with **moe-android-sdk**
-* Application has added Google’s Location Services as a dependency in the application.
+* Application has added Google's Location Services as a dependency in the application.
 * Application requests appropriate permissions based on the OS version.
+
+# SDK Version Upgrade Notes
+
+## Upgrading to SDK 13.x from 12.x (JobScheduler → WorkManager Migration)
+
+<Warning>
+  **Known issue — one-time crash on Samsung and Xiaomi devices after upgrading from SDK 12.x to 13.x:**
+
+  SDK 13.x replaced `JobScheduler` with `WorkManager` for background data syncs. On the first launch after the upgrade, some Samsung and Xiaomi devices with custom background-process restrictions may log a one-time `DataSyncJob` crash or `IllegalStateException`. This crash does not recur on subsequent launches and does not affect data integrity. If you observe crash reports after the 13.x upgrade, filter them by the SDK version transition — they are expected one-time occurrences.
+
+  **Mitigation:** Test the upgrade in a staging build on Samsung/Xiaomi devices before pushing to production. Ensure the `WorkManager` dependency is present and not excluded by your app's dependency resolution.
+</Warning>
+
+## SDK Downgrade Policy
+
+<Warning>
+  **Downgrading the SDK version is not supported after user data has been stored.** Once the SDK writes user identity, events, or analytics data with a newer version's storage format, downgrading to an older SDK version will cause the older SDK to read corrupt or incompatible data. This can result in a new anonymous user being created and loss of previously tracked events.
+
+  Always test SDK version upgrades in a staging environment with representative user data before pushing to production. If you must roll back due to a critical issue, roll back via a new release — do not downgrade the SDK version in a hotfix.
+</Warning>

@@ -3,6 +3,10 @@ title: "JWT Authentication"
 description: "Secure your MoEngage data collection by implementing JWT authentication in your Android app."
 ---
 
+<Warning>
+  JWT Authentication must be enabled on your workspace by the MoEngage support team before making any client-side changes. Without backend enablement, all event sync requests will return **502 Bad Gateway** errors and data collection will completely fail. Contact your MoEngage account manager or support team to enable JWT Authentication on your workspace before proceeding with the steps below.
+</Warning>
+
 ## Overview
 
 JWT (JSON Web Token) authentication is a standard method for securely verifying user identity. By implementing JWT authentication, you add a critical layer of security to your data collection process with MoEngage.
@@ -18,7 +22,7 @@ The feature ensures that the data sent on behalf of your identified users is aut
 
 The following diagram illustrates the interaction between your application, your server, the MoEngage SDK, and the MoEngage server:
 
-![Nextttt(1)](/images/nextttt\(1\).jpeg)
+![Sequence diagram showing JWT authentication flow between the Android app, your server, MoEngage SDK, and MoEngage server](/images/nextttt\(1\).jpeg)
 
 ## Integration
 
@@ -26,15 +30,20 @@ Perform the following to integrate JWT authentication into your Android applicat
 
 ### Step 1: Enable JWT Authentication
 
-You can enable JWT authentication during [SDK initialization](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization) by configuring the **_NetworkAuthorizationConfig_** property on the **_MoEngage.Builder_** object.
+You can enable JWT authentication during [SDK initialization](/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization) by configuring the `NetworkAuthorizationConfig` property on the `MoEngage.Builder` object.
 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
+import com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.config.network.NetworkAuthorizationConfig
+import com.moengage.core.config.network.NetworkRequestConfig
+
 val moEngage = MoEngage.Builder(
         application = application,
         appId = "YOUR_WORKSPACE_ID",
-        dataCenter = DataCenter.DATA_CENTER_X
+        dataCenter = DataCenter.DATA_CENTER_<YOUR_REGION>
     )
     .configureNetworkRequest(NetworkRequestConfig(NetworkAuthorizationConfig(isJwtEnabled = true)))
     .build()
@@ -43,7 +52,12 @@ MoEngage.initialiseDefaultInstance(moEngage)
 
 
 ```java Java
-MoEngage moEngage = new MoEngage.Builder(application, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+import com.moengage.core.DataCenter;
+import com.moengage.core.MoEngage;
+import com.moengage.core.config.network.NetworkAuthorizationConfig;
+import com.moengage.core.config.network.NetworkRequestConfig;
+
+MoEngage moEngage = new MoEngage.Builder(application, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_<YOUR_REGION>)
     .configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)))
     .build();
 MoEngage.initialiseDefaultInstance(moEngage);
@@ -60,12 +74,18 @@ Use the [**_MoECoreHelper.passAuthenticationDetails()_**](https://moengage.githu
 <CodeGroup>
 
 ```kotlin Kotlin wrap
+import com.moengage.core.MoECoreHelper
+import com.moengage.core.model.authentication.AuthenticationData
+
 val data = AuthenticationData.Jwt("YOUR_JWT_TOKEN", "USER_IDENTIFIER")
 MoECoreHelper.passAuthenticationDetails(context, data)
 ```
 
 
 ```java Java
+import com.moengage.core.MoECoreHelper;
+import com.moengage.core.model.authentication.AuthenticationData;
+
 AuthenticationData data = new AuthenticationData.Jwt("YOUR_JWT_TOKEN", "USER_IDENTIFIER");
 MoECoreHelper.INSTANCE.passAuthenticationDetails(application.getApplicationContext(), data);
 ```
@@ -79,14 +99,20 @@ To handle token validation errors that the MoEngage server returns, register an 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
+import com.moengage.core.MoECoreHelper
+import com.moengage.core.model.authentication.AuthenticationError
+import com.moengage.core.model.authentication.ErrorData
+import com.moengage.core.model.authentication.JwtError
+import com.moengage.core.model.authentication.OnAuthenticationError
+
+// Register in Application.onCreate(), after MoEngage.initialiseDefaultInstance()
 val authErrorListener = OnAuthenticationError { error ->
   when (error.data) {
     is ErrorData.Jwt -> {
-       // Handle JWT authentication error
        val errorData = error.data as ErrorData.Jwt
        val jwtError = errorData.code
        val message = errorData.message
-       // Take appropriate action based on the jwtError
+       // Fetch a new token and call MoECoreHelper.passAuthenticationDetails() with the refreshed token
     }
   }
 }
@@ -95,16 +121,23 @@ MoECoreHelper.registerAuthenticationListener(authErrorListener)
 
 
 ```java Java
+import androidx.annotation.NonNull;
+import com.moengage.core.MoECoreHelper;
+import com.moengage.core.model.authentication.AuthenticationError;
+import com.moengage.core.model.authentication.ErrorData;
+import com.moengage.core.model.authentication.JwtError;
+import com.moengage.core.model.authentication.OnAuthenticationError;
+
+// Register in Application.onCreate(), after MoEngage.initialiseDefaultInstance()
 OnAuthenticationError errorListener = new OnAuthenticationError() {
   @Override
   public void onError(@NonNull AuthenticationError error) {
       switch (error.getType()) {
           case JWT:
               ErrorData.Jwt jwtError = (ErrorData.Jwt) error.getData();
-              // Handle JWT error
               JwtError jwtErrorType = jwtError.getCode();
               String message = jwtError.getMessage();
-              // Take action based on jwtErrorType
+              // Fetch a new token and call MoECoreHelper.INSTANCE.passAuthenticationDetails() with the refreshed token
               break;
       }
   }
@@ -119,3 +152,14 @@ MoECoreHelper.INSTANCE.registerAuthenticationListener(errorListener);
   - After 10 consecutive authentication failures in a single session, the SDK will stop attempting to sync data until the next session begins. This counter resets after any successful sync.
   - Upon user logout, if a data sync fails due to a JWT error, the pending data will be deleted, and no retry will be attempted.
 </Info>
+
+## Verify the Integration
+
+To confirm JWT authentication is working:
+
+1. Build and run the app on a device or emulator.
+2. Trigger a user identification call (for example, call `MoECoreHelper.passAuthenticationDetails()` after login).
+3. Check logcat for a successful sync log. If JWT is misconfigured, you will see a `502 Bad Gateway` error in the logs.
+4. To test the error callback, pass an expired or invalid token and confirm your `OnAuthenticationError` listener fires.
+
+If you see repeated `502` errors, confirm that JWT Authentication has been enabled on your workspace by the MoEngage support team.

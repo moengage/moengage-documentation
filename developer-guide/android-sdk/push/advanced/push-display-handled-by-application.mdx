@@ -50,6 +50,58 @@ MoEPushHelper.getInstance().logNotificationClick(getApplicationContext(), getInt
 
 </CodeGroup>
 
+## Dismissing Sticky (Ongoing) Notifications
+
+If you create an ongoing (sticky) notification using `setOngoing(true)` on the `NotificationCompat.Builder`, Android does not auto-dismiss it when the user taps it. You must dismiss it explicitly in the click-handler Activity:
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import android.app.NotificationManager
+import android.os.Bundle
+import com.moengage.pushbase.MoEPushHelper
+
+// In the Activity opened by the notification click PendingIntent
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    // Log the click for MoEngage analytics
+    MoEPushHelper.getInstance().logNotificationClick(applicationContext, intent)
+    // Dismiss the sticky notification explicitly
+    val notificationId = intent.getIntExtra("notification_id", -1)
+    if (notificationId != -1) {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.cancel(notificationId)
+    }
+}
+```
+
+```java Java wrap
+import android.app.NotificationManager;
+import android.os.Bundle;
+import com.moengage.pushbase.MoEPushHelper;
+
+// In the Activity opened by the notification click PendingIntent
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    // Log the click for MoEngage analytics
+    MoEPushHelper.getInstance().logNotificationClick(getApplicationContext(), getIntent());
+    // Dismiss the sticky notification explicitly
+    int notificationId = getIntent().getIntExtra("notification_id", -1);
+    if (notificationId != -1) {
+        NotificationManager notificationManager =
+            (NotificationManager) getSystemService(NotificationManager.class);
+        notificationManager.cancel(notificationId);
+    }
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Sticky notifications that are not explicitly cancelled remain visible in the notification drawer indefinitely, even after the user taps them. Always call `NotificationManager.cancel(notificationId)` in the click handler for ongoing notifications.
+</Warning>
+
 # Background Update Template (Manual Approach)
 
 <Info>
