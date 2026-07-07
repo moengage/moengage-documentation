@@ -133,27 +133,24 @@ paths:
             to all six fields: `id`, `name`, `status`, `tags`, `created_at`, `created_by`.
             An unrecognized field name returns `400 INVALID_FIELDS_PARAM`.
             Example: `fields=id,name,status`.
-        - name: page
+        - name: cursor
           in: query
           required: false
           schema:
-            type: integer
-            default: 1
-            minimum: 1
-            maximum: 500
+            type: string
           description: >
-            Page number to retrieve, starting at 1. Maximum 500; a higher value returns
-            `400 OUT_OF_RANGE`. When the page number exceeds the total number of available
-            pages, returns an empty `items` array (not an error).
+            Opaque pagination cursor. Omit it to fetch the first page. To fetch the next page,
+            pass the `next_cursor` value returned in the previous response's `pagination` object.
+            When `has_more` is `false`, `next_cursor` is `null` and there are no more pages.
         - name: limit
           in: query
           required: false
           schema:
             type: integer
             default: 20
-            minimum: 1
-            maximum: 100
-          description: Number of items per page. Default 20, maximum 100.
+          description: >
+            Number of items per page. Default 20. The maximum is 100; a higher value is capped
+            at 100, and a value of 0 or a negative number falls back to the default of 20.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -204,8 +201,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/OfferingListItem'
-                      pagination:
-                        $ref: '#/components/schemas/PagePagination'
+                  pagination:
+                    $ref: '#/components/schemas/CursorPagination'
               example:
                 response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
                 type: offer
@@ -217,15 +214,16 @@ paths:
                       tags: [tag_summer_sale, tag_returning_users]
                       created_at: "2026-06-01T08:30:00Z"
                       created_by: marketing-team@example.com
-                  pagination:
-                    page: 1
-                    limit: 20
-                    has_more: true
-                    total_count: 42
+                pagination:
+                  next_cursor: eyJvZmZzZXQiOjIwfQ==
+                  limit: 20
+                  has_more: true
+                  total_count: 42
         '400':
           description: |
             Invalid query parameter. Common error codes in `error.details[].code`:
-            - `OUT_OF_RANGE` — `page` exceeds 500, `limit` exceeds 100, or `name_contains` exceeds 100 characters.
+            - `OUT_OF_RANGE` — `name_contains` exceeds 100 characters.
+            - `INVALID_CURSOR` — the `cursor` value is malformed or expired.
             - `INVALID_ENUM_VALUE` — unrecognized value in `status_in`.
             - `INVALID_FIELDS_PARAM` — unrecognized field name in `fields`.
             - `INVALID_TYPE` — `created_date_gte` or `created_date_lte` is not in `YYYY-MM-DD` format.
@@ -743,28 +741,24 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - name: page
+        - name: cursor
           in: query
           required: false
           schema:
-            type: integer
-            default: 1
-            minimum: 1
-            maximum: 500
+            type: string
           description: >
-            Page number to retrieve, starting at 1. Range 1–500. A value outside this range
-            returns `400 INVALID_REQUEST`.
+            Opaque pagination cursor. Omit it to fetch the first page. To fetch the next page,
+            pass the `next_cursor` value returned in the previous response's `pagination` object.
+            When `has_more` is `false`, `next_cursor` is `null` and there are no more pages.
         - name: limit
           in: query
           required: false
           schema:
             type: integer
             default: 20
-            minimum: 1
-            maximum: 100
           description: >
-            Number of items per page. Default 20, range 1–100. A value outside this range
-            returns `400 INVALID_REQUEST`.
+            Number of items per page. Default 20. The maximum is 100; a higher value is capped
+            at 100, and a value of 0 or a negative number falls back to the default of 20.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -814,8 +808,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/TemplateListItem'
-                      pagination:
-                        $ref: '#/components/schemas/PagePagination'
+                  pagination:
+                    $ref: '#/components/schemas/CursorPagination'
               example:
                 response_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
                 type: template_list
@@ -829,14 +823,14 @@ paths:
                       value: web_promo_card
                       label: Web promo card
                       template_type: [web]
-                  pagination:
-                    page: 1
-                    limit: 20
-                    has_more: false
-                    total_count: 2
+                pagination:
+                  next_cursor: null
+                  limit: 20
+                  has_more: false
+                  total_count: 2
         '400':
           description: >
-            `page` or `limit` is outside its allowed range. Error code: `INVALID_REQUEST`.
+            The `cursor` is malformed or expired. Error code: `INVALID_REQUEST`.
           content:
             application/json:
               schema:
@@ -844,7 +838,7 @@ paths:
               example:
                 error:
                   code: INVALID_REQUEST
-                  message: page must be between 1 and 500.
+                  message: The cursor value is invalid.
                   doc_url: https://docs.moengage.com/errors/INVALID_REQUEST
                 response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
         '401':
@@ -963,43 +957,18 @@ components:
           items:
             type: string
           example: [web]
-        fields:
-          type: array
-          description: >
-            Field definitions for this template. Use these to construct the `value` object when
-            `content_1.type` is `template`. Fields marked `required: true` must be present in
-            `value` or the API returns `400 MISSING_TEMPLATE_FIELD`.
-          items:
-            $ref: '#/components/schemas/TemplateField'
 
-    TemplateField:
-      description: A single field definition within a personalization template.
-      type: object
-      properties:
-        key:
-          type: string
-          description: Field key name used as the property name in the `value` object.
-          example: headline
-        required:
-          type: boolean
-          description: >
-            Whether this field must be present in `value` when creating or updating an offering
-            with this template. Omitting a required field returns `400 MISSING_TEMPLATE_FIELD`.
-          example: true
-        type:
-          type: string
-          description: Expected data type of the field value.
-          enum: [string, number, boolean, url]
-          example: string
-
-    PagePagination:
+    CursorPagination:
       description: Pagination metadata included in list responses.
       type: object
       properties:
-        page:
-          type: integer
-          description: Current page number, starting at 1.
-          example: 1
+        next_cursor:
+          type: string
+          nullable: true
+          description: >
+            Opaque cursor for the next page. Pass this value as the `cursor` query parameter to
+            fetch the next page. `null` when `has_more` is `false`.
+          example: eyJvZmZzZXQiOjIwfQ==
         limit:
           type: integer
           description: Number of items per page, matching the `limit` parameter.
@@ -1008,7 +977,7 @@ components:
           type: boolean
           description: >
             Whether more pages exist beyond this one. Use this as the primary pagination signal —
-            when `true`, increment `page` to fetch the next page.
+            when `true`, use `next_cursor` to fetch the next page.
           example: true
         total_count:
           type: integer
