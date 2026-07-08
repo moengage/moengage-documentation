@@ -1388,10 +1388,32 @@ components:
           type: string
           description: |
             The user attribute that stores the email address.
-            
+
             Standard identifier is `MOE_EMAIL_ID`.
           example: "MOE_EMAIL_ID"
           default: "MOE_EMAIL_ID"
+        send_only_double_opt_in_users:
+          type: boolean
+          description: |
+            Whether to send the campaign only to users who have completed double opt-in.
+
+            When `false` or omitted, the campaign sends to all eligible users.
+
+            Ensure the Double Opt-In feature is enabled for your workspace.
+          default: false
+          example: true
+        deduplication_attribute:
+          type: string
+          description: |
+            The user attribute used for brand deduplication.
+
+            Pass `""` (empty string) or omit the field to treat the campaign as single-brand. For multi-brand deduplication, pass the backend attribute name that stores the brand identifier (for example, `u_em`).
+
+            Always use the backend attribute name (for example, `u_em`), not the display label (for example, `Email (Standard)`).
+
+            Ensure the Brand Deduplication feature is enabled for your workspace.
+          default: ""
+          example: "u_em"
 
     # ==================== Platform Specific Details ====================
     PlatformSpecificDetails:
@@ -2596,6 +2618,293 @@ components:
               url:
                 type: string
           description: Attachments to include in the email.
+        gmail_annotations:
+          $ref: '#/components/schemas/GmailAnnotations'
+
+    # ==================== Gmail Annotations ====================
+    GmailAnnotations:
+      type: object
+      description: |
+        Gmail Annotations shown in Gmail's Promotions tab. Two annotation types are supported: `deal_card` and `product_carousel`. These are mutually exclusive — include only one per campaign.
+
+        **Note:** `gmail_annotations` is only supported when `content_type` is `PROMOTIONAL`. Using it with `TRANSACTIONAL` returns a `400` error.
+      required:
+        - send_email_if_personalization_fails
+        - sender_logo
+        - sender_logo_type
+      properties:
+        send_email_if_personalization_fails:
+          type: boolean
+          description: |
+            Whether to send the email if personalization of any Gmail annotation field fails.
+
+            **Required** when `gmail_annotations` is present.
+          example: true
+        sender_logo:
+          type: string
+          description: |
+            The sender logo shown in the Gmail annotation.
+
+            Accepts a valid HTTPS URL or a MoEngage personalization token.
+
+            **Required** when `gmail_annotations` is present.
+          example: "https://example.com/logo.png"
+        sender_logo_type:
+          type: string
+          enum:
+            - image_url
+            - uploaded_image
+          description: |
+            The source type of the sender logo.
+
+            **Required** when `sender_logo` is provided.
+          example: "image_url"
+        deal_card:
+          description: |
+            The Deal Card annotation.
+
+            **Optional.** Use either `deal_card` or `product_carousel` — not both.
+          allOf:
+            - $ref: '#/components/schemas/GmailAnnotationsDealCard'
+        product_carousel:
+          description: |
+            The Product Carousel annotation.
+
+            **Optional.** Use either `product_carousel` or `deal_card` — not both.
+          allOf:
+            - $ref: '#/components/schemas/GmailAnnotationsProductCarousel'
+
+    GmailAnnotationsDealCard:
+      type: object
+      description: |
+        Deal Card annotation shown in Gmail's Promotions tab. All four fields below are required when `deal_card` is present.
+      required:
+        - description
+        - discount_code
+        - availability_starts
+        - availability_ends
+      properties:
+        description:
+          type: string
+          description: |
+            Short deal description shown in the Gmail annotation.
+
+            **Required** when `deal_card` is present.
+          example: "Get 20% off on all orders above $50"
+        discount_code:
+          type: string
+          description: |
+            Promo or discount code displayed with the deal.
+
+            **Required** when `deal_card` is present.
+          example: "SAVE20"
+        availability_starts:
+          type: string
+          description: |
+            ISO 8601 datetime indicating when the deal becomes active. Use the timezone of the promotion, not your server or API caller timezone. Ensure the timezone matches the promotion's local timezone so the deal displays the correct active and expiry times for your audience.
+
+            **Accepted formats:**
+            - UTC (`Z` suffix): `YYYY-MM-DDTHH:mm:ssZ` (for example, `2026-06-01T00:00:00Z`).
+            - Positive offset: `YYYY-MM-DDTHH:mm:ss+HH:MM` (for example, `2026-06-01T00:00:00+05:30` for IST).
+            - Negative offset: `YYYY-MM-DDTHH:mm:ss-HH:MM` (for example, `2026-06-01T00:00:00-07:00` for US Pacific PDT).
+
+            **Common offsets:** IST `+05:30`, SGT `+08:00`, GST `+04:00`, CET `+01:00` or `+02:00` (DST), EST `-05:00`, EDT `-04:00`, PST `-08:00`, PDT `-07:00`, UTC `Z` or `+00:00`.
+
+            **Required** when `deal_card` is present.
+          example: "2026-06-01T00:00:00Z"
+        availability_ends:
+          type: string
+          description: |
+            ISO 8601 datetime indicating when the deal expires. Same format as `availability_starts`.
+
+            Use the timezone of the promotion, not your server or API caller timezone. Ensure the timezone matches the promotion's local timezone so the deal displays the correct active and expiry times for your audience.
+
+            Must be at least 1 hour after `availability_starts`.
+
+            **Required** when `deal_card` is present.
+          example: "2026-06-30T23:59:59Z"
+
+    GmailAnnotationsProductCarousel:
+      type: object
+      description: |
+        Product Carousel annotation shown in Gmail's Promotions tab.
+
+        Use `MANUAL` to specify products directly in the request, or `PRODUCT_SET` to pull products dynamically from a MoEngage Catalog product set.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - MANUAL
+            - PRODUCT_SET
+          description: |
+            The source type for the product carousel.
+
+            - `MANUAL`: Specify products directly in the request using `manual_data`.
+            - `PRODUCT_SET`: Pull products dynamically from a MoEngage Catalog product set using `product_set_data`. Requires the Product Sets feature to be enabled for your workspace.
+
+            **Required** when `product_carousel` is present.
+        manual_data:
+          description: |
+            Products specified directly in the request.
+
+            **Required** when `product_carousel.type` is `MANUAL`.
+          allOf:
+            - $ref: '#/components/schemas/GmailAnnotationsProductCarouselManualData'
+        product_set_data:
+          description: |
+            Reference to a MoEngage Catalog product set.
+
+            **Required** when `product_carousel.type` is `PRODUCT_SET`.
+          allOf:
+            - $ref: '#/components/schemas/GmailAnnotationsProductCarouselProductSetData'
+
+    GmailAnnotationsProductCarouselManualData:
+      type: object
+      description: |
+        Manual product list for the Gmail Annotations product carousel.
+
+        **Required** when `product_carousel.type` is `MANUAL`. Minimum 2 products required.
+      required:
+        - currency
+        - products
+      properties:
+        currency:
+          type: string
+          description: |
+            ISO 4217 currency code applied to all products in the carousel.
+
+            **Required** when `manual_data` is present.
+          example: "USD"
+        products:
+          type: array
+          description: |
+            List of products to display in the carousel.
+
+            **Required** when `manual_data` is present. Minimum 2 products.
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/GmailAnnotationsProductCarouselManualProduct'
+
+    GmailAnnotationsProductCarouselManualProduct:
+      type: object
+      description: A single product entry in a manual product carousel. All fields below are required for each product.
+      required:
+        - id
+        - headline
+        - original_price
+        - discount_value
+        - discount_type
+        - promo_url
+        - product_image
+      properties:
+        id:
+          type: string
+          description: |
+            Unique product identifier.
+
+            **Required** for each product.
+          example: "prod-001"
+        headline:
+          type: string
+          description: |
+            Product name shown in the annotation.
+
+            **Required** for each product.
+          example: "Wireless Headphones"
+        original_price:
+          type: string
+          description: |
+            Original price of the product as a numeric string.
+
+            **Required** for each product.
+          example: "199.99"
+        discount_value:
+          type: string
+          description: |
+            Discount amount as a numeric string. Interpreted as a percentage or absolute value depending on `discount_type`.
+
+            **Required** for each product.
+          example: "30"
+        discount_type:
+          type: string
+          enum:
+            - PERCENT
+            - VALUE
+          description: |
+            How `discount_value` is interpreted.
+
+            - `PERCENT`: `discount_value` is a percentage.
+            - `VALUE`: `discount_value` is an absolute amount in `currency`.
+
+            **Required** for each product.
+          example: "PERCENT"
+        promo_url:
+          type: string
+          description: |
+            Product landing page URL. Must be a valid HTTPS URL.
+
+            **Required** for each product.
+          example: "https://example.com/products/prod-001"
+        product_image:
+          type: string
+          description: |
+            Product image URL. Must be a valid HTTPS URL. Cannot be empty.
+
+            **Required** for each product.
+          example: "https://example.com/images/prod-001.png"
+
+    GmailAnnotationsProductCarouselProductSetData:
+      type: object
+      description: |
+        Product set configuration for the Gmail Annotations product carousel. Pulls products dynamically from a MoEngage Catalog product set.
+
+        **Required** when `product_carousel.type` is `PRODUCT_SET`. Requires the Product Sets feature to be enabled for your workspace.
+      required:
+        - product_set
+        - image_url
+        - headline
+        - promo_url
+        - product_count
+      properties:
+        product_set:
+          type: string
+          description: |
+            Product set ID from MoEngage Catalog. Must be valid and exist in your workspace.
+
+            **Required** when `product_set_data` is present.
+          example: "product_set_12345"
+        image_url:
+          type: string
+          description: |
+            Fallback image URL if a product set image is unavailable.
+
+            **Required** when `product_set_data` is present.
+          example: "https://example.com/images/fallback.png"
+        headline:
+          type: string
+          description: |
+            Label shown for the product carousel.
+
+            **Required** when `product_set_data` is present.
+          example: "Recommended For You"
+        promo_url:
+          type: string
+          description: |
+            Destination URL when the user clicks the annotation.
+
+            **Required** when `product_set_data` is present.
+          example: "https://example.com/shop"
+        product_count:
+          type: integer
+          description: |
+            Number of products to display.
+
+            **Required** when `product_set_data` is present. Minimum 2, maximum 9.
+          minimum: 2
+          maximum: 9
+          example: 3
 
     # ==================== Segmentation Details ====================
     SegmentationDetails:
@@ -3448,6 +3757,188 @@ paths:
                   delivery_controls:
                     campaign_throttle_rpm: 50000
                     ignore_frequency_capping: false
+              email_with_gmail_annotations_deal_card:
+                summary: Email - Gmail Annotations Deal Card (IST +05:30)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Exclusive Deal Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Exclusive Deal Just for You"
+                        preview_text: "Save big with our limited-time offer"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Deal!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          deal_card:
+                            description: "Get 20% off on all orders above $50"
+                            discount_code: "SAVE20"
+                            availability_starts: "2026-06-01T00:00:00+05:30"
+                            availability_ends: "2026-06-30T23:59:59+05:30"
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
+              email_with_gmail_annotations_product_carousel_manual:
+                summary: Email - Gmail Annotations Product Carousel (Manual)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Featured Products Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Featured Products This Week"
+                        preview_text: "Discover our latest deals"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Shop now!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          product_carousel:
+                            type: "MANUAL"
+                            manual_data:
+                              currency: "USD"
+                              products:
+                                - id: "prod-001"
+                                  headline: "Wireless Headphones"
+                                  original_price: "199.99"
+                                  discount_value: "30"
+                                  discount_type: "PERCENT"
+                                  promo_url: "https://example.com/products/prod-001"
+                                  product_image: "https://example.com/images/prod-001.png"
+                                - id: "prod-002"
+                                  headline: "Smart Watch"
+                                  original_price: "299.99"
+                                  discount_value: "50"
+                                  discount_type: "VALUE"
+                                  promo_url: "https://example.com/products/prod-002"
+                                  product_image: "https://example.com/images/prod-002.png"
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
+              email_with_gmail_annotations_product_carousel_product_set:
+                summary: Email - Gmail Annotations Product Carousel (Product Set)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Recommended For You Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Picks Curated For You"
+                        preview_text: "Personalized recommendations"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Shop now!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          product_carousel:
+                            type: "PRODUCT_SET"
+                            product_set_data:
+                              product_set: "product_set_12345"
+                              image_url: "https://example.com/images/fallback.png"
+                              headline: "Recommended For You"
+                              promo_url: "https://example.com/shop"
+                              product_count: 3
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
               push_event_triggered:
                 summary: Push - Event Triggered
                 value:
@@ -3518,14 +4009,190 @@ paths:
               example:
                 campaign_id: "camp_abc123xyz"
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Bad Request - Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_request_id:
+                  summary: Missing request_id
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "request_id key is mandatory field"
+                      target: "request_id"
+                      details:
+                        - target: "request_id"
+                          message: "request_id key is mandatory field"
+                      request_id: "11"
+                deduplication_attribute_invalid_type:
+                  summary: deduplication_attribute - invalid type
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "deduplication_attribute - Invalid value passed. Expected type: string, but got: int."
+                      target: "basic_details"
+                      details:
+                        - target: "basic_details.deduplication_attribute"
+                          message: "deduplication_attribute - Invalid value passed. Expected type: string, but got: int."
+                send_only_double_opt_in_users_invalid_type:
+                  summary: send_only_double_opt_in_users - invalid type
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "send_only_double_opt_in_users - Invalid value passed. Expected type: boolean, but got: string."
+                      target: "basic_details"
+                      details:
+                        - target: "basic_details.send_only_double_opt_in_users"
+                          message: "send_only_double_opt_in_users - Invalid value passed. Expected type: boolean, but got: string."
+                gmail_annotations_on_transactional:
+                  summary: gmail_annotations used on TRANSACTIONAL campaign
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "gmail_annotations is not supported for TRANSACTIONAL content type. It is only supported for PROMOTIONAL campaigns."
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations"
+                          message: "gmail_annotations is not supported for TRANSACTIONAL content type. It is only supported for PROMOTIONAL campaigns."
+                gmail_annotations_missing_sender_logo:
+                  summary: sender_logo missing when gmail_annotations is present
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "sender_logo is required when gmail_annotations is specified"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.sender_logo"
+                          message: "sender_logo is required when gmail_annotations is specified"
+                gmail_annotations_invalid_sender_logo:
+                  summary: sender_logo is not a valid HTTPS URL
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "sender_logo must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.sender_logo"
+                          message: "sender_logo must be a valid https URL"
+                deal_card_missing_field:
+                  summary: Required deal_card field missing
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "availability_starts is required when deal_card is specified"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.deal_card.availability_starts"
+                          message: "availability_starts is required when deal_card is specified"
+                deal_card_invalid_end_time:
+                  summary: availability_ends less than 1 hour after availability_starts
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "End date and time must be a minimum of one hour later than the start date and time"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.deal_card"
+                          message: "End date and time must be a minimum of one hour later than the start date and time"
+                product_carousel_minimum_products:
+                  summary: Product carousel has fewer than 2 products
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "Product carousel requires a minimum of 2 products"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel"
+                          message: "Product carousel requires a minimum of 2 products"
+                product_set_product_count_exceeds_maximum:
+                  summary: product_count exceeds maximum of 9
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_count must be between 2 and 9"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.product_set_data"
+                          message: "product_count must be between 2 and 9"
+                product_carousel_invalid_original_price:
+                  summary: Manual product has invalid original_price
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "original_price must be a valid number"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].original_price"
+                          message: "original_price must be a valid number"
+                product_carousel_invalid_discount_value:
+                  summary: Manual product has invalid discount_value
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "discount_value must be a valid number"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].discount_value"
+                          message: "discount_value must be a valid number"
+                product_carousel_invalid_promo_url:
+                  summary: Manual product has invalid promo_url
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "promo_url must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].promo_url"
+                          message: "promo_url must be a valid https URL"
+                product_carousel_empty_product_image:
+                  summary: Manual product has empty product_image
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_image (Image URL) cannot be empty"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].product_image"
+                          message: "product_image (Image URL) cannot be empty"
+                product_carousel_invalid_product_image_url:
+                  summary: Manual product has invalid product_image URL
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_image must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].product_image"
+                          message: "product_image must be a valid https URL"
+                product_set_not_found:
+                  summary: Product set ID does not exist in the workspace
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_set not found for the given workspace"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.product_set_data"
+                          message: "product_set not found for the given workspace"
+                product_sets_feature_not_enabled:
+                  summary: Product Sets feature is not enabled for the workspace
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "Product Sets is not enabled for this workspace"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel"
+                          message: "Product Sets is not enabled for this workspace"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/RateLimitExceeded'
         '500':
           $ref: '#/components/responses/InternalServerError'
-  
+
   /campaigns/{campaign_id}:
     patch:
       operationId: update_campaign
