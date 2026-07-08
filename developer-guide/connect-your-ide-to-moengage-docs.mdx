@@ -1,0 +1,129 @@
+---
+title: "Connect Your IDE to MoEngage Docs"
+description: "Connect your IDE to the MoEngage docs MCP server so your AI assistant can reference current SDK documentation while you integrate."
+keywords: "MoEngage docs MCP, AI assistant, LLM, IDE, Cursor, VS Code, Copilot, llms.txt, SDK integration"
+---
+
+Connect your IDE to the MoEngage docs MCP server to give your AI assistant direct, on-demand access to this documentation site. Your assistant can then look up the exact method signatures, parameters, and steps for the SDK version you are integrating, and generate code grounded in current MoEngage documentation.
+
+<Info>
+  This page covers the **docs MCP** (`https://www.moengage.com/docs/mcp`), which gives an AI assistant read access to this documentation site. It is separate from the [MoEngage MCP Server and Connector](/user-guide/ai-and-intelligence/merlin-ai/moengage-mcp-server) (`https://mcp.moengage.com`), which connects an assistant to your MoEngage workspace to build campaigns, manage segments, and analyze performance.
+</Info>
+
+## Connect Your IDE to the Docs MCP Server
+
+Use this URL wherever your IDE or client asks for a remote MCP server or custom connector:
+
+```text
+https://www.moengage.com/docs/mcp
+```
+
+<Tabs>
+  <Tab title="Cursor">
+    1. Open **Cursor Settings** → **Tools & Integrations** → **MCP Tools**.
+    2. Click **Add Custom MCP**.
+    3. Add an entry to `mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "moengage-docs": {
+          "url": "https://www.moengage.com/docs/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="VS Code (Copilot)">
+    <Info>
+      Requires **VS Code 1.101 or later** (remote MCP support) and Copilot **agent mode**.
+    </Info>
+
+    1. Open the Command Palette and run **MCP: Add Server** (or edit `.vscode/mcp.json` directly).
+    2. Choose **HTTP (remote server)** and enter the URL: `https://www.moengage.com/docs/mcp`.
+    3. Save, then open **Copilot Chat** and switch to **Agent** mode. The MoEngage docs tools appear in the tools picker.
+  </Tab>
+</Tabs>
+
+<Note>
+  The docs MCP server is read-only — it can search this documentation site by keyword and retrieve the content of specific pages. It does not access your MoEngage workspace, campaigns, or account data, and no authentication is required to connect.
+</Note>
+
+<Note>
+  Prompts and retrieved documentation pass through your AI provider's cloud (for example, GitHub's for Copilot, or the model provider configured in Cursor). Review your provider's data-handling policy before sending proprietary code alongside your prompts.
+</Note>
+
+### Confirm the Connection
+
+Ask your assistant a documentation question and confirm it uses the connector rather than answering from memory. For example:
+
+```text
+Search the MoEngage docs for how to initialize the Android SDK, and tell me which page you found it on.
+```
+
+If the assistant cites a MoEngage documentation URL in its response, the connection is working.
+
+## Writing Prompts for SDK Development
+
+Without the docs MCP connected, an assistant answers SDK questions from training data, which can suggest deprecated methods or the wrong platform's syntax. Naming the SDK, platform, and specific task in your prompt gives a connected assistant the context it needs to search for and cite the right page before generating code. Replace the bracketed placeholders with your own details.
+
+### Android SDK
+
+```text
+Using the MoEngage Android SDK, [initialize the SDK with my Workspace ID and data center / track a custom event called "<event_name>" with properties / set up FCM push notifications].
+```
+
+### iOS SDK
+
+```text
+Using the MoEngage iOS SDK, [initialize the SDK with my Workspace ID and data center / track a custom event called "<event_name>" with properties / configure APNs push notifications].
+```
+
+### Web SDK
+
+```text
+Using the MoEngage Web SDK, [initialize the SDK on my website using the CDN method / track a custom event called "<event_name>" / register for web push notifications].
+```
+
+### React Native SDK
+
+```text
+Using the MoEngage React Native SDK, [link native dependencies for Android and iOS / initialize the SDK / subscribe to in-app message callbacks].
+```
+
+### Flutter SDK
+
+```text
+Using the MoEngage Flutter SDK, [add moengage_flutter to my pubspec.yaml and initialize it / track a custom event called "<event_name>" with attributes].
+```
+
+<Tip>
+  Point the assistant at a specific page when you know it — for example, "Refer to [/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization](/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization) and initialize the SDK for a Kotlin app."
+</Tip>
+
+## Plain-Text Documentation
+
+MoEngage also publishes this documentation in the [llms.txt](https://llmstxt.org/) format, giving assistants and tools that read plain text an alternative to connecting through MCP.
+
+| File | Contents |
+| --- | --- |
+| [llms.txt](https://www.moengage.com/docs/llms.txt) | An index of documentation pages with short descriptions, for assistants that fetch individual pages on demand. |
+| [llms-full.txt](https://www.moengage.com/docs/llms-full.txt) | The full documentation content in a single file, for assistants that read the complete corpus at once. |
+
+Paste the file's contents into your assistant's context, or point a tool that supports `llms.txt` directly at the URL.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="The assistant doesn't show any MoEngage docs tools after connecting">
+    Confirm the connector was saved with the exact URL `https://www.moengage.com/docs/mcp` and that your IDE is configured for HTTP (not stdio) transport. Restart your IDE — most clients only load newly added MCP servers on restart.
+  </Accordion>
+
+  <Accordion title="The assistant answers without citing a documentation page">
+    Some clients require you to explicitly enable a connector's tools for a given chat, or to toggle on **Agent** mode (Copilot) before it will call them. Check your client's tools or connectors menu for the MoEngage docs entry and confirm it's turned on.
+  </Accordion>
+
+  <Accordion title="The assistant cites an outdated or incorrect page">
+    Ask it to search again with more specific terms — for example, naming the exact SDK method or platform. If a page still looks wrong or out of date, use [Suggest a Feature](/user-guide/contact-support/suggest-a-feature) or the docs MCP server's feedback tool to report it.
+  </Accordion>
+</AccordionGroup>
