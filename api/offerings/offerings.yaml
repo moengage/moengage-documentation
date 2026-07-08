@@ -148,9 +148,10 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 100
           description: >
-            Number of items per page. Default 20. The maximum is 100; a higher value is capped
-            at 100, and a value of 0 or a negative number falls back to the default of 20.
+            Number of items per page. Default 20, maximum 100. A value of 0 or a negative number
+            falls back to the default of 20; a value above 100 returns `400 OUT_OF_RANGE`.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -222,8 +223,8 @@ paths:
         '400':
           description: |
             Invalid query parameter. Common error codes in `error.details[].code`:
-            - `OUT_OF_RANGE` — `name_contains` exceeds 100 characters.
-            - `INVALID_CURSOR` — the `cursor` value is malformed or expired.
+            - `OUT_OF_RANGE` — `limit` exceeds 100, or `name_contains` exceeds 100 characters.
+            - `INVALID_CURSOR` — the `cursor` value is present but malformed (not valid base64, or a corrupted segment/id).
             - `INVALID_ENUM_VALUE` — unrecognized value in `status_in`.
             - `INVALID_FIELDS_PARAM` — unrecognized field name in `fields`.
             - `INVALID_TYPE` — `created_date_gte` or `created_date_lte` is not in `YYYY-MM-DD` format.
@@ -756,9 +757,10 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 100
           description: >
-            Number of items per page. Default 20. The maximum is 100; a higher value is capped
-            at 100, and a value of 0 or a negative number falls back to the default of 20.
+            Number of items per page. Default 20, maximum 100. A value of 0 or a negative number
+            falls back to the default of 20; a value above 100 returns `400 OUT_OF_RANGE`.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -829,18 +831,25 @@ paths:
                   has_more: false
                   total_count: 2
         '400':
-          description: >
-            The `cursor` is malformed or expired. Error code: `INVALID_REQUEST`.
+          description: |
+            Invalid query parameter. Common error codes in `error.details[].code`:
+            - `OUT_OF_RANGE` — `limit` exceeds 100.
+            - `INVALID_CURSOR` — the `cursor` value is present but malformed (not valid base64, or a corrupted segment/id).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error:
-                  code: INVALID_REQUEST
-                  message: The cursor value is invalid.
-                  doc_url: https://docs.moengage.com/errors/INVALID_REQUEST
-                response_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                  code: VALIDATION_FAILED
+                  message: One or more fields failed validation.
+                  target: limit
+                  details:
+                    - code: OUT_OF_RANGE
+                      target: limit
+                      message: limit must be between 1 and 100.
+                  doc_url: https://docs.moengage.com/errors/VALIDATION_FAILED
+                response_id: f059ab55-7f2b-4d9e-a1f2-48f435b3f78e
         '401':
           $ref: '#/components/responses/GatewayAuthError'
         '403':
