@@ -1,13 +1,15 @@
 ---
 title: "WebView - WebSDK Support"
-description: "Use the MoEngage Web SDK inside WebView on Android and iOS mobile apps with JavaScript enabled."
+description: "Enable the MoEngage Web SDK inside a mobile app WebView on Android and iOS, including the JavaScript and storage settings the SDK requires."
+keywords: ["webview", "web sdk", "indexeddb", "dom storage", "wkwebview", "moe_queue_timeout"]
 ---
 
 This article describes how to use the MoEngage Web SDK in WebView inside a Mobile App.
 
 <Info>
-  - WebSDK uses browser storage, which is not enabled by default for WebView Applications.
-  - For Mobile Apps, we must explicitly enable browser storage by providing javascript permission.
+  - WebSDK uses browser storage (LocalStorage and IndexedDB) to queue and persist events. This storage is **not enabled by default** in a WebView, unlike a regular browser tab.
+  - If storage is not explicitly enabled on both Android and iOS, the SDK fails to queue events. This failure is silent — there is no user-facing error — but appears in your app's error monitoring (for example, Bugsnag or Sentry) as `No available storage method found`, sometimes followed by `MOE_QUEUE_TIMEOUT: exceeded 10000ms`.
+  - For Mobile Apps, you must explicitly enable JavaScript **and** browser storage — both are required, not just JavaScript.
 </Info>
 
 ## Steps to Enable WebSDK in WebView
@@ -16,6 +18,7 @@ To run WebSDK in WebView,
 
 - Ensure you have correctly integrated Web SDK into your website.
 - Ensure you provide permission to use JavaScript for your Android/iOS app.
+- Ensure browser storage (LocalStorage/IndexedDB) is enabled and persistent for the WebView — see the storage steps below for each platform.
 
 ## For Android Apps
 
@@ -25,7 +28,7 @@ Within your app, locate the `WebView` component for which you wish to enable Jav
 
 <CodeGroup>
 
-```javascript Java lines wrap
+```java Java lines wrap
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 ```
@@ -34,17 +37,22 @@ import android.webkit.WebSettings;
 
 **Step 2: Enable JavaScript and DomStorage Permissions**
 
-Using the `WebSettings` class, enable JavaScript:
+Using the `WebSettings` class, enable JavaScript and DOM storage:
 
 <CodeGroup>
 
-```javascript Java lines wrap
+```java Java lines wrap
 WebView myWebView = (WebView) findViewById(R.id.webview);
 WebSettings webSettings = myWebView.getSettings();
-webSettings.setJavaScriptEnabled(true);webSettings.setDomStorageEnabled(true); // Enable DOM storage API
+webSettings.setJavaScriptEnabled(true);
+webSettings.setDomStorageEnabled(true); // Required for LocalStorage — without this, the SDK cannot queue events
 ```
 
 </CodeGroup>
+
+<Info>
+  `setDomStorageEnabled(true)` covers LocalStorage/SessionStorage. IndexedDB is generally available by default on modern Chromium-based WebView once DOM storage is enabled, but some custom WebView builds or privacy-hardened configurations may restrict it independently. If you continue to see storage errors after enabling DOM storage, verify IndexedDB availability directly inside the WebView session using `chrome://inspect`.
+</Info>
 
 **Step 3: Advanced Settings**
 
@@ -52,15 +60,15 @@ For more control, you may use additional settings such as:
 
 <CodeGroup>
 
-```javascript Java lines wrap
+```java Java lines wrap
 webSettings.setJavaScriptCanOpenWindowsAutomatically(true); // Allow JS to open windows without user interaction
 ```
 
 </CodeGroup>
 
-<Info>
-  It is important to consider the security implications of enabling JavaScript. Always validate the URL you load in `WebView`.
-</Info>
+<Warning>
+  Validate the URL you load in `WebView` before enabling JavaScript navigation, to avoid executing untrusted scripts.
+</Warning>
 
 ## For iOS Apps
 
@@ -71,20 +79,22 @@ First, ensure you've imported the `WebKit` framework in your ViewController:
 <CodeGroup>
 
 ```swift Swift lines wrap
-import WebKit
+import WebKit
 ```
 
 </CodeGroup>
 
-**Step 2: Create a WKWebView**
+**Step 2: Create a WKWebView with Persistent Storage**
 
-Create an instance of `WKWebView` and add it to your view:
+Create an instance of `WKWebView`, and make sure its `WKWebViewConfiguration` uses a **persistent** website data store rather than a non-persistent/ephemeral one. A non-persistent data store blocks the storage APIs (LocalStorage/IndexedDB) the SDK depends on to queue events, and discards any SDK data once the WebView is deallocated.
 
 <CodeGroup>
 
 ```swift Swift lines wrap
-var webView: WKWebView! 
-webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+var webView: WKWebView!
+let configuration = WKWebViewConfiguration()
+configuration.websiteDataStore = WKWebsiteDataStore.default() // Use .default(), not .nonPersistent()
+webView = WKWebView(frame: .zero, configuration: configuration)
 view.addSubview(webView)
 ```
 
@@ -92,19 +102,30 @@ view.addSubview(webView)
 
 **Step 3: Enable JavaScript**
 
-JavaScript is enabled by default on `WKWebView`, but you can verify or change the settings through the `WKPreferences` object:
+JavaScript is enabled by default on `WKWebView`. To verify or change the setting, use `WKWebpagePreferences.allowsContentJavaScript`:
 
 <CodeGroup>
 
 ```swift Swift lines wrap
-let preferences = WKPreferences()
-preferences.javaScriptEnabled = true
-let configuration = WKWebViewConfiguration()
-configuration.preferences = preferences
+let webpagePreferences = WKWebpagePreferences()
+webpagePreferences.allowsContentJavaScript = true
+configuration.defaultWebpagePreferences = webpagePreferences
 webView = WKWebView(frame: .zero, configuration: configuration)
 ```
 
 </CodeGroup>
+
+<Info>
+  `WKPreferences.javaScriptEnabled` is deprecated as of iOS 14 in favor of `WKWebpagePreferences.allowsContentJavaScript`. Use the API above for apps targeting iOS 14 and later.
+</Info>
+
+## Verifying Storage Is Working
+
+Before raising a support ticket for missing or delayed events in a WebView session, confirm the following inside the actual WebView (not a regular browser tab — WebView storage behavior can differ even on the same device):
+
+- Android: `setDomStorageEnabled(true)` is set on the specific `WebView` instance loading the site.
+- iOS: the `WKWebView` is configured with `WKWebsiteDataStore.default()`, not a non-persistent store.
+- IndexedDB is accessible inside the WebView session — check via remote inspector (`chrome://inspect` for Android, Safari Web Inspector for iOS) that `window.indexedDB` is defined and usable.
 
 ## Supported Modules
 
@@ -112,5 +133,5 @@ In WebView, we support the following modules:
 
 - Data Tracking
 - On-site Messaging
-- Card's
+- Cards
 - Web Personalization
