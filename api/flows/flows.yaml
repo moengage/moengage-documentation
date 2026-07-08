@@ -77,15 +77,15 @@ paths:
       operationId: searchFlows
       summary: Search Flows
       description: |
-        This API returns a paginated list of flows matching the filters. Send filters in the
-        request body: they are optional and combine with AND, and multi-valued filters (`status`,
-        `delivery_type`, `tags`) match ANY of the supplied values. The filters are sent in the body
-        rather than the query string because they are multi-valued, and the call is read-only and
-        safe to repeat. Archived flows are excluded unless `include_archived` is `true`. Each
-        response includes a `next_cursor`. To get the next page, send that value as the `cursor`
-        parameter in your next request. Sorting is not supported in this version; results are
-        returned in creation order. Your API key must have the `campaigns:view` permission (see the
-        [Authentication](/api/flows/flows-overview#authentication) section).
+        This API returns a paginated list of flows matching your filters. Send filters in the
+        request body — all are optional and combine with AND. Multi-valued filters (`status`,
+        `delivery_type`, `tags`) match ANY of the supplied values, and archived flows are excluded
+        unless `include_archived` is `true`.
+
+        Each response includes a `next_cursor`. To get the next page, send that value as the
+        `cursor` in your next request. Sorting is not supported in this version; results are
+        returned in creation order. Your API key must have the `campaigns:view` permission (see
+        [Authentication](/api/flows/flows-overview#authentication)).
       x-mint:
         content: |
           #### Rate Limit
@@ -751,13 +751,53 @@ paths:
                     - action_id: "a3f9c2e1"
                       campaign_id: "camp_xyz001"
                       stage_name: "Welcome Email"
-                      performance: {}
-                      delivery: {}
-                    - action_id: "action_id_2"
+                      performance:
+                        group_level_stats:
+                          sent: 26000
+                          delivered: 24800
+                          opened: 7200
+                          clicked: 2300
+                          conversions: 620
+                          cvr: 0.024
+                        conversion_goal_stats: {}
+                      delivery:
+                        group_level_stats:
+                          delivery_funnel:
+                            unique_users_in_segment:
+                              count: 26000
+                              description: "Reachable users in segment"
+                            valid_tokens:
+                              count: 26000
+                              description: "Users with Email"
+                            success:
+                              count: 24800
+                              description: "Successfully Sent"
+                          delivery_failure_breakdown: {}
+                    - action_id: "b7d4e9f2"
                       campaign_id: "camp_xyz002"
                       stage_name: "Day 3 Nudge"
-                      performance: {}
-                      delivery: {}
+                      performance:
+                        group_level_stats:
+                          sent: 22200
+                          delivered: 21100
+                          opened: 5100
+                          clicked: 1500
+                          conversions: 360
+                          cvr: 0.017
+                        conversion_goal_stats: {}
+                      delivery:
+                        group_level_stats:
+                          delivery_funnel:
+                            unique_users_in_segment:
+                              count: 22200
+                              description: "Reachable users in segment"
+                            valid_tokens:
+                              count: 22200
+                              description: "Users with Email"
+                            success:
+                              count: 21100
+                              description: "Successfully Sent"
+                          delivery_failure_breakdown: {}
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1092,6 +1132,7 @@ components:
       properties:
         stage_id:
           type: string
+          description: ID of the split stage within the flow.
           example: "sdmimd"
         stage_name:
           type: string
@@ -1108,6 +1149,7 @@ components:
       properties:
         branch_id:
           type: string
+          description: ID of the branch within the split stage.
           example: "br7f3a9c"
         branch_name:
           type: string
@@ -1222,6 +1264,7 @@ components:
           example: "a3f9c2e1"
         campaign_id:
           type: string
+          description: ID of the campaign generated for this action node.
           example: "camp_xyz001"
         stage_name:
           type: string
@@ -1331,6 +1374,7 @@ components:
           description: The ID of the flow.
         name:
           type: string
+          description: Display name of the flow.
         status:
           allOf:
             - $ref: '#/components/schemas/FlowStatusEnum'
@@ -1347,6 +1391,7 @@ components:
           description: Display name of the active version, such as `Version 3`.
         tags:
           type: array
+          description: Tag names attached to the flow.
           items:
             type: string
         created_at:
@@ -1485,6 +1530,7 @@ components:
             global_control_group_enabled:
               type: boolean
               default: false
+              description: Whether the workspace-level global control group applies to this flow.
             settings:
               $ref: '#/components/schemas/FlowSettings'
             attribution:
@@ -1510,6 +1556,7 @@ components:
             enabled:
               type: boolean
               nullable: true
+              description: Whether a control group (holdout) is enabled for this flow.
             percentage:
               type: number
               nullable: true
