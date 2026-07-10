@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from 'react';
-
 const BillableMTUCalculator = () => {
   const [inputs, setInputs] = useState({
     totalMtu: 80000,
