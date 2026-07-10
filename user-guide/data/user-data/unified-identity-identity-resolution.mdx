@@ -75,33 +75,33 @@ Perform the following steps to configure multiple identifiers in the MoEngage da
       | **Rule 1 ties, Rule 2 decides** | When both profiles have data in the selected attribute, Rule 1 fails (ties), and Rule 2 is validated to break the tie. | <ul><li>Rule 1 = Email</li><li>Rule 2 = Latest Last Seen</li></ul><br />ID, name, email, mobile, first seen — all populated | ID, name, email, mobile, first seen — all populated | Both profiles have Email, so Rule 1 ties. Rule 2 retains whichever profile has the more recent "last seen" timestamp. |
        
        <img src="/images/moengage_b75c28.png" alt="profile retention nw.png" />
-2. **Attribute rules**: This rule enables you to merge the data of your custom user attributes. You can add a maximum of five such rules. By default, MoEngage automatically populates the LTV (a derived user attribute), where the system sums the LTV values of the two user profiles undergoing a merge. The final resolved user profile then comprises the total sum of LTV values from both the retained and merged users.\
+2. **Attribute rules**: This rulecontrol how specific custom attributes combine on merge. You can add a maximum of five such rules.  
    Perform the following steps to add your own custom user attribute rules:
    1. Click **Add rule**.
    2. Select **User attributes** and **Merge rules**.
       For example, consider you have two customer profiles for the same user in which Profile 1 is received online, and Profile 2 is received offline. Each profile has a _Loyality\_points_ attribute and has data in it, and if you want the _SUM_ of both _Loyality\_points_ when both these profiles are merged, perform the following:
-      1. Select **_Loyality\_points_** in **User attribute** list.
-      2. Select _Sum of values_ in **Merge rules** list.\
-         So, whenever user profiles are merged, the resulting unified profile includes the **_Loyality\_points_** attribute, which comprises the combined sum of the _Loyality\_points_ data from both profiles.\
+      1. Select **_Loyality_points_** in **User attribute** list.
+      2. Select _Sum of values_ in **Merge rules** list.
+         So, whenever user profiles are merged, the resulting profile comprises the combined sum of both profiles' loyality points. LTV is summed by default automatically.
          **Note**: The image below illustrates with LTV selected as the user attribute for demonstration purposes. <img src="/images/moengage_21c82e.png" alt="Screenshot 2025-02-17 at 11.52.56 AM.png" />
 3. The **Verify merge** section shows how users are merged based on the profile retention and attribute rules you configured. Select **I have verified all merge scenarios** checkbox after verifying the merge scenarios. <img src="/images/moengage_7922ce.png" alt="Screenshot 2025-02-18 at 11.58.16 AM.png" />
 4. Click **Next**.
 
 <Info>
-  When new data points are ingested for an existing user, MoEngage automatically updates the existing user and their properties. This includes all user attributes and activated identifiers, and this update takes place irrespective of profile retention rules.
-</Info>
+  Whenever new data is ingested for an existing user, MoEngage automatically updates the existing user profile and their properties. Profile retention rules applied only during a merge.
+  </Info>
 
 ## Step 3: Activate Identity Resolution
 
 This step provides the instructions to be considered before and after activating the identity resolution.
 
 <Warning>
- Irreversible changes to be considered before activating Identity resolution. The changes include:
+ Irreversible changes to be considered before activating. 
 
  - A user merged cannot be unmerged.
- - For 48 hours after activation, the following actions are not possible on the Identity resolution page:
+ - For 48 hours post activation, the following actions are not possible on the Identity resolution page:
     - Adding new identifiers
-    - Pausing, re-activating, and adding exceptions to existing identifiers
+    - Pausing/re-activating identifiers, and editing exceptions
     - Changing Merge settings
  -  The [Merge User API](https://www.moengage.com/docs/api/user/merge-users) is disabled when Identity Resolution is enabled.   
 </Warning>
@@ -122,169 +122,170 @@ Select **By activating identity resolution, I understand the impact of merging t
 
 # Data Ingestion Support
 
-Following are the methods by which you can ingest data into MoEngage using multiple identifiers:
+ MoEngage supports multiple identifiers across every ingestion path: Data APIs, SDKs, file imports, and native integrations like Shopify.
 
-- [Data APIs](/user-guide/data/user-data/unified-identity-identity-resolution#data-apis)
-- [SDK](/user-guide/data/user-data/unified-identity-identity-resolution#sdk)
-- [File Imports](/user-guide/data/user-data/unified-identity-identity-resolution#file-imports)
+<Tabs>
+  <Tab title="Data APIs">
+    In MoEngage, data ingestion uses an ID to create or update a user. For workspaces in MoEngage with Identity Resolution enabled, Data APIs (Track User, Create Event, Bulk Import) can be used to create or update users using a specific identifier, such as a mobile number or email ID, as configured.
 
-## Data APIs:
+    You can:
 
-In MoEngage, data ingestion uses an ID to create or update a user. For workspaces in MoEngage with Identity Resolution enabled, Data APIs (Track User, Create Event, Bulk Import) can be used to create or update users using a specific identifier, such as a mobile number or email ID, as configured.
+    - Create users through Server-to-Server Data APIs even when they do not have an ID (but have other identifiers).
+    - Create a user or track events of a user when identifiers other than ID (for example, email ID or phone number) are known.
 
-You can:
+    ### Request Body
 
-- Create users through Server-to-Server Data APIs even when they do not have an ID (but have other identifiers).
-- Create a user or track events of a user when identifiers other than ID (for example, email ID or phone number) are known.
+    The following is a sample cURL request for a Bulk Import API consisting of the following payloads:
 
-### Request Body
-
-The following is a sample cURL request for a Bulk Import API consisting of the following payloads:
-
-- User payload:  Attribute parameters must contain at least one of the identifiers you have configured based on which users in MoEngage will be created, updated, or merged.
-- Event payload: Identifiers set up in the workspace must be mentioned within the _user\_identifiers_ parameter, as shown in the below example where _moe\_mobile_ is one of the identifiers in the workspace:
-  <CodeGroup>
-  ```json JSON wrap
-  "user_identifiers":{
-  "moe_mobile":"{{Mobile_Number}}"
-  }
-  ```
-  </CodeGroup>
-
-#### **Sample cURL Request for Bulk Import API:**
-
-**The following Bulk Import API consists of payloads for users and events.**
-
-cURL
-
-```json wrap
-curl --location 'https://api-xx.moengage.com/v1/transition?app_id=O7NIHY0AT1K1FL8DR1J1' \
---header 'Content-Type: application/json' \
---header 'Authorization: Basic {{Authorization\_Key}}' \
---data '{
-    "type": "transition",
-    "elements": [
-      {
-      "type": "customer",
-      "attributes": {
-        "moe_mobile": "{{Mobile_Number}}",
-        "first_name": "John"
+    - User payload:  Attribute parameters must contain at least one of the identifiers you have configured based on which users in MoEngage will be created, updated, or merged.
+    - Event payload: Identifiers set up in the workspace must be mentioned within the _user\_identifiers_ parameter, as shown in the below example where _moe\_mobile_ is one of the identifiers in the workspace:
+      <CodeGroup>
+      ```json JSON wrap
+      "user_identifiers":{
+      "moe_mobile":"{{Mobile_Number}}"
       }
-   },
-{
-      "type": "event",
-      "user_identifiers": {
-         "moe_mobile": "{{Mobile_Number}}"
-     },
-     "actions": [
-       {
-      "action": "AddToCart",
-      "attributes": {
-          "product": "MacBook Air",
-          "Brand": "Apple"
-       }
-    }
-   ]
-  }
- ]
-}'
-```
+      ```
+      </CodeGroup>
 
-## SDK
+    #### **Sample cURL Request for Bulk Import API:**
 
-Supported SDKs where Identity resolution changes are available:
+    **The following Bulk Import API consists of payloads for users and events.**
 
-- Android ([13.6.00](/developer-guide/android-sdk/data-tracking/basic/track-user-attributes))
-- iOS ([9.23.0](https://www.moengage.com/docs/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes))
-- WebSDK ([2.52.2](https://www.moengage.com/docs/developer-guide/web-sdk/data-tracking/web-sdk-user-attributes-tracking))
-- [GTM](https://moengage-sdk-docs.mintlify.app/developer-guide/web-sdk/other-supported-web-sdk-integration/google-tag-manager-gtm-templates#track-custom-user-attributes)
-- [AMP](https://moengage-sdk-docs.mintlify.app/developer-guide/web-sdk/other-supported-web-sdk-integration/configure-and-integrate-amp-event-analytics#tracking-user-attributes)
-- ReactNative
-- Flutter
+    cURL
 
-_identifyUser()_ function is introduced in the new SDK versions that are compatible with Identity resolution. This function is a direct replacement of the _SetUniqueID_ function and allows you to track users with multiple identifier attributes. Make sure to configure these identifiers in MoEngage before _IdentifyUser_ function is implemented.
+    ```json wrap
+    curl --location 'https://api-xx.moengage.com/v1/transition?app_id=O7NIHY0AT1K1FL8DR1J1' \
+    --header 'Content-Type: application/json' \
+    --header 'Authorization: Basic {{Authorization\_Key}}' \
+    --data '{
+        "type": "transition",
+        "elements": [
+          {
+          "type": "customer",
+          "attributes": {
+            "moe_mobile": "{{Mobile_Number}}",
+            "first_name": "John"
+          }
+       },
+    {
+          "type": "event",
+          "user_identifiers": {
+             "moe_mobile": "{{Mobile_Number}}"
+         },
+         "actions": [
+           {
+          "action": "AddToCart",
+          "attributes": {
+              "product": "MacBook Air",
+              "Brand": "Apple"
+           }
+        }
+       ]
+      }
+     ]
+    }'
 
-The following are examples of SDK sample codes where email and id are set as identifiers in a given workspace.
+    ```
+  </Tab>
+  <Tab title="SDK">
+    Supported SDKs where Identity resolution changes are available:
 
-### Sample Codes
+    - Android ([13.6.00](/developer-guide/android-sdk/data-tracking/basic/track-user-attributes))
+    - iOS ([9.23.0](https://www.moengage.com/docs/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes))
+    - WebSDK ([2.52.2](https://www.moengage.com/docs/developer-guide/web-sdk/data-tracking/web-sdk-user-attributes-tracking))
+    - [GTM](https://moengage-sdk-docs.mintlify.app/developer-guide/web-sdk/other-supported-web-sdk-integration/google-tag-manager-gtm-templates#track-custom-user-attributes)
+    - [AMP](https://moengage-sdk-docs.mintlify.app/developer-guide/web-sdk/other-supported-web-sdk-integration/configure-and-integrate-amp-event-analytics#tracking-user-attributes)
+    - ReactNative
+    - Flutter
 
-<CodeGroup>
+    _identifyUser()_ function is introduced in the new SDK versions that are compatible with Identity resolution. This function is a direct replacement of the _SetUniqueID_ function and allows you to track users with multiple identifier attributes. Make sure to configure these identifiers in MoEngage before _IdentifyUser_ function is implemented.
 
-```text Native Android
-MoEAnalyticsHelper.identifyUser(context, "android-native-uid")
-MoEAnalyticsHelper.identifyUser(
- context,
- mapOf(
-  "email" to "android@moengage.com",
-  "id" to "android"
- )
-)
-```
+    The following are examples of SDK sample codes where email and id are set as identifiers in a given workspace.
 
-```text iOS
-MoEngageSDKAnalytics.sharedInstance.identifyUser(identity: "ios-native-uid")
-MoEngageSDKAnalytics.sharedInstance.identifyUser(identities: [
- "email": "ios@moengage.com",
- "id": "ios"
- ])
-```
+    ### Sample Codes
 
-```text WebSDK
-Moengage.identifyUser({
-  uid: 'uid1',
-  u_em: 'email1@someEmail.com'
-})
-```
+    <CodeGroup>
 
-```text ReactNative
-ReactMoE.identifyUser("react-native-uid");
-ReactMoE.identifyUser({
- "id": "react-native",
- "email": "react-native@moengage.com"
-})
-```
+    ```text Native Android
+    MoEAnalyticsHelper.identifyUser(context, "android-native-uid")
+    MoEAnalyticsHelper.identifyUser(
+     context,
+     mapOf(
+      "email" to "android@moengage.com",
+      "id" to "android"
+     )
+    )
+    ```
 
-```text Flutter
-final MoEngageFlutter _moengagePlugin = MoEngageFlutter(WORKSPACE_ID);
-_moengagePlugin.identifyUser("flutter-uid");
-_moengagePlugin.identifyUser({
- "email": "flutter@moengage.com",
- "id": "flutter"
-})
-```
+    ```text iOS
+    MoEngageSDKAnalytics.sharedInstance.identifyUser(identity: "ios-native-uid")
+    MoEngageSDKAnalytics.sharedInstance.identifyUser(identities: [
+     "email": "ios@moengage.com",
+     "id": "ios"
+     ])
 
-</CodeGroup>
+    ```
 
-<Info>
-  Updates are made to SDK functions to improve user identification and session management.
+    ```text WebSDK
+    Moengage.identifyUser({
+      uid: 'uid1',
+      u_em: 'email1@someEmail.com'
+    })
+    ```
 
-  - **Forced Logout**: The MoEngage SDK no longer automatically logs out the previous user when a new user is detected on the device. Logout should now be explicitly called for workspaces enabled with Identity resolution to avoid data corruption.
-  - **SetUniqueID**: _IdentifyUser_ function supports multiple identifiers, which replaces the need of using _SetUniqueID_ function for user identification. Note that _SetUniqueID_ is marked for removal in the future releases of SDK versions - it is important to use _identifyUser_ instead especially if you are using Identity resolution in your workspace.
-  - **SetAlias**: For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When _IdentifyUser_ function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
-</Info>
+    ```text ReactNative
+    ReactMoE.identifyUser("react-native-uid");
+    ReactMoE.identifyUser({
+     "id": "react-native",
+     "email": "react-native@moengage.com"
+    })
 
-## File Imports
+    ```
 
-You can view the multiple identifiers configured for your workspace in the following sections:
+    ```text Flutter
+    final MoEngageFlutter _moengagePlugin = MoEngageFlutter(WORKSPACE_ID);
+    _moengagePlugin.identifyUser("flutter-uid");
+    _moengagePlugin.identifyUser({
+     "email": "flutter@moengage.com",
+     "id": "flutter"
+    })
+    ```
 
-### User Imports in Segment
+    </CodeGroup>
 
-- If you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section in Step 2 while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_68f0b5.png" alt="Screenshot 2025-02-24 at 1.05.49 PM.png" />
-  <Info>
-    - The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
-    - After activating your identifiers in the workspace, please edit your existing periodic imports to map the identifiers to the right CSV column.
-  </Info>
-- For Anonymous user import, when the multiple identifiers feature is enabled for a MoEngage workspace and if an identifier user attribute is selected as an anonymous ID, the users from the import may merge with the existing users having the same identifier value. For example, if you have configured an email ID as an identifier and, while mapping identifiers, you choose an email ID as the anonymous ID, there is a chance that users from the import may merge with other users having the same email ID. <img src="/images/moengage_16823a.png" alt="Screenshot 2025-02-24 at 4.37.35 PM.png" />
+    <Info>
+      Updates are made to SDK functions to improve user identification and session management.
 
-### Data Imports in Data
+      - **Forced Logout**: The MoEngage SDK no longer automatically logs out the previous user when a new user is detected on the device. Logout should now be explicitly called for workspaces enabled with Identity resolution to avoid data corruption.
+      - **SetUniqueID**: _IdentifyUser_ function supports multiple identifiers, which replaces the need of using _SetUniqueID_ function for user identification. Note that _SetUniqueID_ is marked for removal in the future releases of SDK versions - it is important to use _identifyUser_ instead especially if you are using Identity resolution in your workspace.
+      - **SetAlias**: For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When _IdentifyUser_ function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
+    </Info>
+  </Tab>
+  <Tab title="File Imports">
+    You can view the multiple identifiers configured for your workspace in the following sections:
 
-- While creating a new user data import, if you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace.
-- If you have configured multiple identifiers for a given workspace while creating a new event data import, you can see them in **Step 2: Import configuration and action** under the **Map identifiers** section while creating new event imports. If multiple identifiers are not configured in this workspace, you can only see _ID_ and _Event time_ under the **Map identifiers** section. <img src="/images/moengage_d6a331.png" alt="Screenshot 2025-02-24 at 2.41.57 PM.png" />
-  <Info>
-    The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
-  </Info>
-- While creating new auxiliary data imports\
-  In **Step 2: Import configuration and action,** when you turn on the **Update user profile attributes** (optional) toggle, you can view the multiple identifiers for that workspace in the **Map identifiers** section. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_2ea26e.png" alt="Screenshot 2025-02-24 at 2.39.25 PM.png" />
+    ### User Imports in Segment
+
+    - If you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section in Step 2 while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_68f0b5.png" alt="Screenshot 2025-02-24 at 1.05.49 PM.png" />
+      <Info>
+        - The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
+        - After activating your identifiers in the workspace, please edit your existing periodic imports to map the identifiers to the right CSV column.
+      </Info>
+    - For Anonymous user import, when the multiple identifiers feature is enabled for a MoEngage workspace and if an identifier user attribute is selected as an anonymous ID, the users from the import may merge with the existing users having the same identifier value. For example, if you have configured an email ID as an identifier and, while mapping identifiers, you choose an email ID as the anonymous ID, there is a chance that users from the import may merge with other users having the same email ID. <img src="/images/moengage_16823a.png" alt="Screenshot 2025-02-24 at 4.37.35 PM.png" />
+
+    ### Data Imports in Data
+
+    - While creating a new user data import, if you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace.
+    - If you have configured multiple identifiers for a given workspace while creating a new event data import, you can see them in **Step 2: Import configuration and action** under the **Map identifiers** section while creating new event imports. If multiple identifiers are not configured in this workspace, you can only see _ID_ and _Event time_ under the **Map identifiers** section. <img src="/images/moengage_d6a331.png" alt="Screenshot 2025-02-24 at 2.41.57 PM.png" />
+      <Info>
+        The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
+      </Info>
+    - While creating new auxiliary data imports\
+      In **Step 2: Import configuration and action,** when you turn on the **Update user profile attributes** (optional) toggle, you can view the multiple identifiers for that workspace in the **Map identifiers** section. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_2ea26e.png" alt="Screenshot 2025-02-24 at 2.39.25 PM.png" />
+  </Tab>
+</Tabs>
+
+
 
 # Impact of Merging Users
 
