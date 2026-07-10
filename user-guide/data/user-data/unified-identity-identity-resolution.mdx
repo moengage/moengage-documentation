@@ -5,32 +5,40 @@ description: "Unified Identity links user data from multiple sources into one pr
 
 # Overview
 
-Unified Identity involves linking and matching an individual's attributes from different data sources to create a unified identity representation. It combines various data elements to establish connections and create a comprehensive view of the user. Resolving these users into a single user profile enables marketers to accurately segment and personalize the users based on the data collected across various online and offline resources and avoid duplication.\
-The _Identity Resolution_ feature of MoEngage allows you to integrate multiple profiles of the same user using different identifier attributes (such as ID, EmailID, Mobile Number, etc.) obtained from various online and offline data sources (ingested into MoEngage via Data APIs, MoEngage SDKs, and CSV files). When multiple sources include clear identity information, such as a customer ID, email ID, or phone number, you can utilize these attributes as identifiers to build a single unified customer profile in MoEngage. This maintains a single source of truth for each user, allowing you to seamlessly track their behavior on your application and set your business strategies accordingly.
+Users interact with your brand across channels such as website, app, offline store, social login. Each channel can generate a separate profile for the same person. The _Identity Resolution_ feature of MoEngage merges these profiles into one, using identifier attributes such as ``ID``, ``Email``, or ``Mobile Number`` from data ingested via Data APIs, MoEngage SDKs, or CSV files. This gives you one accurate view of each user for segmentation, personalization, and reporting.
 
-<Info>
-  To use identity resolution, you must choose an existing user attribute as an identifier (like a phone number or email ID) that uniquely identifies the user as an Identifier.
-</Info>
+<Callout icon="bars-progress" color="#FFC107" iconType="regular">
+ **Prerequisites**
+
+  To use identity resolution, choose an existing user attribute as an identifier (like a phone number or email ID) that uniquely identifies the user and activate it as an identifier. Only Admins can access this setting.
+</Callout>
+
 
 # Use Cases
 
 Identity resolution plays a critical role in the following scenarios:
-
-- A user browses a public listing page on a brand's website, providing their email ID (tracked as _Email ID_ attribute in MoEngage) and phone number (tracked as _Mobile Number (standard)_ user attribute in MoEngage). While buying a product at the brand offline store, the same user uses their phone number to complete their purchase. The brand aims to link the browsing activity on the website to the user who purchased at the store using their phone number.
-- A brand offers multiple user registration methods such as email login, mobile OTP, and social media logins like Facebook. However, these methods generate different user profiles for the same individual. The brand aims to consolidate these multiple profiles into a single unified profile as it gathers additional information when the user engages in further activities.
+- **Online-to-offline matching**: A user browses your site with their email, then completes a purchase in-store using their phone number. Identity Resolution links both records to the same person.
+- **Multiple sign-in methods**: A user registers via email, mobile OTP, and Facebook login, each creating a separate profile. Identity Resolution consolidates them into one as more identifiers are collected.
+- **Convert a lead into a registered user**:A visitor is first tracked anonymously, then captured as a lead through a signup form or waitlist (email known, not yet a customer), and later converts into a registered, paying user. Identity Resolution links all three stages into one profile as each new identifier is collected — no manual reconciliation needed.
 
 # Configure Multiple Identifiers
 
-The first step in using Identity resolution is to activate the right set of user attributes as identifiers. You can configure up to five identifiers at a workspace level. The standard user attribute _ID_ is set as the default identifier. You can opt to configure other user attributes, such as email and mobile number, as additional identifiers. Note that at least one identifier must be active at any given time.
-
-For example, if you choose email ID and mobile number as identifiers, MoEngage checks the email ID and mobile number for all users. In cases where multiple users share the same mobile number but have distinct email IDs, the system consolidates those users into a single profile as one of the identifier values matches successfully.
-
-When comparing user profiles, if there are conflicting values, the system will prioritize and consider the values from the user profiles with the latest last-seen timestamp (by default behavior that can be changed) during the merging process. This prioritized profile is called the _retained profile_, and the de-prioritized profile is called the _merged profile_. The merged profile is deleted after the events and user attributes are transferred to the retained profile.
+<Info>
+  - You can configure up to five identifiers per workspace. ``ID`` is the default and always active; at least one identifier must remain active at all times.
+  - You can opt to configure other user attributes, such as email and mobile number, as additional identifiers. For example, if you choose email ID and mobile number as identifiers, MoEngage checks the email ID and mobile number for all users. In cases where multiple users share the same mobile number but have distinct email IDs, the system consolidates those users into a single profile as one of the identifier values matches successfully.
+ - When two profiles share the value of any active identifier, MoEngage merges them. If profiles have conflicting data, the **retained profile** wins and the **merged profile** is deleted after its events and attributes transfer over.
+</Info>
 
 Perform the following steps to configure multiple identifiers in the MoEngage dashboard (Only Admins can view and access Identity resolution):
 
 1. On the left navigation menu in the MoEngage dashboard, go to **Settings** \> **Data** \> **Identity resolution.**
-2. On the **Identity resolution** page, click **\+Add identifier(s)**. You can add up to five identifiers for identity resolution. <img alt="multi id 2.png" src="/images/moengage_3b4315.png" />
+2. On the **Identity resolution** page, click **\+Add identifier(s)**. You can add up to five identifiers for identity resolution. 
+     <Tip>
+     **Choosing good identifiers**
+
+     A good identifier uniquely identifies one person (not a shared household phone or generic support email), stays consistently available across every data source you plan to use it with (SDK, API, file imports), and won't be reused across different people over time. Picking the wrong identifier is the most common source of unexpected merges or profiles that fail to merge.
+     </Tip>
+     <img alt="multi id 2.png" src="/images/moengage_3b4315.png" />
    1. By default, **ID** is listed as an identifier for merging user profiles using identity resolution. The **Active** tag represents the identifier currently used for identity resolution for merging users in your current workspace.
    2. All the identifiers added are listed on this page. Click the ellipsis icon ( <Icon icon="ellipsis-vertical" iconType="solid" /> ) to perform the following:
       - **Pause identity resolution**: This option allows you to pause merging the user based on that identifier. <img src="/images/moengage_5e13df.png" alt="Screenshot 2025-02-19 at 11.13.42 AM.png" />
@@ -103,7 +111,11 @@ After activating identity resolution:
 
 - Existing users in the workspace merge over 48 hours
 - New incoming users merge with existing users based on profile retention rules
-- Up to 50 users in your workspace with the same identifier value will be merged successfully, rest remains un-merged. 
+- Only the **first 50 users** in your workspace with the same identifier value are merged, rest remains un-merged.
+- If a new user is ingested sharing an identifier value already held by 50 merged users, that user is still created, but the identifier value itself is dropped from their profile and won't participate in future merges.
+- Any update sent to a user who remains unmerged past the cap is dropped in the same way. 
+- For chained (transitive) merges, a strict **100-event limit** applies to events carried over from each deleted profile. For more information refer to [events note](#events-note) under Impact of Merging Users.
+- To raise the 50-user cap for your workspace, contact your MoEngage Customer Success Manager (CSM) or the Support team.
 
 ![Screenshot 2025-02-19 at 11.51.05 AM.png](/images/moengage_c5797a.png)
 
