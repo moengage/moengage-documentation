@@ -110,11 +110,14 @@ After activating identity resolution:
 
 - Existing users in the workspace merge over 48 hours
 - New incoming users merge with existing users based on profile retention rules
-- Only the **first 50 users** in your workspace with the same identifier value are merged, rest remains un-merged.
-- If a new user is ingested sharing an identifier value already held by 50 merged users, that user is still created, but the identifier value itself is dropped from their profile and won't participate in future merges.
-- Any update sent to a user who remains unmerged past the cap is dropped in the same way. 
-- For chained (transitive) merges, a strict **100-event limit** applies to events carried over from each deleted profile. For more information refer to [events note](#events-note) under Impact of Merging Users.
-- To raise the 50-user cap for your workspace, contact your MoEngage Customer Success Manager (CSM) or the Support team.
+
+### Merge Caps:
+
+  - Only the **first 50 users** in your workspace with the same identifier value are merged, rest remains un-merged.
+  - If a new user is ingested sharing an identifier value already held by 50 merged users, that user is still created, but the identifier value itself is dropped from their profile and won't participate in future merges.
+  - Any update sent to a user who remains unmerged past the cap is dropped in the same way. 
+  - For chained (transitive) merges, a strict **100-event limit** applies to events carried over from each deleted profile. For more information refer to [events note](#events-note) under Impact of Merging Users.
+  - To raise the 50-user cap for your workspace, contact your MoEngage Customer Success Manager (CSM) or the Support team.
 
 ![Screenshot 2025-02-19 at 11.51.05 AM.png](/images/moengage_c5797a.png)
 
@@ -126,20 +129,17 @@ Select **By activating identity resolution, I understand the impact of merging t
 
 <Tabs>
   <Tab title="Data APIs">
-    In MoEngage, data ingestion uses an ID to create or update a user. For workspaces in MoEngage with Identity Resolution enabled, Data APIs (Track User, Create Event, Bulk Import) can be used to create or update users using a specific identifier, such as a mobile number or email ID, as configured.
-
-    You can:
-
-    - Create users through Server-to-Server Data APIs even when they do not have an ID (but have other identifiers).
-    - Create a user or track events of a user when identifiers other than ID (for example, email ID or phone number) are known.
-
+    - Data APIs (Track User, Create Event, Bulk Import) can create or update users using any active identifier, not just ``ID``. 
+    - You can create a Server-to-Server user with no ID at all, as long as another identifier is present.
+   
     ### Request Body
 
     The following is a sample cURL request for a Bulk Import API consisting of the following payloads:
 
-    - User payload:  Attribute parameters must contain at least one of the identifiers you have configured based on which users in MoEngage will be created, updated, or merged.
-    - Event payload: Identifiers set up in the workspace must be mentioned within the _user\_identifiers_ parameter, as shown in the below example where _moe\_mobile_ is one of the identifiers in the workspace:
-      <CodeGroup>
+    - User payload must contain at least one configured identifier in ``attributes``. 
+    - Event payload must include identifiers inside ``user_identifiers`` as shown in the below example where _moe\_mobile_ is one of the identifiers in the workspace
+    
+    <CodeGroup>
       ```json JSON wrap
       "user_identifiers":{
       "moe_mobile":"{{Mobile_Number}}"
@@ -149,7 +149,7 @@ Select **By activating identity resolution, I understand the impact of merging t
 
     #### **Sample cURL Request for Bulk Import API:**
 
-    **The following Bulk Import API consists of payloads for users and events.**
+    **The following Bulk Import API consists of payloads for both users and events.**
 
     cURL
 
@@ -188,7 +188,7 @@ Select **By activating identity resolution, I understand the impact of merging t
     ```
   </Tab>
   <Tab title="SDK">
-    Supported SDKs where Identity resolution changes are available:
+    Supported SDKs:
 
     - Android ([13.6.00](/developer-guide/android-sdk/data-tracking/basic/track-user-attributes))
     - iOS ([9.23.0](https://www.moengage.com/docs/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes))
@@ -197,6 +197,7 @@ Select **By activating identity resolution, I understand the impact of merging t
     - [AMP](https://moengage-sdk-docs.mintlify.app/developer-guide/web-sdk/other-supported-web-sdk-integration/configure-and-integrate-amp-event-analytics#tracking-user-attributes)
     - ReactNative
     - Flutter
+    -Capacitor
 
     _identifyUser()_ function is introduced in the new SDK versions that are compatible with Identity resolution. This function is a direct replacement of the _SetUniqueID_ function and allows you to track users with multiple identifier attributes. Make sure to configure these identifiers in MoEngage before _IdentifyUser_ function is implemented.
 
@@ -260,76 +261,39 @@ Select **By activating identity resolution, I understand the impact of merging t
       - **SetUniqueID**: _IdentifyUser_ function supports multiple identifiers, which replaces the need of using _SetUniqueID_ function for user identification. Note that _SetUniqueID_ is marked for removal in the future releases of SDK versions - it is important to use _identifyUser_ instead especially if you are using Identity resolution in your workspace.
       - **SetAlias**: For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When _IdentifyUser_ function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
     </Info>
+     **Retrieving Linked Profiles Programmatically**
+     Use the asynchronous getter ``getUserIdentities()`` to check, client-side, which identifiers are bound to the current local session. It queries local SDK storage and returns a JSON dictionary of all currently bound identifier keys and values.
+      <Tip> 
+      Run ``getUserIdentities()`` before an explicit user logout to confirm which identifiers are linked, and avoid breaking active device identity links.
+      </Tip>
   </Tab>
   <Tab title="File Imports">
     You can view the multiple identifiers configured for your workspace in the following sections:
 
     ### User Imports in Segment
 
-    - If you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section in Step 2 while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_68f0b5.png" alt="Screenshot 2025-02-24 at 1.05.49 PM.png" />
-      <Info>
-        - The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
-        - After activating your identifiers in the workspace, please edit your existing periodic imports to map the identifiers to the right CSV column.
+     - If you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section in Step 2 while creating new user imports, otherwise you can only see ``ID``.  <img src="/images/moengage_68f0b5.png" alt="Screenshot 2025-02-24 at 1.05.49 PM.png" />
+     - For Anonymous user import, if an identifier user attribute is selected as an anonymous ID, the users from the import may merge with the existing users having the same identifier value. For example, if you have configured an email ID as an identifier and, while mapping identifiers, you choose an email ID as the anonymous ID, there is a chance that users from the import may merge with other users having the same email ID. <img src="/images/moengage_16823a.png" alt="Screenshot 2025-02-24 at 4.37.35 PM.png" />
+     <Info>
+        - The uploaded CSV must have at least one column matching a configured  identifier.
+        - After activating new identifiers, update existing periodic imports to map them correctly.
       </Info>
-    - For Anonymous user import, when the multiple identifiers feature is enabled for a MoEngage workspace and if an identifier user attribute is selected as an anonymous ID, the users from the import may merge with the existing users having the same identifier value. For example, if you have configured an email ID as an identifier and, while mapping identifiers, you choose an email ID as the anonymous ID, there is a chance that users from the import may merge with other users having the same email ID. <img src="/images/moengage_16823a.png" alt="Screenshot 2025-02-24 at 4.37.35 PM.png" />
-
+    
     ### Data Imports in Data
+      If you have configured multiple identifiers for a given workspace:
 
-    - While creating a new user data import, if you have configured multiple identifiers for a given workspace, you can see them in the **Map identifiers** section while creating new user imports. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace.
-    - If you have configured multiple identifiers for a given workspace while creating a new event data import, you can see them in **Step 2: Import configuration and action** under the **Map identifiers** section while creating new event imports. If multiple identifiers are not configured in this workspace, you can only see _ID_ and _Event time_ under the **Map identifiers** section. <img src="/images/moengage_d6a331.png" alt="Screenshot 2025-02-24 at 2.41.57 PM.png" />
-      <Info>
-        The uploaded CSV must have at least one column with data matching any identifiers configured in MoEngage.
-      </Info>
-    - While creating new auxiliary data imports\
-      In **Step 2: Import configuration and action,** when you turn on the **Update user profile attributes** (optional) toggle, you can view the multiple identifiers for that workspace in the **Map identifiers** section. You can only see _ID_ under the **Map identifiers** section if multiple identifiers are not configured in this workspace. <img src="/images/moengage_2ea26e.png" alt="Screenshot 2025-02-24 at 2.39.25 PM.png" />
+    - While creating a new user data import, you can view them in the **Map identifiers** section, otherwise you can only see ``ID.``.
+    - While creating a new event data import, you can view them in **Step 2: Import configuration and action** under the **Map identifiers** section, otherwise you can only see ``ID`` and ``Event time``. <img src="/images/moengage_d6a331.png" alt="Screenshot 2025-02-24 at 2.41.57 PM.png" />
+    - While creating new auxiliary data imports, you can view them in **Step 2: Import configuration and action** by turning on the **Update user profile attributes** (optional) toggle of the **Map identifiers** section, otherwise you can only see ``ID.``. <img src="/images/moengage_2ea26e.png" alt="Screenshot 2025-02-24 at 2.39.25 PM.png" />
+    ### File Import & Segment CSV Processing Rules New
+    
+    CSV uploads fully respect your active Identity Resolution configuration, with two behaviors to plan around:
+
+   - **Multi-key ingestion**: if a row contains values for more than one active identifier (e.g. both email and mobile), MoEngage checks both against existing records. If a single row bridges two distinct profiles, a background merge triggers immediately.
+   - **Transitive cap enforcement##: if a batch file forces chained merges, the 100-event limit on each deleted profile (see merge caps) applies immediately.
   </Tab>
-</Tabs>
-
-
-
-# Impact of Merging Users
-
-The following are the effects of user merging on various campaigns and channels:
-
-## On Data
-
-- User attribute info: When merged, all user attribute information of the retained user is retained. If user attributes in merged users do not exist in retained users, those attributes are transferred to the retained user profile.
-
-<Info>
-  Important contact information may be lost. For example, if two users are merged based on the same mobile number but have different Email-ids - the retained user’s EmailID information will be retained and the merged user’s EmailId information will be lost. Please setup Profile retention rules to help select the right retained user profile.
-</Info>
-
-- Device info: When merged, all devices are merged into the retained user, and no device information is lost.
-- Events info: All events of the merged user are transferred to the retained user, hence no events are lost during a user-merge. The resolved user will have events of all the merged users.
-- Other data callouts: Users cannot be un-merged after merging. Be careful when configuring identifiers for your workspace.
-
-## On Segment
-
-- Active segments: When users are merged, the total number of users in active segments may decrease because users are merged into a single profile.
-- Custom segments: Whenever the custom segment is updated, the user count may change.
-
-## On Campaign
-
-- User merging may impact the overall reachability number. When merged, the contact details of the merged user will be lost, and hence, a campaign’s overall reachability may be reduced. This also impacts the overall campaign stats.
-- Only Data APIs (TrackUser, CreateEvent, BulkImport API) support tracking users with multiple identifiers. Other APIs in MoEngage may still require ID at the moment.
-
-### Reachability Impact
-
-|  |  |  |
-| --- | --- | --- |
-| **Channel** | **Reachability Attribute** | **Merge Outcome** |
-| Email | Hard bounce | If multiple users getting merged have the same email ID but conflicting hard bounce values, the outcome will be hard Bounce = true.  If users getting merged have different email IDs, the retained user’s email preferences will remain post-merge. |
-|  | Spam | If multiple users getting merged have the same email ID but with conflicting Spam statuses, the outcome will be Spam = true.  If multiple users getting merged have different email IDs, the retained user’s Spam status will be retained. |
-|  | Unsubscribe | If multiple users getting merged have the same email ID but with conflicting Spam statuses, the outcome will be Unsubscribe = true.  If multiple users are getting merged and have different email values, the retained user’s Unsubscribe status will be retained. |
-|  | Subscription Categories | Subscription categories of retained users will be retained. |
-| Push | Reachability push status code (iOS, Android, Web) | When users are merged, all devices will be added to the retained user.  Final Reachability will be derived based on all devices present with the retained user. |
-| SMS | Subscription status | Retained user’s mobile number preferences will be retained. |
-| WhatsApp | Subscription status | Retained user’s mobile number preferences will be retained. |
-
-# Enable Multi-ID in Shopify
-
-<Accordion title="Identity Resolution in Shopify">
-  ## Set Up Identifiers
+  <Tab title="Shopify">
+    ## Set Up Identifiers
 
   <Tip>
     **Prerequisite**
@@ -398,4 +362,59 @@ The following are the effects of user merging on various campaigns and channels:
 
   - User1 registers online using a mobile number (M1) on Shopify and does some activity on the website.
   - User2 visits an offline store and provides a mobile number (M1) during product purchase. Offline data is then uploaded to MoEngage using CSV imports. In such cases, MoEngage identifies that User 1 and User 2 share the same mobile number and merge their profiles.
-</Accordion>
+
+  </Tab>
+</Tabs>
+
+# Impact of Merging Users
+
+Merging affects data, segments, campaigns, and triggers internal system events. Review each before activating.
+
+<Tabs>
+  <Tab title="On Data">
+    - User attribute info: When merged, all user attribute information of the retained user is retained. If user attributes in merged users do not exist in retained users, those attributes are transferred to the retained user profile.
+
+    <Info>
+      Important contact information may be lost. For example, if two users are merged based on the same mobile number but have different Email-ids - the retained user’s EmailID information will be retained and the merged user’s EmailId information will be lost. Please setup Profile retention rules to help select the right retained user profile.
+    </Info>
+
+    - Device info: When merged, all devices are merged into the retained user, and no device information is lost.
+    - Events info: All events of the merged user are transferred to the retained user, hence no events are lost during a user-merge. The resolved user will have events of all the merged users.
+    - Other data callouts: Users cannot be un-merged after merging. Be careful when configuring identifiers for your workspace.
+  </Tab>
+  <Tab title="On Segments">
+    - Active segments: When users are merged, the total number of users in active segments may decrease because users are merged into a single profile.
+    - Custom segments: Whenever the custom segment is updated, the user count may change.
+  </Tab>
+  <Tab title="On Campaigns">
+    - User merging may impact the overall reachability number. When merged, the contact details of the merged user will be lost, and hence, a campaign’s overall reachability may be reduced. This also impacts the overall campaign stats.
+    - Only Data APIs (TrackUser, CreateEvent, BulkImport API) support tracking users with multiple identifiers. Other APIs in MoEngage may still require ID at the moment.
+
+    ### Reachability Impact
+
+    |  |  |  |
+    | --- | --- | --- |
+    | **Channel** | **Reachability Attribute** | **Merge Outcome** |
+    | Email | Hard bounce | If multiple users getting merged have the same email ID but conflicting hard bounce values, the outcome will be hard Bounce = true.  If users getting merged have different email IDs, the retained user’s email preferences will remain post-merge. |
+    |  | Spam | If multiple users getting merged have the same email ID but with conflicting Spam statuses, the outcome will be Spam = true.  If multiple users getting merged have different email IDs, the retained user’s Spam status will be retained. |
+    |  | Unsubscribe | If multiple users getting merged have the same email ID but with conflicting Spam statuses, the outcome will be Unsubscribe = true.  If multiple users are getting merged and have different email values, the retained user’s Unsubscribe status will be retained. |
+    |  | Subscription Categories | Subscription categories of retained users will be retained. |
+    | Push | Reachability push status code (iOS, Android, Web) | When users are merged, all devices will be added to the retained user.  Final Reachability will be derived based on all devices present with the retained user. |
+    | SMS | Subscription status | Retained user’s mobile number preferences will be retained. |
+    | WhatsApp | Subscription status | Retained user’s mobile number preferences will be retained. |
+  </Tab>
+  <Tab title="On System Events">
+    ### System-Generated Merge Events
+    When automated Identity Resolution consolidates duplicate profiles, MoEngage fires internal system events depending on the scenario.
+    - ``MOE_USER_MERGE_EVENT``: fires globally whenever a standard profile merge starts.
+    - ``MOE_USER_MERGED``: fires on the primary (retained) profile once data fields combine successfully.
+    - ``MULTI_ID_USER_MERGED``: fires only when a multi-identifier configuration resolves and collapses multiple records
+    
+    In short, a regular single-identifier merge fires ``MOE_USER_MERGE_EVENT`` and ``MOE_USER_MERGED``. A multi-ID merge fires all three, including ``MULTI_ID_USER_MERGED``.
+    <Info>
+     Hidden by Default
+
+     ``MULTI_ID_USER_MERGED`` visibility is OFF by default, so it won't appear in Segment or Flow event dropdowns. To expose it, go to **Settings** > **Data Management** > **User Events** and toggle its visibility ON.
+    </Info>
+  </Tab>
+</Tabs>
