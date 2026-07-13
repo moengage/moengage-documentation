@@ -13,13 +13,17 @@ Users interact with your brand across channels such as website, app, offline sto
   To use identity resolution, choose an existing user attribute as an identifier (like a phone number or email ID) that uniquely identifies the user and activate it as an identifier. Only Admins can access this setting.
 </Callout>
 
+<Tip>
+Every MoEngage workspace already merges anonymous and registered profiles automatically on login. Refer to [Anonymous to Registered User Merge](/user-guide/data/user-data/anonymous-to-registered-user-merge) for that always-on behavior. Use this article instead if you want to merge profiles on identifiers beyond the default ID such as email, mobile number, or up to five custom attributes, across Data APIs, SDKs, file imports, and integrations like Shopify. 
+
+The two mechanisms have different rules: this feature is opt-in, irreversible once activated, and caps transitive merges at 100 events; the anonymous-to-registered merge is always-on, and transfers all events with no cap.
+</Tip>
 
 # Use Cases
 
 Identity resolution plays a critical role in the following scenarios:
 - **Online-to-offline matching**: A user browses your site with their email, then completes a purchase in-store using their phone number. Identity Resolution links both records to the same person.
 - **Multiple sign-in methods**: A user registers via email, mobile OTP, and Facebook login, each creating a separate profile. Identity Resolution consolidates them into one as more identifiers are collected.
-- **Convert a lead into a registered user**:A visitor is first tracked anonymously, then captured as a lead through a signup form or waitlist (email known, not yet a customer), and later converts into a registered, paying user. Identity Resolution links all three stages into one profile as each new identifier is collected — no manual reconciliation needed.
 
 # Configure Multiple Identifiers
 
@@ -61,6 +65,12 @@ Perform the following steps to configure multiple identifiers in the MoEngage da
    </Info>
 6. Click **Next**.
 
+<Tip>
+Case Sensitivity
+
+Identifier matching is case-sensitive and does no normalization. If the same value can arrive in different cases across sources (e.g. an email captured as ``John@brand.com`` on web and ``john@brand.com`` via CSV import), those profiles won't merge unless you standardize casing before ingestion.
+</Tip>
+
 ## Step 2: Review Merge Rules
 
 1. **Profile retention rules:** This rule decides which user profile survives a merge, and are evaluated in order. Perform the following steps to add profile retention rules:
@@ -82,8 +92,8 @@ Perform the following steps to configure multiple identifiers in the MoEngage da
       For example, consider you have two customer profiles for the same user in which Profile 1 is received online, and Profile 2 is received offline. Each profile has a _Loyality\_points_ attribute and has data in it, and if you want the _SUM_ of both _Loyality\_points_ when both these profiles are merged, perform the following:
       1. Select **_Loyality_points_** in **User attribute** list.
       2. Select _Sum of values_ in **Merge rules** list.
-         So, whenever user profiles are merged, the resulting profile comprises the combined sum of both profiles' loyality points. LTV is summed by default automatically.
-         **Note**: The image below illustrates with LTV selected as the user attribute for demonstration purposes. <img src="/images/moengage_21c82e.png" alt="Screenshot 2025-02-17 at 11.52.56 AM.png" />
+         So, whenever user profiles are merged, the resulting profile comprises the combined sum of both profiles' loyality points. LTV ships with _Sum of values_ pre-configured, no setup needed.
+         <img src="/images/moengage_21c82e.png" alt="Screenshot 2025-02-17 at 11.52.56 AM.png" />
 3. The **Verify merge** section shows how users are merged based on the profile retention and attribute rules you configured. Select **I have verified all merge scenarios** checkbox after verifying the merge scenarios. <img src="/images/moengage_7922ce.png" alt="Screenshot 2025-02-18 at 11.58.16 AM.png" />
 4. Click **Next**.
 
@@ -111,13 +121,16 @@ After activating identity resolution:
 - Existing users in the workspace merge over 48 hours
 - New incoming users merge with existing users based on profile retention rules
 
-### Merge Caps:
+<Tip>
+
+Merge Caps:
 
   - Only the **first 50 users** in your workspace with the same identifier value are merged, rest remains un-merged.
   - If a new user is ingested sharing an identifier value already held by 50 merged users, that user is still created, but the identifier value itself is dropped from their profile and won't participate in future merges.
   - Any update sent to a user who remains unmerged past the cap is dropped in the same way. 
   - For chained (transitive) merges, a strict **100-event limit** applies to events carried over from each deleted profile. For more information refer to [events note](#events-note) under Impact of Merging Users.
   - To raise the 50-user cap for your workspace, contact your MoEngage Customer Success Manager (CSM) or the Support team.
+</Tip>
 
 ![Screenshot 2025-02-19 at 11.51.05 AM.png](/images/moengage_c5797a.png)
 
@@ -372,23 +385,24 @@ Merging affects data, segments, campaigns, and triggers internal system events. 
 
 <Tabs>
   <Tab title="On Data">
-    - User attribute info: When merged, all user attribute information of the retained user is retained. If user attributes in merged users do not exist in retained users, those attributes are transferred to the retained user profile.
-
+    - User attribute info: the retained profile's attributes win; any attribute missing from the retained profile is filled in from the merged profile.
+    - Devices: all devices from both profiles carry over to the retained profile, no device data is lost.
+    -Events: events from the merged profile transfer to the retained profile with one exception: for transitive multi-ID merges (a user merging into a profile that has itself already been merged), only the most recent 100 events of the deleted merged profile carry over. Earlier events in that chain are not preserved.
     <Info>
-      Important contact information may be lost. For example, if two users are merged based on the same mobile number but have different Email-ids - the retained user’s EmailID information will be retained and the merged user’s EmailId information will be lost. Please setup Profile retention rules to help select the right retained user profile.
+      If two users merge on a shared mobile number but have different emails, the merged profile's email is lost — only the retained profile's email survives. Set profile retention rules deliberately to control this. Merges cannot be reversed.
     </Info>
 
-    - Device info: When merged, all devices are merged into the retained user, and no device information is lost.
-    - Events info: All events of the merged user are transferred to the retained user, hence no events are lost during a user-merge. The resolved user will have events of all the merged users.
-    - Other data callouts: Users cannot be un-merged after merging. Be careful when configuring identifiers for your workspace.
+    <Tip>
+     Every unmerged duplicate profile counts separately toward your Monthly Tracked Users (MTU) — a key input to your MoEngage bill. Merging duplicates into one profile reduces your MTU count, so cleaning up existing duplicates can lower cost in addition to improving data accuracy.
+    </Tip>
   </Tab>
   <Tab title="On Segments">
-    - Active segments: When users are merged, the total number of users in active segments may decrease because users are merged into a single profile.
+    - Active segments: When users are merged, the total number of users in active segments may decreaseas as duplicate profiles collapse into one.
     - Custom segments: Whenever the custom segment is updated, the user count may change.
   </Tab>
   <Tab title="On Campaigns">
     - User merging may impact the overall reachability number. When merged, the contact details of the merged user will be lost, and hence, a campaign’s overall reachability may be reduced. This also impacts the overall campaign stats.
-    - Only Data APIs (TrackUser, CreateEvent, BulkImport API) support tracking users with multiple identifiers. Other APIs in MoEngage may still require ID at the moment.
+    - Only Data APIs (TrackUser, CreateEvent, BulkImport API) supports multiple identifiers. Other APIs in MoEngage may still requires ID.
 
     ### Reachability Impact
 
