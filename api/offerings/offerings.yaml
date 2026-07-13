@@ -307,7 +307,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/OfferingListItem'
                   pagination:
-                    $ref: '#/components/schemas/PagePagination'
+                    $ref: '#/components/schemas/CursorPagination'
               example:
                 response_id: resp_<trace-id>
                 type: offer
@@ -1153,7 +1153,9 @@ components:
         total_count:
           type: integer
           format: int64
-          description: Total number of templates in the workspace matching the applied pagination.
+          description: >
+            Total number of items matching the applied filters — offerings and drafts for
+            the offers list, templates for the templates list.
           example: 42
 
     ErrorResponse:
@@ -1257,45 +1259,18 @@ components:
         created_at: "2026-01-15T09:00:00Z"
         created_by: marketing-team@example.com
 
-    PagePagination:
-      description: Pagination metadata included in list responses.
-      type: object
-      required: [limit, has_more, total_count]
-      properties:
-        next_cursor:
-          type: string
-          nullable: true
-          description: >
-            Opaque cursor pointing to the start of the next page. Pass this value as the
-            cursor query parameter on the next request. null when there are no more pages.
-          example: "<base64-encoded-cursor>"
-        limit:
-          type: integer
-          description: Number of items returned per page, matching the limit query parameter.
-          example: 20
-        has_more:
-          type: boolean
-          description: >
-            Whether additional pages exist. When true, pass next_cursor on the next request.
-            When false, the current page is the last page.
-          example: false
-        total_count:
-          type: integer
-          format: int64
-          description: Total number of offers in the workspace matching the applied filters.
-          example: 42
-
     ClientOfferCreateRequest:
       description: |
         Request body for creating a new offering via the public API (POST /v5/offers).
 
         Required fields: name, priority, delivery, created_by, scheduling,
-        segment_info, offer_content.
+        segment_info, offer_content, variation_meta.
 
-        variation_meta is IMMUTABLE after creation. The A/B testing type and split
-        percentages cannot be changed once an offering is created, because modifying
-        them would invalidate accumulated Thompson Sampling statistical data. Set this
-        carefully on the first call.
+        variation_meta can be edited later via PATCH, subject to status-based rules:
+        while the offering is "scheduled" the whole object is editable; once "active",
+        only the distribution split and control-group percentages can change (the A/B
+        type and variant key names lock) to preserve accumulated Thompson Sampling data.
+        See PATCH /v5/offers/{offer_id} for the full rules.
 
         Supply the Idempotency-Key request header (UUID v4) to safely retry on network
         failures without duplicate creation. The same key returns the original 201
@@ -1418,10 +1393,12 @@ components:
         attribution_multiplier:
           type: integer
           description: >
-            Optional multiplier applied to conversion attribution scoring.
-            Used in custom formula ranking to weight this offering's conversion signal.
-            When omitted, no multiplier is applied.
-          example: 2
+            Optional multiplier applied to conversion attribution scoring, used in
+            custom formula-based Decision Policy ranking to amplify this offering's
+            conversion signal. Any positive integer is accepted (no enforced range);
+            use 1 for standard attribution. When omitted, the value is null and no
+            multiplier is applied.
+          example: 1
 
     ClientOfferPatchRequest:
       description: |
@@ -1429,8 +1406,15 @@ components:
         (PATCH /v5/offers/{offer_id}). PATCH semantics apply: only fields present in
         the request body are modified. Omitted fields retain their current values.
 
-        IMMUTABLE FIELDS: variation_meta cannot be sent — it is locked at creation
-        time. Sending it in a PATCH request returns 400 IMMUTABLE_FIELD.
+        VARIATION_META (editable, status-gated): variation_meta can be updated, but which
+        sub-fields you may change depends on the offering status and variation type:
+          - "scheduled": the entire object is editable (type, variantsPerLocale,
+            smv_distribution, control_group).
+          - "active" + SMV: only smv_distribution.split percentages and
+            control_group.percentage are editable; type and variant key names are locked.
+          - "active" + DMV: only control_group.percentage is editable; type,
+            variantsPerLocale, and smv_distribution are locked.
+        Changing a locked sub-field returns 400 IMMUTABLE_FIELD.
 
         STATUS-GATED FIELDS: conversion can only be updated when the offering status
         is "scheduled". Attempting to update it on an "active" or "expired" offering
@@ -1487,6 +1471,8 @@ components:
           $ref: '#/components/schemas/OfferSegmentInfo'
         offer_content:
           $ref: '#/components/schemas/OfferContent'
+        variation_meta:
+          $ref: '#/components/schemas/OfferVariationMeta'
         capping_rules:
           $ref: '#/components/schemas/OfferCappingRules'
         is_global_control_enabled:
@@ -1725,8 +1711,10 @@ components:
         MoEngage Content Block library. The rendering platform resolves the block at
         delivery time.
 
-        "template" — value is a template ID; block_id identifies the specific block
-        within the template to render. Used with MoEngage template system.
+        "template" — value is a JSON object of the template's field values, and
+        meta.templateId carries the template id (from GET /v1/offers/templates). The
+        server requires only meta.templateId and value for template content; block_id
+        is optional.
       type: object
       required: [type, value]
       properties:
@@ -1763,8 +1751,9 @@ components:
         block_id:
           type: string
           description: >
-            Template block identifier. Only relevant when type is "template".
-            Identifies which specific block within the referenced template to render.
+            Optional template block identifier, relevant only when type is "template".
+            Identifies a specific block within the referenced template. Always optional —
+            it is not required for any content type.
           nullable: true
           example: block_hero_banner_v2
         meta:
@@ -1787,10 +1776,11 @@ components:
     OfferVariationMeta:
       description: |
         A/B testing (variation) configuration for the offering.
-        IMMUTABLE AFTER CREATION — this entire object is locked once the offering
-        is created. Modifying A/B configuration on a live offering would invalidate
-        accumulated Thompson Sampling statistical data, so it cannot be changed.
-        Set this carefully on the first create call.
+        EDITABLE WITH STATUS RULES — while the offering is "scheduled" the whole object
+        can be changed via PATCH. Once "active", only percentage fields
+        (smv_distribution.split and control_group.percentage) may change; the type and
+        variant key names lock to preserve accumulated Thompson Sampling data. Changing a
+        locked sub-field returns 400 IMMUTABLE_FIELD.
 
         SMV (Static Multi-Variant): Fixed percentage splits across up to 5 named
         variation IDs. Each user is deterministically bucketed and always receives
@@ -2030,19 +2020,39 @@ components:
         conversion signal to a specific subset of occurrences of the tracked action
         (e.g. only purchases where category equals "Electronics").
       properties:
-        filter_operator:
-          type: string
-          description: >
-            Logical operator combining filters in the array.
-            "AND" means all attribute conditions must be satisfied.
-            "OR" means at least one must be satisfied.
-          enum: [AND, OR]
-          example: AND
         filters:
           type: object
           description: >
-            Attribute filter definitions following the UIS filter format.
-            Structure mirrors segment_info.filters for consistency.
+            Attribute filter definitions. Mirrors segment_info.filters — an object with
+            included_filters and excluded_filters blocks, each containing a "filters"
+            array of UIS filter objects and a "filter_operator" (AND or OR).
+          properties:
+            included_filters:
+              type: object
+              description: >
+                Inclusion criteria for the conversion attribute filter. Contains a
+                "filters" array of UIS filter objects and a "filter_operator" (AND or OR).
+              properties:
+                filters:
+                  type: array
+                  items:
+                    type: object
+                    description: A single UIS filter criterion. Structure varies by filter_type.
+                filter_operator:
+                  type: string
+                  enum: [AND, OR]
+                  example: AND
+            excluded_filters:
+              type: object
+              description: Exclusion criteria, same structure as included_filters.
+              properties:
+                filters:
+                  type: array
+                  items:
+                    type: object
+                filter_operator:
+                  type: string
+                  enum: [AND, OR]
 
     OfferAttributeConfigurationRequest:
       description: |
@@ -2219,15 +2229,6 @@ components:
           schema:
             type: string
             example: '{"code":"ER001","target":"Authentication Invalid","message":"Auth validation failed."}'
-    ServiceAuthError:
-      description: |
-        Service-level authentication failure. Returned by the service (not the gateway) when
-        a gateway-authenticated request is missing the injected `X-MOE-Tenant-ID` header,
-        indicating the request bypassed the gateway. Response body is `application/json`.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
     ServiceUnavailable:
       description: |
         Gateway temporarily unable to route the request. Returned by APISIX/OpenResty when the
