@@ -49,6 +49,27 @@ Whenever a user profile is created, MoEngage tracks whether the user has provide
 - **Double opted in**: This value indicates that the user has provided their explicit consent to receive email communications.
 - **Opted out**: This value indicates that the user has unsubscribed from receiving email communications.
 
+### How Email Opt-in Status Is Updated
+
+When Double Opt-in is enabled, the **Email Opt-in Status** attribute is **not** automatically created or populated for existing or new user profiles. The attribute is only created and updated when MoEngage receives an explicit opt-in status update for that user — through one of the supported methods such as the [Opt-in Management API](https://www.moengage.com/docs/api/opt-in-management/update-user-email-opt-in-preferences), user interaction with consent-seeking emails, CSV imports, or a subscription-related update on the user profile.
+
+This means that if you enable Double Opt-in and then look at a user profile that has not yet received any opt-in status update, the **Email Opt-in Status** attribute will not be visible on the profile.
+
+<Info>
+  User profiles that do not have the **Email Opt-in Status** attribute are treated the same as users with the value *Optin pending*.
+</Info>
+
+### How Email Opt-in Status Affects Email Delivery
+
+Before sending an email, the system checks the **Email Opt-in Status** user attribute to determine whether the user is eligible to receive the email:
+
+* If the attribute exists for the user and the value indicates that the user has opted in (that is, the value is *Double opted in*), the email is sent.
+* If the attribute does not exist or has any other value (such as *Optin pending* or *Opted out*), the user does not receive the email.
+
+<Info>
+  This check applies when the **Send only to double-opted-in users** toggle is enabled for the email campaign. For more information, refer to [Balance Engagement and Reachability Using Double Opt-in](/user-guide/campaigns-and-channels/email/getting-started-with-email/opt-in-management#balance-engagement-and-reachability-using-double-opt-in).
+</Info>
+
 The following scenarios explain how user interactions affect opt-in status:
 
 ### Scenario 1: New user signs up after you adopt Double Opt-in
@@ -100,6 +121,22 @@ To move to the Double Opt-in Method, make sure you implement the following instr
     **If you have a record of your existing users' opt-in status and wish to update it in MoEngage, you can perform a bulk update using one of the following methods:**
 
     - Trigger the Track User Data API of MoEngage to update the opt-in status. For more information, refer to [Track User](https://www.moengage.com/docs/api/user/track-user).
+
+      <Warning>
+        **Important considerations when using the Track User API for Email Opt-in Status:**
+
+        The Track User API is a general-purpose API designed to create or update user attributes. Since it can update multiple attributes in a single call, it expects readable names and does not perform strict validation for specific attributes such as **Email Opt-in Status**. This means the API may accept values that are not valid opt-in statuses without returning an error, which could lead to unexpected behavior.
+
+        When using the Track User API to update Email Opt-in Status, pass the values as plain text front-end names:
+        * `Optin pending`
+        * `Double opted in`
+        * `Opted out`
+
+        These values are case-insensitive.
+
+        **Recommended alternative:** For updating the **Email Opt-in Status**, especially for new users, use the [Opt-in Management API](https://www.moengage.com/docs/api/opt-in-management/update-user-email-opt-in-preferences) instead. This API is purpose-built for managing opt-in preferences, performs validation on the values passed, and only accepts the following backend-defined values: `DOUBLE_OPTED_IN`, `OPTED_OUT`, and `OPT_IN_PENDING`. If any other value is passed, the data is dropped.
+      </Warning>
+
     - Update the Opt-in status using the [user imports capability](/user-guide/data/imports/file-based-imports/import-user-data-using-csv) of MoEngage. Perform the following steps to upload the opt-in via CSV upload for your users:
       1. On the left navigation menu in the MoEngage dashboard, click Engage **Segment**, and then click **User Imports**.
       2. On the **User Imports** page, click **Import users** in the upper-right corner.
@@ -352,4 +389,23 @@ The [Double Opt-in](/user-guide/campaigns-and-channels/email/getting-started-wit
 <Accordion title="How do I update the opt-in status with PII encryption or tokenization?">
   - If you use PII Tokenization for your emails, ensure you pass the user ID when calling the [Email Opt-in Management API](https://www.moengage.com/docs/api/opt-in-management/update-user-email-opt-in-preferences). MoEngage uses this user ID to locate the user and update their opt-in status. Passing the email ID is ineffective in this case, as MoEngage does not store it.
   - If you use PII Encryption to send emails, ensure you pass either the user ID or the decrypted email ID. MoEngage uses this information to locate the associated user and update their opt-in status, or to update the opt-in status of all users having that email ID.
+</Accordion>
+
+<Accordion title="Why is the Email Opt-in Status attribute not visible on user profiles after enabling Double Opt-in?">
+  When you enable Double Opt-in, the **Email Opt-in Status** attribute is not automatically created for all existing or new user profiles. The attribute is only created when an explicit opt-in status update is received for that user — such as through the [Opt-in Management API](https://www.moengage.com/docs/api/opt-in-management/update-user-email-opt-in-preferences), user interaction with consent-seeking emails, CSV imports, or other subscription-related updates. User profiles without this attribute are treated the same as users with the value *Optin pending*.
+</Accordion>
+
+<Accordion title="Which API should I use to update the Email Opt-in Status?">
+  It is recommended to use the [Opt-in Management API](https://www.moengage.com/docs/api/opt-in-management/update-user-email-opt-in-preferences) for updating the **Email Opt-in Status**, especially for new users. This API performs validation on the values passed and only accepts the following backend-defined values: `DOUBLE_OPTED_IN`, `OPTED_OUT`, and `OPT_IN_PENDING`. If any other value is passed, the data is dropped.
+
+  While the [Track User API](https://www.moengage.com/docs/api/user/track-user) can also update the **Email Opt-in Status** attribute, it is designed for general-purpose attribute updates and does not perform strict validation on opt-in status values. When using the Track User API, pass the values as readable names: *Optin pending*, *Double opted in*, or *Opted out*.
+</Accordion>
+
+<Accordion title="What are the valid values for Email Opt-in Status, and how do they differ between APIs?">
+  The valid values differ based on the API you use:
+
+  * **Opt-in Management API** (backend-defined values): `DOUBLE_OPTED_IN`, `OPTED_OUT`, `OPT_IN_PENDING`. This API validates the values and drops any data with invalid values.
+  * **Track User API / CSV imports** (readable names): `Optin pending`, `Double opted in`, `Opted out`. These values are case-insensitive.
+
+  Both sets of values map to the same opt-in statuses. Use the format appropriate for the API you are calling.
 </Accordion>

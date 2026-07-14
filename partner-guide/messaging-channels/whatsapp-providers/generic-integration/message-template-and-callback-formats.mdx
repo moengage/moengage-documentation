@@ -1,0 +1,266 @@
+---
+title: "Message Template and Callback Formats"
+---
+
+# Steps to Onboard with MoEngage
+
+This article describes the standard payload formats that MoEngage uses for sending WhatsApp template messages and standard callback formats for delivering callback information to MoEngage. WhatsApp partners should follow the steps mentioned below to onboard with MoEngage.
+
+1. Implement the payload formats for the request sent by MoEngage are shared in the [Send message template](#send-message-template) section.
+2. Send the callback information to MoEngage in the format shared in the [Message Status Callbacks](#message-status-callbacks) section.
+3. Whenever inbound messages are sent to MoEngage, from quick reply buttons, follow the format shared in the [Inbound Messages ](#inbound-messages)section.
+4. Share the API Endpoint and request headers to be used by the MoEngage team to complete the testing and onboard customers.
+
+# Send Message Template
+
+This section details the message payload in the request sent by MoEngage to your API.
+
+## API Endpoint/URL
+
+**The API Endpoint or API URL** of the partner to whom the message is being sent. This would be provided by the Whatsapp partner.
+
+## Sample Request Headers
+
+You will have to share the information about the headers to be added to the request, such as the API Key, Workspace ID, Authentication, and so on. For example, if the Authentication to be used is Bearer Authentication, MoEngage will add the same in the Authorization Header in the Request, a sample for which is shown below.
+
+```text Sample Header
+--header 'Authentication: Bearer <client auth token to be used by vendor>' \
+```
+
+## Request Body
+
+This is the request sent by MoEngage to your API.
+
+| Key | Required | Data Type | Description |
+| --- | --- | --- | --- |
+| msg\_id | Required | String | This is the unique identifier for the message sent from MoEngage. This ID needs to be returned in the delivery callback sent to MoEngage. |
+| from | Required | String | This is the WhatsApp Business Account (WABA) number of the brand sending the message. |
+| to | Required | String | This is the WhatsApp number of the user to whom the message is being sent. The number has to be sent in the E.164 format. |
+| template | Required | Object | This object contains information about the template using which the message is being sent. It contains the template name, language, and components such as header, body, and buttons. For more information, refer to Template Object. |
+
+### **Template Object**
+
+WhatsApp templates need to be pre-approved by WhatsApp to be used for sending messages. For more information, refer to [WhatsApp Templates](/user-guide/campaigns-and-channels/whatsapp/getting-started-with-whatsapp/whatsapp-templates).
+
+| Key | Required | Data Type | Description |
+| --- | --- | --- | --- |
+| name | Required | String | This field represents the name of the template. |
+| language | Required | Object | This field specifies the language the template may be rendered in. <br />Structure: <br />"language": `{"code": "LANGUAGE_CODE"}` <br />code represents the code of the language or the locale code to use. For more information, refer to [Supported Languages](https://developers.facebook.com/docs/whatsapp/api/messages/message-templates#supported-languages). |
+| components | Optional | String | This field contains the components of WhatsApp, such as the header, body, and buttons. This field will vary based on the template being used. For more information, refer to [Components Object](https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#components-object). |
+
+The Template Object described in this section follows the same structure as that of the Template Object available in Meta's WhatsApp Messages References. For more information, refer to [Template Object in Messages](https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#template-object).
+
+## Sample Payload
+
+A Sample Payload for a request sent by MoEngage is shared below. Note that the sample payload will differ based on the template chosen.
+
+```python Python
+{
+  "msg_id": "MESSAGE_ID",  # Unique identifier, to be returned in callback
+  "from": "WABA NUMBER",
+  "to": "PHONE_NUMBER", # To number would be in E.164 format
+  "template": {
+    "name": "TEMPLATE_NAME",
+    "language": {
+      "code": "LANGUAGE_CODE"
+    },
+    "components": [
+      {
+        "type": "header",
+        "parameters": [
+          {
+            "type": "image",
+            "image": {
+              "link": "http(s)://URL"
+            }
+          }
+        ]
+      },
+      {
+        "type": "body",
+        "parameters": [
+          {
+            "type": "text",
+            "text": "TEXT_STRING"
+          },
+          {
+            "type": "currency",
+            "currency": {
+              "fallback_value": "VALUE",
+              "code": "USD",
+              "amount_1000": "NUMBER"
+            }
+          },
+          {
+            "type": "date_time",
+            "date_time": {
+              "fallback_value": "MONTH DAY, YEAR"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Sample cURL Request
+
+```curl Sample cURL
+curl --location '<api_url provided by the vendor>' \
+  --header 'Content-Type: application/json' \
+  --header 'Authentication: Bearer <client auth token to be used by vendor>' \
+  --data '<payload>'
+```
+
+## Expected Response
+
+| Key | Required | Data Type | Description |
+| --- | --- | --- | --- |
+| status | Required | String | This field represents the status of the request and indicates whether the message was sent successfully or not and should be present only in the case of a 2xx response. Allowed values: success, failure |
+| error | Required | Object | This field specifies the error code and error message in the case of failures and should be present only in the case of a 2xx response. <br />Structure: <br />"error" : `{ `<br />`"code" : "ERROR_CODE", `<br />`"message" : "ERROR_DESCRIPTION" `<br />`}`<br />The Error Code and the corresponding error messages that are to be returned (in the error object) to MoEngage in the case of a 2xx failure are detailed in [Error Codes.](#error-codes) |
+| message | Optional | String | This field contains the description of errors when there are 4xx and 5xx errors. |
+
+### **Error Codes**
+
+| Error Code | When to return this error code? |
+| --- | --- |
+| 7000 | Invalid credentials |
+| 7001 | Invalid template parameters |
+| 7002 | Invalid phone number |
+| 7003 | When the phone number has not subscribed to receiving WhatsApp messages |
+| 7004 | Other errors |
+
+<Tabs>
+  <Tab title="200">
+    Sample response for a successful request
+
+    ```json
+    {
+      "status": "success | failure",
+      "error" : {
+        "code" : "ERROR_CODE",
+        "message" : "ERROR_DESCRIPTION"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="4xx">
+    Sample response for 4xx errors
+
+    ```json
+    {
+      "message": "ERROR_DESCRIPTON"
+    }
+    ```
+  </Tab>
+  <Tab title="5xx">
+    Sample response for unknown errors
+
+    ```json
+    {
+      "message": "ERROR_DESCRIPTON"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### **Throughput**
+
+We support a throughput of 60K to 200K RPM.
+
+# Message Status Callbacks
+
+The format to be used for sending the message status in your callback response to MoEngage is described below.
+
+## Callback URL
+
+The callback URL will be generated for every partner and would be in the following format:
+
+```text Sample Callback URL
+https://api-0x.moengage.com/whatsapp/dlr/<vendor_name>
+```
+
+## Authentication
+
+Authentication is not required, and we will accept all valid requests that conform to the format mentioned in the section below.
+
+## Format for Callback Response
+
+<CodeGroup>
+
+```python Python
+{
+   "statuses": [
+  	 {
+      	"msg_id": "MESSAGE_ID",   # From send message req
+      	"status": "sent | delivered | read | failed",
+      	"timestamp": "TIMESTAMP", # Event timestamp (epoch)
+      	"error": {                #Required only in case of failure
+          		"code": "ERROR_CODE",
+          		"description": "ERROR_DESCRIPTION"
+      	}
+  	 },
+  	 {
+      	#Support multiple status callbacks in a single request
+  	 }
+   ]
+}
+```
+
+</CodeGroup>
+
+| Key | Required | Data Type | Description |
+| --- | --- | --- | --- |
+| msg\_id | Required | String | This field represents the unique identifier for the message sent in the request from MoEngage. |
+| status | Required | String | This field represents the status of the message. Allowed Values: sent, delivered, read, and failed |
+| timestamp | Required | String | This field represents the timestamp of when the message was attempted to be delivered. The timestamp should be sent as an epoch number. |
+| error | Optional | Object | This field represents the error encountered when sending the message to the recipient and contains the error's code and description. For more information on the error codes to be sent, refer to [Error Codes.](#error-codes) |
+
+# Inbound Messages
+
+MoEngage supports incoming text messages for the following use cases:
+
+- When a user sends a _STOP_ message for unsubscribing.
+- When a user replies using quick reply buttons to a WhatsApp message sent.
+- When a user replies by clicking on a button in the WhatsApp message sent.
+
+## Format for Inbound Messages
+
+The format to be used for inbound messages to MoEngage is described below.\\
+
+<CodeGroup>
+
+```java Java
+ 
+{
+    "from": "MOBILE_NUMBER",
+    "waba_number": "BUSINESS_WABA_NUMBER",
+    "timestamp": "TIMESTAMP",
+    "type": "text | button",
+    
+    "context": {
+        "msg_id": "MESSAGE_ID"
+    },
+    "text": {  # Optional if type is button (quick reply button)
+    	    "body": "INCOMING_MESSAGE"
+    },
+    "button": { # Optional if type is text
+        "payload": "{'orderid' : '12345', 'reply': 'yes'}",
+        "text": "Yes, cancel it"
+    }
+}
+```
+
+</CodeGroup>
+
+| Key | Required | Data Type | Description |
+| --- | --- | --- | --- |
+| from | Required | String | This is the WhatsApp number of the user sending the message. The number has to be sent in the E.164 format. |
+| waba\_number | Required | String | This is the brand's WhatsApp Business Account (WABA) number receiving the message. |
+| timestamp | Required | String | This field represents the timestamp at which the response was received from the user and should be in the epoch number format. |
+| msg\_id | Required | String | This field represents the unique identifier for the message sent in the request from MoEngage. |
+| type | Required | String | This field represents the type of message being sent - whether it is a text message or a reply from a button. Allowed Values: text, button |
+| context | Required | Object | This object contains the message id of the request from MoEngage for which the message was sent to the user and to which the user is replying. <br />Structure: <br />"context": `{ "msg_id": "MESSAGE_ID" }` <br />the msg\_id field is sent in the request originating from MoEngage. For more information, refer to [Send Message Template](#send-message-template). |
+| text | Optional | Object | This field contains the incoming text message and is mandatory when the type is text. <br />Structure: <br />"text": `{ "body": "INCOMING_MESSAGE" }` |
+| button | Optional | Object | This field contains the incoming message from a quick reply button and is mandatory when the type is button. <br />Structure: <br />"button": `{ `<br />`"payload": "{'orderid' : '12345', 'reply': 'yes'}", `<br />`"text": "Yes, cancel it" }` |

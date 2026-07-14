@@ -1,0 +1,116 @@
+---
+title: "HubSpot"
+---
+
+[HubSpot](https://www.hubspot.com/products/crm) is a comprehensive customer relationship management (CRM) platform that unifies marketing, sales, service, and operations teams with its integrated suite of tools. This centralized hub helps businesses attract, engage, and delight customers by managing customer interactions and data in one place.
+
+## MoEngage × HubSpot
+
+The integration of MoEngage and HubSpot empowers businesses to enhance their marketing and sales initiatives through seamless data synchronization. With this integration, you can:
+
+- Synchronize contacts, deals, and more from HubSpot to MoEngage.
+- Import sales activities like calls, tasks, and meetings as behavioral events.
+- Capture custom modules for comprehensive customer profiling.
+
+## Use Cases
+
+Integrating HubSpot with MoEngage helps you with the following use cases:
+
+- **Nurture qualified leads** : Send personalized MoEngage campaigns based on lead scoring and lifecycle stage progression in HubSpot.
+- **Re-engage lost opportunities** : Send targeted win-back campaigns when deals are marked as **Closed Lost** to re-engage prospects.
+- **Trigger lifecycle campaigns** : Automatically send a welcome series when contacts move to the Customer lifecycle stage.
+
+### Sync Modules
+
+The following table outlines the default sync type for each module:
+
+| Module | MoEngage Sync Type |
+| --- | --- |
+| Contacts | Users |
+| Leads | Users |
+| Companies | Users (Synced with Contacts and Deals) |
+| Deals | Events |
+| Tickets | Events |
+| Tasks | Events (custom) |
+| Calls | Events (custom) |
+| Meetings | Events (custom) |
+| Custom Modules | Users/Events (custom) |
+
+<Info>
+  Company Information: The Companies module is also supported. To ensure your data is always current, associated company information is synced with your Contacts and Deals records, respectively.
+</Info>
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  Ensure you have access to workflow and webhook capabilities within your HubSpot account.
+</Info>
+
+## Step 1: Get Your MoEngage Endpoint
+
+To get a dedicated endpoint for your integration, please contact the MoEngage Support team. In your request, you must specify the common identifier used to link user profiles between MoEngage and the partner platform.
+
+## Step 2: Create a Workflow in HubSpot
+
+To set up a workflow, perform the following steps:
+
+1. On the sidebar menu in your **HubSpot** dashboard, hover over the **Automation** icon <img src="/images/partner_41087595711636.png" />. The **Automation** menu appears.
+2. Click **Workflows**.
+3. On the **Workflows** page, click **Create** **workflow** in the upper-right corner. <img src="/images/partner_41087595712532.png" />
+4. In the **Create workflow** list, select **From scratch**. <img src="/images/partner_41087550364948.png" />
+5. Now, select an event type and a primary object for your workflow, such as a **Contact** , **Deal** , and so on.
+6. Next, set up triggers and use the filter to define the specific enrollment conditions. For example, you can trigger the workflow when a **Contact Property** (Lifecycle Stage) or a **Deal Stage** is updated.
+   <Frame>
+     ![Hubsopt](/images/hubsopt.png)
+   </Frame>
+
+## Step 3: Configure a Webhook Action
+
+To configure a Webhook action, perform the following steps:
+
+1. After you configure your trigger actions, click **Next** to proceed.
+2. In the **Choose an action** section, select **Data Ops** \> **Send a webhook**.
+3. Provide the following details:
+
+| HubSpot Section | Description |
+| --- | --- |
+| **Method** | **POST** |
+| **URL** | Enter the dedicated Webhook URL provided by MoEngage in the following format:<br />`https://api-0X.moengage.com/v1/partner/hubspot/{events/user}/?configName={config_name}` |
+| **Custom Headers** | **Headers**<br /> <ol><li>In the **Authentication type** list, select **API Key**. This selection populates a dependent drop-down list.</li><li>Click **Add secret**.<br /><br /><img src="/images/partner_41087550365972.png" /><br /><br />The **Add secret** pop-up window appears.</li><li>In the **Secret name** box, type **Authorization**.</li><li>In the **Secret value** box, type the basic token you generated. For more information, refer to the Authorization section.</li><li>Click **Save**.<br /><br /><img src="/images/partner_41087550366356.png" /><br /><br /></li><li>In the **API key** list, select the secret you created from the list.</li><li>In the **API key location** list, select **Request header**.<br /><br /><img src="/images/partner_41087595714324.png" /></li></ol> <br /><br />**Authorization**<br />Generate a Basic Authentication Token using an online [Basic Auth Header Generator tool](https://www.debugbear.com/basic-auth-header-generator). You must enter your **Workspace ID** as username and **Data API Key** as password. To find your credentials, perform the following steps: <ol><li>On the MoEngage UI, navigate to **Settings** \> **Account** \> **APIs**.</li><li>Copy the ID under **Workspace ID** (**earlier app id**).</li><li>Copy the **Data** under **API keys**.</li></ol> Your Basic Authentication Token is a combination of **Workspace ID** and **Data**. For example, paste the following value as your Basic Authentication Token:<br /><br />`Basic Qk5CR1NNNUR4eHh4eHhWQ1hSRFJEWTdSOlFsWHVoTHVaeHh4eHh4QWQrQnBYUEotNw==`<br /><br />**Note** : Ensure the token is copied completely without extra spaces. |
+
+## Step 4: Configure the Request Body
+
+To configure the webhook payload, perform the following steps:
+
+1. In the **Request Body** section, select the **Customize request body** check box.
+2. Add the following details based on the synchronization type (**Users** or **Events**):
+
+| Field Name | Data Type | Value |
+| --- | --- | --- |
+| **Contacts** |  |  |
+| customer\_id | Property | 123456789 |
+| event\_name | Static | User Signed Up |
+| modified\_time | Property | 2025-09-07T11:02:16Z |
+| u\_fn | Property | John |
+| u\_ln | Property | Doe |
+| u\_em | Property | [john.doe@example.com](mailto:john.doe@example.com) |
+| u\_mb | Property | \+1-555-123-4567 |
+
+<img src="/images/partner_41087595714580.png" />\
+You can add additional properties for your specific use case using the **Add property** and **Add static value** options if needed.
+
+<Info>
+  - **customer\_id** : This must be a unique and permanent ID across all syncs.
+  - **modified\_time** & **type** : These are required for both user and event data syncs.
+  - **event\_name** : This is required for event data to allow for proper categorization and segmentation in MoEngage.
+  - **User attributes (u\_\*)** : This is required for user data but optional for event data.
+</Info>
+
+## Data Mapping Guidelines
+
+- **Unique Identifier (Customer ID)** : Use a consistent, immutable unique identifier (like an external\_id, email address, or phone number) from your HubSpot CRM data. Map this value to the `customer_id` field in your MoEngage payload. This is critical for data merging and preventing duplicate user profiles.
+- **Required Fields** : All payloads must include the `customer_id`, `modified_time`, and `type` fields. These are essential for proper data processing, lookups, and segmentation.
+- **Type** : Specify the record type as "Contacts," "Leads," or "Deals" for accurate segmentation and targeting in MoEngage.
+- **Event Name** : Include the `event_name` in every event to identify and categorize actions in MoEngage. This ensures all events are tracked accurately for analysis and segmentation.

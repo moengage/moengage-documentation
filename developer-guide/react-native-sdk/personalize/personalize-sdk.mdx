@@ -1,0 +1,248 @@
+---
+title: "Personalize SDK"
+description: "Learn how to integrate the MoEngage Personalize SDK for React Native to fetch personalized content, handle offering campaigns, and track performance."
+---
+
+# Overview
+
+The MoEngage Personalize SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls.
+
+<Tip>
+  **Prerequisite**
+
+  Before you can fetch personalized experiences, ensure you have initialized the core MoEngage SDK within your application. For more information, refer to [React Native SDK Initialization](https://www.moengage.com/docs/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/manual-initialization/framework-initialization).
+</Tip>
+
+# How It All Fits Together
+
+Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
+
+1. **Dashboard Configuration:** A marketer creates an Experience Campaign in the MoEngage dashboard and assigns it a unique `experienceKey` (e.g., `home_banner`). They configure the specific JSON payload to be returned for different user segments.
+2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user.
+3. **The Fetch Call :** Your application calls `fetchExperience` or `fetchExperiences` with a specific key to retrieve the actual payload. The SDK uses the metadata gathered in Step 2 to accurately resolve and return this request.
+
+<Info>
+  The SDK returns **raw** JSON only. As the developer, you are responsible for parsing this payload and building the corresponding UI in your application.
+</Info>
+
+# Integrate MoEngage Personalization
+
+To add MoEngage's Personalize SDK to your project, use the command below.
+
+```shellscript Shell
+npm install react-native-moengage-personalize
+```
+
+# Implementation Workflow
+
+The Personalize helper for React Native is designed to simplify the retrieval and interaction with dynamic, personalized content. Below is a breakdown of the workflow and code placeholders.
+
+## 1. Fetch Meta Experience
+
+Before fetching any specific payload or experience, you must invoke the metadata call. Prefetching the metadata helps you optimize the experience fetch. On the app side, you can use the metadata to identify the right personalized content for the current UI state and fetch only the relevant content instead of all the content in the application.
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceStatus } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+// Create an array with all possible statuses
+const status = [
+ExperienceStatus.ACTIVE,
+];
+
+personalize.fetchExperiencesMeta(status)
+.then(metadata => // add logic here to process the metadata)
+.catch(error => // add logic for fallback/error handling);
+```
+
+</CodeGroup>
+
+The returned object is a Promise that holds the [`ExperienceCampaignsMetadata` ](/developer-guide/react-native-sdk/personalize/personalize-data-payload)object, containing all necessary metadata for campaign execution. The rejection contains the [`FailureReason`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) and an optional message to identify the specific reason for the request's failure.
+
+
+
+## 2. Fetch Personalized Content
+
+Once metadata is fetched, you can retrieve the actual personalized payloads. You can fetch a single experience or multiple experiences simultaneously, with full support for contextual targeting.
+
+<Info>
+  EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can find this key in the `ExperienceCampaignMeta` object of the `ExperienceCampaignsMetadata` returned on successful metadata fetch.
+</Info>
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceStatus } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+// additional attributes you want to pass for the experience.
+const attributes = {};
+```
+
+</CodeGroup>
+
+### Fetch Single Experience
+
+- **Single Experience**: Retrieve a single experience using a single experience key.
+
+<CodeGroup>
+
+```javascript React Native wrap
+
+personalize.fetchExperience(<experience_key>, attributes)
+.then(result => console.log("Single Experience:", result))
+.catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+### Fetch Multiple Experiences
+
+- **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
+
+<CodeGroup>
+
+```javascript React Native wrap
+const experienceKeys = [<experience_key1>, <experience_key2>];
+personalize.fetchExperiences(experienceKeys, attributes)
+.then(result => console.log("Multiple Experiences:", result))
+.catch(error => console.error(error));
+```
+
+</CodeGroup>
+
+The returned object is a Promise that holds the [`ExperienceCampaignsResult`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) object containing all necessary metadata for campaign execution. The rejection contains the [`FailureReason`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) and an optional message to identify the specific reason for the request's failure.
+
+Use Cases:
+
+**Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
+
+## 3. Notify SDK on Showing the Experience (Track Impressions)
+
+An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
+
+To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
+
+### 3a. Notify SDK for Experience Campaigns
+
+Call the `experiencesShown()` method when the UI element containing the experience renders.
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceCampaign } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+// campaigns is an array of ExperienceCampaign objects received from fetchExperiences
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+const campaigns: ExperienceCampaign[] = [/* campaign objects */];
+
+personalize.experiencesShown(campaigns);
+```
+
+</CodeGroup>
+
+### 3b. Notify SDK for Offering Campaigns
+
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+// object containing offering details for a specific offering campaign
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+const offeringPayloads = [
+];
+
+personalize.offeringShown(offeringPayloads);
+```
+
+</CodeGroup>
+
+## 4. Track Clicks
+
+### 4a. Track Clicks for Experience Campaigns
+
+[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+
+- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
+- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
+- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+
+Use these methods to log "Clicks" when the user interacts with the UI element.
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceCampaign } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+// campaign is an array of ExperienceCampaign objects
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+const campaign: ExperienceCampaign = {/* campaign object */};
+
+personalize.experienceClicked(campaign);
+```
+
+</CodeGroup>
+
+### 4b. Track Clicks for Offering Campaigns
+
+For interactions with specific items (such as a product recommendation or a coupon) contained within an offering campaign:
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceCampaign } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+const campaign: ExperienceCampaign = {/* campaign object */};
+
+// object containing offering details for a specific offering campaign
+// Pass the exact objects or payloads previously received from the fetchExperiences() method.
+const offeringPayloads = { };
+
+personalize.offeringClicked(campaign, offeringPayloads);
+```
+
+</CodeGroup>
+
+#### Example
+
+```JSON Sample Payload
+{
+  "custom_offering_key": {
+    // Expected offering payload in the function call.
+  }
+}
+```
+
+<Info>
+  You can use these Offering-specific functions only if the campaign contains an offering payload (e.g., structured JSON data containing dynamic product recommendations, catalogs, or unique coupon codes nested under a specific offering key). For all other experience data, use the standard experience shown/clicked functions.
+</Info>
+
+# FAQs
+
+<Accordion title="How many experiences I can fetch?">
+  You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
+</Accordion>
+
+<Accordion title="What happens if a fetch request is made while the device is offline and no valid cache is available?">
+  The SDK returns an empty payload along with a standardized error code (e.g., NETWORK\_ERROR).
+</Accordion>

@@ -42,7 +42,8 @@ Each tab contains `groups`. Each group has a `group` name and a list of `pages`.
    - Note the format and patterns used — some groups list strings; others nest child groups with their own `pages`.
 
 5. **Update docs.json.**
-   - Add the new page entry to the appropriate group. Use the file path without the `.mdx` extension (for example, `"user-guide/campaigns-and-channels/push/android-push/new-feature"`).
+   - Add the new page entry to the appropriate group. The slug is the file path without the `.mdx` extension — it must exactly mirror the folder structure on disk. For example, a file at `user-guide/settings/channels/delivery-controls/do-not-disturb.mdx` becomes `"user-guide/settings/channels/delivery-controls/do-not-disturb"`.
+   - Never invent or shorten a slug. If the file is at `developer-guide/ios/push/setup.mdx`, the entry is `"developer-guide/ios/push/setup"` — not `"developer-guide/ios/setup"` or anything else.
    - Maintain consistent formatting and indentation.
    - Preserve alphabetical or logical ordering within the group if that's the existing pattern.
    - Ensure valid JSON syntax.
@@ -72,6 +73,7 @@ If the user says "Add the new `android-push-v13-upgrade.mdx` page at `developer-
 ## Common pitfalls
 
 - Adding the file extension (`.mdx`) to the path — don't.
+- Using a slug that doesn't match the actual file path — the slug must mirror the folder structure exactly. Verify with the real file path before editing.
 - Adding a page to the wrong tab because the file path was misread.
 - Adding to the root of a tab instead of a specific group.
 - Editing the `docs.json` in ways that break JSON validity (missing commas, stray brackets). After editing, run `mint validate` or `python3 -c "import json; json.load(open('docs.json'))"` to confirm the file still parses.

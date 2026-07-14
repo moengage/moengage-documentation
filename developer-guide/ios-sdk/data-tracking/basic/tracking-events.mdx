@@ -6,10 +6,8 @@ description: "Track custom user events and their attributes in your iOS app usin
 Event tracking is used to track user behavior in an app. And later based on the same tracked behavior you can target those users for sending relevant notifications. Make sure to track all the events relevant to your business, so that your product managers and marketers can segment your app users and create targeted campaigns. For eg. You can track what a user is purchasing, whether has a user added an item to the cart etc.
 
 <Info>
-  **Info**
-
-  - We track certain events by default in our SDK, so please make sure to use the default events instead of tracking a new event for the same scenarios. Find the list of default events tracked by SDK [here](https://www.moengage.com/docs/user-guide/getting-started/integration/default-ios-sdk#default-events).
-  - SDK adheres to the MoEngage FUP policies. For more information, refer to the [Fair Usage Policy](https://www.moengage.com/docs/user-guide/data/key-concepts/fair-usage-policy-fup).
+  - We track certain events by default in our SDK, so please make sure to use the default events instead of tracking a new event for the same scenarios. Find the list of default events tracked by SDK [here](/user-guide/getting-started/integration/default-ios-sdk#default-events).
+  - SDK adheres to the MoEngage FUP policies. For more information, refer to the [Fair Usage Policy](/user-guide/data/key-concepts/fair-usage-policy-fup).
 </Info>
 
 # How to track events?
@@ -80,16 +78,6 @@ MoEngageGeoLocation* pickupLocation = [[MoEngageGeoLocation alloc] initWithLatit
   Events that should not affect the session duration calculation in anyways in MoEngage Analytics should be marked as a Non-Interactive events. Refer to [this](https://www.moengage.com/docs/developer-guide/ios-sdk/data-tracking/advanced/session-and-source-tracking) for more info on the same.
 </Info>
 
-Ensure that you are tracking event attributes without changing their data types. Also, make sure the attributes have the same data type across platforms. For instance, in the above purchase event, price is tracked in the numeric form, therefore when the same event is tracked in Android SDK make sure to track it as a number and not a string. Our system detects the data type automatically unless you explicitly specify it as a string.
-
-<Warning>
-  **Restrictions**
-
-  - Event names and attributes should not contain any special characters other than "\_". It can contain spaces and underscore.
-  - In the SDK we reject events with invalid event attributes. Event attribute values can only have Strings, Numbers & an array(strings or numbers), or else events might get rejected.
-  - Having unique timestamps for events is crucial to maintain accurate and reliable data. Please ensure that events do not share the same timestamp down to the millisecond level.
-</Warning>
-
 If you don’t have any attributes, just pass **nil** as the second argument. For eg.
 
 <CodeGroup>
@@ -104,11 +92,100 @@ MoEngageSDKAnalytics.sharedInstance.trackEvent("Event Name", withProperties: nil
 
 </CodeGroup>
 
-<Info>
-  **Note**
+## Validations and restrictions
 
-  You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
+Event attributes have two layers of validation that apply across both `DEBUG` and release builds:
+
+- **Naming and format rules** — these always apply, regardless of build configuration. Refer to [Naming and format rules](#naming-and-format-rules) below.
+- **Type validation** — invalid attribute values (unsupported types such as `null`, custom models, `NaN`, `Infinity`, empty collections, or `Date`/`MoEngageGeoLocation` nested inside an Array or Dictionary) cause a fatal exception in `DEBUG` builds and are silently dropped from the payload in release builds. The rest of the event is tracked. Refer to [Supported attribute value types](#supported-attribute-value-types) below.
+
+<Info>
+  In the iOS SDK, `DEBUG` mode means the SDK was initialized using `initializeDefaultTestInstance(_:)` (TEST workspace) and the app is running attached to Xcode. This is different from a release build that has debug symbols enabled.
 </Info>
+
+### Naming and format rules
+
+- **Attribute names must be non-empty.** Passing an empty string (`""`) as an attribute name causes a fatal exception in `DEBUG` builds. In release builds, the attribute is dropped.
+- **Reserved prefixes.** You cannot use `moe_` as a prefix when naming events, event attributes, or user attributes. It is a system prefix, and using it might result in periodic blocklisting without prior communication.
+
+### Supported attribute value types
+
+Attribute values must be one of: `String`, `Number`, `Date`, `MoEngageGeoLocation`, `Dictionary` (with string keys and supported values), or `Array` (of supported values). If an unsupported value is passed:
+
+- In `DEBUG` builds, the SDK throws a fatal exception and crashes the app to surface data issues early in development.
+- In Release and TestFlight builds, the SDK silently drops the specific invalid attribute and logs the issue. The rest of the event payload is still tracked.
+
+Common triggers for the `DEBUG` exception:
+
+- Passing `null` (`NSNull()`).
+- Passing custom models or UI elements (for example, `UIColor`, `UIImage`).
+- Passing invalid numbers like `NaN` or `Infinity`.
+- Passing empty Arrays or Dictionaries.
+- Nesting `Date` or `MoEngageGeoLocation` objects inside an Array or Dictionary. These must be passed directly as values.
+
+<Info>
+  If you are upgrading an existing app and these strict `DEBUG` validations cause disruptive crashes while you refactor your tracking code, you can temporarily opt out by calling `disableIntegrationValidator()` during SDK initialization. Use this strictly as a stopgap for phased upgrades, and aim to remove the opt-out once your attribute call sites are properly validated.
+</Info>
+
+### Filtering unsupported attribute values
+
+If you are upgrading to a newer version of the iOS SDK and your app passes attribute values whose types are not validated at the call site, add a type-check guard before building the `MoEngageProperties` object. This prevents `DEBUG` crashes and ensures only valid data reaches the SDK in all builds.
+
+<CodeGroup>
+
+```swift Swift wrap
+// Helper to check if a value is a supported event attribute type.
+  // Call this before passing any dynamically-typed value to addAttribute(_:withName:).
+  func isSupportedEventAttributeValue(_ value: Any) -> Bool {
+      switch value {
+      case let d as Double: return !d.isNaN && !d.isInfinite
+      case let f as Float:  return !f.isNaN && !f.isInfinite
+      case is String, is Bool, is Int, is Int8, is Int16, is Int32, is Int64,
+           is UInt, is UInt8, is UInt16, is UInt32, is UInt64, is NSNumber:
+          return true
+      case let arr as [Any]:        return !arr.isEmpty
+      case let dict as [String: Any]: return !dict.isEmpty
+      default: return false
+      }
+  }
+
+  // Usage — value comes from a server response, external model, or unknown source
+  let properties = MoEngageProperties()
+  if isSupportedEventAttributeValue(dynamicValue) {
+      properties.addAttribute(dynamicValue, withName: "attribute_name")
+  }
+
+```
+
+```objective-c Objective C wrap
+// Check if a value is a supported event attribute type before passing to the SDK.
+  - (BOOL)isSupportedEventAttributeValue:(id)value {
+      if ([value isKindOfClass:[NSString class]] || [value isKindOfClass:[NSNumber class]]) {
+          // Guard against NaN / Infinity for floating-point NSNumbers
+          if ([value isKindOfClass:[NSNumber class]]) {
+              double d = [(NSNumber *)value doubleValue];
+              if (isnan(d) || isinf(d)) return NO;
+          }
+          return YES;
+      }
+      if ([value isKindOfClass:[NSArray class]])      return [(NSArray *)value count] > 0;
+      if ([value isKindOfClass:[NSDictionary class]]) return [(NSDictionary *)value count] > 0;
+      return NO;
+  }
+
+  // Usage
+  MoEngageProperties *properties = [[MoEngageProperties alloc] init];
+  if ([self isSupportedEventAttributeValue:dynamicValue]) {
+      [properties addAttribute:dynamicValue withName:@"attribute_name"];
+  }
+
+```
+
+</CodeGroup>
+
+<Note>
+  `Date` and `MoEngageGeoLocation` values must be passed using the dedicated `addDateAttribute`, `addDateEpochAttribute`, `addDateISOStringAttribute`, and `addLocationAttribute` methods — not through the dictionary-based `withAttributes:` initializer or `addAttribute:withName:`.
+</Note>
 
 # Manual Sync
 

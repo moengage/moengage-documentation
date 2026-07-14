@@ -1,0 +1,383 @@
+---
+title: "Campaigns Overview"
+description: "Use the MoEngage Campaigns API to create, update, test, and manage campaigns programmatically. V5 supports campaign creation for Push and Email, with search, retrieval, and personalized preview available for SMS and other channels."
+icon: "file-magnifying-glass"
+---
+
+The Campaigns API (V5) lets you build campaigns incrementally rather than submitting a complete payload in a single request. Create a campaign in draft state, then add content, audience segments, trigger conditions, and scheduling across subsequent calls. Once the campaign is ready, validate its configuration, send test messages, and publish it.
+
+<Note>
+**Publish is in beta**
+
+The publish action is currently in beta. Campaigns created as V5 drafts cannot be published yet via this API. Calling the publish action returns a `4xx` error. You can publish the v5 drafts via MoEngage dashboard. For more details, reach out to your MoEngage Customer Success Manager (CSM).
+</Note>
+
+Include an `Idempotency-Key` (UUID v4) on all POST and PATCH requests to ensure safe retries. The `X-MOE-Tenant-ID` header (your Workspace ID) is optional — when omitted, the workspace is resolved from the Basic Auth credentials in the `Authorization` header.
+
+## Supported channels and delivery types
+
+Channel support varies by operation:
+
+| Operation | Supported channels |
+| :--- | :--- |
+| Create Campaign, Update Campaign, Validate Campaign | `EMAIL`, `PUSH` (Android, iOS, Web) |
+| Get Campaign, Search Campaigns, Get Campaign Meta | `EMAIL`, `PUSH`, `SMS`, `WHATSAPP`, `FACEBOOK`, `GOOGLE ADS`, `CONNECTORS` |
+| Test Campaign | `EMAIL`, `PUSH` |
+| Personalized Preview | `EMAIL`, `PUSH`, `SMS` |
+
+<Note>
+SMS campaign creation and update are not supported in V5. Use the MoEngage dashboard or the V1 API to create and manage SMS campaigns. Existing SMS campaigns can be retrieved, searched, and previewed via V5.
+</Note>
+
+**Supported delivery types:**
+- `ONE_TIME`
+- `PERIODIC`
+- `EVENT_TRIGGERED`
+- `BUSINESS_EVENT_TRIGGERED`
+- `DEVICE_TRIGGERED` (Push only)
+- `LOCATION_TRIGGERED` (Push only)
+- `BROADCAST_LIVE_ACTIVITY` (Push iOS only)
+
+## Campaign lifecycle
+
+<Steps>
+  <Step title="Create">
+    Start a draft with only the required fields: `channel`, `campaign_delivery_type`, and `created_by`. Add content, audience, and scheduling incrementally across subsequent update calls.
+  </Step>
+  <Step title="Update">
+    Patch individual components as you refine the setup. Each submitted component is validated in full before the draft is updated.
+  </Step>
+  <Step title="Validate (optional)">
+    Check whether the draft would pass publish-time validation without committing any changes. This step is optional but recommended before testing or publishing.
+  </Step>
+  <Step title="Test">
+    Send a test message to specific users before going live. V5 supports two modes: **inline mode**, where you supply `channel` and `campaign_content` directly in the request without saving a draft, and **draft mode**, where you pass a `draft_id` to load content from a saved draft. Draft mode is new in V5.
+  </Step>
+  <Step title="Publish">
+    Transition the draft to `ACTIVE` by sending `{ "status": "PUBLISH" }` in a `PATCH /v5/campaigns/{campaign_id}` request. There is no separate publish endpoint. Publishing is a status transition sent through the Update Campaign endpoint.
+  </Step>
+  <Step title="Manage">
+    Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
+  </Step>
+</Steps>
+
+<Note>
+If you are migrating from V1, here is what is new in V5:
+- **Draft state:** Campaigns now start as drafts, giving you full control over when to go live. Publish explicitly using `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }`.
+- **Validate endpoint:** V5 adds a dedicated validate step to check your campaign before publishing. There is no equivalent in V1.
+- **Updated authentication header:** The `MOE-APPKEY` header is replaced by `X-MOE-Tenant-ID` for passing your Workspace ID.
+</Note>
+
+## Campaign versioning
+
+Campaign Versioning is **opt-in** per workspace. When it is turned on, publishing changes to a campaign that is already live creates a **new campaign document** with an incremented `version_number`. The **`campaign_id`** returned in API responses is the **canonical** identifier: it stays the same across versions so you can correlate drafts, search results, and analytics. Each version still has its own raw **`id`** (24-character ObjectId).
+
+For UI-focused behavior and version history in the dashboard, see [Campaign versioning](/user-guide/campaigns-and-channels/campaign-management-and-reports/campaign-versioning).
+
+## Endpoints
+
+The Campaigns API consists of the following endpoints to manage your campaign lifecycle:
+
+* [Create Campaign](/api/create-campaigns/create-campaign-draft-v5): Initializes a new Push or Email campaign in a `DRAFT` state using minimal required fields.
+* [Get Campaign](/api/get-campaign-details/get-campaign-v5): Retrieves a single campaign in its full deparsed form, displaying its current state and configuration.
+* [Update Campaign](/api/update-campaigns/update-campaign-v5): Updates specific components of an existing draft or triggers the formal `PUBLISH` action to launch the campaign.
+* [Validate Campaign](/api/create-campaigns/validate-campaign-v5): Safely runs a full publish-time validation check without modifying the draft or changing its state.
+* [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5): Applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that have already been published.
+* [Search Campaigns](/api/get-campaign-details/search-campaigns-v5): Searches for campaigns using granular filters, with the ability to explicitly include or exclude campaigns in draft state.
+* [Get Campaign Meta](/api/get-campaign-details/get-campaign-meta-v5): Fetches lightweight metadata, including daily cached reachability estimates for scheduled campaigns.
+* [Test Campaign](/api/test-campaigns/test-campaign-v5): Sends a test push or email to up to 10 users. Supports **inline mode** (pass `channel` and `campaign_content` directly) and **draft mode** (pass `draft_id` to load content from a saved draft). Draft mode is new in V5.
+* [Personalized Preview](/api/personalized-preview/personalized-preview-v5): Returns a resolved preview of personalized campaign content for a specific user without sending a message.
+
+<Note>
+Get Child Campaigns and Update Global Control Group are not yet available in V5. Continue to use the V1 Campaigns API for these operations.
+</Note>
+
+## FAQs
+
+### Create Campaign
+
+<AccordionGroup>
+  <Accordion title="What fields are required to create a campaign?">
+    Three fields are required at creation time: `channel` (PUSH or EMAIL), `campaign_delivery_type`, and `created_by` (the email of the user creating the campaign). All other components, including content, audience, scheduling, and delivery controls, are optional and can be added later using the Update Campaign endpoint.
+  </Accordion>
+  <Accordion title="Can I include full campaign content when creating a campaign, or must I build it progressively?">
+    Both approaches are supported. You can submit a minimal request with only the required fields and patch in the remaining components later, or you can include all sections in a single Create request. Any components included at creation time must meet the `DRAFT_CREATE` validation standards.
+  </Accordion>
+  <Accordion title="How does the request_id prevent duplicate campaign creation?">
+    The `request_id` is an idempotency key scoped to campaign creation. For Push campaigns, the same `request_id` cannot be reused for one hour after a successful creation. For Email campaigns, the window is one day. If a creation attempt fails, you can retry immediately using the same `request_id`.
+  </Accordion>
+  <Accordion title="What delivery types are supported for Push and Email campaigns?">
+    - **Push:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`, `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, `BROADCAST_LIVE_ACTIVITY`
+    - **Email:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`
+  </Accordion>
+  <Accordion title="What are the creation rate limits?">
+    The API enforces two sets of limits:
+
+    - **Request rate:** 5 per second, 25 per minute, 100 per hour.
+    - **Campaign creation:** 5 successful per minute, 25 per hour, 100 per day.
+
+    Once 100 campaigns are successfully created within a day, subsequent requests are rejected regardless of the total number of API calls made.
+  </Accordion>
+  <Accordion title="How do I personalize campaign content using user attributes?">
+    MoEngage supports template expressions in content fields such as `title`, `message`, `subject`, and `html_content`. Use the following syntax to reference a user attribute at delivery time:
+
+    ```
+    {{UserAttribute['First Name']}}
+    ```
+
+    MoEngage also supports personalization using event attributes, content blocks, and the Content API. Refer to the MoEngage personalization documentation for the full syntax and configuration details for each source.
+  </Accordion>
+  <Accordion title="How do campaigns created via the API appear in the MoEngage dashboard?">
+    Campaigns created via the API are visible in the MoEngage dashboard under **Campaigns**, alongside campaigns created through the UI. Campaigns in `DRAFT` status can be updated via subsequent API calls.
+  </Accordion>
+  <Accordion title="Can I pass both custom_template_id and html_content in the same Email campaign request?">
+    No. `custom_template_id` and `html_content` are mutually exclusive in the Email campaign content payload. Submitting both fields in the same request returns a validation error. Use `custom_template_id` to reference a saved template from the MoEngage Email Template library, or use `html_content` to supply raw HTML directly.
+  </Accordion>
+  <Accordion title="How do I target a custom segment when creating a campaign?">
+    Pass the segment reference inside `segmentation_details.included_filters` using `filter_type: custom_segments`. You can find the segment ID and name in the MoEngage dashboard under **Segments**.
+
+    ```json
+    {
+      "segmentation_details": {
+        "included_filters": {
+          "filter_operator": "and",
+          "filters": [
+            {
+              "filter_type": "custom_segments",
+              "name": "{{segment_name}}",
+              "id": "{{segment_id}}"
+            }
+          ]
+        }
+      }
+    }
+    ```
+
+    To exclude a segment, use the same structure under `excluded_filters`. You can combine multiple filter types, such as user attributes, actions, and custom segments, in the same `filters` array using the `filter_operator` (`and` / `or`).
+  </Accordion>
+</AccordionGroup>
+
+### Get Campaign
+
+<AccordionGroup>
+  <Accordion title="What identifier do I use to fetch a campaign?">
+    Use the `campaign_id` path parameter, which is the 24-character ObjectId returned when you create or search for a campaign. Pass it in the `GET /v5/campaigns/{campaign_id}` request.
+  </Accordion>
+  <Accordion title="What is the difference between campaign_id and id in the response?">
+    When campaign versioning is enabled, `campaign_id` is the stable canonical identifier that stays the same across all versions of a campaign. The `id` field is the raw ObjectId unique to each individual version document. Use `campaign_id` to correlate drafts, published campaigns, and analytics across versions.
+  </Accordion>
+  <Accordion title="What campaign statuses can be returned by this endpoint?">
+    The response reflects the campaign's current lifecycle state, which can be `DRAFT`, `SCHEDULED`, `ACTIVE`, `SENDING`, `PAUSED`, `SENT`, `STOPPED`, or `ARCHIVED`.
+  </Accordion>
+</AccordionGroup>
+
+### Update Campaign
+
+<AccordionGroup>
+  <Accordion title="Can I update campaign components and publish in the same request?">
+    No. Component updates and the publish action are mutually exclusive. To update components, send the fields you want to change without a `status` key. To publish, send only `{ "status": "PUBLISH" }`. Combining both in a single request returns a `400 Bad Request` error.
+  </Accordion>
+  <Accordion title="Which fields cannot be edited once a campaign is Active?">
+    - **Active:** You cannot edit `trigger_condition`, `segmentation_details`, `conversion_goal_details`, the scheduling type, or the scheduling start date.
+    - **Scheduled:** All fields can be edited except the scheduling type.
+    - **Stopped / Archived:** No fields can be updated.
+  </Accordion>
+  <Accordion title="How long does it take for updated content to reach users in Event-triggered campaigns?">
+    Updated content for Event-triggered campaigns is cached and can take up to 30 minutes to propagate to users.
+  </Accordion>
+  <Accordion title="Do I need to send the full campaign payload when updating?">
+    No. Send only the components you want to update. However, if you are updating a field within a nested object, you must send the complete parent object. For example, to update the title of a push notification, include the full `campaign_content` object in the request body.
+  </Accordion>
+  <Accordion title="What API scopes are required to update or publish a campaign?">
+    Component-level updates require the `campaigns:create_manage` scope. Publishing a campaign (sending `{ "status": "PUBLISH" }`) requires the `campaigns:create_manage_publish` scope. The publish action is currently in beta and returns a `4xx` error regardless of scope.
+  </Accordion>
+  <Accordion title="Is there a separate publish endpoint?">
+    No. Publishing is a status transition sent through the Update Campaign endpoint. Send `{ "status": "PUBLISH" }` as the request body in a `PATCH /v5/campaigns/{campaign_id}` request. The Update Campaign Status endpoint (`POST /v5/campaigns/{campaign_id}/status`) is a different endpoint that handles post-publish transitions, STOP, PAUSE, and RESUME, and does not accept `PUBLISH`. The publish action is currently in beta and not yet available.
+  </Accordion>
+  <Accordion title="Can I update the segmentation audience when the campaign is Active?">
+    No. The `segmentation_details` field cannot be updated for campaigns in `ACTIVE` state. To change the audience, stop the campaign and create a new one. See [Which fields cannot be edited once a campaign is Active?](#update-campaign) for the full list of non-editable fields by campaign state.
+  </Accordion>
+  <Accordion title="When does updated content reach users?">
+    It depends on the delivery type:
+
+    - **Event-triggered campaigns:** Updated content is cached and can take up to 30 minutes to propagate to users after a successful update.
+    - **Periodic campaigns:** The updated configuration applies from the next scheduled run.
+    - **One-time campaigns:** Changes apply to any messages that have not yet been dispatched at the time of the update.
+  </Accordion>
+  <Accordion title="How do I find the campaign ID to use in the update request?">
+    The `campaign_id` is returned in the `data.id` field of the Create Campaign response. You can also retrieve it using `GET /v5/campaigns/{campaign_id}` or by using the [Search Campaigns](/api/get-campaign-details/search-campaigns-v5) endpoint to look up campaigns by name, status, channel, or delivery type.
+  </Accordion>
+  <Accordion title="Can I change the template type in an Active Push campaign?">
+    Yes. The `template_type` field is part of `campaign_content`, which can be updated for campaigns in `ACTIVE` state. If you change the template type, include all required fields for the new template in the same request, as each template type has different required fields.
+  </Accordion>
+  <Accordion title="Can I add or remove platforms in an Active Push campaign?">
+    Yes. The `platforms` field in `basic_details` is not restricted for `ACTIVE` campaigns. Adding a platform extends delivery to that platform for future sends; removing a platform stops delivery to it.
+  </Accordion>
+</AccordionGroup>
+
+### Validate Campaign
+
+<AccordionGroup>
+  <Accordion title="Does calling validate change the campaign's state or content?">
+    No. The validate endpoint performs a read-only publish-time validation check (`DRAFT_PUBLISH`) without modifying the campaign or changing its status.
+  </Accordion>
+  <Accordion title="What HTTP status code does this endpoint return if the campaign is invalid?">
+    The endpoint always returns HTTP `200`. Whether the campaign is valid or not is indicated in the response body through the `valid` field (`true` or `false`) and an `errors` array that lists any validation failures.
+  </Accordion>
+  <Accordion title="Is an idempotency key required for this endpoint?">
+    No. Unlike other POST and PATCH endpoints, the validate endpoint does not require an `Idempotency-Key` header.
+  </Accordion>
+</AccordionGroup>
+
+### Update Campaign Status
+
+<AccordionGroup>
+  <Accordion title="What status transitions does this endpoint support?">
+    The endpoint supports three actions. Each action applies only to specific delivery types and requires the campaign to be in a valid source state:
+
+    | Action | Supported delivery types | Valid source states |
+    | :--- | :--- | :--- |
+    | `STOP` | `ONE_TIME` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
+    | `PAUSE` | `PERIODIC`, `EVENT_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `SENDING` |
+    | `RESUME` | `PERIODIC`, `EVENT_TRIGGERED` | `PAUSED` |
+
+  </Accordion>
+  <Accordion title="Can I use this endpoint to publish a campaign?">
+    No. This endpoint only applies lifecycle transitions to campaigns that are already published. To publish a campaign, use `PATCH /v5/campaigns/{campaign_id}` with the body `{ "status": "PUBLISH" }`.
+  </Accordion>
+  <Accordion title="Can I stop a Periodic or Event-triggered campaign?">
+    `STOP` is not valid for Periodic or Event-triggered campaigns. Use `PAUSE` to temporarily halt a running Periodic or Event-triggered campaign and `RESUME` to restart it. Attempting to `STOP` a Periodic campaign returns a `422 Unprocessable Entity` error.
+  </Accordion>
+  <Accordion title="Can I stop a One-time campaign that is in SENDING state?">
+    Yes. `STOP` is valid for One-time campaigns in `SCHEDULED`, `ACTIVE`, `PAUSED`, and `SENDING` states. If the campaign is in `SENDING` state, the action halts any remaining sends. Messages already dispatched before the stop is processed are still delivered.
+  </Accordion>
+  <Accordion title="Which campaign types and channels does this endpoint support?">
+    - **Push:** Periodic, Event-triggered, Device-triggered, and Location-triggered campaigns.
+    - **Email:** Periodic and Event-triggered campaigns.
+    - **Both channels:** Stopping a Scheduled One-time campaign.
+  </Accordion>
+</AccordionGroup>
+
+### Search Campaigns
+
+<AccordionGroup>
+  <Accordion title="Are campaigns in draft state included in search results by default?">
+    No. Campaigns in `DRAFT` state are excluded from results unless you explicitly include `DRAFT` in the `campaign_fields.status` array. This preserves backward compatibility with existing integrations that do not expect draft rows in results.
+  </Accordion>
+  <Accordion title="What is the maximum number of campaigns returned per page?">
+    The maximum is 15 campaigns per page. Use the `limit` and `page` parameters to paginate through results.
+  </Accordion>
+  <Accordion title="How do I identify which campaign belongs to a flow?">
+    Check the `flow_name` and `flow_id` fields in the response. If these fields are present, the campaign is a node within a flow.
+  </Accordion>
+  <Accordion title="How does campaign versioning affect search results?">
+    When campaign versioning is enabled, each published revision appears as a separate document in search results, all sharing the same `campaign_id`. You can filter by `version_number` in the `campaign_fields` object to narrow results to a specific version.
+  </Accordion>
+  <Accordion title="How do I search for SMS campaigns?">
+    Include `"SMS"` in the `campaign_fields.channels` array. Matching results return `channel: SMS` and include SMS-specific fields, `connector` (connector type and name) and `sender_name`, in each campaign object. Note that SMS campaign creation and update are not supported in V5; this endpoint retrieves existing SMS campaigns only.
+  </Accordion>
+  <Accordion title="How do I retrieve campaigns that are part of a flow?">
+    Set `include_child_campaigns: true` in the request body. Flow-node campaigns are excluded from results by default. When this flag is enabled, flow-node campaigns appear in the results with `flow_id` and `flow_name` populated. Periodic child campaigns also appear with a `parent_id` field when this flag is set.
+  </Accordion>
+  <Accordion title="How do I include archived campaigns in search results?">
+    Set `include_archive_campaigns: true` in the request body. Archived campaigns are excluded by default, regardless of whether `ARCHIVED` is listed in `campaign_fields.status`. You must set this flag to `true` to include them.
+  </Accordion>
+  <Accordion title="Can I filter SMS campaigns by sender name?">
+    There is no `sender_name` filter in the search request. To find SMS campaigns from a specific sender, pass `"SMS"` in `campaign_fields.channels` to retrieve all SMS campaigns, then filter by the `sender_name` field returned in each result on the client side.
+  </Accordion>
+</AccordionGroup>
+
+### Get Campaign Meta
+
+<AccordionGroup>
+  <Accordion title="Is reachability information available for all campaign types?">
+    No. Reachability estimates are available only for scheduled campaigns: One-time, Business Event-triggered, and Event-triggered campaigns. The field is not populated for other campaign types.
+  </Accordion>
+  <Accordion title="Can reachability be refreshed with every API call?">
+    No. Reachability is calculated once per day and cached for 24 hours. Multiple calls within the same day return the same cached value. The estimate may vary over time due to app installations, uninstalls, or changes in subscription status.
+  </Accordion>
+  <Accordion title="What channels does this endpoint support?">
+    The endpoint supports Email, Push, SMS, WhatsApp, Facebook, Google Ads, and Connector-based campaigns.
+  </Accordion>
+  <Accordion title="Where does the rejection_comment field appear?">
+    If a campaign has been reviewed and rejected, the `rejection_comment` field appears in the meta response while the campaign remains in `DRAFT` status.
+  </Accordion>
+</AccordionGroup>
+
+### Test Campaign
+
+<AccordionGroup>
+  <Accordion title="Can I send a test without first saving a campaign?">
+    Yes. Use inline mode by including `channel` and `campaign_content` directly in the test request. The content is not stored on the server. For Email inline tests, also include the `connector` object. To test using a saved campaign, use draft mode and pass the `draft_id` instead.
+  </Accordion>
+  <Accordion title="What is the maximum number of recipients for a test send?">
+    You can send a test to a maximum of 10 users at a time using the `identifier_values` array.
+  </Accordion>
+  <Accordion title="Can I test a campaign for a specific platform, locale, or variation?">
+    Yes. In draft mode, the server sends one test per platform, locale, and variation by default. To narrow the send, specify `test_campaign_meta.platform` (ANDROID, IOS, or WEB), `locale_name`, or `variation` in the request.
+  </Accordion>
+  <Accordion title="Can I send a test to a recipient who is not a MoEngage user?">
+    Yes. Use `EMAIL` as the `identifier` type and provide the recipient's email address. The test will be sent, but the content will not be personalized with user profile data since there is no matching user record in MoEngage.
+  </Accordion>
+</AccordionGroup>
+
+### Push Campaigns
+
+<AccordionGroup>
+  <Accordion title="How do I find the template ID for a Push notification template?">
+    Use the MoEngage Templates API to list Push templates available in your workspace. The response includes a `template_id` for each template. Pass this value as `custom_template_id` in the `campaign_content` payload when creating or updating a Push campaign.
+  </Accordion>
+  <Accordion title="How do I know which fields are required for a specific Push template type?">
+    Required fields vary by `template_type`. Set the `template_type` in the `basic_details` object of your campaign content payload. The supported values for Android are `BASIC`, `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`, `TIMER`, `TIMER_WITH_PROGRESS_BAR`, and `Custom`. For iOS, the supported values are `BASIC`, `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, and `Custom`.
+
+    For the `Custom` template type, `custom_template_id` is required. For all other types, refer to the `campaign_content` schema in the [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) reference for the full list of required and optional fields per template type.
+  </Accordion>
+</AccordionGroup>
+
+### SMS Campaigns
+
+<AccordionGroup>
+  <Accordion title="Can I create or update SMS campaigns using V5?">
+    No. SMS campaign creation and update are not supported in V5. You can retrieve existing SMS campaigns using Get Campaign and Search Campaigns, and preview SMS content using Personalized Preview. To create and manage SMS campaigns, use the MoEngage dashboard or the V1 API.
+  </Accordion>
+  <Accordion title="How do I identify the sender name for an SMS campaign?">
+    The `sender_name` field in the campaign response carries the sender name configured for the campaign. This field is only populated for SMS campaigns. There is no `sender_name` filter in the Search Campaigns request. To find campaigns for a specific sender, retrieve all SMS campaigns and filter by `sender_name` on the client side.
+  </Accordion>
+  <Accordion title="How do I retrieve the connector configuration for an SMS campaign?">
+    The `connector` object in the campaign response contains the `connector_type` and `connector_name` for the campaign. For SMS campaigns, these fields identify the SMS delivery provider configured in your workspace.
+  </Accordion>
+</AccordionGroup>
+
+### Personalized Preview
+
+<AccordionGroup>
+  <Accordion title="What channels does the Personalized Preview endpoint support?">
+    The endpoint supports `PUSH`, `EMAIL`, and `SMS`. Pass the target channel in the `channel` field of the request body.
+  </Accordion>
+  <Accordion title="Does this endpoint send a message to the user?">
+    No. The endpoint is read-only. It resolves all personalization expressions against the specified user's profile and returns the fully rendered content, but no message is delivered.
+  </Accordion>
+  <Accordion title="What personalization sources does this endpoint resolve?">
+    The endpoint resolves all standard MoEngage personalization sources: user attributes, event attributes, custom templates, content blocks, content APIs, and product sets. All Jinja expressions in the content are evaluated against the specified user's profile.
+  </Accordion>
+  <Accordion title="How do I preview content for an event-triggered campaign?">
+    Pass the triggering event's attribute key-value pairs in the `event_attributes` object. The endpoint injects these values at resolution time to simulate how the content would render for a specific event. For example:
+
+    ```json
+    {
+      "event_attributes": {
+        "product_name": "Running Shoes",
+        "product_price": "4999"
+      }
+    }
+    ```
+
+    In the content, reference these values using `{{ event.product_name }}`.
+  </Accordion>
+  <Accordion title="How do I preview content that uses a custom template?">
+    Pass `custom_template_id` in the `campaign_content` object, the same way you would in a Create Campaign request. The endpoint fetches and resolves the template, then returns the fully rendered output for the specified user.
+  </Accordion>
+  <Accordion title="Can I use a saved draft with the Personalized Preview endpoint?">
+    No. The Personalized Preview endpoint only accepts inline content passed in `campaign_content`. It does not load content from a saved draft. To send a test message from a saved draft, use the Test Campaign endpoint with `draft_id`.
+  </Accordion>
+</AccordionGroup>

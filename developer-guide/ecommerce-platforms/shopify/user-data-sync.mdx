@@ -3,34 +3,98 @@ title: "User Data Sync"
 description: "Sync your existing Shopify users and order history to MoEngage for segmentation and engagement."
 ---
 
-After you have completed the initial setup and have a working integration, you can use this option to sync your existing users and their order data into MoEngage.This ensures all your users' past data is available in your MoEngage account. You can use this data to start engaging and segmenting the users from Day 1.
+After you complete the initial integration, you can sync your existing Shopify users and their historical order data to MoEngage. This process allows you to build segments, trigger campaigns, and personalize communication based on past user behavior from the moment you start using MoEngage.
 
-# Sync User Data
+## Data Available for Sync
 
-To sync user data to MoEngage:
+The synchronization process imports two primary data types into MoEngage:
 
-1. Switch to the _Sync Shopify data_ tab on the installed App.
-2. Select the period from which the order data has to be synced to MoEngage by selecting the _Date range_. You can sync data up to the last 2 years from the date of installation. But before doing the sync beyond 60 days please make sure to increase the event retention for the events. Reach out to your customer success manager or support for the next steps on increasing event retention.
-3. The date range selection outlines the limit on the order data only, all the registered user data as of the installation date available in your store will be synced irrespective of when a user was created.
-4. Click sync past data after choosing the date range. Once the sync has started, you will get information about it in the Sync progress section, as shown below. It may take up to 24 hours to complete data sync, depending on the date range selected. Once the sync is complete the status will be updated to "Sync successful".
+| Data Type          | Description                                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Order history**  | MoEngage ingests past orders within your selected date range as individual [`Shopify - Order Placed`](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking) events. Each event uses the original order timestamp from Shopify. |
+| **User profiles**  | MoEngage imports all registered users in your Shopify store. The system creates or updates profiles using the unique identifier (email or mobile number) you selected during integration setup.                              |
 
-![User Data Sync1 Png 1](/images/UserDataSync1.png-1.png)
+### User Attribute Mapping
 
-The past order data will be synced in Moengage as a separate event for each unique order ID. The Event raised will be "[Shopify - Order Placed](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking)"and the "Created at" event attribute will be the date time value of when the order was placed. 
-
-Similarly, each synced user's profile will be created on MoEngage with either an Email or Mobile number as the unique identifier, as per the [UID set](/developer-guide/ecommerce-platforms/shopify/shopify-20). In addition to the UID, the following attributes will also be synced if available with the newly created profiles. If some attributes aren't present in the user's Shopify profile, those attributes will be left empty.
+MoEngage synchronizes the following attributes to the user profile if they are available in the Shopify record:
 
 - Email
-- First Name
-- Last Name
+- First name
+- Last name
 - Phone
 - City
 - Country
 - State
-- Shopify Id
-- Accepts Marketing
+- Shopify ID
+- Accepts marketing
 - Order count
 
 <Info>
-  If you have any questions about the working of your Shopify integration read our [FAQs](/developer-guide/ecommerce-platforms/shopify/faqs)
+  **Excluded Data**
+
+  By default, MoEngage does not sync Shopify customer metafields (custom data fields). If your personalization requires metafield data, refer to the [Events and User Data Tracking](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking) article for custom integration steps.
 </Info>
+
+## Sync Prerequisites
+
+### Event Retention Period
+
+To ensure your event retention settings accommodate the data range you intend to sync, perform the following check before you begin the synchronization process:
+
+MoEngage stores events for a specific retention window. If your selected sync range exceeds your retention window, MoEngage stops syncing orders once it reaches the limit. The sync status will show as "Sync successful," but older data will be missing from the dashboard.
+
+<Warning>
+  **Warning**
+
+  If you plan to sync more than 60 days of history, contact your Customer Success Manager or raise a support ticket to increase your event retention period **before** starting the sync. You cannot apply these changes retroactively.
+</Warning>
+
+### User Identifiers
+
+MoEngage synchronizes users and their orders based on the unique identifier you selected during integration setup:
+
+- If you selected **email**, the system silently excludes users who do not have an email address.
+- The system does not generate error messages for skipped records.
+
+## Sync Process
+
+To synchronize your Shopify data, perform the following steps:
+
+1. Open your MoEngage Shopify app and click the **Sync Shopify data** tab.
+2. Select the date range for your order history. You can sync data for up to the last 2 years from your installation date.
+3. Click **Sync past data**.
+
+   ![Sync past data section in the MoEngage Shopify app](/images/UserDataSync1.png-1.png)
+
+Monitor progress in the **Sync progress** section.
+
+## Sync Verification
+
+<Info>
+  **Sync status does not confirm data arrival**
+
+  The sync status might update to **Sync successful** within seconds of starting. This indicates the request was received, not that the data has finished processing. Large datasets can take several hours, and up to 24 hours for very large stores. Always verify directly on user profiles.
+</Info>
+
+To verify the sync, perform the following steps:
+
+1. Wait for at least two hours after starting the sync.
+2. In the MoEngage UI, navigate to a user profile for a customer who placed an order within the sync window.
+3. Verify that the `Shopify - Order Placed` event appears on their profile with the correct original order date.
+4. If the sync status shows as successful but no data appears after 24 hours, contact support with your selected date range and approximate order count.
+
+## Automatic Event Updates
+
+After the historical sync completes, MoEngage automatically tracks new orders via Shopify webhooks. You do not need to run the sync again for new data.
+
+<Warning>
+  **Important**
+
+  The sync is a one-time operation for historical backfill. Do not run the sync a second time for the same date range, as this action creates duplicate events in MoEngage.
+</Warning>
+
+## Synced User Attributes
+
+MoEngage creates a `Shopify - Order Placed` event for each unique order ID within your selected date range. The `Created at` attribute on each event reflects the date and time the order was originally placed in Shopify.
+
+For more information on the list of event attributes, refer to the [Events and User Data Tracking](/developer-guide/ecommerce-platforms/shopify/events-and-user-data-tracking) article.

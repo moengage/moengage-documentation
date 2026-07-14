@@ -53,7 +53,10 @@ First, go to `Build Settings` of your `App Target` and ensure that **DEBUG** Pre
   }
   ```
   </CodeGroup>
-- In your MoEngage account, if your [portfolio](https://www.moengage.com/docs/user-guide/settings/account/portfolio/portfolio) is configured with multiple projects, Provide the respective Project ID along with the Datacenter while initializing the SDK with MoEngageSDKConfig instance . Use [initializeDefaultTestInstance(\_:)](https://moengage.github.io/ios-api-reference/Classes/MoEngage.html#/c:@M@MoEngageSDK@objc\(cs\)MoEngage\(im\)initializeDefaultTestInstance:) and[ initializeDefaultLiveInstance(\_:)](https://moengage.github.io/ios-api-reference/Classes/MoEngage.html#/c:@M@MoEngageSDK@objc\(cs\)MoEngage\(im\)initializeDefaultLiveInstance:) methods as shown below:
+- In your MoEngage account, if your [portfolio](https://help.moengage.com/hc/en-us/articles/40394603054100-Portfolio) is configured with multiple projects, Provide the respective Project ID along with the Datacenter while initializing the SDK with MoEngageSDKConfig instance . Use [initializeDefaultTestInstance(\_:)](https://moengage.github.io/ios-api-reference/Classes/MoEngage.html#/c:@M@MoEngageSDK@objc\(cs\)MoEngage\(im\)initializeDefaultTestInstance:) and[ initializeDefaultLiveInstance(\_:)](https://moengage.github.io/ios-api-reference/Classes/MoEngage.html#/c:@M@MoEngageSDK@objc\(cs\)MoEngage\(im\)initializeDefaultLiveInstance:) methods as shown below:
+<Info>
+  - **Portfolio attributes without `projectConfig`.** If you set any portfolio attribute without passing a non-empty `projectID` during SDK initialization, the SDK throws an exception, resulting in an application crash in `DEBUG` mode. If you are using portfolio attributes, you must provide the `projectConfig`.
+</Info>
   <CodeGroup>
   ```swift Swift wrap
   let sdkConfig = MoEngageSDKConfig(appId: "YOUR WorkspaceID", dataCenter: DATA_CENTER)
@@ -74,6 +77,16 @@ First, go to `Build Settings` of your `App Target` and ensure that **DEBUG** Pre
   #endif
   ```
   </CodeGroup>
+
+<Warning>
+  **Validations during initialization**
+
+  The MoEngage iOS SDK enforces the following checks while initializing. In `DEBUG` builds (SDK initialized with `initializeDefaultTestInstance(_:)` and the app running under Xcode), each of these throws a fatal exception and crashes the app. In Release and TestFlight builds, the invalid configuration or attribute is dropped silently and logged.
+
+  - **Empty Workspace ID.** Initializing `MoEngageSDKConfig` with an empty `appId` is invalid.
+  - **SDK version downgrade.** Downgrading the MoEngage iOS SDK to a lower version than what the app was previously shipped with is not supported. The SDK detects the downgrade during initialization and crashes in `DEBUG` builds.
+  - **API calls before initialization.** Calling MoEngage tracking APIs — for example, email click tracking, Live Activity, or analytics methods — before the SDK is initialized throws a fatal exception in `DEBUG` builds. In Release and TestFlight builds, these calls are dropped silently. Initialize the SDK in `application(_:didFinishLaunchingWithOptions:)` before invoking any other MoEngage API.
+</Warning>
 
 Following details of the different data centers you need to set based on the dashboard hosts
 
@@ -133,6 +146,6 @@ While exporting the build make sure you set the correct `Build Configuration`. B
 
 # Switching Environment in Dashboard
 
-In the MoEngage dashboard you can switch between [test and live environment](https://www.moengage.com/docs/user-guide/getting-started/initial-setup/live-and-test-environments) for your app.
+In the MoEngage dashboard you can switch between [test and live environment](/user-guide/getting-started/initial-setup/dashboard-overview#live-and-test-environments) for your app.
 
 **TEST** Environment is used for all the development and testing-related uses and **LIVE** environment is used for running all the campaigns for AppStore Builds for your app's user base.

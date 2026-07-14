@@ -34,7 +34,7 @@ Rule #1: If you want an exception to ANY rule, STOP and get explicit permission 
 When asked to review, check the material against:
 
 1. **Frontmatter** — `title` and `description` are present, clear, and accurate. `keywords` where useful.
-2. **Writing standards** — second-person voice, active voice, sentence case, no promotional language, no editorializing, consistent product terminology.
+2. **Writing standards** — second-person voice, active voice, title case, no promotional language, no editorializing, consistent product terminology.
 3. **Technical accuracy** — verify SDK names, method signatures, API endpoints, parameter names, default values, and version references against the surrounding content or the source material the human provided.
 4. **Mintlify components** — correct component choice (`Note` / `Warning` / `Tip` / `Info` / `Check` / `Danger`), proper nesting, and valid props.
 5. **Links** — internal links use root-relative paths without file extensions (`/user-guide/campaigns-and-channels/push/overview`, not `../push/overview` or `...push/overview.mdx`).
