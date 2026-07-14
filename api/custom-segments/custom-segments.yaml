@@ -28,8 +28,8 @@ tags:
   - name: Manage Segments
     description: |
       Archiving and unarchiving through APIs makes it easy to retrieve and reuse segments whenever required for purposes such as A/B testing, maintaining regulatory compliance, and improving system performance.
-      
-      You can access the archived segments and utilize them to analyze and market campaigns without the need to recreate them from scratch.
+
+      You can unarchive an archived segment to reuse it in campaigns and analysis without recreating it from scratch.
     x-mint:
       content: |
         
@@ -67,22 +67,17 @@ paths:
       parameters:
         - name: Content-Type
           in: header
-          description: Select the file content type.
+          description: Set to `application/json`.
           required: true
           schema:
             type: string
-            default: text/csv
+            default: application/json
             enum:
-              - text/csv
-              - application/csv
-              - application/vnd.ms-excel
-              - text/plain
-              - application/octet-stream
-              - binary/octet-stream
-        - name: Database
+              - application/json
+        - name: MOE-DBNAME
           in: header
-          description: Set the database from which the data is available (MOE-DBNAME).
-          required: false
+          description: The MoEngage database name (`db_name`) from which the data is available.
+          required: true
           schema:
             type: string
       x-mint:
@@ -139,18 +134,13 @@ paths:
               emails: ["user1@example.com", "user2@example.com"]
               expiry_time: 30
       responses:
-        '200':
-          description: Everything worked as expected.
-          content:
-            application/json:
-              example: "No example response body available for this status code."
         '202':
           description: Request accepted for processing.
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/ApiResponseSuccessV2'
+                  - $ref: '#/components/schemas/FileSegmentAcceptedResponseV2'
                   - $ref: '#/components/schemas/CallbackV2'
               examples:
                 api_response:
@@ -160,6 +150,7 @@ paths:
                     message: "File-segment creation request accepted"
                     success: true
                     cs_name: "custom_segment_unique_name"
+                    cs_id: "<unique cs id>"
                 callback_success:
                   summary: Callback - Success
                   description: Callback sent to your callback_url when segment processing completes successfully.
@@ -176,34 +167,10 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ApiErrorV2'
-                  - $ref: '#/components/schemas/CallbackV2'
-              examples:
-                api_invalid_request:
-                  summary: API Response - Invalid Request
-                  description: Immediate response from the API when the request is invalid.
-                  value:
-                    title: "Invalid Request"
-                    description: "<message>"
-                callback_file_size:
-                  summary: Callback - Failure (File Size)
-                  description: Callback sent to your callback_url when file size exceeds the limit.
-                  value:
-                    db_name: "test_db"
-                    segment_name: "test_segment_name"
-                    request_id: "d5a263c4ef1198ae3d8496c0460f570f"
-                    status: 400
-                    error_message: "File size cannot be greater than 150MB. Created custom_segment contains 0 users."
-                callback_download_failed:
-                  summary: Callback - Failure (Download Failed)
-                  description: Callback sent to your callback_url when file download fails.
-                  value:
-                    db_name: "test_db"
-                    segment_name: "test_segment_name"
-                    request_id: "d5a263c4ef1198ae3d8496c0460f570f"
-                    status: 400
-                    error_message: "File download failed. Created custom_segment contains 0 users."
+                $ref: '#/components/schemas/ApiErrorV2'
+              example:
+                title: "Invalid Request"
+                description: "<message>"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '409':
@@ -215,39 +182,9 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ApiErrorV2'
-                  - $ref: '#/components/schemas/CallbackV2'
-              examples:
-                api_internal_error:
-                  summary: API Response - Internal Server Error
-                  description: Immediate response from the API when an internal server error occurs.
-                  value:
-                    title: "Internal Server Error"
-                callback_internal_error:
-                  summary: Callback - Failure (Internal Server Error)
-                  description: Callback sent to your callback_url when segment processing encounters an internal error.
-                  value:
-                    db_name: "test_db"
-                    segment_name: "test_segment_name"
-                    request_id: "d5a263c4ef1198ae3d8496c0460f570f"
-                    status: 500
-                    error_message: "Internal Server Error. Contact MoEngage Team."
-        '502':
-          description: Bad Gateway. Something went wrong on MoEngage.
-          content:
-            application/json:
-              example: "No example response body available for this status code."
-        '503':
-          description: Service Unavailable. Something went wrong on MoEngage.
-          content:
-            application/json:
-              example: "No example response body available for this status code."
-        '504':
-          description: Gateway Timeout. Something went wrong on MoEngage.
-          content:
-            application/json:
-              example: "No example response body available for this status code."
+                $ref: '#/components/schemas/ApiErrorV2'
+              example:
+                title: "Internal Server Error"
       callbacks:
         segmentCreationCallback:
           $ref: '#/components/callbacks/segmentProcessingCallback'
@@ -261,22 +198,17 @@ paths:
       parameters:
         - name: Content-Type
           in: header
-          description: Select the file content type.
+          description: Set to `application/json`.
           required: true
           schema:
             type: string
-            default: text/csv
+            default: application/json
             enum:
-              - text/csv
-              - application/csv
-              - application/vnd.ms-excel
-              - text/plain
-              - application/octet-stream
-              - binary/octet-stream
-        - name: Database
+              - application/json
+        - name: MOE-DBNAME
           in: header
-          description: Set the database from which the data is available (MOE-DBNAME).
-          required: false
+          description: The MoEngage database name (`db_name`) from which the data is available.
+          required: true
           schema:
             type: string
       x-mint:
@@ -305,7 +237,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponseSuccessV2'
+                $ref: '#/components/schemas/FileSegmentAcceptedResponseV2'
               example:
                 message: "File-segment user-add request accepted"
                 success: true
@@ -344,22 +276,17 @@ paths:
       parameters:
         - name: Content-Type
           in: header
-          description: Select the file content type.
+          description: Set to `application/json`.
           required: true
           schema:
             type: string
-            default: text/csv
+            default: application/json
             enum:
-              - text/csv
-              - application/csv
-              - application/vnd.ms-excel
-              - text/plain
-              - application/octet-stream
-              - binary/octet-stream
-        - name: Database
+              - application/json
+        - name: MOE-DBNAME
           in: header
-          description: Set the database from which the data is available (MOE-DBNAME).
-          required: false
+          description: The MoEngage database name (`db_name`) from which the data is available.
+          required: true
           schema:
             type: string
       x-mint:
@@ -388,7 +315,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponseSuccessV2'
+                $ref: '#/components/schemas/FileSegmentAcceptedResponseV2'
               example:
                 message: "File-segment user-remove request accepted"
                 success: true
@@ -427,22 +354,17 @@ paths:
       parameters:
         - name: Content-Type
           in: header
-          description: Select the file content type.
+          description: Set to `application/json`.
           required: true
           schema:
             type: string
-            default: text/csv
+            default: application/json
             enum:
-              - text/csv
-              - application/csv
-              - application/vnd.ms-excel
-              - text/plain
-              - application/octet-stream
-              - binary/octet-stream
-        - name: Database
+              - application/json
+        - name: MOE-DBNAME
           in: header
-          description: Set the database from which the data is available (MOE-DBNAME).
-          required: false
+          description: The MoEngage database name (`db_name`) from which the data is available.
+          required: true
           schema:
             type: string
       x-mint:
@@ -475,7 +397,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponseSuccessV2'
+                $ref: '#/components/schemas/FileSegmentAcceptedResponseV2'
               example:
                 message: "File-segment user-replace request accepted"
                 success: true
@@ -509,8 +431,11 @@ paths:
       tags:
         - Manage Segments
       summary: Archive Segment
-      description: This API archives an existing segment (File or Filter). Archiving and unarchiving through APIs makes it easy to retrieve and reuse segments whenever required for purposes such as A/B testing, maintaining regulatory compliance, and improving system performance. You can access the archived segments and utilize them to analyze and market campaigns without the need to recreate them from scratch.
+      description: This API archives an existing segment (File or Filter). Archiving and unarchiving through APIs makes it easy to retrieve and reuse segments whenever required for purposes such as A/B testing, maintaining regulatory compliance, and improving system performance. You can unarchive an archived segment to reuse it in campaigns and analysis without recreating it from scratch.
       operationId: archiveCustomSegment
+      parameters:
+        - $ref: '#/components/parameters/JsonContentTypeHeader'
+        - $ref: '#/components/parameters/DbNameHeader'
       x-mint:
         content: |
           <Warning>
@@ -530,8 +455,8 @@ paths:
               name: "custom_segment_unique_name"
               "cs_id": "<unique cs id>"
       responses:
-        '202':
-          description: Segment archive request accepted.
+        '200':
+          description: Segment archived successfully.
           content:
             application/json:
               schema:
@@ -540,7 +465,6 @@ paths:
                 message: "Successfully archived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
-                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -556,6 +480,9 @@ paths:
       summary: Unarchive Segment
       description: This API unarchives an existing segment, making it active again.
       operationId: unarchiveCustomSegment
+      parameters:
+        - $ref: '#/components/parameters/JsonContentTypeHeader'
+        - $ref: '#/components/parameters/DbNameHeader'
       x-mint:
         content: |
          <Note>
@@ -572,8 +499,8 @@ paths:
               name: "custom_segment_unique_name"
               "cs_id": "<unique cs id>"
       responses:
-        '202':
-          description: Segment unarchive request accepted.
+        '200':
+          description: Segment unarchived successfully.
           content:
             application/json:
               schema:
@@ -582,7 +509,6 @@ paths:
                 message: "Successfully unarchived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
-                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -614,7 +540,7 @@ paths:
         '200':
           $ref: '#/components/responses/200_SegmentListV3'
         '400':
-          $ref: '#/components/responses/400_FilterSegmentError'
+          $ref: '#/components/responses/400_FilterSegmentListError'
         '401':
           $ref: '#/components/responses/401_FilterSegmentError'
         '429':
@@ -671,20 +597,6 @@ paths:
 
           `filter_operator` at every level accepts `"and"` or `"or"`. Groups can nest to arbitrary depth using `nested_filters`.
 
-          **Special "All Users" payload** — targets your entire user base:
-
-          ```json
-          {
-            "name": "all-users-segment",
-            "included_filters": {
-              "filter_operator": "and",
-              "filters": [
-                { "filter_type": "custom_segments", "name": "All Users", "id": "moe_all_users" }
-              ]
-            }
-          }
-          ```
-
           ---
 
           ### Filter Types
@@ -708,7 +620,7 @@ paths:
           | `filter_type` | string | Always `"user_attributes"` |
           | `name` | string | Attribute name, for example `last_purchase_date` |
           | `data_type` | string | See data type table below |
-          | `category` | string | Attribute group; defaults to `"default"` |
+          | `category` | string | The attribute group the attribute belongs to (for example, `"Tracked Custom Attribute"`). Always include this key. |
           | `operator` | string | Allowed set varies by `data_type`; omit for `geopoint`, `object`, `array_object` |
           | `negate` | boolean | `true` inverts the filter; absent for `geopoint` |
           | `value` | varies | Shape depends on operator; absent for `exists` and `today` |
@@ -718,7 +630,7 @@ paths:
           | `data_type` | Allowed operators | Extra fields |
           |---|---|---|
           | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
-          | `double` / `number` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
+          | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
           | `bool` | `is`, `exists` | — |
           | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
           | `geopoint` | (implicit `around`) | `value` (latitude), `value1` (longitude), `radius`; no `operator` or `negate` |
@@ -728,8 +640,8 @@ paths:
           | `array_object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
 
           **`value` shape by operator:**
-          - Array: `in` (string, number, array types); `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing` (string); `contains`, `startsWith`, `endsWith` (array_string); `in` (datetime with time/day/month extract types)
-          - Scalar: `is` (bool only), `on`, `before`, `after`, `lessThan`, `greaterThan`, `inTheLast`, `inTheNext`
+          - Array: `in` (string, double, array types); `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing` (string); `contains`, `startsWith`, `endsWith` (array_string); `in` (datetime with time/day/month extract types)
+          - Scalar: `is` (bool, datetime, and the string/array_string special cases below), `on`, `before`, `after`, `lessThan`, `greaterThan`, `inTheLast`, `inTheNext`
           - Empty string (`""`): `is_empty`
           - Single space (`" "`): `containsSpaces`
           - Absent: `exists`, `today`
@@ -740,8 +652,8 @@ paths:
 
           Set `value_type` to:
           - `"absolute"` — `value` is an ISO 8601 date string, for example `"2024-01-15T00:00:00.000Z"`
-          - `"relative_past"` — `value` is an integer number of days/hours ago
-          - `"relative_future"` — `value` is an integer count into the future (used with `inTheNext`)
+          - `"relative_past"` — `value` is an integer number of days/hours/months ago
+          - `"relative_future"` — `value` is an integer number of days/hours/months in the future (used with the `after` and `inTheNext` operators)
 
           Set `extract_type` to filter on a specific part of the date:
           - `"time_of_the_day"` — hour (0–23)
@@ -791,6 +703,24 @@ paths:
           | `primary_time_range` | object | Time window for the event |
           | `attributes` | object | Event attribute sub-filters; always include, even when empty |
 
+          The three object fields use these key names:
+
+          ```json
+          {
+            "filter_type": "actions",
+            "action_name": "purchase",
+            "executed": true,
+            "execution": { "type": "atleast", "count": 1 },
+            "primary_time_range": {
+              "type": "inTheLast",
+              "value": 30,
+              "value_type": "relative_past",
+              "period_unit": "days"
+            },
+            "attributes": { "filter_operator": "and", "filters": [] }
+          }
+          ```
+
           #### Execution (Frequency)
 
           | `execution.type` | Meaning | `count` required |
@@ -820,6 +750,8 @@ paths:
 
           Use the `attributes` block to narrow which event occurrences count — for example, a `purchase` event where `product_category` is `"electronics"`. Inner filters follow the same shape as User Property filters, with `category` set to `"event_property"`.
 
+          Inner filters start directly from `filter_operator` and `filters` — do not add `included_filters` or `excluded_filters` inside the `attributes` block.
+
           #### Aggregation (sum / avg / min / max)
 
           Add `aggregation_attributes` to compare an aggregate of a numeric event attribute against a threshold. Only valid when `executed: true`, `execution.type` is not `firstTime` or `lastTime`, and `primary_time_range.type` is not `before` or `after`.
@@ -847,6 +779,8 @@ paths:
           ### User Affinity Filter (`filter_type: "psychographic_event"`)
 
           Targets users based on behavioral affinity over an event. `primary_time_range` and `psychographic_attributes` are required.
+
+          Psychographic attribute filters support only the `string` and `double` data types. The `primary_time_range` object also uses a different shape from User Behavior filters: relative windows use `days` (and `days1`) instead of `value`/`value1`, and absolute windows use `from` and `to` ISO 8601 dates, along with `type` and `value_type`.
 
           | `operator_type` | Extra field | Meaning |
           |---|---|---|
@@ -882,6 +816,7 @@ paths:
           }
           ```
       parameters:
+        - $ref: '#/components/parameters/JsonContentTypeHeader'
         - $ref: '#/components/parameters/AppKeyHeader'
       requestBody:
         description: The filter definition for the new segment.
@@ -1227,9 +1162,8 @@ paths:
                           filters: []
                         primary_time_range:
                           type: "inTheLast"
-                          value: 90
                           value_type: "relative_past"
-                          period_unit: "days"
+                          days: 90
               affinity_top_percent:
                 summary: "User Affinity — Top 10% spenders"
                 value:
@@ -1259,9 +1193,8 @@ paths:
                           filters: []
                         primary_time_range:
                           type: "inTheLast"
-                          value: 30
                           value_type: "relative_past"
-                          period_unit: "days"
+                          days: 30
               custom_segment_reference:
                 summary: "Custom Segment — Reference saved segment"
                 value:
@@ -1365,11 +1298,13 @@ paths:
         - $ref: '#/components/parameters/SegmentIdPath'
       responses:
         '200':
-          $ref: '#/components/responses/200_SegmentListV3'
+          $ref: '#/components/responses/200_SegmentGetV3'
         '400':
-          $ref: '#/components/responses/400_FilterSegmentError'
+          $ref: '#/components/responses/400_FilterSegmentGetError'
         '401':
           $ref: '#/components/responses/401_FilterSegmentError'
+        '404':
+          $ref: '#/components/responses/404_FilterSegmentError'
         '429':
           $ref: '#/components/responses/429_FilterSegmentRateLimitOnly'
         '500':
@@ -1381,6 +1316,7 @@ paths:
       description: This API updates an existing filter segment by its ID.
       operationId: updateFilterSegment
       parameters:
+        - $ref: '#/components/parameters/JsonContentTypeHeader'
         - $ref: '#/components/parameters/AppKeyHeader'
         - $ref: '#/components/parameters/SegmentIdPath'
       x-mint:
@@ -1512,6 +1448,15 @@ components:
         cs_name:
           type: string
           description: The unique name of the segment being processed.
+    FileSegmentAcceptedResponseV2:
+      description: Response returned when a file segment request is accepted for processing.
+      allOf:
+        - $ref: '#/components/schemas/ApiResponseSuccessV2'
+        - type: object
+          properties:
+            cs_id:
+              type: string
+              description: The unique identifier of the segment being processed.
     ApiErrorV2:
       type: object
       properties:
@@ -1553,11 +1498,6 @@ components:
         error_message:
           type: string
           description: (Failure only) A description of the error.
-      required:
-        - db_name
-        - segment_name
-        - request_id
-        - status
     # --- V3 Schemas ---
     FilterGroupV3:
       type: object
@@ -1607,7 +1547,7 @@ components:
         | `data_type` | Allowed `operator` values | Extra fields |
         |---|---|---|
         | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
-        | `double` / `number` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
+        | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
         | `bool` | `is`, `exists` | — |
         | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
         | `geopoint` | (implicit `around` — no `operator` or `negate` in payload) | `value` (latitude), `value1` (longitude), `radius` |
@@ -1630,14 +1570,14 @@ components:
         data_type:
           type: string
           description: The data type of the attribute.
-          enum: [string, double, number, bool, datetime, geopoint, array_string, array_double, object, array_object]
+          enum: [string, double, bool, datetime, geopoint, array_string, array_double, object, array_object]
         category:
           type: string
-          description: The attribute group. Resolved from the attribute list; defaults to `default`.
+          description: The attribute group the attribute belongs to (for example, `Tracked Custom Attribute`). Always include this key.
         operator:
           type: string
           description: |
-            The comparison operator. Allowed values depend on `data_type`. Omit for `geopoint`, `object`, and `array_object`.
+            The comparison operator. Allowed values depend on `data_type`. Required for all data types except `geopoint`, `object`, and `array_object`, where it must be omitted.
           enum:
             - is
             - in
@@ -1661,7 +1601,7 @@ components:
             - today
         negate:
           type: boolean
-          description: Set to `true` to invert the filter (NOT condition). Not applicable to `geopoint`.
+          description: Set to `true` to invert the filter (NOT condition). Required for all data types except `geopoint`, `object`, and `array_object`, where it must be omitted.
           default: false
         value:
           description: |
@@ -1696,7 +1636,7 @@ components:
           type: string
           description: |
             Applies to `datetime` only. Specifies whether `value` is an ISO 8601 date string (`absolute`)
-            or a relative offset (`relative_past` for past, `relative_future` for `inTheNext`).
+            or a relative offset in days/hours/months (`relative_past` for past values, `relative_future` for future values used with `after` and `inTheNext`).
           enum: [absolute, relative_past, relative_future]
         extract_type:
           type: string
@@ -1717,7 +1657,7 @@ components:
             - date_month_of_the_year
         radius:
           type: number
-          description: Applies to `geopoint` only. The search radius in kilometers.
+          description: Applies to `geopoint` only. The search radius in meters.
         array_filter_type:
           type: string
           description: |
@@ -1732,7 +1672,7 @@ components:
         filters:
           type: array
           description: |
-            Applies to `object` and `array_object`. Each element is an `AttributeFilterV3` scoped to
+            Applies to `object` and `array_object`. Each element is a User Property filter scoped to
             the child attributes of the parent object. Supports recursive nesting.
 
             For `array_object`: a user matches if at least one element of their array passes all the
@@ -1756,7 +1696,7 @@ components:
           description: |
             Required when `is_dynamic_value` is `true`. The base type of the referenced attribute.
             For array types, use the element type: `array_string` → `"string"`, `array_double` → `"double"`.
-          enum: [string, double, number, bool, datetime]
+          enum: [string, double, bool, datetime]
       required:
         - filter_type
         - name
@@ -1789,14 +1729,14 @@ components:
         - `executed: true`
         - `primary_time_range.type` is not `before` or `after` (unbounded windows are blocked)
         - `execution.type` is not `firstTime` or `lastTime`
-        - The attribute has `data_type: double` or `number`
+        - The attribute has `data_type: double`
       properties:
         attribute_name:
           type: string
           description: The name of the numeric event attribute to aggregate.
         data_type:
           type: string
-          enum: [double, number]
+          enum: [double]
           description: The data type of the aggregated attribute.
         aggregation_type:
           type: string
@@ -2025,7 +1965,7 @@ components:
             filters:
               type: array
               items:
-                $ref: '#/components/schemas/AttributeFilterV3'
+                $ref: '#/components/schemas/PsychographicAttributeFilterV3'
           required:
             - filter_operator
             - filters
@@ -2034,21 +1974,34 @@ components:
           description: Optional additional event-attribute filters to narrow which event occurrences count toward the affinity.
         primary_time_range:
           type: object
-          description: The time window over which affinity is evaluated. Required for affinity filters. Uses the same shape as `ActionFilterV3.primary_time_range`.
+          description: |
+            The time window over which affinity is evaluated. Required for affinity filters.
+
+            This object uses a different shape from the User Behavior `primary_time_range`:
+            - Relative windows (`value_type: relative_past`) use `days` (and `days1` as the second bound) instead of `value`/`value1`.
+            - Absolute windows (`value_type: absolute`) use `from` and `to` ISO 8601 dates.
           properties:
             type:
               type: string
-              enum: [inTheLast, between, on, before, after, today, yesterday, inThisWeek, inLastWeek, inThisMonth, inLastMonth]
-            value:
-              description: Integer count of `period_unit` for `inTheLast`, or ISO 8601 date for absolute types.
-            value1:
-              description: End bound for `between`.
+              description: The type of time window.
             value_type:
               type: string
               enum: [absolute, relative_past]
-            period_unit:
+              description: Whether the window is expressed as relative day counts (`days`/`days1`) or absolute dates (`from`/`to`).
+            days:
+              type: integer
+              description: Relative windows only. The number of days in the past.
+            days1:
+              type: integer
+              description: Relative windows only. The second bound of the window, when applicable.
+            from:
               type: string
-              enum: [hours, days, weeks, months]
+              format: date-time
+              description: Absolute windows only. The start date (ISO 8601).
+            to:
+              type: string
+              format: date-time
+              description: Absolute windows only. The end date (ISO 8601).
           required:
             - type
             - value_type
@@ -2060,6 +2013,64 @@ components:
         - operator_type
         - psychographic_attributes
         - primary_time_range
+    PsychographicAttributeFilterV3:
+      title: Psychographic Attribute Filter
+      type: object
+      description: |
+        An attribute filter used inside `psychographic_attributes` of a User Affinity filter.
+
+        Psychographic attribute filters support a smaller surface than User Property filters:
+        only the `string` and `double` data types are allowed, and only the operators listed below.
+      properties:
+        name:
+          type: string
+          description: The internal name of the event attribute the affinity is evaluated on.
+        data_type:
+          type: string
+          description: The data type of the attribute. Only `string` and `double` are supported at the psychographic attribute level.
+          enum: [string, double]
+        category:
+          type: string
+          description: The attribute group the attribute belongs to.
+        operator:
+          type: string
+          description: The comparison operator. Allowed values depend on `data_type`.
+          enum:
+            - is
+            - in
+            - contains
+            - startsWith
+            - endsWith
+            - is_empty
+            - exists
+            - lessThan
+            - greaterThan
+            - between
+        negate:
+          type: boolean
+          description: Set to `true` to invert the filter (NOT condition).
+          default: false
+        value:
+          description: |
+            The comparison value. Shape depends on `data_type` and `operator`. Omit when `operator` is `exists`.
+          oneOf:
+            - type: string
+            - type: number
+            - type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: number
+        value1:
+          type: number
+          description: The upper bound when `operator` is `between`.
+        case_sensitive:
+          type: boolean
+          description: Applies to `string`. Set to `true` for case-sensitive matching.
+          default: false
+      required:
+        - name
+        - data_type
     CustomSegmentFilterV3:
       title: Custom Segment Filter
       type: object
@@ -2068,8 +2079,6 @@ components:
 
         Use this to include users who already belong to an existing segment — for example, a file segment,
         a previously created filter segment, or an analytics filter.
-
-        **Special value:** Set `id` to `"moe_all_users"` and `name` to `"All Users"` to target your entire user base.
 
         Custom-file segments may be in a `pending` state while uploads are processing.
       properties:
@@ -2183,7 +2192,10 @@ components:
           type: string
           description: A textual description summarizing the segment definition.
         included_filters:
-          description: The filter criteria used for this segment.
+          description: The filter criteria used to include users in this segment.
+          $ref: '#/components/schemas/FilterGroupV3'
+        excluded_filters:
+          description: The filter criteria used to exclude users from this segment. Present when `excluded_filters` was used while creating or updating the segment.
           $ref: '#/components/schemas/FilterGroupV3'
     FilterSegmentResponseV3:
       type: object
@@ -2247,21 +2259,38 @@ components:
         message:
           type: string
           description: A detailed error message describing why the request failed.
+    ConflictErrorDataV3:
+      type: object
+      description: Error details for conflict errors (409).
+      properties:
+        code:
+          type: string
+          description: A short error code that provides a brief explanation of the error (e.g., 'Resource not created').
+        message:
+          type: string
+          description: A detailed error message describing why the request failed.
         existing_cs_name:
           type: string
-          description: (Conflict errors only) The name of the existing segment that conflicts with the request.
+          description: The name of the existing segment that conflicts with the request.
         existing_cs_id:
           type: string
-          description: (Conflict errors only) The ID of the existing segment that conflicts with the request.
+          description: The ID of the existing segment that conflicts with the request.
+    RateLimitErrorDataV3:
+      type: object
+      description: Error details for rate limit errors (429).
+      properties:
+        code:
+          type: string
+          description: A short error code that provides a brief explanation of the error (e.g., 'Too Many Requests').
+        message:
+          type: string
+          description: A detailed error message describing why the request failed.
         actual_count:
           type: integer
-          description: (Rate limit errors only) The actual count of segments or requests.
+          description: (Active segment limit breaches only) The actual count of active segments.
         limit:
           type: integer
-          description: (Rate limit errors only) The maximum allowed limit.
-      required:
-        - code
-        - message
+          description: (Active segment limit breaches only) The maximum allowed limit.
     ErrorResponseV3:
       type: object
       description: Error response schema for client errors (4xx).
@@ -2276,6 +2305,34 @@ components:
         error:
           description: Details about the error that occurred.
           $ref: '#/components/schemas/ErrorDataV3'
+    ConflictErrorResponseV3:
+      type: object
+      description: Error response schema for conflict errors (409).
+      properties:
+        response_id:
+          type: string
+          description: A unique identifier for this API response.
+        type:
+          type: string
+          description: The type of resource referenced in the response.
+          example: custom_segment
+        error:
+          description: Details about the conflict that occurred.
+          $ref: '#/components/schemas/ConflictErrorDataV3'
+    RateLimitErrorResponseV3:
+      type: object
+      description: Error response schema for rate limit errors (429).
+      properties:
+        response_id:
+          type: string
+          description: A unique identifier for this API response.
+        type:
+          type: string
+          description: The type of resource referenced in the response.
+          example: custom_segment
+        error:
+          description: Details about the rate limit breach.
+          $ref: '#/components/schemas/RateLimitErrorDataV3'
     ServerErrorDataV3:
       type: object
       description: Error details for server errors (5xx).
@@ -2286,9 +2343,6 @@ components:
         message:
           type: string
           description: A detailed error message. For server errors, this typically advises contacting MoEngage support.
-      required:
-        - code
-        - message
     ServerErrorResponseV3:
       type: object
       description: Error response schema for server errors (5xx).
@@ -2326,35 +2380,25 @@ components:
       required: false
       schema:
         type: string
+    JsonContentTypeHeader:
+      name: Content-Type
+      in: header
+      description: Set to `application/json`.
+      required: true
+      schema:
+        type: string
+        default: application/json
+        enum:
+          - application/json
+    DbNameHeader:
+      name: MOE-DBNAME
+      in: header
+      description: The MoEngage database name (`db_name`) of your workspace.
+      required: true
+      schema:
+        type: string
   responses:
     # --- V2 Responses ---
-    '202_FileSegmentAccepted':
-      description: Request accepted for processing.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ApiResponseSuccessV2'
-          examples:
-            create:
-              value:
-                message: "File-segment creation request accepted"
-                success: true
-                cs_name: "custom_segment_unique_name"
-            add:
-              value:
-                message: "File-segment user-add request accepted"
-                success: true
-                cs_name: "custom_segment_unique_name"
-            remove:
-              value:
-                message: "File-segment user-remove request accepted"
-                success: true
-                cs_name: "custom_segment_unique_name"
-            replace:
-              value:
-                message: "File-segment user-replace request accepted"
-                success: true
-                cs_name: "custom_segment_unique_name"
     '400_FileSegmentError':
       description: Bad Request. Invalid payload format.
       content:
@@ -2399,7 +2443,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Too Many Requests"
-            description: "<appropriate message>"
+            description: "<message>"
     '5XX_FileSegmentError':
       description: Server Errors. Something went wrong on MoEngage.
       content:
@@ -2422,6 +2466,42 @@ components:
                 created_time: "2022-12-01T13:17:46.409000"
                 type: "ELASTIC_SEARCH"
                 source: "API"
+            response_id: "WYanfieM"
+            type: "custom_segment"
+    '200_SegmentGetV3':
+      description: Successful retrieval of the segment. Returns the segment details including its filter definition and metadata.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FilterSegmentResponseV3'
+          example:
+            data:
+              name: "active-users-segment"
+              id: "6388a97a02adb9071ca84ce9"
+              created_time: "2022-12-01T13:17:46.409000"
+              updated_time: "2022-12-01T13:17:46.450000"
+              type: "ELASTIC_SEARCH"
+              source: "API"
+              description: "Subscription Status  is active  (case insensitive)"
+              included_filters:
+                filter_operator: "and"
+                filters:
+                  - filter_type: "user_attributes"
+                    name: "Subscription Status"
+                    data_type: "string"
+                    operator: "in"
+                    value: ["active"]
+                    negate: false
+                    case_sensitive: false
+              excluded_filters:
+                filter_operator: "and"
+                filters:
+                  - filter_type: "user_attributes"
+                    name: "is_test_user"
+                    data_type: "bool"
+                    operator: "is"
+                    value: true
+                    negate: false
             response_id: "WYanfieM"
             type: "custom_segment"
     '200_SegmentUpdatedV3':
@@ -2539,6 +2619,52 @@ components:
                 error:
                   code: "Request Error"
                   message: "MoEngage Client not found. Please check values for headers - MOE-APPKEY or MOE-DBNAME"
+    '400_FilterSegmentListError':
+      description: Bad Request. The request is invalid due to missing required parameters or invalid parameter format.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV3'
+          examples:
+            invalidFormat:
+              summary: Invalid Request Format
+              value:
+                response_id: "xFyVHeOr"
+                type: "custom_segment"
+                error:
+                  code: "Invalid request"
+                  message: "Invalid request format. Please check the documentation to ensure that the request has been formed correctly."
+            invalidAppKey:
+              summary: Invalid App Key/DB Name
+              value:
+                response_id: "FkrgtCVr"
+                type: "custom_segment"
+                error:
+                  code: "Request Error"
+                  message: "MoEngage Client not found. Please check values for headers - MOE-APPKEY or MOE-DBNAME"
+    '400_FilterSegmentGetError':
+      description: Bad Request. The segment ID passed in the request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV3'
+          examples:
+            invalidBson:
+              summary: Invalid Segment ID
+              value:
+                response_id: "zUhCrqzu"
+                type: "custom_segment"
+                error:
+                  code: "Invalid request"
+                  message: "Invalid bson object-id passed in the request"
+            invalidAppKey:
+              summary: Invalid App Key/DB Name
+              value:
+                response_id: "FkrgtCVr"
+                type: "custom_segment"
+                error:
+                  code: "Request Error"
+                  message: "MoEngage Client not found. Please check values for headers - MOE-APPKEY or MOE-DBNAME"
     '401_FilterSegmentError':
       description: Authentication Failure. The request failed authentication due to incorrect APP_KEY, APP_SECRET, or Authorization header.
       content:
@@ -2591,7 +2717,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponseV3'
+            $ref: '#/components/schemas/ConflictErrorResponseV3'
           examples:
             nameExists:
               summary: Name Already Exists
@@ -2659,7 +2785,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponseV3'
+            $ref: '#/components/schemas/RateLimitErrorResponseV3'
           examples:
             rateLimit:
               summary: API Rate Limit Breached
@@ -2716,6 +2842,45 @@ components:
               application/json:
                 schema:
                   $ref: '#/components/schemas/CallbackV2'
+                examples:
+                  success:
+                    summary: Success
+                    description: Sent when segment processing completes successfully.
+                    value:
+                      db_name: "test_db"
+                      segment_name: "test_segment_name"
+                      request_id: "d5a263c4ef1198ae3d8496c0460f570f"
+                      values_found: 80
+                      values_processed: 70
+                      user_count: 60
+                      status: 201
+                  file_size_failure:
+                    summary: Failure (File Size)
+                    description: Sent when the file size exceeds the limit.
+                    value:
+                      db_name: "test_db"
+                      segment_name: "test_segment_name"
+                      request_id: "d5a263c4ef1198ae3d8496c0460f570f"
+                      status: 400
+                      error_message: "File size cannot be greater than 150MB. Created custom_segment contains 0 users."
+                  download_failure:
+                    summary: Failure (Download Failed)
+                    description: Sent when the file download fails.
+                    value:
+                      db_name: "test_db"
+                      segment_name: "test_segment_name"
+                      request_id: "d5a263c4ef1198ae3d8496c0460f570f"
+                      status: 400
+                      error_message: "File download failed. Created custom_segment contains 0 users."
+                  internal_error:
+                    summary: Failure (Internal Server Error)
+                    description: Sent when segment processing encounters an internal error.
+                    value:
+                      db_name: "test_db"
+                      segment_name: "test_segment_name"
+                      request_id: "d5a263c4ef1198ae3d8496c0460f570f"
+                      status: 500
+                      error_message: "Internal Server Error. Contact MoEngage Team."
           responses:
             '200':
               description: OK. Acknowledges receipt of the callback. Your endpoint should return this.
