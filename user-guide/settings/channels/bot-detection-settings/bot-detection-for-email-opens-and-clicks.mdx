@@ -12,16 +12,14 @@ Bot Detection allows you to define specific rules to identify this non-human act
 <Note>
   - Bot detection feature is currently available only for Email channel.
   - MoEngage has been continuously monitoring opens and clicks across the platform in the background, identifying new bot IPs and bot user agents and keeping the default rules up to date. This happens automatically, regardless of your configuration here. Additionally, this setting gives you the ability to add your own custom rules on top of these defaults.
-  - While our bot detection is robust, it is impossible to identify 100% of all bot activities. Hence, some sophisticated bots may still be counted as real users.
-
+  - Bot detection feature of MoEngage is built to catch the vast majority of bot activity and is continuously refined for greater accuracy. As with any detection system, a small number of edge cases may occasionally be misclassified in either direction — some bot activity may go undetected, and some genuine activity may be flagged as a bot.
 </Note>
 
 ## Use Cases
  
-* **Accurate campaign performance reporting**: Marketing and analytics teams can rely on Open Rate, CTOR, and other engagement KPIs that reflect genuine recipient behavior, instead of being inflated by Apple MPP pre-fetching or automated security scanners.
+* **Accurate campaign performance reporting**: Marketing and analytics teams can rely on Open Rate, Click Rate, and CTOR that reflect genuine recipient behavior, instead of being inflated by Apple MPP pre-fetching, image proxies, or automated security scanners.
 * **Reliable engagement-based segmentation and journeys**: Since bot opens and clicks no longer falsely qualify a contact as "engaged," users aren't incorrectly moved into engaged segments, win-back flows, or automation branches meant only for real recipient actions.
-* **Trustworthy campaign optimization decisions**: Removes bot noise from the open and click data used to evaluate subject lines, send times, and content variants, so A/B test winners and campaign learnings are based on real audience response.
-* **Protection against accidental unsubscribes**: Security bots that crawl every link in an email — including the unsubscribe link — can otherwise opt genuine subscribers out without their knowledge. Ignoring bot-triggered unsubscribe clicks keeps these subscribers reachable.
+* **Flexibility to handle bot-flagged unsubscribes your way**: Bot detection works on a best-effort basis, so a genuine unsubscribe click can occasionally be misclassified as a bot click. This setting puts that decision in your hands: choose to always honor the unsubscribe request even when it's flagged as a bot, so you never risk retaining someone who wanted out, or choose to ignore bot-flagged unsubscribe clicks so genuine subscribers aren't suppressed by mistake.
 * **Cleaner data for downstream reporting**: Because bot-adjusted metrics can be viewed separately from totals, teams exporting engagement data to BI tools, dashboards, or CRMs can work with human-only numbers for more accurate customer engagement scoring.
 
 
@@ -31,9 +29,8 @@ To start filtering bot activity, perform the following steps:
    <img alt="bot_detection_settings.png" src="/images/bot_detection_settings.png" />
 
 1. Log in to your MoEngage dashboard.
-2. Navigate to **Settings > Channels > Email**.
-3. Click the **Bot Detection** tab.
-4. Turn on the **Detect bots for email opens and clicks** toggle so it displays as **Enabled**.
+2. Navigate to **Settings** > **Channels** > **Bot Detection Settings** .
+3. On the **Bot Detection Settings** page,turn on the **Detect bots for email opens and clicks** toggle so it displays as **Enabled**.
 
 After enabling, there will be two sub-tabs: **Bot opens** and **Bot clicks**. You can configure specific detection rules within each.
 
@@ -44,16 +41,22 @@ Navigate to the **Bot opens** tab to define how MoEngage identifies and handles 
 
 ### Detection Rules
 
-* **Detect opens from Apple Mail Privacy Protection**: [Apple Mail Privacy Protection (MPP)](/user-guide/campaigns-and-channels/email/getting-started-with-email/mail-privacy-protection-mpp-and-email-analytics) pre-loads images in incoming emails through Apple's proxy servers as soon as a message arrives. Check this box to automatically identify these proxy-generated opens.
+* **Detect opens from Apple Mail Privacy Protection**: [Apple Mail Privacy Protection (MPP)](/user-guide/campaigns-and-channels/email/getting-started-with-email/mail-privacy-protection-mpp-and-email-analytics) pre-loads images in incoming emails through Apple's proxy servers as soon as a message arrives even before the user opens the email resulting in a false engagement signal. Check this box to automatically identify these proxy-generated opens.
      <img alt="apple_mpp.png" src="/images/apple_mpp.png" />
 * **Bot user-agent blocklist**: Expand this section to manage the list of user-agent signatures used to detect bots.
     <img alt="user_agent_blocklist1.png" src="/images/user_agent_blocklist1.png" />
-  * **MoEngage Default**: Rules tagged with **"MoEngage default"** are maintained automatically by MoEngage to cover known scanners and cannot be deleted.
+  * **MoEngage Default**: Rules tagged with **"MoEngage default"** are maintained automatically by MoEngage to cover known scanners.These rules cannot be deleted. However, if you find that traffic from a specific default user agent or IP is actually genuine for your brand, you can disable that individual rule at any time using its **Enabled** checkbox.
   * **Search**: Use the **Search bot user-agent by name** field to find specific rules.
   * **Add bot user-agent**: Click the **+ Add bot user-agent** button to create custom rules. You can add up to 200 entries. This creates a new input row where you must define the following fields:
         <img alt="add_bot_user_agent.png" src="/images/add_bot_user_agent.png" />
-    * **Detection logic**: Select **Exact match** if you want MoEngage to block an open only when the incoming user-agent string matches your entry perfectly, character for character (e.g., 123456). Select **Partial match** if you want to block an open when the incoming user-agent string simply contains your entry as a substring (e.g., entering random will block any user-agent string that includes the word "random").
-    * **Bot user-agent name**: Type the exact or partial string you want to detect. Note: You must enter a string here before saving, otherwise MoEngage displays a "Please enter a user agent string before saving" error.
+    * **Detection logic**: 
+       - Select **Exact match** if you want MoEngage to block an open only when the incoming user-agent string matches your entry perfectly, character for character (e.g., 123456). 
+       - Select **Partial match** if you want to block an open when the incoming user-agent string simply contains your entry as a substring (e.g., entering random will block any user-agent string that includes the word "random").
+          <Warning>
+            Use **Partial match** carefully, an overly broad value can unintentionally match legitimate traffic and misclassify real users as bots. For example, entering **Mozilla/5.0** as a partial match would match almost every real browser's user-agent string, since most legitimate browsers include this substring causing the majority of your genuine opens to be categorized as bots.
+          </Warning>  
+       - Both **Exact match** and **Partial match** are case-insensitive, so entries like Random and random are treated the same.
+    * **Bot user-agent name**: Type the exact or partial string you want to detect. Note: You must enter a string here before saving, otherwise MoEngage displays a **Please enter a user agent string before saving** error.
     * **Enabled**: This checkbox determines the active status of the rule. Leave it checked to activate the rule immediately upon saving. Uncheck it if you want to save the rule to your list but keep it inactive for now.
     * **Actions**: While adding a new rule, click the checkmark icon to save and apply the new entry, or click the cross (X) icon to cancel and discard the row. After a rule is saved, these icons change to a pencil for editing and a trash can for deleting.
 * **I.P. Address blocklist**: Expand this section to block opens originating from specific IP addresses or ranges (e.g., corporate proxies or data centers).
