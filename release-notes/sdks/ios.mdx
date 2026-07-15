@@ -50,26 +50,10 @@ rss: true
 
 * Public APIs that previously returned `Void` now return a typed task object (a `MoEngageBaseTask` subclass, for example `MoEngageTrackEventTask`, `MoEngageShowInAppTask`) so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Modules changed: Core, InApp, Messaging. Direct calls and Objective-C callers compile unchanged, since `@discardableResult` covers ignored return values. Swift function-reference assignments with an explicit `Void` return type no longer compile.
 
-  ```swift
-  // trackEvent (MoEngageSDKAnalytics)
-  // Before — compiled
-  let trackFn: (String, MoEngageProperties?, String?) -> Void =
-      MoEngageSDKAnalytics.sharedInstance.trackEvent
-
-  // After — wrap in an explicit closure
-  let trackFn: (String, MoEngageProperties?, String?) -> Void = { name, props, appID in
-      _ = MoEngageSDKAnalytics.sharedInstance.trackEvent(name, withProperties: props, forAppID: appID)
-  }
-
-  // initializeDefaultLiveInstance (MoEngage)
-  // Before — compiled
-  let initFn: (MoEngageSDKConfig) -> Void = MoEngage.sharedInstance.initializeDefaultLiveInstance
-
-  // After — wrap in an explicit closure
-  let initFn: (MoEngageSDKConfig) -> Void = {
-      _ = MoEngage.sharedInstance.initializeDefaultLiveInstance($0)
-  }
-  ```
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `trackEvent` (`MoEngageSDKAnalytics`) | `let trackFn: (String, MoEngageProperties?, String?) -> Void = MoEngageSDKAnalytics.sharedInstance.trackEvent` | `let trackFn: (String, MoEngageProperties?, String?) -> Void = { name, props, appID in`<br />`    _ = MoEngageSDKAnalytics.sharedInstance.trackEvent(name, withProperties: props, forAppID: appID)`<br />`}` |
+  | `initializeDefaultLiveInstance` (`MoEngage`) | `let initFn: (MoEngageSDKConfig) -> Void = MoEngage.sharedInstance.initializeDefaultLiveInstance` | `let initFn: (MoEngageSDKConfig) -> Void = {`<br />`    _ = MoEngage.sharedInstance.initializeDefaultLiveInstance($0)`<br />`}` |
 
   Direct calls stay untouched:
 
@@ -104,16 +88,9 @@ rss: true
 
 * `showInApp` now returns a typed task object (`MoEngageShowInAppTask`) instead of `Void`, so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Direct calls and Objective-C callers compile unchanged. Swift function-reference assignments with an explicit `Void` return type no longer compile.
 
-  ```swift
-  // showInApp (MoEngageSDKInApp)
-  // Before — compiled
-  let showFn: () -> Void = MoEngageSDKInApp.sharedInstance.showInApp
-
-  // After — wrap in an explicit closure
-  let showFn: () -> Void = {
-      _ = MoEngageSDKInApp.sharedInstance.showInApp()
-  }
-  ```
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `showInApp` (`MoEngageSDKInApp`) | `let showFn: () -> Void = MoEngageSDKInApp.sharedInstance.showInApp` | `let showFn: () -> Void = {`<br />`    _ = MoEngageSDKInApp.sharedInstance.showInApp()`<br />`}` |
 
 * The public Objective-C enums `MoEngageInAppActionType` and `MoEngageNudgePosition` have been migrated to Swift. Update your code to use the Swift equivalents listed below.
 
@@ -146,16 +123,9 @@ rss: true
 
 * `setPushToken` now returns a typed task object instead of `Void`, so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Direct calls and Objective-C callers compile unchanged. Swift function-reference assignments with an explicit `Void` return type no longer compile.
 
-  ```swift
-  // setPushToken (MoEngageSDKMessaging)
-  // Before — compiled
-  let tokenFn: (Data?) -> Void = MoEngageSDKMessaging.sharedInstance.setPushToken
-
-  // After — wrap in an explicit closure
-  let tokenFn: (Data?) -> Void = {
-      _ = MoEngageSDKMessaging.sharedInstance.setPushToken($0)
-  }
-  ```
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `setPushToken` (`MoEngageSDKMessaging`) | `let tokenFn: (Data?) -> Void = MoEngageSDKMessaging.sharedInstance.setPushToken` | `let tokenFn: (Data?) -> Void = {`<br />`    _ = MoEngageSDKMessaging.sharedInstance.setPushToken($0)`<br />`}` |
 
 <span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
 
@@ -166,70 +136,11 @@ rss: true
 
 * `presentCardsViewController`, `pushCardsViewController`, and `getCardsViewController` are now annotated `@MainActor`. Objective-C callers are unaffected. Swift callers invoking these methods from a non-main-actor context must now hop to the main actor.
 
-  ```swift
-  // presentCardsViewController
-  // Before — compiled anywhere
-  func openCards() {
-      MoEngageSDKCards.sharedInstance.presentCardsViewController()
-  }
-
-  // After — must be on the main actor
-  func openCards() async {
-      await MainActor.run {
-          MoEngageSDKCards.sharedInstance.presentCardsViewController()
-      }
-  }
-
-  // …or mark the caller @MainActor so the hop is implicit:
-  @MainActor
-  func openCards() {
-      MoEngageSDKCards.sharedInstance.presentCardsViewController()
-  }
-
-  // pushCardsViewController
-  // Before — compiled anywhere
-  func openCards(in navController: UINavigationController) {
-      MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)
-  }
-
-  // After — must be on the main actor
-  func openCards(in navController: UINavigationController) async {
-      await MainActor.run {
-          MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)
-      }
-  }
-
-  // …or mark the caller @MainActor so the hop is implicit:
-  @MainActor
-  func openCards(in navController: UINavigationController) {
-      MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)
-  }
-
-  // getCardsViewController
-  // Before — compiled anywhere
-  func openCards() {
-      MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in
-          // use cardsVC
-      })
-  }
-
-  // After — must be on the main actor
-  func openCards() async {
-      await MainActor.run {
-          MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in
-              // use cardsVC
-          })
-      }
-  }
-
-  // …or mark the caller @MainActor so the hop is implicit:
-  @MainActor
-  func openCards() {
-      MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in
-          // use cardsVC
-      })
-  }
-  ```
+  | API | Before (compiled anywhere) | After (must be on the main actor) |
+  | :-- | :-- | :-- |
+  | `presentCardsViewController` | `func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`}` | `func openCards() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`}` |
+  | `pushCardsViewController` | `func openCards(in navController: UINavigationController) {`<br />`    MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`}` | `func openCards(in navController: UINavigationController) async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards(in navController: UINavigationController) {`<br />`    MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`}` |
+  | `getCardsViewController` | `func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`        // use cardsVC`<br />`    })`<br />`}` | `func openCards() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`            // use cardsVC`<br />`        })`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`        // use cardsVC`<br />`    })`<br />`}` |
 
 </Update>
 
