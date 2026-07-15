@@ -62,10 +62,35 @@ MoEngageClient.ShowInApp();
 
 </CodeGroup>
 
-# Self Handled In-Apps
+# Show Nudge
 
-Self Handled In-Apps are messages that are delivered by the SDK but showing has to be done by the App.\
-To show In-Apps call the below method.
+Use `MoEInAppHelper.ShowNudge()` to display a nudge-type in-app message at a specified position on screen.
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+MoEInAppHelper.ShowNudge(NudgePosition.Top);
+```
+
+</CodeGroup>
+
+The `NudgePosition` enum defines where the nudge appears:
+
+| Value    | Description                        |
+| -------- | ---------------------------------- |
+| `Top`    | Displays the nudge at the top of the screen.    |
+| `Bottom` | Displays the nudge at the bottom of the screen. |
+| `BottomLeft` | Displays the nudge at the bottom-left corner. |
+| `BottomRight` | Displays the nudge at the bottom-right corner. |
+
+# Self-Handled InApps
+
+Self-handled In-Apps are messages that the SDK delivers to the application, and the application builds the UI using the SDK's delivered payload.
+
+## Single Self-Handled InApps
+
+Call the below API to request a single self-handled in-app message.
 
 <CodeGroup>
 
@@ -76,7 +101,7 @@ MoEngageClient.GetSelfHandledInApp();
 
 </CodeGroup>
 
-The payload for self-handled in-app is returned via a callback. Register a callback as shown below.
+The payload is returned via a callback. Register a callback as shown below.
 
 <CodeGroup>
 
@@ -86,16 +111,52 @@ using MoEngage;
 MoEGameObject.InAppSelfHandled += InAppSelfHandledCallback;
 
 public void InAppSelfHandledCallback(object sender, InAppSelfHandledCampaignData inAppData) {
-         /// process the selfhandled payload here
-         string selfHandledPayload = inAppData.selfHandled.payload;
- }
+    // process the self-handled payload here
+    string selfHandledPayload = inAppData.selfHandled.payload;
+}
 ```
 
 </CodeGroup>
 
-## Tracking Statistics
+## Multiple Self-Handled InApps
 
-Since display, click, and dismiss for Self-Handled InApp is controlled by the application we need you to notify the SDK whenever the In-App is **Shown**, **Clicked**, or **Dismissed**. Below are the methods you need to call to notify the SDK. The **InAppSelfHandledCampaignData** object provided to the application in the callback for self-handled in-app should be passed in as a parameter to the below APIs.
+<Info>
+  Event-triggered multiple self-handled in-apps are not supported.
+</Info>
+
+Use `MoEngageClient.GetSelfHandledInApps()` to fetch multiple self-handled campaigns. The SDK returns up to 5 campaigns in the order of campaign priority set at the time of campaign creation.
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+MoEngageClient.GetSelfHandledInApps();
+```
+
+</CodeGroup>
+
+The list of campaigns is returned via a callback. Register a callback as shown below.
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+// register a callback
+MoEGameObject.<CALLBACK_EVENT> += <CALLBACK_METHOD>;
+
+public void <CALLBACK_METHOD>(object sender, <CAMPAIGNS_DATA_CLASS> campaignsData) {
+    // iterate over the list of self-handled campaigns
+    foreach (var campaign in campaignsData.campaigns) {
+        string payload = campaign.selfHandled.payload;
+    }
+}
+```
+
+</CodeGroup>
+
+### Tracking Statistics
+
+The statistics for each campaign in the list must be tracked individually. Pass the individual `InAppSelfHandledCampaignData` object as a parameter to the APIs below.
 
 <CodeGroup>
 
@@ -104,7 +165,7 @@ Since display, click, and dismiss for Self-Handled InApp is controlled by the ap
 MoEngageClient.SelfHandledShown(campaign);
 // call whenever in-app is clicked
 MoEngageClient.SelfHandledClicked(campaign);
- // call whenever in-app is dismissed
+// call whenever in-app is dismissed
 MoEngageClient.SelfHandledDismissed(campaign);
 ```
 

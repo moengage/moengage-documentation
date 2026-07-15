@@ -1,0 +1,143 @@
+---
+title: "Offerings Overview"
+description: "Create, update, and list offerings for Offer Decisioning in MoEngage."
+icon: "gift"
+---
+
+The MoEngage Offerings API allows you to manage offerings. You can create time-bound promotions and personalized content, update scheduling or targeting on existing offerings, list offerings for reporting or orchestration workflows, and list the personalization templates available for offering content.
+
+<Info>
+  If this API is not enabled for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team to request enablement.
+</Info>
+
+## Offering lifecycle
+
+An offering moves through different states automatically based on its scheduling window. There is no separate publish step — the offering goes live as soon as it is created, if the scheduling window is current.
+
+| State | Meaning |
+| :--- | :--- |
+| `scheduled` | Indicates that the `start_datetime` is in the future. The offering is not yet eligible for decisioning. |
+| `active` | Indicates that the current time is between `start_datetime` and `expiry_datetime`. The offering is eligible for decisioning. |
+| `expired` | Indicates that the `expiry_datetime` has passed. The offering is no longer served and cannot be updated via the API. |
+| `archived` | Indicates that the offering is manually archived from the dashboard. The offering is excluded from decisioning and cannot be updated via the API. |
+| `draft` | Indicates that the offering is not yet published. Offerings created via the API are never in `draft` state. |
+
+## Endpoints
+
+The Offerings API is a collection of the following endpoints:
+
+- [List Offerings](/api/public-offerings/list-offerings): Returns a paginated list of offerings, with filtering by ID, name, status, tags, date range, and creator.
+- [Create Offering](/api/public-offerings/create-offering): Creates an offering in your workspace, including content, scheduling, segmentation, and variation configuration.
+- [Update Offering](/api/public-offerings/update-offering): Partially updates an existing offering. Only the fields in the request body are changed.
+- [List Templates](/api/public-offerings/list-templates): Returns a paginated list of the personalization templates available in your workspace. Use a template `id` as `meta.templateId` in offering content.
+
+<Note>
+  There is no endpoint to fetch a single offering by ID.
+</Note>
+
+## Idempotency
+
+The Create and Update endpoints require an `Idempotency-Key` header (UUID v4). Reusing the same key within 24 hours returns the original response without re-running the operation, so retries on network failures are safe.
+
+Two conflict cases return `409`:
+
+- **`DUPLICATE_IDEMPOTENCY_KEY`** - a request with the same key is already in progress. Wait for it to complete before retrying.
+- **`IDEMPOTENCY_CONFLICT`** - the key was already used within 24 hours with a different request body. Use a new UUID v4 key to submit the changed payload.
+
+Use the **same key** only when retrying an identical request after a network failure or timeout. Use a **new key** for every logically distinct operation, including any request where the payload has changed.
+
+## FAQs
+ 
+### Getting Started
+ 
+<AccordionGroup>
+  <Accordion title="Do I need to do anything before using the API?">
+    Yes. Make sure the Offer Decisioning feature is enabled for your workspace — if it isn't, all API calls return `403 FORBIDDEN`. Contact your MoEngage CSM or the Support team to request enablement.
+    Before calling the Create Offering API, ensure the following workspace resources already exist:
+ 
+    - **Tags** — create and manage them in the MoEngage dashboard under **Settings → Advanced Settings → Tags**. The tag IDs you pass in the `tags` array must already exist.
+    - **Offering attributes** — configured under **Offer Decisioning → Attributes** in the dashboard. Pass their IDs in `offering_attribute_configuration`.
+    - **Personalization templates** — list available templates using `GET /v5/offers/templates` and use the returned `id` as `meta.templateId` in your content.
+  </Accordion>
+  <Accordion title="Where do I find my API key and Workspace ID?">
+    In the MoEngage dashboard, go to **Settings → Account → APIs**. Your Workspace ID (App ID) is listed there. Your API key is in the **Personalize** tile on the same page. Use the Workspace ID as the Basic Auth username and the API key as the password.
+  </Accordion>
+</AccordionGroup>
+### Offering Lifecycle
+ 
+<AccordionGroup>
+  <Accordion title="What states can an offering be in?">
+    An offering is always in one of five states: `scheduled`, `active`, `expired`, `archived`, or `draft`.
+    See the [Offering lifecycle](#offering-lifecycle) section above for the full state table.
+  </Accordion>
+  <Accordion title="Can I fetch a single offering by ID?">
+    Currently, there is no dedicated `GET /v5/offers/{offer_id}` endpoint. To retrieve a specific offering, call [List Offerings](/api/public-offerings/list-offerings) with the `id` query parameter set to the offering's ID (including the `offer_` prefix). This returns a single-item list for that offering.
+  </Accordion>
+</AccordionGroup>
+### Create Offering
+ 
+<AccordionGroup>
+  <Accordion title="What is the minimum required to create an offering?">
+    The required top-level fields are: `request_id`, `name`, `priority`, `delivery`, `created_by`, `scheduling` (with both `start_datetime` and `expiry_datetime`), `segment_info`, `offer_content`, and `variation_meta`. All other fields — `tags`, `capping_rules`, `conversion`, `imp_track_hours`, `offering_attribute_configuration` — are optional and can be omitted.
+  </Accordion>
+  <Accordion title="Can I change variation_meta after creation?">
+    It depends on the offering's status and variation `type`:
+
+    - While the offering is `scheduled`, the entire `variation_meta` object is editable.
+    - Once the offering is `active`, the `type` and the `variantsPerLocale` key set are locked. For `SMV`, you can still update the `smv_distribution` split percentages and `control_group.percentage`. For `DMV`, only `control_group.percentage` is editable.
+
+    Editing a locked field returns `IMMUTABLE_FIELD`. The variation types are `SMV` (static allocation you control), `DMV` (dynamic allocation MoEngage optimizes), and `CONTROL_ONLY`.
+  </Accordion>
+  <Accordion title="Can I include all fields in a single Create request, or do I build it incrementally?">
+    You include all fields in a single Create request — there is no incremental or draft-building flow. The offering's initial status is set from the scheduling dates: `scheduled` when `start_datetime` is in the future, `active` when the current time is within the scheduling window, or `expired` when `start_datetime` is already in the past.
+  </Accordion>
+  <Accordion title="What does priority control?">
+    Priority is an integer from 1 to 100 used by Decision Policies to rank eligible offerings for a user. Higher values rank the offering higher relative to others with lower priority. The exact ranking behavior also depends on any scoring formulas configured in the associated Decision Policy and any `offering_attribute_configuration` scores.
+  </Accordion>
+  <Accordion title="What characters are allowed in an offering name?">
+    Offering names must be 5–100 characters and contain only letters, numbers, and underscores. Spaces, hyphens, and special characters are not allowed. Names must be unique within the workspace. Example of a valid name: `Summer_Sale_Promo_2026`.
+  </Accordion>
+</AccordionGroup>
+### Update Offering
+ 
+<AccordionGroup>
+  <Accordion title="Which fields can I update after creation?">
+    You can update `name`, `description`, `priority`, `tags`, `scheduling` (within state-based rules below), `segment_info`, `offer_content`, `capping_rules`, `is_global_control_enabled`, `imp_track_hours`, `offering_attribute_configuration`, and `conversion`. You can also update `variation_meta`, but only within the status-based and type-based rules described below.
+  </Accordion>
+  <Accordion title="What can I change when an offering is active vs. scheduled?">
+    | Field | `scheduled` | `active` |
+    | :--- | :--- | :--- |
+    | `scheduling.start_datetime` | ✅ Editable | ❌ Locked |
+    | `scheduling.expiry_datetime` | ✅ Editable | ✅ Editable |
+    | `conversion` | ✅ Editable | ❌ Locked |
+    | `offer_content` | ✅ Editable | ✅ Editable |
+    | `name`, `tags`, `priority`, `segment_info` | ✅ Editable | ✅ Editable |
+    | `variation_meta.type`, `variantsPerLocale` | ✅ Editable | ❌ Locked |
+    | `variation_meta.smv_distribution` (`SMV`) | ✅ Editable | ✅ Editable |
+    | `variation_meta.smv_distribution` (`DMV`) | ✅ Editable | ❌ Locked |
+    | `variation_meta.control_group.percentage` | ✅ Editable | ✅ Editable |
+  </Accordion>
+  <Accordion title="Do I need to send the full offering payload when updating?">
+    No. The Update endpoint is a PATCH — only the fields you include in the request body are changed. Omitted fields retain their current values. However, `tags` and `offering_attribute_configuration` are **replaced entirely** when included, not merged. To add a single tag, send the current tag list plus the new one. To remove all tags, send an empty array.
+  </Accordion>
+  <Accordion title="Can I update an expired or archived offering?">
+    No. The API returns `403` with `EXPIRED_OFFERING` or `ARCHIVED_OFFERING`. Only offerings in `active` and `scheduled` states can be updated.
+  </Accordion>
+  <Accordion title="How do I find the offering ID to use in the Update request?">
+    The `offer_id` (including the `offer_` prefix) is returned in the `data.id` field of the Create Offering response. You can also retrieve it by calling [List Offerings](/api/public-offerings/list-offerings) and filtering by name or status.
+  </Accordion>
+</AccordionGroup>
+### Idempotency
+ 
+<AccordionGroup>
+  <Accordion title="When should I use the same Idempotency-Key vs. a new one?">
+    Use the **same key** only when retrying a request that failed due to a network error or timeout — where you are not sure whether the server processed the original request. Reusing the same key within 24 hours returns the original response without re-running the operation.
+    Use a **new key** for every logically distinct operation, and for any retry where the request body has changed from the previous attempt.
+  </Accordion>
+  <Accordion title="What happens if I reuse an Idempotency-Key with a different request body?">
+    The API returns `409 IDEMPOTENCY_CONFLICT`. The original operation is not replayed and the new payload is not processed. Generate a new UUID v4 key and resubmit.
+  </Accordion>
+  <Accordion title="What format is required for the Idempotency-Key?">
+    UUID v4 (for example, `550e8400-e29b-41d4-a716-446655440000`). For automated workflows, generate a fresh UUID v4 per distinct operation. Do not derive the key from the request payload — if the payload is identical to a previous request, an intentional replay would return the cached response.
+  </Accordion>
+</AccordionGroup>
