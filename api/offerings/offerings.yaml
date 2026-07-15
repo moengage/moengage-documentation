@@ -61,9 +61,8 @@ info:
     **Tenant context**: `X-MOE-Tenant-ID` is injected by SGK from the authenticated session.
     Do NOT include this header explicitly — the gateway always provides it.
 
-    **Tag discovery**: Before creating offerings with tags, list existing tag IDs from
-    `GET /v1/offers/tags` (v1 internal endpoint). Tags must pre-exist — unknown tag IDs
-    return 400 INVALID_TAG_ID.
+    **Tag discovery**: Tags must pre-exist before you attach them to an offering. Create and
+    manage tags in the MoEngage dashboard — unknown tag IDs return 400 INVALID_TAG_ID.
 
     **Template discovery**: Before creating `template`-type content, list templates from
     `GET /v1/offers/templates` (v1 internal endpoint) to get valid `templateId` values.
@@ -386,11 +385,6 @@ paths:
         SCHEDULED = fully editable; ACTIVE + SMV = only split percentages editable;
         ACTIVE + DMV = only control_group.percentage editable.
 
-        **Idempotency:** `Idempotency-Key` is required and must be a valid UUID v4. Submitting
-        the same key within 24 hours returns the original 201 response without creating a
-        second offering. A missing key returns 400 MISSING_IDEMPOTENCY_KEY. A non-UUID value
-        returns 400 INVALID_IDEMPOTENCY_KEY.
-
         To create a simple single-variant offering, set variation_meta.type to SMV with
         a single variant at 100% and put the content in offer_content.locales["0"].variations.
       x-moe-mcp:
@@ -681,10 +675,6 @@ paths:
         conversion can only be changed while the offering is in scheduled status.
         PATCH on an expired or archived offering returns 403.
 
-        **Idempotency:** `Idempotency-Key` is required and must be a valid UUID v4. Same
-        semantics as POST — same key within 24 hours returns the original 200 without
-        re-applying the update. A missing key returns 400 MISSING_IDEMPOTENCY_KEY. A
-        non-UUID value returns 400 INVALID_IDEMPOTENCY_KEY.
       x-moe-mcp:
         expose:
           external: true
@@ -1352,11 +1342,8 @@ components:
           description: >
             Tag IDs to attach to this offering. Each tag ID must already exist in the
             workspace — the service returns 400 INVALID_TAG_ID for any unknown tag ID.
-            Tags are NOT auto-created. Create tags first via the MoEngage dashboard or
-            GET /v1/offers/tags to list existing tag IDs.
-            Input format: both the prefixed format ("tag_<id>", as returned by
-            GET /v5/offers) and the raw format ("<id>") are accepted — the prefix is
-            stripped automatically before DB lookup. At most 10 tags per offering.
+            Tags are NOT auto-created; create and manage them in the MoEngage dashboard.
+            At most 10 tags per offering.
           items:
             type: string
             maxLength: 50
@@ -1478,8 +1465,7 @@ components:
             The entire existing tag list is overwritten with this value. To add a single
             tag, send the complete current tag list plus the new tag. To remove all tags,
             send an empty array. Each tag ID must already exist in the workspace — returns
-            400 INVALID_TAG_ID if not. Input format: both the prefixed format ("tag_<id>",
-            as returned by GET /v5/offers) and the raw format ("<id>") are accepted.
+            400 INVALID_TAG_ID if not.
           items:
             type: string
             maxLength: 50
