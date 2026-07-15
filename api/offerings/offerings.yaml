@@ -563,7 +563,7 @@ paths:
             response may contain multiple `details` entries. Possible error codes:
             - `REQUIRED_FIELD_MISSING` — a required field is absent (e.g. missing `variation_meta`, `name`, `scheduling.start_datetime`). The `target` field identifies the missing field.
             - `INVALID_TYPE` — a field has the wrong type or format (e.g. `content_1.value` is not a JSON object when `type` is `template`; or `scheduling.start_datetime` is not a valid ISO 8601 datetime with UTC "Z" suffix).
-            - `OUT_OF_RANGE` — numeric field outside its allowed range (e.g. `priority` outside 1–100, `control_group.percentage` outside 1–100).
+            - `OUT_OF_RANGE` — numeric field outside its allowed range (e.g. `priority` outside 1–100, `control_group.percentage` outside 1–99).
             - `INVALID_ENUM_VALUE` — enum field has an unrecognised value. Note: `delivery` is case-insensitive (`trigger`, `TRIGGER`, etc. are all accepted).
             - `INVALID_OFFER_NAME` — `name` contains characters other than alphanumeric characters and underscores. Spaces and hyphens are not allowed.
             - `INVALID_SCHEDULING` — `expiry_datetime` is not after `start_datetime`; `start_datetime` is in the past; or `expiry_datetime` is less than 10 minutes in the future.
@@ -804,7 +804,7 @@ paths:
             Validation errors. All errors collected before returning. Possible error codes:
             - `REQUIRED_FIELD_MISSING` — a required field is absent (`updated_by`). The `target` field identifies the missing field.
             - `INVALID_TYPE` — wrong type or format (e.g. `scheduling.start_datetime` is not a valid ISO 8601 datetime with UTC "Z" suffix).
-            - `OUT_OF_RANGE` — numeric field outside its allowed range (e.g. `priority` outside 1–100, `control_group.percentage` outside 1–100).
+            - `OUT_OF_RANGE` — numeric field outside its allowed range (e.g. `priority` outside 1–100, `control_group.percentage` outside 1–99).
             - `INVALID_ENUM_VALUE` — enum field has an unrecognised value (e.g. unrecognised `variation_meta.type`).
             - `INVALID_OFFER_NAME` — `name` contains characters other than alphanumeric characters and underscores.
             - `INVALID_SCHEDULING` — `expiry_datetime` is not after `start_datetime`; `start_datetime` is in the past; or `expiry_datetime` is less than 10 minutes in the future.
@@ -1538,6 +1538,9 @@ components:
             IANA timezone name (e.g. "Asia/Kolkata", "America/New_York", "Europe/London", "UTC").
             Used to anchor the schedule to a geographic timezone so that daylight-saving
             transitions are handled correctly. When omitted, UTC is assumed.
+            Relevant only when start_datetime / expiry_datetime are naive (offset-less)
+            datetimes. Because those fields already require a UTC "Z" suffix, this field is
+            effectively redundant and is ignored.
           example: Asia/Kolkata
 
     OfferSchedulingPatch:
@@ -1733,9 +1736,11 @@ components:
             Content payload. Interpretation depends on `type`:
 
             **json** — A serialised JSON string containing the personalisation data
-            (headline, body, CTA text, CTA URL, image URL, etc.). Parse this string
-            on the client side to access the structured object. Send as a JSON string.
-            Example: `'{"headline":"Save 20% today","cta_text":"Claim offer"}'`
+            (headline, body, CTA text, CTA URL, image URL, etc.). The value MUST be a
+            string of escaped JSON, not an inline JSON object — passing a raw object returns
+            400 INVALID_TYPE. Parse this string on the client side to access the structured
+            object.
+            Example: `"{\"discount\": \"10%\"}"`
 
             **content_block** — The content block reference ID string from the MoEngage
             Content Block library. Send as a plain string.
@@ -1862,13 +1867,13 @@ components:
             percentage:
               type: integer
               description: >
-                Percentage of eligible users to hold out (1 to 100, required when is_enabled
+                Percentage of eligible users to hold out (1 to 99, required when is_enabled
                 is true). When is_enabled is false, percentage is ignored — send 0 or omit it.
-                When is_enabled is true, valid range is 1–100; sending 0 returns OUT_OF_RANGE.
+                When is_enabled is true, valid range is 1–99; sending 0 returns OUT_OF_RANGE.
                 Holdout assignment is deterministic per user per offering (hash of userId + offerId),
                 ensuring a user is consistently in or out of the holdout across sessions.
               minimum: 0
-              maximum: 100
+              maximum: 99
               example: 10
       example:
         type: SMV
