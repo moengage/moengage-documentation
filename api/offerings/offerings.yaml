@@ -41,10 +41,12 @@ info:
 
     ## Rate Limits
 
-    | Endpoint | Public (APISIX) | MCP (SGK) |
-    |---|---|---|
-    | `GET /v5/offers`, `POST /v5/offers`, `PATCH /v5/offers/{offer_id}` | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
-    | `GET /v5/offers/templates` | 150/min | 100/min |
+    | Endpoint | Method | Public (APISIX) | MCP (SGK) |
+    |---|---|---|---|
+    | `/v5/offers` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
+    | `/v5/offers/templates` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
+    | `/v5/offers` | POST | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
+    | `/v5/offers/{offer_id}` | PATCH | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
 
     Limits are keyed by `tenant_id + client_id` for Public and `tenant_id + agent_id` for MCP.
     Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`)
@@ -276,8 +278,8 @@ paths:
             X-RateLimit-Limit:
               schema:
                 type: integer
-                example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day."
+                example: 150
+              description: "Maximum requests allowed in the current window. Limits per consumer (Public and MCP): 150/min, 500/hour, 1000/day."
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -355,6 +357,20 @@ paths:
           $ref: '#/components/responses/GatewayAuthError'
         '403':
           $ref: '#/components/responses/GatewayAuthError'
+        '429':
+          description: |
+            Rate limit exceeded. Limits per consumer (Public and MCP): 150 requests/min,
+            500 requests/hour, 1000 requests/day. Wait for the number of seconds in
+            Retry-After before retrying.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -1011,7 +1027,7 @@ paths:
               schema:
                 type: integer
                 example: 150
-              description: "Maximum requests allowed in the current rate-limit window. Public: 150/min. MCP: 100/min."
+              description: "Maximum requests allowed in the current window. Limits per consumer (Public and MCP): 150/min, 500/hour, 1000/day."
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -1030,6 +1046,8 @@ paths:
                     type: string
                     description: >
                       Stable trace identifier for this response. Format: "resp_" + X-MOE-Request-Id.
+                      Identical on retries that carry the same X-MOE-Request-Id header, enabling
+                      client-side deduplication and cross-log correlation.
                   type:
                     type: string
                     enum: [template]
@@ -1078,8 +1096,9 @@ paths:
           $ref: '#/components/responses/GatewayAuthError'
         '429':
           description: |
-            Rate limit exceeded. Limits: Public 150/min, MCP 100/min.
-            Wait for the number of seconds in Retry-After before retrying.
+            Rate limit exceeded. Limits per consumer (Public and MCP): 150 requests/min,
+            500 requests/hour, 1000 requests/day. Wait for the number of seconds in
+            Retry-After before retrying.
           headers:
             Retry-After:
               schema:
