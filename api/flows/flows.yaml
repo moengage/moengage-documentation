@@ -32,7 +32,8 @@ info:
     - IDs are 24-character identifiers. `flow_id` identifies the flow; `version_id` identifies one
       of its versions.
     - Every successful response uses the format `{response_id, type, data}`. The `response_id`
-      echoes the `request_id` you send, or is generated for you if you omit it.
+      echoes the `request_id` you send; if you omit it, the server uses the first 12 characters
+      of a system-generated UUID.
     - Dates and times are in ISO 8601 UTC format (`YYYY-MM-DDThh:mm:ssZ`).
     - The search endpoint returns results one page at a time. To fetch the next page, send the
       `next_cursor` from the previous response back as the `cursor` value.
@@ -64,9 +65,9 @@ servers:
         default: "01"
         description: >
           MoEngage data center identifier. Replace it with the number assigned to your account,
-          such as 01 (US), 02 (EU), 03 (India), 05 (Singapore), or 06 (Indonesia). For example,
-          https://api-01.moengage.com.
-        enum: ["01", "02", "03", "05", "06"]
+          such as 01 (US), 02 (EU), 03 (India), 04 (US), 05 (Singapore), or 06 (Indonesia).
+          For example, https://api-01.moengage.com. Data center 101 is not supported.
+        enum: ["01", "02", "03", "04", "05", "06"]
 
 security:
   - basicAuth: []
@@ -84,7 +85,7 @@ paths:
 
         Each response includes a `next_cursor`. To get the next page, send that value as the
         `cursor` in your next request. Sorting is not supported in this version; results are
-        returned in creation order. Your API key must have the `campaigns:view` permission (see
+        returned most recent first. Your API key must have the `campaigns:view` permission (see
         [Authentication](/api/flows/flows-overview#authentication)).
       x-mint:
         content: |
@@ -1328,8 +1329,10 @@ components:
         teams:
           type: array
           description: >
-            Team names. Required when the Flows-teams feature is enabled for the workspace;
-            rejected with `400` when the feature is off.
+            Team names. Required when the Flows-teams feature is enabled for the workspace —
+            omitting it or sending an empty list returns `400 VALIDATION_FAILED`
+            ("teams is required when the team feature is enabled"). When the feature is off,
+            sending `teams` is rejected with `400`.
           items:
             type: string
         name:
@@ -1675,6 +1678,9 @@ components:
           type: string
           format: email
           description: Email of the user performing the action. Recorded in the audit log.
+        request_id:
+          type: string
+          description: Optional if supplied via the `X-MOE-Request-Id` header; echoed in `response_id`.
 
     FlowStatusResponse:
       type: object
