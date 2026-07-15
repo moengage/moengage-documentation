@@ -6,13 +6,15 @@ title: "Personalize SDK"
 
 The MoEngage Android  SDK provides a secure framework for delivering personalized campaigns. It simplifies integration by handling user identity and authentication internally, eliminating the need to manage API secrets or manual HTTPS calls. This allows you to fetch and track personalized campaign info directly through a streamlined, native interface.
 
+{/* SDK doesn't have initialize() function, consider replacing it with `Ensure you have initialised the SDK within your application entry point`. We are adding initialisation doc link */}
+
 <Tip>
   **Prerequisites**
 
   Before you can fetch personalized experiences, ensure you have completed the following:
 
   - Ensure you have integrated the BOM into your Android SDK. For more information, refer to [Install using BOM](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/basic-integration/Install-Using-BOM).
-  - Initialization: Call the SDK `initialize()` method within your application entry point ( `onCreate()` on Android. For more information on initialization, refer to [SDK Initialization](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization).
+  - Initialization: Ensure you have initialised the SDK within your application entry point ( `onCreate()` on Android. For more information on initialization, refer to [SDK Initialization](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization).
 </Tip>
 
 # Integration MoEngage Personalization
@@ -25,6 +27,8 @@ dependencies {
 }
 ```
 
+{/* Consider adding a new section, "How It All Fits Together" — the Flutter and React Native has this: */}
+
 # Implementation Workflow
 
 The `MoEPersonalizeHelper` SDK object is designed to simplify the retrieval and interaction with dynamic, personalized content. Below is a breakdown of the code divided by its primary responsibilities.
@@ -33,34 +37,39 @@ The `MoEPersonalizeHelper` SDK object is designed to simplify the retrieval and 
 
 Ensure you invoke the metadata call prior to fetching a specific payload or experience. You can use this call to fetch all experience keys under the provided status, providing the context necessary to properly configure subsequent requests.
 
+{/*Link MoEPersonalizeHelper with API Reference doc and reformatting of the code. Also the 2nd snippet is java not the javascript */}
+
 <CodeGroup>
 
 ```kotlin Kotlin wrap
 MoEPersonalizeHelper.fetchExperiencesMeta(
-        context = context,
-        status = listOf(ExperienceStatus.ACTIVE),
-        onSuccess = { metadata ->
-            println("Success: $metadata")
-        },
-        onFailure = { reason, message ->
-            println("Failure: $reason")
-        }
-    )
+    context = context,
+    status = listOf(ExperienceStatus.ACTIVE),
+    onSuccess = { metadata ->
+        println("Success: $metadata")
+    },
+    onFailure = { reason, message ->
+        println("Failure: $reason")
+    }
+)
 ```
 
 ```javascript Java wrap
 MoEPersonalizeHelper.INSTANCE.fetchExperiencesMeta(
-			context,
-			Collections.singletonList(ExperienceStatus.ACTIVE),
-			metadata -> {
-				System.out.println("Success: " + metadata);
-			},
-			(reason, message) -> {
-				System.out.println("Failure: " + reason);
-				return Unit.INSTANCE;
-			}
-		);
+    context,
+    Collections.singletonList(ExperienceStatus.ACTIVE),
+    metadata -> {
+        System.out.println("Success: " + metadata);
+    },
+    (reason, message) -> {
+        System.out.println("Failure: " + reason);
+        return Unit.INSTANCE;
+    }
+);
 ```
+
+{/* We can consider adding note what will happen when client doesn't call this api or called with different status but expecting payload from different status. SDK will return InValid Key in failure during payload call if the key was not part of last meta fetch */}
+{/*Link fetchExperiencesMeta, ExperienceCampaignsMetadata with API Reference doc */}
 
 </CodeGroup>
 
@@ -76,74 +85,78 @@ Once the metadata is fetched, you can retrieve the actual personalized payloads.
   EXPERIENCE\_KEY is the unique key that is used in the experience campaign while creating the campaign on the MoEngage dashboard. You can fetch these keys using the fetchExperiencesMeta call. 
 </Info>
 
+{/* Code Formatting */}
+
 <CodeGroup>
 
 ```kotlin Kotlin wrap
 // Fetch Single Experience Payload
-    MoEPersonalizeHelper.fetchExperience(
-        context = context,
-        // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
-        experienceKey = EXPERIENCE_KEY,
-        attributes = mapOf("customOptionalAttributeKey" to "customOptionalAttributeValue"),
-        onSuccess = { campaignsResult ->
-            println("Success: $campaignsResult")
-        },
-        onFailure = { reason, message ->
-            println("Failure: $reason")
-        }
-    )
+MoEPersonalizeHelper.fetchExperience(
+    context = context,
+    // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+    experienceKey = EXPERIENCE_KEY,
+    attributes = mapOf("customOptionalAttributeKey" to "customOptionalAttributeValue"),
+    onSuccess = { campaignsResult ->
+        println("Success: $campaignsResult")
+    },
+    onFailure = { reason, message ->
+        println("Failure: $reason")
+    }
+)
 
-    // Fetch Multiple Experience Payload
-    MoEPersonalizeHelper.fetchExperiences(
-        context = context,
-        // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
-        experienceKeys = setOf("EXPERIENCE_KEYS"),
-        attributes = mapOf("customOptionalAttributeKey" to "customOptionalAttributeValue"),
-        onSuccess = { campaignsResult ->
-            println("Success: $campaignsResult")
-        },
-        onFailure = { reason, message ->
-            println("Failure: $reason")
-        }
-    )
+// Fetch Multiple Experience Payload
+MoEPersonalizeHelper.fetchExperiences(
+    context = context,
+    // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+    experienceKeys = setOf("EXPERIENCE_KEYS"),
+    attributes = mapOf("customOptionalAttributeKey" to "customOptionalAttributeValue"),
+    onSuccess = { campaignsResult ->
+        println("Success: $campaignsResult")
+    },
+    onFailure = { reason, message ->
+        println("Failure: $reason")
+    }
+)
 ```
 
 ```java Java wrap
-        // Fetches single personalized experience campaign.
-		MoEPersonalizeHelper.INSTANCE.fetchExperience(
-			context,
-        // EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
-			EXPERIENCE_KEY,
-			attributes,
-			campaignsResult -> {
-				System.out.println("Success: " + campaignsResult);
-			},
-			(reason, message) -> {
-				System.out.println("Failure: " + reason);
-				return Unit.INSTANCE;
-			}
-		);
+// Fetches single personalized experience campaign.
+MoEPersonalizeHelper.INSTANCE.fetchExperience(
+    context,
+	// EXPERIENCE_KEY must be one of the keys returned in the fetchExperiencesMeta call.
+	EXPERIENCE_KEY,
+	attributes,
+	campaignsResult -> {
+	    System.out.println("Success: " + campaignsResult);
+	},
+	(reason, message) -> {
+	    System.out.println("Failure: " + reason);
+	    return Unit.INSTANCE;
+	}
+    );
 
-		// Fetches multiple personalized experience campaigns.
-		Set<String> hashSet = new HashSet<>();
-		hashSet.add("KEY1");
-		hashSet.add("KEY2");
+// Fetches multiple personalized experience campaigns.
+Set<String> hashSet = new HashSet<>();
+hashSet.add("KEY1");
+hashSet.add("KEY2");
 
-		MoEPersonalizeHelper.INSTANCE.fetchExperiences(
-			context,
-			hashSet,
-			attributes,
-			campaignsResult -> {
-				System.out.println("Success: " + campaignsResult);
-			},
-			(reason, message) -> {
-				System.out.println("Failure: " + reason);
-				return Unit.INSTANCE;
-			}
-		);
+MoEPersonalizeHelper.INSTANCE.fetchExperiences(
+    context,
+    hashSet,
+    attributes,
+    campaignsResult -> {
+    System.out.println("Success: " + campaignsResult);
+    },
+    (reason, message) -> {
+	    System.out.println("Failure: " + reason);
+	    return Unit.INSTANCE;
+    }
+);
 ```
 
 </CodeGroup>
+
+{/* Link ExperienceCampaignsResult with API Ref doc */}
 
 The `onSuccess` callback returns an `ExperienceCampaignsResult` object containing all necessary metadata for campaign execution in the main thread. Conversely, the `onFailure` callback provides a [`RequestFailureReasonCode` ](https://moengage.github.io/android-api-reference/core/com.moengage.core.model/-request-failure-reason-code/index.html) and an optional message to identify the specific reason for the request's failure.
 
@@ -152,6 +165,8 @@ You can fetch :
 - Single Experiences: Retrieve a specific payload using a single `experienceKey`.
 - Bulk Experiences: Retrieve multiple payloads at once by passing a Set\<String\> of `experienceKeys`.
 
+
+{/* Consider adding help or product doc or any backend doc for the exact usage and how this will be helpful */}
 Use Cases:
 
 **Contextual Targeting**: You can pass a map of attributes (e.g., current\_page: "home", cart\_value: "500") during the fetch call. This allows MoEngage SDK to serve real-time, state-dependent content (such as a "Free Shipping" banner when the cart value is high enough).
@@ -164,20 +179,24 @@ To measure performance, you must track when an experience is shown. This require
 
 ### 3a. Track Impressions for Experience Campaigns
 
+{/* Code Formatting, also consider adding comment for experiencesShown vs experienceShown. Currently it is placed under same snippet which might be confusing */}
+
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-  // campaignEntity are placeholders for the campaign objects returned by the fetchExperiences function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
-    MoEPersonalizeHelper.experiencesShown(context, listOf(campaignEntity))
-    MoEPersonalizeHelper.experienceShown(context, campaignEntity)
+// campaignEntity are placeholders for the campaign objects returned by the fetchExperiences function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
+MoEPersonalizeHelper.experiencesShown(context, listOf(campaignEntity))
+MoEPersonalizeHelper.experienceShown(context, campaignEntity)
 ```
 
 ```javascript Java wrap
 // campaignEntity are placeholders for the campaign objects returned by the fetchExperiences
 // function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
-		MoEPersonalizeHelper.INSTANCE.experiencesShown(context, Arrays.asList(campaignEntity));
-		MoEPersonalizeHelper.INSTANCE.experienceShown(context, campaignEntity);
+MoEPersonalizeHelper.INSTANCE.experiencesShown(context, Arrays.asList(campaignEntity));
+MoEPersonalizeHelper.INSTANCE.experienceShown(context, campaignEntity);
 ```
+
+{/* Consider adding a section or sub-section on how to differentiate between normal experience campaign vs offering experience campaign. We can add the details around the payload structure in common to all platform. Anirudh has the added the payload details on ios page (we can move it to common page and link it to all doc) */}
 
 </CodeGroup>
 
@@ -188,22 +207,22 @@ To measure performance, you must track when an experience is shown. This require
 <CodeGroup>
 
 ```kotlin Kotlin wrap
- // offeringPayload is the specific data object extracted from an campaignEntity using the unique offering key assigned during campaign creation. It enables tracking at the offering campaign, which is essential when an experience contains multiple offerings within a single payload.
-    MoEPersonalizeHelper.offeringShown(context, offeringPayload)
-    MoEPersonalizeHelper.offeringsShown(
-        context,
-        listOf(offeringPayload1, offeringPayload2)
-    )
+// offeringPayload is the specific data object extracted from an campaignEntity using the unique offering key assigned during campaign creation. It enables tracking at the offering campaign, which is essential when an experience contains multiple offerings within a single payload.
+MoEPersonalizeHelper.offeringShown(context, offeringPayload)
+MoEPersonalizeHelper.offeringsShown(
+    context,
+    listOf(offeringPayload1, offeringPayload2)
+)
 ```
 
 ```javascript Java wrap
 // offeringPayload is the specific data object extracted from an campaignEntity using the
 // unique offering key assigned during campaign creation. It enables tracking at the offering campaign, which is essential when an experience contains multiple offerings within a single payload..
-		MoEPersonalizeHelper.INSTANCE.offeringShown(context, offeringPayload);
-		MoEPersonalizeHelper.INSTANCE.offeringsShown(
-			context,
-			Arrays.asList(offeringPayload1, offeringPayload2)
-		);
+MoEPersonalizeHelper.INSTANCE.offeringShown(context, offeringPayload);
+MoEPersonalizeHelper.INSTANCE.offeringsShown(
+    context,
+    Arrays.asList(offeringPayload1, offeringPayload2)
+);
 ```
 
 </CodeGroup>
@@ -218,13 +237,13 @@ You can use these methods to log "Clicks" (`experienceClicked`) when the user in
 
 ```kotlin Kotlin wrap
 // campaignEntity are placeholders for the campaign objects returned by the fetchExperiences function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
-    MoEPersonalizeHelper.experienceClicked(context, campaignEntity)
+MoEPersonalizeHelper.experienceClicked(context, campaignEntity)
 ```
 
 ```javascript Java wrap
 // campaignEntity are placeholders for the campaign objects returned by the fetchExperiences
 // function. They contain the metadata and payload required by the SDK to attribute impressions and clicks to the correct campaign.
-		MoEPersonalizeHelper.INSTANCE.experienceClicked(context, campaignEntity);
+MoEPersonalizeHelper.INSTANCE.experienceClicked(context, campaignEntity);
 ```
 
 </CodeGroup>
