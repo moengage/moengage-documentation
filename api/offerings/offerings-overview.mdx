@@ -46,6 +46,86 @@ Two conflict cases return `409`:
 
 Use the **same key** only when retrying an identical request after a network failure or timeout. Use a **new key** for every logically distinct operation, including any request where the payload has changed.
 
+## Errors
+
+The Offerings API uses standard HTTP status codes and returns all errors in a consistent JSON envelope.
+
+### HTTP status codes
+
+| Code | Meaning |
+| :--- | :--- |
+| `200` | Success (GET, PATCH). |
+| `201` | Offering created (POST). |
+| `400` | Validation failed. One or more fields are invalid, missing, or violate a business rule. |
+| `401` | Authentication failed. Credentials are missing or invalid. |
+| `403` | Forbidden. The feature is not enabled, or the offering is expired or archived. |
+| `404` | Offering not found. The `offer_id` in the path does not exist in this workspace. |
+| `409` | Idempotency conflict. See [Idempotency](#idempotency). |
+| `429` | Rate limit exceeded. Retry after the number of seconds in the `Retry-After` header. |
+| `503` | Gateway unavailable. Treat as transient and retry with exponential backoff. |
+
+### Error response shape
+
+All `4xx` and `5xx` responses return a JSON body in the following format:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "One or more fields failed validation.",
+    "target": "scheduling.expiry_datetime",
+    "details": [
+      {
+        "code": "REQUIRED_FIELD_MISSING",
+        "target": "variation_meta",
+        "message": "variation_meta is required."
+      },
+      {
+        "code": "INVALID_SCHEDULING",
+        "target": "scheduling",
+        "message": "expiry_datetime must be after start_datetime."
+      }
+    ],
+    "doc_url": "https://www.moengage.com/docs/api/offerings/offerings-overview"
+  },
+  "response_id": "resp_c5f83262-3127-4e23-bc1b-9efd4c929e12"
+}
+```
+
+| Field | Description |
+| :--- | :--- |
+| `error.code` | Machine-readable error code in `ALL_CAPS_SNAKE_CASE`. Use this to branch on specific errors in your code. |
+| `error.message` | Human-readable explanation of the error. |
+| `error.target` | The field or resource that caused the error, in dot-notation (e.g. `scheduling.expiry_datetime`). |
+| `error.details[]` | Per-field violations for `400 VALIDATION_FAILED` responses. The API collects all errors before responding — a single `400` may list multiple entries. |
+| `error.doc_url` | Link to documentation for this error code. |
+| `response_id` | Trace identifier for this response. Always present, even on errors. Provide this to MoEngage support when reporting an issue. |
+
+<Note>
+  The `details` array is only present on `400 VALIDATION_FAILED` responses. All other error codes return only the top-level `error` object.
+</Note>
+
+### Common error codes
+
+For the full list of error codes per endpoint, see the individual endpoint pages. The most commonly encountered codes across all Offerings API operations are:
+
+| Code | HTTP | Meaning |
+| :--- | :--- | :--- |
+| `VALIDATION_FAILED` | 400 | One or more request fields failed validation. Check `error.details` for the full list. |
+| `REQUIRED_FIELD_MISSING` | 400 | A required field is absent. `error.target` identifies which field. |
+| `INVALID_SCHEDULING` | 400 | `expiry_datetime` is not after `start_datetime`, or a datetime is in the past. |
+| `INVALID_OFFER_NAME` | 400 | `name` contains characters other than letters, numbers, and underscores. |
+| `DUPLICATE_OFFER_NAME` | 400 | `name` matches an existing non-archived offering in the workspace. |
+| `INVALID_TAG_ID` | 400 | One or more tag IDs in `tags` do not exist in the workspace. |
+| `IMMUTABLE_FIELD` | 400 | An attempt was made to change a status-locked field. |
+| `MISSING_IDEMPOTENCY_KEY` | 400 | The `Idempotency-Key` header is absent. |
+| `INVALID_IDEMPOTENCY_KEY` | 400 | The `Idempotency-Key` is not a valid UUID v4. |
+| `DUPLICATE_IDEMPOTENCY_KEY` | 409 | A request with the same key is in-flight. |
+| `IDEMPOTENCY_CONFLICT` | 409 | The key was reused with a different request body. |
+| `EXPIRED_OFFERING` | 403 | The offering is past its `expiry_datetime` and cannot be modified. |
+| `ARCHIVED_OFFERING` | 403 | The offering is archived and cannot be modified. |
+| `OFFER_NOT_FOUND` | 404 | No offering with the given ID exists in this workspace. |
+
 ## FAQs
  
 ### Getting Started
