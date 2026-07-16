@@ -128,16 +128,20 @@ paths:
               Example: status_in=active,scheduled
           cursor:
             description: |
-              Opaque pagination token from the previous response's next_cursor field.
-              Omit on the first call. Pass verbatim — do not decode or modify.
+              An opaque pagination token used to retrieve the next page of results.
+
+              * **Initial Request:** Omit this parameter entirely on the first call to fetch the beginning of the list.
+              * **Subsequent Pages:** Pass the exact string received from the `next_cursor` field of the immediate previous response.
+              * **Handling:** Pass this token completely verbatim. Do not decode, alter, or modify the string in any way.
           fields:
             description: |
               Comma-separated list of fields to return. Omit for all six fields.
-              Use to minimise token usage. Valid values: id, name, status, tags, created_at, created_by.
+              Use to minimise token usage. Valid values: `id`, `name`, `status`, `tags`, `created_at`, `created_by`.
               Example: fields=id,name,status
           limit:
             description: |
-              Number of offerings per page. Default 20, maximum 100.
+              The number of offerings to return per paginated response.
+
       tags:
         - Public Offerings
       security:
@@ -149,7 +153,7 @@ paths:
           schema:
             type: string
           description: >
-            Look up a single offering by its exact prefixed ID (e.g. 6a4f69ee490f66322f968b87).
+            Look up a single offering by its exact prefixed ID (e.g. offer_6a4f69ee490f66322f968b87).
             Use this when you already know the offering ID and want to confirm it exists
             before updating it.
         - name: name_contains
@@ -412,7 +416,7 @@ paths:
             format: uuid
           description: >
             UUID v4 idempotency token. Submitting the same key within 24 hours returns the
-            original `201 response` without re-executing the create. A different body hash on
+            original `201 response` without re-creating the Offering. A different body hash on
             the same key returns `409 IDEMPOTENCY_CONFLICT`. A concurrent in-progress request
             with the same key returns `409 DUPLICATE_IDEMPOTENCY_KEY`.
         - name: X-MOE-Request-Id
@@ -452,13 +456,9 @@ paths:
                             name: level_0_for_automation
                             id: 6a572827fad010a3318a1bc1
                   offer_content:
-                    locales:
-                      "0":
-                        variations:
-                          Variant_A:
-                            content_1:
-                              type: json
-                              value: '{"discount":"10%"}'
+                    content_1:
+                      type: json
+                      value: '{"discount":"10%"}'
                   variation_meta:
                     type: SMV
                     variantsPerLocale: [Variant_A]
@@ -736,26 +736,13 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
-  /v5/offers/{offer_id}:
+  /v5/offers/offer_{id}:
     patch:
       operationId: updatePublicOffering
       summary: Update Offering
       description: |
         Modify an existing offering. Only the fields you include in the request body are
-        changed — all other fields keep their current values. Use list_offerings first to
-        find the offering ID if you don't already have it.
-
-        Common update patterns:
-        - Extend a live campaign: include only scheduling.expiry_datetime with a later date.
-        - Rename an offering: include only name with the new value.
-        - Replace content: include only offer_content with the updated payload.
-        - Replace tags entirely: include tags as a full replacement list (not additive).
-
-        variation_meta can be updated via PATCH with status-based rules:
-        SCHEDULED = fully editable; ACTIVE + SMV = split percentages only;
-        ACTIVE + DMV = control_group.percentage only. `scheduling.start_datetime` and
-        `conversion` can only be changed while the offering is in `scheduled` status.
-        PATCH on an expired or archived offering returns 403.
+        changed.
 
       x-moe-mcp:
         expose:
@@ -799,12 +786,12 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - name: offer_id
+        - name: id
           in: path
           required: true
           schema:
             type: string
-          description: Prefixed offering ID (e.g. offer_6a4f69ee490f66322f968b87).
+          description: The unique ID of the offering to be updated. You can fetch the offering ID using the [List Offerings API](/api/public-offerings/list-offerings) by filtering with name.
         - name: Idempotency-Key
           in: header
           required: true
@@ -812,9 +799,10 @@ paths:
             type: string
             format: uuid
           description: >
-            UUID v4 idempotency token. Same semantics as POST: same key within 24 h returns
-            the original 200 response; different body on same key returns 409 IDEMPOTENCY_CONFLICT;
-            concurrent in-progress request returns 409 DUPLICATE_IDEMPOTENCY_KEY.
+            UUID v4 idempotency token. Submitting the same key within 24 hours returns the
+            original `200 response` without re-creating the Offering. A different body hash on
+            the same key returns `409 IDEMPOTENCY_CONFLICT`. A concurrent in-progress request
+            with the same key returns `409 DUPLICATE_IDEMPOTENCY_KEY`.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -822,7 +810,7 @@ paths:
             type: string
             format: uuid
           description: >
-            Client-supplied trace ID (UUID v4). Echoed back in the X-MOE-Request-Id response
+            Client-supplied trace ID (UUID v4). Echoed back in the `X-MOE-Request-Id` response
             header. Use this to correlate client requests with server-side logs.
       requestBody:
         required: true
@@ -1020,13 +1008,8 @@ paths:
       operationId: listPublicOfferTemplates
       summary: List Offer Templates
       description: |
-        Fetch the personalization templates available in the workspace. Use this to discover
-        valid template_id values before constructing a template-type content block in
-        offer_content for POST /v5/offers or PATCH /v5/offers/{offer_id}.
+        Fetch the personalization templates available in the workspace.
 
-        Typical agent flow: call list_offer_templates first to find a template's id, then
-        pass that id as meta.templateId inside offer_content.locales["0"].variations.*.content_1
-        when type is "template".
       x-moe-mcp:
         expose:
           external: true
@@ -1048,8 +1031,11 @@ paths:
         param_overrides:
           cursor:
             description: |
-              Opaque pagination token from the previous response's next_cursor field.
-              Omit on the first call. Pass verbatim — do not decode or modify.
+              An opaque pagination token used to retrieve the next page of results.
+
+              * **Initial Request:** Omit this parameter entirely on the first call to fetch the beginning of the list.
+              * **Subsequent Pages:** Pass the exact string received from the `next_cursor` field of the immediate previous response.
+              * **Handling:** Pass this token completely verbatim. Do not decode, alter, or modify the string in any way.
           limit:
             description: |
               Number of templates per page. Default 20, maximum 100.
@@ -1064,9 +1050,11 @@ paths:
           schema:
             type: string
           description: >
-            Opaque pagination cursor returned as next_cursor in the previous response.
-            Omit on the first request. Pass the value verbatim — do not decode or modify it.
-            When next_cursor is null in the response, you have reached the last page.
+            An opaque pagination token used to retrieve the next page of results.
+
+              * **Initial Request:** Omit this parameter entirely on the first call to fetch the beginning of the list.
+              * **Subsequent Pages:** Pass the exact string received from the `next_cursor` field of the immediate previous response.
+              * **Handling:** Pass this token completely verbatim. Do not decode, alter, or modify the string in any way.
         - name: limit
           in: query
           required: false
@@ -1075,7 +1063,7 @@ paths:
             default: 20
             minimum: 1
             maximum: 100
-          description: Items per page. Default 20, max 100. Values <= 0 fall back to the default.
+          description: Number of templates per page. Default 20, maximum 100.
         - name: X-MOE-Request-Id
           in: header
           required: false
@@ -1448,28 +1436,31 @@ components:
 
     ClientOfferPatchRequest:
       description: |
-        Request body for partially updating an existing offering via the public API
-        (PATCH /v5/offers/{offer_id}). PATCH semantics apply: only fields present in
-        the request body are modified. Omitted fields retain their current values.
+        Request body for partially updating an existing offering via the public API (`PATCH /v5/offers/{offer_id}`). Only the fields explicitly provided in the request body will be modified.
 
-        VARIATION_META (editable, status-gated): variation_meta can be updated, but which
-        sub-fields you may change depends on the offering status and variation type:
-          - "scheduled": the entire object is editable (type, variantsPerLocale,
-            smv_distribution, control_group).
-          - "active" + SMV: only smv_distribution.split percentages and
-            control_group.percentage are editable; type and variant key names are locked.
-          - "active" + DMV: only control_group.percentage is editable; type,
-            variantsPerLocale, and smv_distribution are locked.
-        Changing a locked sub-field returns 400 IMMUTABLE_FIELD.
+        ### Lifecycle & Mutation Rules
 
-        STATUS-GATED FIELDS: conversion can only be updated when the offering status
-        is "scheduled". Attempting to update it on an "active" or "expired" offering
-        returns 400 IMMUTABLE_FIELD.
+        Certain fields are status-gated based on the offering's current lifecycle phase. Attempting to modify a locked field will return a `400 IMMUTABLE_FIELD` error.
 
-        SCHEDULING CONSTRAINT: scheduling.start_datetime can only be changed when the
-        offering status is "scheduled". Once the offering transitions to "active", the
-        start time is locked. The expiry_datetime can always be updated regardless of
-        status to extend or shorten an active campaign.
+        #### 1. Variation Metadata (`variation_meta`)
+
+        Field mutability depends on both the offering status and the variation type configuration:
+
+        | Offering Status | Variation Type | Editable Fields | Locked Fields |
+        | :--- | :--- | :--- | :--- |
+        | **`scheduled`** | Any | Entire object (`type`, `variantsPerLocale`, `smv_distribution`, `control_group`) | None |
+        | **`active`** | **SMV** | `smv_distribution.split` percentages, `control_group.percentage` | `type`, Variant key names |
+        | **`active`** | **DMV** | `control_group.percentage` | `type`, `variantsPerLocale`, `smv_distribution` |
+        | **`expired`** | Any | None | All fields are locked |
+
+        #### 2. Status-Gated Fields
+
+        * **`conversion`**: Can only be updated when the offering status is `scheduled`. Attempting to update it on an `active` or `expired` offering returns a `400 IMMUTABLE_FIELD` error.
+
+        #### 3. Scheduling Constraints
+
+        * **`scheduling.start_datetime`**: Can only be changed when the offering status is `scheduled`. 
+        * **`scheduling.expiry_datetime`**: Can only be changed when the offering status is `active` or `scheduled`. 
       type: object
       required: [updated_by]
       properties:
@@ -1477,18 +1468,15 @@ components:
           type: string
           format: email
           description: >
-            Email address of the team member making this update. Always recorded in the
-            audit log regardless of which other fields are changed in the request.
+            Email address of the team member making this update.
           example: marketing-team@example.com
         name:
           type: string
           description: >
-            Updated display name for the offering. Must remain unique within the workspace.
-            Allowed characters: alphanumeric characters and underscores (_) only.
-            Spaces, hyphens, and special characters are NOT permitted — returns INVALID_OFFER_NAME.
+            * Updated display name for the offering. Must remain unique within the workspace.
+            * Allowed characters: alphanumeric characters and underscores (_) only.
           minLength: 5
           maxLength: 100
-          pattern: '^[A-Za-z0-9_]+$'
         description:
           type: string
           description: Updated free-text description of the offering's purpose.
@@ -1501,11 +1489,9 @@ components:
         tags:
           type: array
           description: >
-            Replacement tag list. This is a FULL REPLACEMENT, not an additive operation.
-            The entire existing tag list is overwritten with this value. To add a single
-            tag, send the complete current tag list plus the new tag. To remove all tags,
-            send an empty array. Each tag ID must already exist in the workspace — returns
-            400 INVALID_TAG_ID if not.
+            * The entire existing tag list is overwritten with this value.
+            * To add a single tag, send the complete current tag list plus the new tag.
+            * To remove all tags, send an empty array.
           items:
             type: string
             maxLength: 50
@@ -1571,9 +1557,8 @@ components:
     OfferSchedulingPatch:
       description: |
         Partial scheduling update for `PATCH` operations. All fields are optional.
-        `start_datetime` can only be changed when offering status is `scheduled` — it
-        is locked once the offering is `active`.
-        `expiry_datetime` can always be updated, even for active offerings.
+        `start_datetime` can only be changed when offering status is `scheduled`. 
+        `expiry_datetime` can be updated only when offering status is `active` or `scheduled`.
       type: object
       properties:
         start_datetime:
@@ -1647,20 +1632,26 @@ components:
 
     OfferContent:
       description: |
-        Offering content payload delivered to the user.
+        The core content payload delivered to the end-user. This object supports two mutually exclusive structures depending on whether your offering uses content variations or experimentation.
 
-        FLAT FORMAT (no content variations):
-        Send a `content_1` object at the root level. The same content is served to
-        all eligible users. Use this for simple offerings with no A/B testing.
+        <Warning>
+        **Mutually Exclusive:** Do not provide both `content_1` and `locales` in the same request payload. Doing so will result in a validation error.
+        </Warning>
 
-        NESTED FORMAT (more than 1 content variation):
-        Send a `locales` map. Use `"0"` as the locale key for single-locale offerings — do not
-        use `"default"` or `"en"`. Within each locale, a "variations" map keys variation IDs
-        (which must match the IDs defined in variation_meta.variantsPerLocale and
-        smv_distribution.split) to their respective content blocks. Use this format when
-        variation_meta.type is SMV or DMV.
+        ### 1. Flat Format (No Content Variations)
 
-        Do not send both "content_1" and "locales" in the same request.
+        Use this structure for simple offerings that do not require A/B testing or localization.
+
+        * **Payload Structure:** Send a single `content_1` object at the root level.
+        * **Behavior:** The exact same content block is served universally to all eligible users.
+
+        ### 2. Nested Format (Multiple Content Variations)
+
+        Use this structure when `variation_meta.type` is configured as either **SMV** (Static Multi-Variant) or **DMV** (Dynamic Multi-Variant).
+
+        * **Payload Structure:** Send a structured `locales` map object.
+        * **Single-Locale Targeting:** For single-locale offerings, you **must** use `"0"` as the literal locale key string.
+        * **Variations Mapping:** Inside each locale, the nested `variations` map keys must exactly match the variation IDs defined in `variation_meta.variantsPerLocale` and `smv_distribution.split`.
       type: object
       properties:
         content_1:
@@ -1749,16 +1740,11 @@ components:
       description: |
         Configuration for A/B testing content variations.
 
-        EDITABLE WITH STATUS RULES — while the offering is `scheduled` the whole object
-        can be changed via PATCH /v5/offers. Once `active`, only percentage fields
-        `smv_distribution.split` and `control_group.percentage` can be updated.
+        EDITABLE WITH STATUS RULES — while the offering status is `scheduled` the whole object can be changed via `PATCH /v5/offers`. Once `active`, only percentage fields `smv_distribution.split` and `control_group.percentage` can be updated.
 
-        SMV: Fixed percentage splits across up to 5 variations.
-
-        DMV: The system automatically learns which variant performs best over time and shifts traffic toward the
-        winner.
-
-        Offer Control Group: A configurable percentage of eligible users to be held out as a pure control group.
+        * `SMV`: Fixed percentage splits across up to 5 variations.
+        * `DMV`: The system automatically learns which variant performs best over time and shifts traffic toward the winner.
+        * `Offer Control Group`: A configurable percentage of eligible users to be held out as a pure control group.
       type: object
       required: [type]
       properties:
@@ -1966,7 +1952,7 @@ components:
                 filter_operator:
                   type: string
                   enum: [and, or]
-                  example: AND
+                  example: and
             excluded_filters:
               type: object
               description: Exclusion criteria, same structure as included_filters.
