@@ -1,22 +1,13 @@
 ---
 title: "Flows Overview"
-description: "List, read, and control MoEngage Flows, and retrieve flow and channel analytics."
+description: "List, read, and control MoEngage Flows."
 ---
 
-Use the Flows endpoints to discover flows, view a single flow (including its versions and stages), change a flow's status, and retrieve analytics. These endpoints read and control flows; they do not create them.
+Use the Flows endpoints to discover flows, view a single flow (including its versions and stages), and change a flow's status. These endpoints read and control flows; they do not create them.
 
 <Note>
   The Flows endpoints are in BETA. We won't make breaking changes during the BETA period.
 </Note>
-
-## Endpoint groups
-
-The Flows API has two endpoint groups:
-
-| Endpoint group | Purpose |
-| --- | --- |
-| **Flows** | Search flows, get a single flow (or a specific version) with its stages, and change a flow's status. |
-| **Flow Analytics** | Retrieve flow-level trip analytics and channel-level performance and delivery analytics. |
 
 ## Endpoints
 
@@ -26,8 +17,6 @@ The Flows API has two endpoint groups:
 | `GET` | `/v5/flows/{flow_id}` | Get a single flow; optionally view a specific version with `version_no`. |
 | `GET` | `/v5/flows/{flow_id}/versions/{version_id}` | Get a flow as it was in a specific version, addressed by its version ID. |
 | `PATCH` | `/v5/flows/{flow_id}/status` | Pause, resume, stop, retire, archive, or unarchive a flow. |
-| `GET` | `/v5/flows/{flow_id}/analytics` | Get flow-level trip, drop/exit, split-stage, and conversion analytics. |
-| `GET` | `/v5/flows/{flow_id}/analytics/channels/{channel}` | Get channel-scoped aggregated and per-campaign analytics. |
 
 ## Authentication
 
@@ -35,7 +24,7 @@ Authenticate with Basic Auth using your MoEngage Workspace ID (App ID) as the us
 
 Flows reuse the Campaigns permissions. Enable the matching checkboxes on your API key:
 
-- **View** (`campaigns:view`) for the read endpoints — Search Flows, Get a Single Flow, Get a Specific Version of a Flow, and the analytics endpoints.
+- **View** (`campaigns:view`) for the read endpoints — Search Flows, Get a Single Flow, and Get a Specific Version of a Flow.
 - **Create & Manage** (`campaigns:create_manage`) for Update Flow Status.
 
 The Flows endpoints do not require the `MOE-APPKEY` header. The `X-MOE-Tenant-ID` header (your Workspace ID) is optional — when omitted, the workspace is resolved from the Basic Auth credentials in the `Authorization` header. You can also send an optional `X-MOE-Request-Id`.
@@ -51,9 +40,166 @@ Requests go to your data center's host, `https://api-{dc}.moengage.com`. For the
 - Datetimes are ISO 8601 UTC (`YYYY-MM-DDThh:mm:ssZ`).
 - Search results are paginated. Each response includes a `next_cursor`. To get the next page, send that value as the `cursor` parameter in your next request.
 
-## FAQs
+## Flow structure and nodes
 
-### Flows
+**Get a single flow** and **Get a specific version of a flow** return the flow's stages in `data.structure.nodes[]`. Each entry is a node (one stage of the flow). Nodes share a common envelope and carry a `config` object whose shape depends on the node's `type` and `sub_type`.
+
+Every node includes these fields:
+
+| Field | Description |
+| --- | --- |
+| `stage_id` | Unique ID of the node within the flow. |
+| `type` | Node category: `TRIGGER`, `ACTION`, `CONDITION`, `SPLIT`, `BRANCH`, or `CONTROL`. |
+| `sub_type` | Specific variant within the `type`. |
+| `parent_stage_id` | ID of the upstream node, or `null` for the entry (`TRIGGER`) node. |
+| `child_stage_ids` | IDs of the immediate downstream nodes. |
+| `label` | Human-readable label from the flow builder. May be `null`. |
+| `config` | Type-specific configuration. Null-valued fields are omitted. |
+
+The sections below describe the `config` shape for each node type. Field sets are documented from real flows; a node may include additional keys not shown here.
+
+### CONDITION
+
+A `CONDITION` node evaluates a condition and routes users down one of two paths. `child_stage_ids` always has exactly two entries: index `0` is the path taken when the condition matches, and index `1` is the path when it does not.
+
+`config` fields:
+
+- `condition` — the rule to evaluate. It reuses the same filter grammar as a trigger's event filter (`filter_operator`, `filters[]`, and per-filter `action_name`, `executed`, `execution.type`/`execution.count`, and nested `attributes`).
+- `wait` — how long to wait before evaluating, as `{ duration, unit }`. `unit` is `mins`, `hours`, or `days`.
+- `evaluation_timing` — when the condition is evaluated: `ON_ENTRY` or `SINCE_PREVIOUS_STAGE`.
+
+Observed `sub_type` values: `HAS_DONE_EVENT`, `ON_EMAIL_CLICK`, `ON_EMAIL_OPEN`.
+
+```json Two-way CONDITION node
+{
+  "stage_id": "Y8nSUSRe6",
+  "type": "CONDITION",
+  "sub_type": "HAS_DONE_EVENT",
+  "parent_stage_id": "ZL4rtyzrd",
+  "child_stage_ids": ["2iuY5k_zy", "TOGBwROjc7"],
+  "label": "Email Clicked",
+  "config": {
+    "condition": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "action_name": "MOE_EMAIL_CLICK",
+          "executed": true,
+          "filter_type": "actions",
+          "execution": { "count": 1, "type": "atleast" },
+          "attributes": { "filter_operator": "and", "filters": [] }
+        }
+      ]
+    },
+    "wait": { "duration": 5, "unit": "mins" },
+    "evaluation_timing": "SINCE_PREVIOUS_STAGE"
+  }
+}
+```
+
+### BRANCH
+
+A `BRANCH` node represents a single arm of a parent `CONDITION` or `SPLIT`. Its `sub_type` mirrors the parent's `sub_type`, and its single child is the next real stage on that path. Its `config` depends on the parent:
+
+- Arm of a `CONDITION` (explicit YES/NO pattern): `config` is `{ "outcome": "YES" }` or `{ "outcome": "NO" }`.
+- Arm of a `CONDITIONAL_SPLIT`: `config` carries `branch_index` (0-based) and, for a conditioned arm, `branch_type: "main"` with a `condition` object. The catch-all arm uses `branch_type: "default"` and has no `condition`.
+- Arm of an `AB_SPLIT` or `IPO`: `config` carries `name` and `percentage`.
+
+```json BRANCH arms of a CONDITIONAL_SPLIT
+{
+  "stage_id": "KFs3PrkZJ",
+  "type": "BRANCH",
+  "sub_type": "CONDITIONAL_SPLIT",
+  "parent_stage_id": "f3OFPd5GNe",
+  "child_stage_ids": ["dJ0FjUCcC"],
+  "label": "Signed up and Purchased",
+  "config": {
+    "branch_type": "main",
+    "branch_index": 0,
+    "condition": { "filter_operator": "and", "filters": [] }
+  }
+}
+```
+
+### SPLIT
+
+A `SPLIT` node fans users into more than two paths (or two paths for `IPO`). Its `child_stage_ids` map one-to-one to `BRANCH` children. `config` fields depend on the `sub_type`:
+
+- `CONDITIONAL_SPLIT` — routes by condition. `config` carries `branch_order` (the ordered list of child `stage_id`s), `evaluation_timing`, and `wait`.
+- `AB_SPLIT` — random percentage split. `config.branches[]` lists each arm as `{ stage_id, name, percentage }`.
+- `IPO` (Intelligent Path Optimizer) — `config.branches[]` (as with `AB_SPLIT`) plus `optimization_metric` (observed value: `ENGAGEMENT`). Ordering comes from `branches[]`; there is no `branch_order`.
+
+```json Multi-way CONDITIONAL_SPLIT
+{
+  "stage_id": "f3OFPd5GNe",
+  "type": "SPLIT",
+  "sub_type": "CONDITIONAL_SPLIT",
+  "child_stage_ids": ["KFs3PrkZJ", "CfwMAJthB", "EfjrVVREJ9"],
+  "label": "Has Signed Up and Purchased a Policy?",
+  "config": {
+    "evaluation_timing": "ON_ENTRY",
+    "branch_order": ["KFs3PrkZJ", "CfwMAJthB", "EfjrVVREJ9"],
+    "wait": { "duration": 0, "unit": "hours" }
+  }
+}
+```
+
+```json AB_SPLIT
+{
+  "stage_id": "uMQdmCeJia",
+  "type": "SPLIT",
+  "sub_type": "AB_SPLIT",
+  "parent_stage_id": "CfwMAJthB",
+  "child_stage_ids": ["LsyB1exIx", "eElEw9Uaq8", "fxHKPCJ-M"],
+  "label": "A/B Split",
+  "config": {
+    "branches": [
+      { "stage_id": "LsyB1exIx", "name": "Branch 1", "percentage": 33 },
+      { "stage_id": "eElEw9Uaq8", "name": "Branch 2", "percentage": 33 },
+      { "stage_id": "fxHKPCJ-M", "name": "Branch 3", "percentage": 34 }
+    ]
+  }
+}
+```
+
+### ACTION
+
+An `ACTION` node sends a campaign or selects a channel. For a channel send (`EMAIL`, `PUSH`, `SMS`, `WHATSAPP`, and so on), `config` carries `campaign_id`, `channel`, and `campaign_name`.
+
+The `NBA` (Next Best Action) sub_type is an `ACTION` node — it occupies the same slot as channel sends, not a separate node type. Its `config` fields:
+
+- `channels[]` — one entry per eligible channel, each `{ channel, stage_id, campaign_id }`. `stage_id` references a sibling `ACTION` node (of that channel) that owns the actual send; the NBA node itself holds no campaign content.
+- `fallback_channel` — the channel used when the best channel can't be determined (observed value: `PUSH`).
+- `best_time_to_send` — the send-time strategy (observed shape: `{ "default_time": "SEND_IMMEDIATELY" }`).
+
+```json ACTION node with NBA sub_type
+{
+  "stage_id": "0-5G1JPQX",
+  "type": "ACTION",
+  "sub_type": "NBA",
+  "parent_stage_id": "abw_MALGPa",
+  "child_stage_ids": ["dgVoYPiUPT"],
+  "label": "Next Best Action",
+  "config": {
+    "channels": [
+      { "channel": "PUSH", "stage_id": "x_-NueaX4X", "campaign_id": "69844f63316edd32518c5aef" },
+      { "channel": "EMAIL", "stage_id": "zN9ibHPXbE", "campaign_id": "69844f63316edd32518c5af1" }
+    ],
+    "fallback_channel": "PUSH",
+    "best_time_to_send": { "default_time": "SEND_IMMEDIATELY" }
+  }
+}
+```
+
+### CONTROL
+
+A `CONTROL` node manages flow control and path convergence. Observed `sub_type` values:
+
+- `EXIT` — exits the user from the flow.
+- `WAIT_FOR_TIMER` — holds the user for a set duration.
+- `GO_TO` — routes the user to a shared downstream stage (`config.target_stage_id`), used to re-converge parallel branches.
+
+## FAQs
 
 <AccordionGroup>
   <Accordion title="Can I create or edit flows with these endpoints?">
@@ -70,19 +216,5 @@ Requests go to your data center's host, `https://api-{dc}.moengage.com`. For the
   </Accordion>
   <Accordion title="What permissions do I need?">
     The read endpoints (search, get flow, get version) require the `campaigns:view` permission. The status endpoint requires the `campaigns:create_manage` permission.
-  </Accordion>
-</AccordionGroup>
-
-### Flow Analytics
-
-<AccordionGroup>
-  <Accordion title="What time range do the analytics endpoints cover?">
-    By default, the last 90 days or since the flow was first published, whichever is shorter. You can narrow the window with `activity_after` and `activity_before`. The filter is based on activity, not entry — a user journey is included if any activity happened within the window.
-  </Accordion>
-  <Accordion title="Which attribution models are available?">
-    `VIEW_THROUGH`, `CLICK_THROUGH`, `IN_SESSION`, `TOTAL_CONVERSIONS`, and `CLICK_CONVERSIONS`. Pass the model you want in the `attribution_type` parameter.
-  </Accordion>
-  <Accordion title="Why is the flow-level analytics split from channel analytics?">
-    A flow can contain many campaign nodes across several channels. Splitting flow-level metrics from channel-level metrics keeps each response focused and its response time predictable.
   </Accordion>
 </AccordionGroup>
