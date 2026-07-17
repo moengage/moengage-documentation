@@ -1,0 +1,124 @@
+---
+title: "Limit Messages for Periodic and Triggered Campaigns"
+description: "Cap how many times a user receives a Periodic or Event-Triggered campaign in MoEngage with limit messages, which uses a rolling window to block repeat sends until the limit resets."
+---
+
+# Limit Messages per User
+
+## Overview
+
+Limit Messages per User lets you control how many times an individual user receives a specific Periodic or Event-Triggered campaign, within a time period that you define. Use this setting to prevent overexposure — for example, to cap how many times a user sees a coupon offer, a promotional push, or a reminder message.
+
+The setting is available on the **Delivery Control** section of the campaign creation flow, for both new and existing campaigns. It is turned off by default, so campaigns behave exactly as they do today unless you explicitly enable it.
+
+## Use case
+
+Marketers often need to make sure a benefit — such as a coupon code, a limited-time offer, or a reward — reaches a user only a fixed number of times, even if the campaign itself runs continuously or is triggered repeatedly by user behavior.
+
+For example:
+- Send a coupon code campaign to a user no more than **2 times in 30 days**, so the user doesn't receive more discount codes than intended.
+- Send a cart-abandonment reminder no more than **once a week** per user.
+- Send a welcome offer only **once**, ever, per user.
+
+Without this feature, marketers had to build workarounds using custom attributes and additional logic to track and cap send frequency. Limit Messages per User provides this control natively, without extra setup.
+
+## Who can use this feature
+
+Users with Marketer, Manager, or Admin roles have full create, edit, and delete access to this setting, as with other campaign delivery controls.
+
+## Supported campaigns and channels
+
+| Category | Support |
+| --- | --- |
+| Delivery types | Periodic and Event-Triggered campaigns |
+| Creation methods | Campaigns created via the dashboard, API, or Agent |
+| Channels | Push, SMS, WhatsApp, Email, Cards, Connectors, and Connected Apps |
+| Maximum frequency window | Up to 1 year |
+
+This setting has no impact on delivery speed or any other sending module, and it works alongside Frequency Capping without any conflict.
+
+## How the limit is counted
+
+### What counts as a "message received"
+
+A user is counted against the limit only when the campaign is **successfully delivered** to them — not simply when it is sent. This ensures a user isn't blocked from a future send if an earlier attempt never actually reached them (for example, if a push notification failed to deliver).
+
+The specific event used to determine successful delivery depends on the channel:
+
+| Channel | Event used to count a send | Fallback event (if the primary event isn't available) |
+| --- | --- | --- |
+| Push | Notification Received (Android / iOS / Web) | Notification Sent – iOS (used only when iOS delivery tracking isn't configured) |
+| SMS | SMS Delivered (for Sinch, Twilio, Gupshup, ICS, Kalyera) | For custom connectors: if a delivery callback is configured, SMS Delivered is used; if not, SMS Sent is used instead |
+| Email | Email Delivered (for Amazon SES and SendGrid) | Email Sent (used for custom connectors and other native connectors) |
+| WhatsApp | WhatsApp Message Delivered | — |
+| Cards | Card Campaign Sent | — |
+| Connectors | Connector Sent | — |
+
+> **Note:** This event-based counting logic applies only to the channels listed above.
+
+### Sliding window behavior
+
+The limit works on a **sliding window**, not a fixed calendar period. Each time a send is triggered for a user, the system checks how many times that user has successfully received the campaign within the defined window, counting back from the current moment.
+
+**Example:** Suppose the limit is set to 2 messages in 7 days.
+- Every time a send is about to go out, the system checks: "In the last 7 days, has this user already received 2 messages from this campaign?"
+- If the user has received fewer than 2, the message is sent, and the window is re-evaluated at the next send attempt.
+- If the user has already received 2 within the trailing 7-day period, the message is blocked for that user until enough time has passed for one of the earlier sends to fall outside the 7-day window.
+
+This means the window continuously "slides" forward with time rather than resetting on a fixed schedule (such as every Monday or on the 1st of the month).
+
+## Setting up Limit Messages per User
+
+1. Create or edit a Periodic or Event-Triggered campaign.
+2. Go to **Step 3** of the campaign creation flow, where the channel-specific delivery settings appear.
+3. Under **Delivery Control**, turn on the **Limit messages per user** checkbox.
+4. Configure the two settings that appear:
+   - **Number of messages**: The maximum number of times this campaign can be delivered to a single user.
+   - **Frequency**: The time window for the limit, defined in hours, days, months, or years (maximum 1 year).
+
+   For example, setting this to **2 messages in 1 month** means a user can receive at most 2 instances of this campaign in any rolling 30-day period.
+5. Save or publish the campaign.
+
+Once enabled, the campaign's Step 3 (or campaign summary) will display the configured limit and frequency wherever delivery control settings are shown, so you can confirm the setting at a glance.
+
+## Editing an existing limit
+
+You can update the number of messages or the frequency at any time, on both scheduled and active campaigns.
+
+- **Scheduled campaigns**: Edits apply directly, since the campaign hasn't started sending yet.
+- **Active campaigns**: Any change to the limit, frequency, or the on/off toggle creates a **new version** of the campaign. The updated settings take effect from this new version onward.
+- If you change the number of days or months in the frequency while the campaign is active, each user's existing countdown toward their next eligible send is also updated to reflect the new frequency value.
+
+## Turning off the limit
+
+You can turn off Limit messages per user at any time from the same Delivery Control section, on both scheduled and active campaigns. As with other edits, turning this off on an active campaign creates a new campaign version, and the limit no longer applies from that point forward.
+
+## Viewing applied limits
+
+The limit and frequency you've configured are also visible on the campaign's summary or info page, alongside the other Delivery Control settings, so you can quickly verify what's active without opening the edit flow.
+
+## Viewing users excluded due to the limit
+
+Users who did not receive a send because they had already hit the configured limit are captured separately in the campaign's error breakdown, under a category such as **"User removed due to campaign frequency limit."** Use this to understand how many users were held back by the limit for a given send.
+
+## Things to know
+
+- This setting is turned off by default on all new campaigns.
+- The limit and frequency setting has no effect on delivery speed or on any other part of the sending pipeline.
+- This feature works independently of, and alongside, Frequency Capping — enabling one does not change the behavior of the other.
+- The maximum frequency window you can configure is 1 year.
+- This feature is supported on campaigns that were already running before this feature became available (legacy campaigns).
+
+## Frequently asked questions
+
+**Can I use Limit messages per user together with Frequency Capping?**
+Yes. The two settings work independently, and using one does not affect the other's behavior.
+
+**Does the limit reset on a fixed schedule, like every week or every month?**
+No. It uses a sliding window that is recalculated relative to the current time at every send attempt, not a fixed calendar period.
+
+**What happens if a message fails to deliver — does it still count against the limit?**
+No. Only successful deliveries (based on the channel-specific delivery event) count toward the limit. A failed or undelivered send does not use up part of a user's allowance.
+
+**If I change the frequency on a live campaign, does it apply to users who are already partway through their current window?**
+Yes. When you update the number of days/months, each user's existing countdown is adjusted to reflect the new frequency.
