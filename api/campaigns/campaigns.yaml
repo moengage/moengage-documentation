@@ -863,7 +863,7 @@ components:
         campaign_start_time:
           type: string
           format: date-time
-          description: The start time of the campaign in ISO 8601 format.
+          description: The start time of the campaign in ISO 8601 format. This value is returned in UTC.
           example: "2024-11-28T12:18:00"
         parent_campaign_id:
           type: string
@@ -891,7 +891,8 @@ components:
               example: 18182
             last_updated_time:
               type: string
-              description: The timestamp when reachability was last calculated.
+              format: date-time
+              description: The timestamp when reachability was last calculated, in ISO 8601 format. This value is returned in UTC.
               example: "2024-11-27T09:05:42.661000"
 
     # ==================== Campaign Status Change Request ====================
@@ -1013,7 +1014,7 @@ components:
                 example: "camp_child_001"
               sent_time:
                 type: string
-                description: The timestamp when the child campaign was sent.
+                description: The timestamp when the child campaign was sent, in UTC.
                 example: "2024-06-24T14:30:18.908000"
               status:
                 type: string
@@ -1203,14 +1204,14 @@ components:
           description: The email ID of the user who last updated the campaign.
         created_at:
           type: string
-          description: The timestamp when the campaign was created.
+          description: The timestamp when the campaign was created, in UTC.
           example: "2024-07-04 08:00:54.847000"
         updated_at:
           type: string
-          description: The timestamp when the campaign was last updated.
+          description: The timestamp when the campaign was last updated, in UTC.
         sent_time:
           type: string
-          description: The timestamp when the campaign was sent.
+          description: The timestamp when the campaign was sent, in UTC.
           example: "2024-07-04 20:32:00"
         flow_id:
           type: string
@@ -2926,7 +2927,7 @@ components:
       description: |
         A group of filters combined with a logical operator.
         
-        For detailed segmentation payload and supported fields, refer to [Create Custom Segment](https://developers.moengage.com/hc/en-us/articles/13277936457748).
+        For detailed segmentation payload and supported fields, refer to [Create Custom Segment](/api/filter-segments/create-filter-segment).
       required:
         - filter_operator
         - filters
@@ -3057,7 +3058,7 @@ components:
     # ==================== Scheduling Details ====================
     SchedulingDetails:
       type: object
-      description: Defines when the campaign should be sent.
+      description: Defines when the campaign should be sent. All date-time values must be passed in UTC.
       required:
         - delivery_type
       properties:
@@ -3073,13 +3074,13 @@ components:
           type: string
           format: date-time
           description: |
-            The start time for the campaign in ISO 8601 format.
-            
+            The start time for the campaign in ISO 8601 format. Pass this value in UTC.
+
             Example: "2024-06-21T12:59:00"
         expiry_time:
           type: string
           format: date-time
-          description: The expiry time for the campaign in ISO 8601 format.
+          description: The expiry time for the campaign in ISO 8601 format. Pass this value in UTC.
         periodic_details:
           $ref: '#/components/schemas/PeriodicDetails'
         bts_details:
@@ -3763,6 +3764,188 @@ paths:
                   delivery_controls:
                     campaign_throttle_rpm: 50000
                     ignore_frequency_capping: false
+              email_with_gmail_annotations_deal_card:
+                summary: Email - Gmail Annotations Deal Card (IST +05:30)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Exclusive Deal Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Exclusive Deal Just for You"
+                        preview_text: "Save big with our limited-time offer"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Deal!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          deal_card:
+                            description: "Get 20% off on all orders above $50"
+                            discount_code: "SAVE20"
+                            availability_starts: "2026-06-01T00:00:00+05:30"
+                            availability_ends: "2026-06-30T23:59:59+05:30"
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
+              email_with_gmail_annotations_product_carousel_manual:
+                summary: Email - Gmail Annotations Product Carousel (Manual)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Featured Products Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Featured Products This Week"
+                        preview_text: "Discover our latest deals"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Shop now!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          product_carousel:
+                            type: "MANUAL"
+                            manual_data:
+                              currency: "USD"
+                              products:
+                                - id: "prod-001"
+                                  headline: "Wireless Headphones"
+                                  original_price: "199.99"
+                                  discount_value: "30"
+                                  discount_type: "PERCENT"
+                                  promo_url: "https://example.com/products/prod-001"
+                                  product_image: "https://example.com/images/prod-001.png"
+                                - id: "prod-002"
+                                  headline: "Smart Watch"
+                                  original_price: "299.99"
+                                  discount_value: "50"
+                                  discount_type: "VALUE"
+                                  promo_url: "https://example.com/products/prod-002"
+                                  product_image: "https://example.com/images/prod-002.png"
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
+              email_with_gmail_annotations_product_carousel_product_set:
+                summary: Email - Gmail Annotations Product Carousel (Product Set)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "ONE_TIME"
+                  created_by: "{{created_by}}"
+                  basic_details:
+                    name: "Recommended For You Email"
+                    content_type: "PROMOTIONAL"
+                    subscription_category: "{{subscription_category}}"
+                    user_attribute_identifier: "MOE_EMAIL_ID"
+                    send_only_double_opt_in_users: true
+                    deduplication_attribute: "{{deduplication_attribute}}"
+                    tags: []
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "Picks Curated For You"
+                        preview_text: "Personalized recommendations"
+                        sender_name: "Your Brand"
+                        from_address: "{{from_address}}"
+                        reply_to_address: "{{reply_to_address}}"
+                        html_content: "<!DOCTYPE html><html><body><p>Shop now!</p></body></html>"
+                        gmail_annotations:
+                          send_email_if_personalization_fails: true
+                          sender_logo: "https://example.com/logo.png"
+                          sender_logo_type: "image_url"
+                          product_carousel:
+                            type: "PRODUCT_SET"
+                            product_set_data:
+                              product_set: "product_set_12345"
+                              image_url: "https://example.com/images/fallback.png"
+                              headline: "Recommended For You"
+                              promo_url: "https://example.com/shop"
+                              product_count: 3
+                  segmentation_details:
+                    is_all_user_campaign: false
+                    included_filters:
+                      filter_operator: "and"
+                      filters:
+                        - data_type: "string"
+                          category: "Tracked Custom Attribute"
+                          name: "u_em"
+                          filter_type: "user_attributes"
+                          case_sensitive: false
+                          operator: "exists"
+                          negate: false
+                  scheduling_details:
+                    delivery_type: "ASAP"
+                  delivery_controls:
+                    bypass_dnd: false
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: false
+                    campaign_throttle_rpm: 3000
               push_event_triggered:
                 summary: Push - Event Triggered
                 value:
@@ -3833,13 +4016,14 @@ paths:
               example:
                 campaign_id: "camp_abc123xyz"
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Bad Request - Missing or invalid parameters
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
               examples:
-                # FIRST ERROR: Mandatory Request ID
-                MandatoryRequestId:
-                  summary: Missing Request ID
+                missing_request_id:
+                  summary: Missing request_id
                   value:
                     error:
                       code: "400 Bad Request"
@@ -3849,8 +4033,6 @@ paths:
                         - target: "request_id"
                           message: "request_id key is mandatory field"
                       request_id: "11"
-                
-                # SECOND ERROR: Project Code
                 ProjectCodeError:
                   summary: Missing Project Code
                   value:
@@ -3862,7 +4044,6 @@ paths:
                          target: "MOE-PROJECT-CODE"
                          message: "MOE-PROJECT-CODE header missing in request"
                       request_id: "tb6bUhTAH0"
-                # THIRD ERROR
                 InvalidProjectCode:
                   summary: Invalid Project Code
                   value:
@@ -3873,14 +4054,174 @@ paths:
                       details:
                         - target: "MOE-PROJECT-CODE"
                           message: "Invalid MOE-PROJECT-CODE received in request"
-                      request_id: "qTmKEBCUZo"      
+                      request_id: "qTmKEBCUZo"
+                deduplication_attribute_invalid_type:
+                  summary: deduplication_attribute - invalid type
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "deduplication_attribute - Invalid value passed. Expected type: string, but got: int."
+                      target: "basic_details"
+                      details:
+                        - target: "basic_details.deduplication_attribute"
+                          message: "deduplication_attribute - Invalid value passed. Expected type: string, but got: int."
+                send_only_double_opt_in_users_invalid_type:
+                  summary: send_only_double_opt_in_users - invalid type
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "send_only_double_opt_in_users - Invalid value passed. Expected type: boolean, but got: string."
+                      target: "basic_details"
+                      details:
+                        - target: "basic_details.send_only_double_opt_in_users"
+                          message: "send_only_double_opt_in_users - Invalid value passed. Expected type: boolean, but got: string."
+                gmail_annotations_on_transactional:
+                  summary: gmail_annotations used on TRANSACTIONAL campaign
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "gmail_annotations is not supported for TRANSACTIONAL content type. It is only supported for PROMOTIONAL campaigns."
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations"
+                          message: "gmail_annotations is not supported for TRANSACTIONAL content type. It is only supported for PROMOTIONAL campaigns."
+                gmail_annotations_missing_sender_logo:
+                  summary: sender_logo missing when gmail_annotations is present
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "sender_logo is required when gmail_annotations is specified"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.sender_logo"
+                          message: "sender_logo is required when gmail_annotations is specified"
+                gmail_annotations_invalid_sender_logo:
+                  summary: sender_logo is not a valid HTTPS URL
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "sender_logo must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.sender_logo"
+                          message: "sender_logo must be a valid https URL"
+                deal_card_missing_field:
+                  summary: Required deal_card field missing
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "availability_starts is required when deal_card is specified"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.deal_card.availability_starts"
+                          message: "availability_starts is required when deal_card is specified"
+                deal_card_invalid_end_time:
+                  summary: availability_ends less than 1 hour after availability_starts
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "End date and time must be a minimum of one hour later than the start date and time"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.deal_card"
+                          message: "End date and time must be a minimum of one hour later than the start date and time"
+                product_carousel_minimum_products:
+                  summary: Product carousel has fewer than 2 products
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "Product carousel requires a minimum of 2 products"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel"
+                          message: "Product carousel requires a minimum of 2 products"
+                product_set_product_count_exceeds_maximum:
+                  summary: product_count exceeds maximum of 9
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_count must be between 2 and 9"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.product_set_data"
+                          message: "product_count must be between 2 and 9"
+                product_carousel_invalid_original_price:
+                  summary: Manual product has invalid original_price
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "original_price must be a valid number"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].original_price"
+                          message: "original_price must be a valid number"
+                product_carousel_invalid_discount_value:
+                  summary: Manual product has invalid discount_value
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "discount_value must be a valid number"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].discount_value"
+                          message: "discount_value must be a valid number"
+                product_carousel_invalid_promo_url:
+                  summary: Manual product has invalid promo_url
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "promo_url must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].promo_url"
+                          message: "promo_url must be a valid https URL"
+                product_carousel_empty_product_image:
+                  summary: Manual product has empty product_image
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_image (Image URL) cannot be empty"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].product_image"
+                          message: "product_image (Image URL) cannot be empty"
+                product_carousel_invalid_product_image_url:
+                  summary: Manual product has invalid product_image URL
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_image must be a valid https URL"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.manual_data.products[0].product_image"
+                          message: "product_image must be a valid https URL"
+                product_set_not_found:
+                  summary: Product set ID does not exist in the workspace
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "product_set not found for the given workspace"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel.product_set_data"
+                          message: "product_set not found for the given workspace"
+                product_sets_feature_not_enabled:
+                  summary: Product Sets feature is not enabled for the workspace
+                  value:
+                    error:
+                      code: "400 Bad Request"
+                      message: "Product Sets is not enabled for this workspace"
+                      target: "campaign_content.content"
+                      details:
+                        - target: "gmail_annotations.product_carousel"
+                          message: "Product Sets is not enabled for this workspace"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/RateLimitExceeded'
         '500':
           $ref: '#/components/responses/InternalServerError'
-  
+
   /campaigns/{campaign_id}:
     patch:
       operationId: update_campaign
@@ -3889,6 +4230,14 @@ paths:
         This API updates an existing Push or Email campaign in MoEngage. You can only update campaigns created via the API, not campaigns created through the MoEngage dashboard.
       x-mint:
         content: |        
+          <Note>
+          **Differences in V5**
+
+          `PATCH /v5/campaigns/{campaign_id}` returns `200 OK` with a response body containing `response_id`, `type`, and `data.id`. V1 returns `204 No Content` with no response body on success. Update any integration that asserts a `204` status code before adopting V5.
+
+          See [Update Campaign (V5)](/api/update-campaigns/update-campaign-v5).
+          </Note>
+
           <Warning>
           **Update Restrictions**
         
@@ -4019,6 +4368,20 @@ paths:
           - Include child campaigns (flow nodes, periodic children)
           - Include archived campaigns
           - Paginated results (max 15 per page)
+
+          <Note>
+          **Differences in V5**
+
+          The V5 Search Campaigns API (`POST /v5/campaigns/search`) introduces the following behavioral changes:
+
+          - **Single-campaign retrieval** is no longer handled by the search endpoint. Use `GET /v5/campaigns/{campaign_id}` instead.
+          - The `campaign_fields.id` field (string) is renamed to `campaign_fields.ids` (array of strings) in V5.
+          - The `campaign_fields.delivery_type` field is renamed to `campaign_fields.campaign_delivery_type` in V5. Sending the V1 field name returns zero results with no error.
+          - `request_id` is required in V1. In V5, it is optional.
+          - The response identifier field `campaign_id` is renamed to `id` in V5.
+
+          For a full comparison, see [V1 vs. V5 Search Campaigns: Behavioral Differences](/api/campaigns/search-campaigns-v5-migration).
+          </Note>
         
 
            #### Rate Limits
@@ -4352,24 +4715,12 @@ paths:
                         failure_reason: "User not found"
                     message: "Test campaign created successfully"
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Bad Request - Missing or invalid parameters
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
               examples:
-                # FIRST ERROR: Mandatory Request ID
-                MandatoryRequestId:
-                  summary: Missing Request ID
-                  value:
-                    error:
-                      code: "400 Bad Request"
-                      message: "request_id key is mandatory field"
-                      target: "request_id"
-                      details:
-                        - target: "request_id"
-                          message: "request_id key is mandatory field"
-                      request_id: "11"
-                
-                # SECOND ERROR: Project Code
                 ProjectCodeError:
                   summary: Missing Project Code
                   value:
@@ -4381,7 +4732,6 @@ paths:
                          target: "MOE-PROJECT-CODE"
                          message: "MOE-PROJECT-CODE header missing in request"
                       request_id: "tb6bUhTAH0"
-                # THIRD ERROR
                 InvalidProjectCode:
                   summary: Invalid Project Code
                   value:
@@ -4392,7 +4742,7 @@ paths:
                       details:
                         - target: "MOE-PROJECT-CODE"
                           message: "Invalid MOE-PROJECT-CODE received in request"
-                      request_id: "qTmKEBCUZo"      
+                      request_id: "qTmKEBCUZo"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -4728,6 +5078,14 @@ paths:
       x-mint:
         content: |
           <Note>
+          **Differences in V5**
+
+          `PATCH /v5/campaigns/{campaign_id}/status` accepts one campaign ID as a path parameter per request. V1 accepts a `campaign_ids` array of up to 10 IDs per request. To perform bulk status changes in V5, call the endpoint once per campaign ID.
+
+          See [Update Campaign Status (V5)](/api/update-campaigns/update-campaign-status-v5).
+          </Note>
+
+          <Note>
             Currently, you can use this API to change the status of Email and Push campaigns. You can update the following statuses of the campaigns:
               - Stop a scheduled One-time campaign (Email and Push)
               - Pause and resume a running Periodic or Event-triggered Email campaign.
@@ -4927,11 +5285,11 @@ paths:
           The rate limit is 10 RPM.
 
           <Note>
-            - One file-processing request must complete before the next API call is accepted.
-            - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
-            - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
-            - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
-            - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
+          - One file-processing request must complete before the next API call is accepted.
+          - Currently, only publicly accessible Amazon S3 URLs are supported for `file_url`.
+          - The Global Control Group must already be initialized with the **Upload Users** option before this API can be used. This API does not support the **Random allocation** option.
+          - When the GCG base is successfully updated, subsequent runs of existing campaigns use the updated list.
+          - Once file processing is completed, an email is sent to the user identified by `updated_by` summarizing the number of users successfully processed, the number of users that failed, and the possible reasons.
           </Note>
       tags:
         - Update Campaigns
