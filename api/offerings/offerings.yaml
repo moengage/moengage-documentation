@@ -4,84 +4,9 @@ info:
   title: Offer Decisioning Public API - v5
   version: 5.0.0
   description: |
-    `/v5/*` routes serve Public (S2S) and MCP agent consumers only.
-
-    ## Consumer Types
-
-
-    | Consumer | Gateway | Auth |
-    |---|---|---|
-    | **Public (S2S)** | APISIX | Basic Auth (`Authorization: Basic base64(appId:apiKey)`) |
-    | **MCP agents** | SGK | OIDC JWT via MCP Server |
-
-    The gateway (APISIX or SGK) validates credentials and injects trusted headers before
-    the request reaches this service. The service reads `X-MOE-Consumer-Type`,
-    `X-MOE-Tenant-ID`, and `X-MOE-Scopes` — it never re-validates credentials.
-
-    ## Scope Enforcement
-
-    Endpoint-level scope enforcement is performed by the gateway (§4.4 API Guidelines).
-    A request that reaches this service has already passed the scope check for the
-    route + method. `X-MOE-Scopes` is available for data-level authorization only
-    (field filtering, row scoping).
-
-    ## Idempotency
-
-    POST and PATCH operations require an `Idempotency-Key` header (UUID v4 format).
-    The key is validated for presence and format before the handler runs. Submitting
-    the same key within 24 hours returns the original response without re-executing
-    the operation. See §7.2 API Guidelines.
-
-    ## Tracing
-
-    Every response includes a `response_id` field. This value is `resp_` prefixed to
-    the `X-MOE-Request-Id` trace ID supplied by the gateway (or auto-generated if not
-    supplied). Use `response_id` / `X-MOE-Request-Id` to correlate requests across
-    logs, client-side retries, and support tickets.
-
-    ## Rate Limits
-
-    | Endpoint | Method | Public (APISIX) | MCP (SGK) |
-    |---|---|---|---|
-    | `/v5/offers` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
-    | `/v5/offers/templates` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
-    | `/v5/offers` | POST | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
-    | `/v5/offers/{offer_id}` | PATCH | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
-
-    Limits are keyed by `tenant_id + client_id` for Public and `tenant_id + agent_id` for MCP.
-    Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`)
-    are injected by the gateway (APISIX or SGK) — not by this service — on every response.
-
-    ## MCP Agent Notes
-
-    **Authentication**: MCP agents must use `bearerAuth` (JWT via SGK), not `basicAuth`.
-    `basicAuth` is for S2S public consumers only. The MCP server handles token injection
-    automatically — do not manually set the `Authorization` header.
-
-    **Tenant context**: `X-MOE-Tenant-ID` is injected by SGK from the authenticated session.
-    Do NOT include this header explicitly — the gateway always provides it.
-
-    **Tag discovery**: Tags must pre-exist before you attach them to an offering. Create and
-    manage tags in the MoEngage dashboard — unknown tag IDs return 400 INVALID_TAG_ID.
-
-    **Template discovery**: Before creating `template`-type content, list templates from
-    `GET /v1/offers/templates` (v1 internal endpoint) to get valid `templateId` values.
-
-    ## Security Headers
-
-    Every response from `/v5/*` endpoints includes the following headers set by the
-    service's `SecurityHeadersFilter`:
-
-    | Header | Value |
-    |---|---|
-    | `Cache-Control` | `no-store` |
-    | `Content-Security-Policy` | `frame-ancestors 'none'` |
-    | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
-    | `X-Content-Type-Options` | `nosniff` |
-    | `X-Frame-Options` | `DENY` |
-    | `Referrer-Policy` | `no-referrer` |
-    | `X-MOE-Request-Id` | Echoed trace ID from the gateway header |
-
+    The Offerings API lets you create, update, and list offerings for Offer Decisioning, and
+    list the personalization templates available for offering content. For lifecycle, rate limits,
+    idempotency, and error details, see the [Offerings Overview](/api/offerings/offerings-overview).
 
 servers:
   - url: https://api-{dc}.moengage.com
