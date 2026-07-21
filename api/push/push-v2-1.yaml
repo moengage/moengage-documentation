@@ -33,57 +33,16 @@ paths:
         This API creates and sends a push notification campaign. You can use this API to create campaigns (targeting all users or a group of users) to send notifications, target a single user using a unique user attribute, and personalize payload for each user.
 
         This endpoint accepts three request headers: `X-MOE-APPKEY` (your Workspace ID), `X-MOE-PushAPI-Signature` (the authorization signature), and `X-MOE-Query-Type` (the target audience, corresponding to the `targetAudience` field in the request body).
+
+        #### Rate Limit
+
+        The rate limit is 10,000 requests per minute.
       parameters:
         - $ref: '#/components/parameters/XMoeAppKey'
         - $ref: '#/components/parameters/XMoePushSignature'
         - $ref: '#/components/parameters/XMoeQueryType'
       x-mint:
         content: |
-          
-          #### Rate Limit
-
-          The rate limit is 10,000 requests per minute. 
-
-          #### Authentication
-        
-          A signature is required to verify whether the client is authorized to make the API call. It is generated from a hash of the campaign name, app ID, and API key. MoEngage uses the SHA 256 method to generate this hash. Python code is used to generate the signature for your test account, and use your account's app_id.
-
-          1. On the left navigation menu in the MoEngage dashboard, go to **Settings** > **Account** > **APIs**.
-          2. Copy the following details:
-          * **app_id**: Under **Workspace ID (earlier app_id)**, click the copy icon to copy the app-id.
-          * **api_key**: In the **API keys** section, click the copy icon in the **Push** tile to copy the API key.
-          * **campaign_name**: Ensure the campaign name matches the one used in the request body. 
-
-          ### Generate Authentication Signature
-
-          Python code to generate the signature for your test account, use the app_id that is appropriate for your account.
-          
-           <Tabs>
-           <Tab title="Python 3.XX">
-           ```python
-           from hashlib import sha256
-           app_id = "{{Your Workspace ID}}"
-           campaign_name = "{{your campaign name}}"
-           api_key = "{{your push api key}}"
-           signature_key = app_id+'|'+ campaign_name+'|'+ api_key
-           signature = sha256(signature_key.encode('utf-8')).hexdigest()
-           print(signature)
-           ```
-           </Tab>
-           <Tab title="Python 2.XX">
-           ```python
-           from hashlib import sha256 
-           app_id = "{{Your Workspace ID}}" 
-           campaign_name = "{{your campaign name}}" 
-           api_key = "{{your push api key}}" 
-           signature_key = app_id+'|'+ campaign_name+'|'+ api_key 
-           signature = sha256(signature_key).hexdigest() 
-           print(signature)
-           ```
-           </Tab>
-           </Tabs>
-
-          Send this signature value in the `X-MOE-PushAPI-Signature` request header.
 
           #### Rate Limiting (429 Responses)
 
@@ -734,7 +693,42 @@ components:
       name: X-MOE-PushAPI-Signature
       in: header
       required: true
-      description: "This field denotes the signature that is required to verify whether the client is authorized to make the API call. For more information, refer to Generate Authentication Signature."
+      description: |
+        This field denotes the signature that is required to verify whether the client is authorized to make the API call. It is generated from a hash of the campaign name, app ID, and API key, using the SHA 256 method.
+
+        1. On the left navigation menu in the MoEngage dashboard, go to **Settings** > **Account** > **APIs**.
+        2. Copy the following details:
+        * **app_id**: Under **Workspace ID (earlier app_id)**, click the copy icon to copy the app-id.
+        * **api_key**: In the **API keys** section, click the copy icon in the **Push** tile to copy the API key.
+        * **campaign_name**: Ensure the campaign name matches the one used in the request body.
+
+        **Generate Authentication Signature**
+
+        Python code to generate the signature for your test account, use the app_id that is appropriate for your account.
+
+        Python 3.XX:
+        ```python
+        from hashlib import sha256
+        app_id = "{{Your Workspace ID}}"
+        campaign_name = "{{your campaign name}}"
+        api_key = "{{your push api key}}"
+        signature_key = app_id+'|'+ campaign_name+'|'+ api_key
+        signature = sha256(signature_key.encode('utf-8')).hexdigest()
+        print(signature)
+        ```
+
+        Python 2.XX:
+        ```python
+        from hashlib import sha256
+        app_id = "{{Your Workspace ID}}"
+        campaign_name = "{{your campaign name}}"
+        api_key = "{{your push api key}}"
+        signature_key = app_id+'|'+ campaign_name+'|'+ api_key
+        signature = sha256(signature_key).hexdigest()
+        print(signature)
+        ```
+
+        Send this signature value in the `X-MOE-PushAPI-Signature` request header.
       schema:
         type: string
     XMoeQueryType:
