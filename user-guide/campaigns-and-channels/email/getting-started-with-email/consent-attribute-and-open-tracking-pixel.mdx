@@ -3,15 +3,24 @@ title: "Consent Attribute and Open Tracking Pixel"
 description: "Understand the Email Open Tracking Consent attribute, how to update it, and how it controls whether the open tracking pixel is included in an email."
 ---
 
-This article explains the complete behavior of the **Open tracking consent** setting, exactly when the open tracking pixel and consent management link are included in an email, and how that affects whether an open event gets attributed to a recipient's profile. For how to configure the setting itself, refer to [Open tracking consent](#) under Email General Settings.
+This article explains the complete behavior of the **Open tracking consent** setting, exactly when the open tracking pixel and consent management link are included in an email. For how to configure the setting itself, refer to Open tracking consent under [Email General Settings](/user-guide/campaigns-and-channels/email/getting-started-with-email/configure-email-channel#general-settings-tab).
 
 ## How the tracking pixel actually works
 
-An open tracking pixel is a small image embedded in the email body. Once it's included in an email, it fires automatically as soon as the recipient's mail client tries to render it — the pixel itself has no awareness of consent and cannot be made to behave conditionally after the email is sent. The only real control point is whether MoEngage includes that pixel in the email at all, and whether it's included with or without a user identifier, which determines whether the resulting open can be attributed to a specific user's profile.
+An email open tracking pixel is a single-pixel, transparent image embedded in the email body. When a recipient opens the email, their mail client loads this image in the background, which reports the open back to the sender. This is the mechanism behind open-rate tracking.
+
+In countries where regulators require the recipient's consent before this pixel can be included, this introduces two requirements:
+
+- The pixel's inclusion in an email must be based on the recipient's consent, rather than included by default.
+- Wherever the pixel is included, the recipient needs a straightforward way to opt out of being tracked.
 
 ## How the Consent Attribute Controls Tracking
 
-For recipients whose country matches one of your regulated countries (or when you've selected **Use consent attribute** for missing-country cases), MoEngage checks this attribute to decide whether to include the tracking pixel. The table below covers the possible combinations of your settings and a recipient's data, and the resulting behavior for that recipient's email.
+<img src="/images/how_consent_works.png" alt="how_consent_works.png" />
+
+For recipients whose country matches one of your regulated countries, or when you've selected **Use consent attribute** for missing-country cases, MoEngage checks the **Email Open Tracking Consent** attribute to decide whether to include the tracking pixel.
+
+The table below covers the possible combinations of your settings and a recipient's data, and the resulting behavior for that recipient's email.
 
 | Open Tracking Consent Toggle | Regulated Countries (config) | Missing Country Setting (config) | Recipient's Country | Recipient's Consent Attribute | Tracking Pixel | Consent Link | User-Level Open Attribution |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -23,13 +32,9 @@ For recipients whose country matches one of your regulated countries (or when yo
 | Enabled | France, Italy | Look at consent attribute | Not present | FALSE | Not included | Included | Should not happen |
 
 <Info>
-  *France and Italy are used here only as example values for Regulated Countries, the same logic applies to whichever countries you configure.
+  - France and Italy are used here only as example values for **Regulated Countries** — the same logic applies to whichever countries you configure.
+  - In the absence of an explicit opt-in, a recipient is always treated as opted out. This is a regulatory requirement — consent cannot be assumed or defaulted to "yes." Make sure this attribute is being updated through one of the supported paths below before you rely on it.
 </Info>
-
-
-<Warning>
-  In the absence of an explicit opt-in, a recipient is always treated as opted out. This is a regulatory requirement, consent cannot be assumed or defaulted to "yes." Make sure this attribute is being updated through one of the supported paths below before you rely on it.
-</Warning>
 
 ## Update the Consent Attribute
 
@@ -41,34 +46,11 @@ You can update this attribute using:
 
 ## Consent Management Link and Page
 
-Once open tracking consent is enabled, MoEngage automatically inserts a consent management link in the footer of emails sent to recipients in your regulated countries. This link is separate from your unsubscribe link — recipients who use it to opt out of tracking will continue to receive your emails as normal; they just won't be tracked for opens.
+<img src="/images/consent_page.png" alt="consent_page.png" />
 
-The link takes recipients to a MoEngage-hosted consent page where they can view and update their open tracking preference. In this release, the page is unbranded and available in English only, and there's no support for using a custom or self-hosted consent page.
+- Once open tracking consent is enabled, MoEngage automatically inserts a consent management link in the footer of emails sent to recipients in your regulated countries. This link is separate from your unsubscribe link. Recipients who use it to opt out of tracking will continue to receive your emails as normal; they just won't be tracked for opens. The link takes recipients to a MoEngage-hosted consent page where they can view and update their open tracking preference.
+- MoEngage raises an **Email Open Tracking Consent Updated** event on a user's profile only when the attribute is updated through the MoEngage-hosted consent management page. This means the event is raised when the recipient clicks the consent link in an email, lands on the page, and updates their preference there.
+- If you update the **Email Open Tracking Consent** attribute directly through the Server-to-Server (S2S) API or User Import, no event is raised. MoEngage only generates this event for changes made through the consent management page flow; it has no way to detect an attribute being overwritten directly. If you need your own record of such changes, you'll need to track them on your end.
+- The consent management page is unbranded and available only in English. There's no support for using a custom or self-hosted consent page.
 
-
-
-
-
-
-
-
-<Info>
-  **\*"Should happen, if possible"** covers an edge case: if a recipient hadn't consented at the time an email was sent, the pixel would have gone out without a user identifier. If that recipient consents afterward, before opening the email, MoEngage still can't retroactively attribute that open to their profile — the identifier simply isn't present in that already-sent email's pixel. Attribution reflects the consent state **at send time**, not at open time.
-</Info>
-
-<Warning>
-  **†This row is currently being verified.** As documented, this combination shows the pixel included *without* a user identifier, yet lists attribution as something that "should happen" — these two outcomes are contradictory, since attribution requires the identifier to be present. Please confirm the intended behavior for this specific case before relying on it.
-</Warning>
-
-## The consent attribute is a boolean, not a label
-
-The underlying value stored in your open tracking consent attribute is a **boolean** — `true` or `false` — not the words "opted in" or "opted out." When this documentation (or the platform UI) refers to a recipient as "opted in," that corresponds to a `true` value; "opted out," or the attribute simply being absent, corresponds to `false`. Absence is always treated as `false` — consent is never assumed.
-
-## When the consent-updated event is (and isn't) raised
-
-MoEngage raises an **Email Open Tracking Consent Updated** event on a user's profile only when the change originates through the MoEngage-hosted consent management page — that is, when the recipient clicks the consent link in an email, lands on the page, and updates their preference there. MoEngage receives that update directly and can raise the corresponding event.
-
-<Warning>
-  If you update this attribute directly — through the Server-to-Server (S2S) API or User Import — **no event is raised**. MoEngage only generates this event in response to a change it processes itself through the consent page flow; it has no way to detect or log an attribute being overwritten directly by you. If you need your own record of such changes, you'll need to track them on your end.
-</Warning>
 
