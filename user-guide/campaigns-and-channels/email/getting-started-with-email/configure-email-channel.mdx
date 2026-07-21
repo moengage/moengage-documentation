@@ -115,48 +115,42 @@ You are all set up with connector configurations. You can now click **Save** but
 
 While creating new email campaigns, the settings from **General Settings** will be used as defaults.
 
+<img src="/images/general_settings.png" alt="general_settings.png" />
+
 1. The sender that is marked as default, which can either be a MoEngage sender or non MoEngage sender, is listed under the **Set a** **Default Sender** field.
-   <img src="/images/general_settings_1.png" alt="general_settings_1.png" width="50%" />  
+   <img src="/images/general_settings_1.png" alt="general_settings_1.png" />
 2. In the **User attribute that stores user's email address** field, add **Email (Standard).** This is the  MoEngage standard attribute name for the email attribute, where the name is provided by MoEngage, and the value is provided by the client.
-   - If you choose Email from the standard attribute with the correct connector configuration, we will track global opt-out against this email address. 
-3. **Open tracking consent**: Some countries have regulations that require prior consent before an email open tracking pixel can fire for recipients in scope, along with a way for recipients to manage that consent separately from unsubscribing. This setting lets you configure this behavior for the specific countries where it applies, without changing how tracking works for the rest of your audience.
+   - If you choose Email from the standard attribute with the correct connector configuration, we will track global opt-out against this email address.
+3. **Open tracking consent**: An email open tracking pixel is a single-pixel, transparent image embedded in the email body. When a recipient opens the email, their mail client loads this image in the background, which reports the open back to the sender. This is the mechanism behind open-rate tracking.
+
+   In some countries, regulators require the recipient's consent before this pixel can be included, introducing two requirements:
+   - The pixel's inclusion in an email must be based on the recipient's consent, rather than included by default.
+   - Wherever the pixel is included, the recipient needs a straightforward way to opt out of being tracked.
+
+   This setting lets you configure this behavior for the specific countries where it applies, without changing how tracking works for the rest of your audience.
    <img src="/images/open_tracking_consent.png" alt="open_tracking_consent.png" width="50%" />
    <Info>
      This setting is disabled by default and is only meant for workspaces that send email to recipients in regions where this kind of consent is required. If this doesn't apply to your audience, you don't need to enable it.
    </Info>
    - **Enabled**: Turn on this toggle to have the platform include or exclude the open tracking pixel in emails based on recipient consent and the configuration fields below. When disabled (default), open tracking pixels are included for all recipients as usual, with no consent checks applied.
-   - **Country attribute**: Select the user attribute that stores each recipient's country (for example, `country_new`).
+   - **Country attribute**: Select the user attribute that stores each recipient's country.
      <Info>
-       Only **string** attributes are supported, attributes that store multiple values cannot be used. Country matching is exact and case-insensitive, so ensure attribute values match the country names configured in **Regulated countries** exactly (for example, "France," not "FR" or "france").
+       Only **string** attributes are supported, attributes that store multiple values cannot be used. Country matching is exact and case-insensitive, so ensure attribute values match the country names configured in **Regulated countries** exactly (for example, "France," not "FR").
      </Info>
-   - **Regulated countries:** Select the countries where open tracking consent is required (for example, France, Italy).
+   - **Regulated countries:** Select the countries where open tracking consent is required.
      <Info>
        - Users can select **Any** instead of specific countries. When **Any** is selected, no other country can be added alongside it, and MoEngage checks the consent attribute for every recipient regardless of their actual country, the open tracking pixel is withheld unless the recipient has explicitly opted in, and the consent link is always included.
-       - Recipients from countries not listed here will have the tracking pixel included by default.
+       - When any other country is selected, then **Any** cannot be selected.
+       - There are two distinct scenarios where a recipient's country data doesn't align with your configured regulated countries:
+         - The country attribute has a value, but it doesn't match any regulated country. For example, if a recipient's country attribute is set to "India" while the regulated countries list contains France and Italy, the tracking pixel is included by default, since this recipient falls outside the regulated scope.
+         - The country attribute is not populated at all. In this case, the tracking pixel is included or excluded based on the recipient's open tracking consent attribute instead.
      </Info>
    - **For recipients with no country data:** Choose how the tracking pixel is handled for recipients whose country attribute is not set. Two options are available:
      - **Always include tracking pixel:** Recipients with no country data will always receive the tracking pixel.
-     - **Use consent attribute:** The tracking pixel will be included or excluded based on the recipient's open tracking consent attribute.
-     <Tip>
-       Keeping the country attribute populated for your audience ensures accurate tracking decisions for all recipients.
-     </Tip>
-   - **Open tracking consent attribute:** For recipients whose country matches one of your regulated countries (or when you've selected **Use consent attribute** for missing-country cases), MoEngage checks this attribute, the standard **Email Open Tracking Consent** attribute (`moe_email_open_tracking_consent`) to decide whether to include the tracking pixel:
-     - **Opted in:** The tracking pixel is included in their email and opens continue to be tracked against their profile as usual.
-     - **Opted out** or **not present:** The tracking pixel is not included for that recipient's email.
-
-     Every time this attribute is updated, MoEngage raises an event named **Email Open Tracking Consent Updated** on the user's profile, giving you a record of when and how a recipient's consent status changed.
+     - **Use consent attribute:** The tracking pixel will be included or excluded based on the recipient's open tracking consent attribute. For more information on this attribute, refer to [Consent attribute and open tracking pixel](/user-guide/campaigns-and-channels/email/getting-started-with-email/consent-attribute-and-open-tracking-pixel).
      <Warning>
-       In the absence of an explicit opt-in, a recipient is always treated as opted out. This is a regulatory requirement — consent cannot be assumed or defaulted to "yes." Make sure this attribute is being updated through one of the supported paths below before you rely on it.
+       Make sure to keep the country attribute populated and accurate for your audience. MoEngage bases its tracking decisions on the values you provide, if this data is missing, stale, or incorrect, you could end up tracking recipients who haven't actually consented, putting you at risk of non-compliance.
      </Warning>
-
-     You can update this attribute using:
-     - User Import
-     - MoEngage SDK
-     - Server-to-Server (S2S) Data API
-     - The consent management page (see below), where recipients can set their own preference
-   - **Consent management link and page:** Once this setting is enabled, MoEngage automatically inserts a consent management link in the footer of emails sent to recipients in your regulated countries. This link is separate from your unsubscribe link — recipients who use it to opt out of tracking will continue to receive your emails as normal; they just won't be tracked for opens.
-
-     The link takes recipients to a MoEngage-hosted consent page where they can view and update their open tracking preference. In this release, the page is unbranded and available in English only, and there's no support for using a custom or self-hosted consent page.
 4. **Positioning of open tracking pixel** 
    MoEngage allows you to position a tracking pixel at the top or bottom of the email body, thereby tracking the open rates of emails sent to your customers. By default, the tracking pixel is at the bottom of the email to ensure high open rates. If you observe clippings in your email then you can select the **Place tracking pixel at the top** option to keep the tracking pixel at the top of the email body or else you can keep the tracking pixel at the bottom of the email body by selecting **Place tracking pixel at the bottom** option. <img src="/images/open_tracking_pixel.png" alt="general settings.png" />
    <Info> This setting continues to apply independent of the CNIL-specific settings above, it only controls where the pixel is placed in the email body, not whether it's included. </Info>
