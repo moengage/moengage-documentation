@@ -33,8 +33,6 @@ paths:
         This API creates and sends a push notification campaign. You can use this API to create campaigns (targeting all users or a group of users) to send notifications, target a single user using a unique user attribute, and personalize payload for each user.
 
         This endpoint accepts three request headers: `X-MOE-APPKEY` (your Workspace ID), `X-MOE-PushAPI-Signature` (the authorization signature), and `X-MOE-Query-Type` (the target audience, corresponding to the `targetAudience` field in the request body).
-      security:
-        - signatureAuth: []
       parameters:
         - $ref: '#/components/parameters/XMoeAppKey'
         - $ref: '#/components/parameters/XMoePushSignature'
@@ -56,7 +54,7 @@ paths:
           * **api_key**: In the **API keys** section, click the copy icon in the **Push** tile to copy the API key.
           * **campaign_name**: Ensure the campaign name matches the one used in the request body. 
 
-          ### Generating Signature
+          ### Generate Authentication Signature
 
           Python code to generate the signature for your test account, use the app_id that is appropriate for your account.
           
@@ -89,7 +87,7 @@ paths:
 
           #### Rate Limiting (429 Responses)
 
-          When the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category is exceeded, the request is rejected with HTTP `429` and an empty response body. The category is resolved as `seg_user_search` for `user`, and `seg_user_query` for `all users`, `custom segment`, and `bulk users`. The rate-limit details are returned in the following response headers:
+          When the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category is exceeded, the request is rejected with HTTP `429` and an empty response body. The category is resolved as `seg_user_search` for `user`, and `seg_user_query` for `all users` and `custom segment`. The rate-limit details are returned in the following response headers:
 
           | Header | Description | Example |
           | :--- | :--- | :--- |
@@ -669,7 +667,7 @@ paths:
                 reason: "Page not found. Please recheck the URL"
         '429':
           description: |
-            Too Many Requests. The Envoy gateway rejected the request because the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category was exceeded (`seg_user_search` for `user`; `seg_user_query` for `all users`, `custom segment`, and `bulk users`). The response body is empty; rate-limit details are returned in the `x-ratelimit-*` and `x-envoy-ratelimited` response headers.
+            Too Many Requests. The Envoy gateway rejected the request because the per-`app_key` rate limit for the resolved `X-MOE-Query-Type` category was exceeded (`seg_user_search` for `user`; `seg_user_query` for `all users` and `custom segment`). The response body is empty; rate-limit details are returned in the `x-ratelimit-*` and `x-envoy-ratelimited` response headers.
           content:
             application/json:
               schema:
@@ -724,13 +722,6 @@ components:
       in: header
       name: MOE-APPKEY
       description: This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
-    signatureAuth:
-      type: apiKey
-      in: header
-      name: X-MOE-PushAPI-Signature
-      description: |
-        Used by the v2.1 endpoint. Requests are authenticated with the signature described in the Authentication section above, sent in the `X-MOE-PushAPI-Signature` request header. An invalid signature returns HTTP 200 with `{"status":"Fail","Error_Message":"Signature is not verified"}`.
-
   parameters:
     XMoeAppKey:
       name: X-MOE-APPKEY
@@ -751,14 +742,13 @@ components:
       in: header
       required: true
       description: |
-        This field mirrors the `targetAudience` field in the request body, but uses lowercase values. For example, when `targetAudience` is "User", send `X-MOE-Query-Type: user`. The value `bulk users` corresponds to a request where `bulkUserRequest` is `true` in the request body.
+        This field mirrors the `targetAudience` field in the request body, but uses lowercase values. For example, when `targetAudience` is "User", send `X-MOE-Query-Type: user`.
       schema:
         type: string
         enum:
           - all users
           - user
           - custom segment
-          - bulk users
 
   schemas:
     TargetUserAttributes:
@@ -1235,9 +1225,6 @@ components:
             * All Users: Pass this value to target all users of your App/Website.
             * Custom Segment: Pass this value to target pre-created user segments. Custom segments can be created using the MoEngage dashboard or [custom segment API](/api/filter-segments/create-filter-segment). Note that the custom segment name should exactly match the name of the target segment.
             * User: Pass this value to target a user with an attribute. It will target a maximum of 100 users of the associated targetUserAttributes definition.
-        bulkUserRequest:
-          type: boolean
-          description: "This field denotes whether the request targets a bulk list of users. Set this to true for a bulk users request. When using the v2.1 endpoint, set the `X-MOE-Query-Type` header to `bulk users` for these requests."
         customSegmentName:
           type: string
           description: "Required if targetAudience is 'Custom Segment'."
