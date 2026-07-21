@@ -1,0 +1,303 @@
+---
+title: "Just-in-Time User Provisioning (JIT)"
+description: "Automate user creation and role management in MoEngage with Just-in-Time (JIT) provisioning. Provision users directly from your identity provider on first login."
+keywords: ["JIT", "just-in-time provisioning", "SSO", "SAML", "Okta", "Azure", "identity provider", "user provisioning"]
+---
+
+<Note>
+  **Early Access**
+
+  Just-in-Time User Provisioning is an Early Access feature. To enable it for your account, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
+</Note>
+
+# Overview
+
+Just-in-Time User Provisioning lets you automate the creation and management of users in your MoEngage workspace. This feature creates users directly from your Identity Provider on their first login.
+
+<Tip>
+  **Prerequisites**
+
+  Before enabling JIT provisioning, ensure SSO is configured and active for your workspace. For more information, refer to [Single Sign-On (SSO)](/user-guide/settings/account/security/single-sign-on-sso).
+</Tip>
+
+## Advantages
+
+- **Faster onboarding**: New team members can access MoEngage immediately without waiting for a manual invitation.
+- **Dynamic role assignment**: Roles can be automatically assigned or updated from the identity provider (if enabled in MoEngage).
+- **Temporary access**: Provide session-based access to your users, where they can be automatically deleted after their session ends (if enabled in MoEngage).
+
+# Access Just-in-Time User Provisioning
+
+1. On the left navigation menu in your MoEngage workspace, navigate to **Settings** \> **Account** \> **Security** \> **Login**.
+2. Click **Single Sign On (SSO) only**.\
+   **Note**: Ensure SSO is configured. For more information, refer to [how to configure SSO](/user-guide/settings/account/security/single-sign-on-sso).
+3. Scroll to the **Automate user provisioning** section.
+   <Frame>
+     ![Automate user provisioning section in the Security Login settings](/images/jit-automate-user-provisioning-section.png)
+   </Frame>
+
+## Permissions to Access
+
+The following table describes the permissions required to access and use JIT provisioning:
+
+| Permission Component | Permission Name | Details |
+| --- | --- | --- |
+| Security Settings | Setup & Manage | Allows you to view, enable, update, or disable user provisioning. |
+
+## Step 1: Enable Just-in-Time User Provisioning
+
+1. Turn the **Automate user provisioning** toggle on.
+   <Frame>
+     ![Automate user provisioning toggle turned on](/images/jit-toggle-on.png)
+   </Frame>
+   \
+   The **Configure provisioning method** dialog box appears.
+2. Select **JIT Provisioning** as your configuration type.
+   <Frame>
+     ![Configure provisioning method dialog with JIT Provisioning selected](/images/jit-select-jit-provisioning.png)
+   </Frame>
+
+## Step 2: Configure and Save
+
+1. Provide the following fields:
+   | Field | Required | Description |
+   | --- | --- | --- |
+   | Default role | Yes | <ul><li>MoEngage requires a fallback role. If the role is not passed from the Identity Provider (via the SAML assertion call) or does not contain the role value, the user is assigned this default role to access the workspace.</li><li>All default and custom roles are available for selection as the default role.</li></ul> |
+   | Update user's role | Optional | If checked, the user's role in the workspace is updated based on the value received from the Identity Provider in each SAML assertion call.<br /><br />**Note**: If unchecked, and the user's role received from the Identity Provider is different from the role in the workspace, the user is granted access based on the role received from the Identity Provider for that particular session only, without any permanent changes to their role in the workspace. |
+   | Delete user at the end of the session | Optional | If checked, the user is deleted and removed from that workspace either when the session expires (for example, user logout or force logout) or after 24 hours, whichever happens first. |
+2. Click **Save**.
+   <Frame>
+     ![Configure provisioning method dialog with the Save button](/images/jit-click-save.png)
+   </Frame>
+   \
+   The **Save your configuration** dialog box appears, prompting you to confirm your configuration.
+3. Click **Confirm**.
+   <Frame>
+     ![Save your configuration confirmation dialog box](/images/jit-enable-confirm.png)
+   </Frame>
+   \
+   The enabled successfully message appears.
+
+# Identity Provider (IdP) Setup
+
+JIT provisioning supports the following Identity Providers:
+
+- Okta
+- Microsoft Azure
+- OneLogin
+- Any Identity Provider that supports Just-in-Time User Provisioning
+
+<Tabs>
+  <Tab title="Okta">
+    ## Step 1: Add the Role Attribute to the MoEngage SSO Application
+
+    1. Navigate to the **Okta Admin Console**.
+    2. On the left navigation menu, click **Directory** \> **Profile Editor**.
+       <Frame>
+         ![Okta left navigation menu with Directory and Profile Editor](/images/jit-okta-directory-profile-editor.png)
+       </Frame>
+    3. On the **Profile Editor** page, select the MoEngage SSO application you created, or use the **Search for people, apps, and groups** box to find it.
+       <Frame>
+         ![Okta Profile Editor page with the MoEngage SSO application selected](/images/jit-okta-profile-editor-select-app.png)
+       </Frame>
+    4. Click **Add Attribute**.
+       <Frame>
+         ![Okta Profile Editor with the Add Attribute button](/images/jit-okta-add-attribute.png)
+       </Frame>
+       \
+       The **Add Attribute** dialog box appears.
+    5. In the **Data type** list, select **string**.
+    6. In the **Display name** box, enter role.
+    7. In the **Variable name** box, enter role.
+    8. In the **Description** box, enter role.
+    9. Click **Save**.
+
+    ## Step 2: Configure SAML Attribute Statements
+
+    1. Navigate to **Applications** \> **Applications** and click the MoEngage SSO application.
+       <Frame>
+         ![Okta Applications page with the MoEngage SSO application](/images/jit-okta-applications.png)
+       </Frame>
+    2. Click the **Sign On** tab and scroll down to the **Attribute Statements (Optional)** section.
+    3. Click **Show legacy configuration** to expand the section.
+    4. Click **Edit** adjacent to the **Profile attribute statements** section and enter the following details:
+       | Field | Value |
+       | --- | --- |
+       | Name | role |
+       | Name format | Basic |
+       | Value | appuser.role |
+    5. Click **Save**.
+       <Frame>
+         ![Okta Sign On tab with the saved attribute statement](/images/jit-okta-save-attribute-statements.png)
+       </Frame>
+
+    ## Step 3: Assign the User and Define the Role
+
+    1. Navigate to **Applications** \> **Applications** and click your MoEngage SSO application.
+       <Frame>
+         ![Okta Applications page with the MoEngage SSO application](/images/jit-okta-applications.png)
+       </Frame>
+    2. On the **Assignments** tab, click **Assign** \> **Assign to People**.
+       <Frame>
+         ![Okta Assignments tab with the Assign to People option](/images/jit-okta-assign-to-people.png)
+       </Frame>
+    3. In the **assignment attributes** modal, locate the **Role** field and enter the exact role name (for example, Admin, Manager, Marketer, or a custom role) as defined in your MoEngage workspace.
+    4. Click **Save and Go Back**, and then click **Done**.
+       <Frame>
+         ![Okta assignment attributes modal with the Save and Go Back option](/images/jit-okta-save-and-go-back.png)
+       </Frame>
+    5. To update an existing user:
+       1. In the **Assignments** tab, click the pencil icon <img src="/images/jit-okta-pencil-icon.png" alt="Pencil edit icon" /> next to the user.
+       2. Edit the role and click **Save**.
+          <Frame>
+            ![Okta Assignments tab with the edited user role](/images/jit-okta-edit-role-save.png)
+          </Frame>
+
+    ## Step 4: Validation
+
+    After the setup is complete, log in to MoEngage through your Identity Provider (IdP). To verify that roles are passed correctly, inspect the ACS payload and confirm that the role attribute contains the expected value as passed in the Identity Provider and defined in MoEngage (for example, Admin). This confirms that users are assigned the appropriate role upon redirection.
+  </Tab>
+  <Tab title="Azure">
+    ## Step 1: Configure Attributes and Claims
+
+    1. Navigate to the **Azure Admin Console**.
+    2. On the Azure services page, click **Microsoft Entra ID**.
+       <Frame>
+         ![Azure services page with the Microsoft Entra ID tile](/images/jit-azure-entra-id.png)
+       </Frame>
+    3. On the **Overview** page, go to the left navigation menu and click **Manage** \> **Enterprise applications**.
+       <Frame>
+         ![Microsoft Entra ID navigation menu with Enterprise applications](/images/jit-azure-enterprise-applications.png)
+       </Frame>
+    4. On the **Enterprise applications | All applications** page, find your application in the list or use the **Search by application name or object ID** box to find it, and select the application you want to configure.
+       <Frame>
+         ![Enterprise applications All applications page with an application selected](/images/jit-azure-select-application.png)
+       </Frame>
+    5. On the left navigation menu, click **Single sign-on** and then click **Edit** in the **Attributes & Claims** section.
+       <Frame>
+         ![Single sign-on page with the Edit option in the Attributes and Claims section](/images/jit-azure-single-sign-on-edit.png)
+       </Frame>
+    6. On the **Attributes & Claims** page, click **Add new claim**.
+    7. On the **Manage claim** page, enter the following details:
+       | Field | Required | Value |
+       | --- | --- | --- |
+       | Name | Yes | Any value can be entered here (for example, role).<br />**Note**: The claim name must be unique. |
+       | Name format | Optional | Leave it blank. |
+       | Source | Yes | Select the **Attribute** option (this is selected by default). |
+       | Source attribute | Yes | Click **user.assignedroles** in the drop-down list. |
+    8. Click **Save**.
+       <Frame>
+         ![Manage claim page with the saved role claim](/images/jit-azure-save-claim.png)
+       </Frame>
+    9. After you click **Save**, verify that the Role claim appears in the **Additional claims** list with the value **user.assignedroles**.
+       <Frame>
+         ![Attributes and Claims page showing the Role claim in the Additional claims list](/images/jit-azure-verify-role-claim.png)
+       </Frame>
+
+    ## Step 2: Assign Users and Roles
+
+    Follow the steps mentioned in [Role Creation](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-5-role-creation) (Step 5) of the SCIM documentation before proceeding with the steps below:
+
+    1. Go back to the **Enterprise applications | All applications** page, and click **Users and groups**.
+    2. Click **Add user/group**.
+       <Frame>
+         ![Users and groups page with the Add user/group option](/images/jit-azure-add-user-group.png)
+       </Frame>
+       \
+       The **Add Assignment** page appears.
+    3. Under **Users**, click the **None Selected** link. The **Users** dialog box pane appears on the right side.
+    4. Select the required user checkbox (for example, Security Integration) and click **Select**.
+       <Frame>
+         ![Users dialog box pane with a user selected](/images/jit-azure-select-user.png)
+       </Frame>
+    5. Under **Select a role**, click the **None Selected** link. The **Select a role** dialog box pane appears on the right side.
+    6. In the **Enter role name to filter items** box, type the appropriate role (for example, Analyst or Admin) and click **Select**.
+       <Frame>
+         ![Select a role dialog box pane with a role selected](/images/jit-azure-select-role.png)
+       </Frame>
+    7. Click **Assign** at the bottom of the **Add Assignment** page.
+       <Frame>
+         ![Add Assignment page with the Assign button](/images/jit-azure-assign.png)
+       </Frame>
+       \
+       After Microsoft Entra ID successfully updates the user, the Application assignment succeeded message appears.
+
+    ## Step 3: Validation
+
+    After the setup is complete, log in to MoEngage through the Microsoft My Apps portal ([myapps.microsoft.com](https://myapps.microsoft.com)) by clicking the assigned application. You are redirected to the login flow. During the login process, inspect the ACS payload and verify that the role attribute is present and contains the expected value (for example, Analyst). This confirms that the role is passed correctly and that the user is provisioned in MoEngage with the appropriate role upon their first login.
+  </Tab>
+</Tabs>
+
+# Update or Disable JIT Provisioning Configuration
+
+## Update Configuration
+
+1. Navigate to the **Automate user provisioning** section.
+2. Click **Edit**.
+   <Frame>
+     ![Automate user provisioning section with the Edit option](/images/jit-edit-configuration.png)
+   </Frame>
+3. Modify the required settings as needed.
+4. Click **Save**.
+   <Frame>
+     ![Configure provisioning method dialog with the Save button](/images/jit-update-save.png)
+   </Frame>
+   \
+   The **Save your configuration** dialog box appears, prompting you to confirm your configuration.
+5. Click **Confirm** to apply the changes.
+   <Frame>
+     ![Save your configuration confirmation dialog box](/images/jit-update-confirm.png)
+   </Frame>
+
+## Disable Configuration
+
+1. Navigate to the **Automate user provisioning** section.
+2. Turn the **Automate user provisioning** toggle off.
+   <Frame>
+     ![Automate user provisioning toggle turned off](/images/jit-toggle-off.png)
+   </Frame>
+   \
+   The **Disable user provisioning** dialog box appears.
+3. Click **Confirm**.
+   <Frame>
+     ![Disable user provisioning confirmation dialog box](/images/jit-disable-confirm.png)
+   </Frame>
+   \
+   The **JIT provisioning disabled successfully** message appears to confirm the action.
+
+# Security and Logs
+
+- **2FA and firewall**: Existing firewall rules apply to the users created via Just-in-Time User Provisioning. If 2FA is enforced for the workspace, these users must set up and enter a 2FA code upon login.
+- **Audit logs**: All activities, including enable, disable, and update operations and user create, delete, and update operations, are recorded in the Audit Logs under Login settings.
+- **Notifications**: Admins receive email notifications whenever Just-in-Time User Provisioning is enabled or disabled, or when a new user is created via Just-in-Time User Provisioning.
+
+# FAQs
+
+<Accordion title="What happens if I try to enable Just-in-Time User Provisioning while SCIM is enabled?">
+  You cannot enable Just-in-Time User Provisioning while SCIM is enabled. You must first disable SCIM.
+</Accordion>
+
+<Accordion title="What happens if the Delete user at the end of the session checkbox is NOT selected?">
+  MoEngage creates the user upon their first sign-in. The user remains active in the workspace until access is manually revoked. For more information, refer to [how to revoke access](/user-guide/settings/account/team-management/manage-members).
+</Accordion>
+
+<Accordion title="What happens if the Delete user at the end of the session checkbox IS selected?">
+  MoEngage creates the user for that specific session. The system automatically revokes access when the session ends or 24 hours after user creation, whichever happens first.
+
+  **Note**: This rule applies only to users created via Just-in-Time User Provisioning.
+</Accordion>
+
+<Accordion title="What happens if I switch from using SCIM to JIT?">
+  The users created via SCIM remain active in the workspace along with their role information. For further role updates, you can use JIT (if the option to update users' roles is selected) or the **Team Management** \> **Members** page (if the option to update users' roles is not selected). To revoke access, refer to [how to revoke access](/user-guide/settings/account/team-management/manage-members).
+</Accordion>
+
+<Accordion title="What happens if multiple role values are received in the SAML assertion call for a user?">
+  MoEngage refers to the first role value in the list when multiple values are received in the SAML assertion call.
+</Accordion>
+
+<Accordion title="What happens to a user if I perform user management operations via the Team Management > Members page while JIT is configured?">
+  - **Invite**: The user is invited to the workspace.
+  - **Update Role**: The user's role can be updated. However, it is only effective if the option to update users' roles under JIT configuration is not selected.\
+    **Note**: This option is provided to facilitate role updates for users who are not part of the JIT application in the Identity Provider but are part of the SSO application, or are admins logging in via password (and not part of any application in the Identity Provider).
+  - **Revoke Access**: The user can be deleted or access can be revoked using the same page. However, if the user is part of the IdP application where JIT is configured, the user can log in again.
+</Accordion>

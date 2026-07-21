@@ -1,0 +1,212 @@
+---
+title: "Power BI"
+---
+
+# Introduction
+
+[Power BI](https://www.microsoft.com/en-us/power-platform/products/power-bi) is a business analytics tool developed by Microsoft. It provides interactive visualizations and business intelligence capabilities with an interface simple enough for end-users to create their own reports and dashboards.
+
+# MoEngage × Power BI
+
+With the MoEngage and Power BI integration, you can export user engagement data and other metrics directly to your Power BI. This data can be visualized in a host of different ways and used to derive insights about user behavior.
+
+Moreover, with MoEngage’s powerful segmentation and Power BI’s robust analytical abilities, you can deeply understand user behavior and make data-driven decisions to improve engagement and generate a higher ROI on your marketing campaigns.
+
+With the MoEngage and Power BI integration, you can:
+
+1. Sync user engagement data to your Power BI on a scheduled basis - the syncs can be as frequent as every hour or as infrequent as once per week, depending on the data source.
+2. Visualize and analyze your user engagement data in Power BI using various interactive charts, graphs, and other visualization tools.
+3. Use these insights to segment your users more effectively and send personalized campaigns aimed at improving user engagement.
+
+## Use Cases
+
+1. **Performance Tracking and Reporting:** Marketers can use the integration to track and analyze the performance of their marketing campaigns and engagement initiatives. Power BI can pull data from MoEngage, consolidate it, and present visual reports and dashboards for easy interpretation.
+2. **Campaign Optimization:** The integration can be used to analyze and optimize marketing campaigns. Marketers can track key metrics like click-through rates, open rates, conversions, and revenue generated from each campaign. Power BI can then help visualize these metrics across different channels and campaigns, allowing marketers to identify successful strategies and allocate budgets accordingly.
+3. **Predictive Analytics:** By integrating MoEngage and Power BI, marketers can leverage predictive analytics capabilities. Power BI can analyze historical engagement data from MoEngage and use it to predict future customer behavior, enabling marketers to make data-driven decisions and design proactive marketing strategies.
+
+# Integration
+
+<Info>
+  - You will need access to your Power BI dashboard and have sufficient permissions to add a data source and create reports.
+  - You will need to enable [Data Warehouses Exports](https://www.moengage.com/docs/user-guide/data/exports/events/data-warehouse/bigquery-exports) for your account.
+</Info>
+
+To access MoEngage's Campaign Data, you will need to export the data from MoEngage to your preferred destination supported by Power BI:
+
+- Snowflake
+- Amazon Redshift
+- Google BigQuery
+
+Power BI also supports cloud storage like Amazon S3 and Google Cloud Storage. Additional transformation might be necessary because you can import data directly from these files. To understand the schema of these files, please refer to our [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+
+## Step 1: Add your preferred data source to Power BI
+
+<Tabs>
+  <Tab title="Snowflake">
+    To add Snowflake as a Data Source on Power BI, you can follow the steps mentioned in the [Power BI Help Docs](https://learn.microsoft.com/en-us/power-bi/connect-data/service-connect-snowflake). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+  </Tab>
+  <Tab title="Redshift">
+    To add Redshift as a Data Source on Power BI, you can follow the steps mentioned in the [Power BI Help Docs](https://learn.microsoft.com/en-us/power-query/connectors/amazon-redshift). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+  </Tab>
+  <Tab title="BigQuery">
+    To add BigQuery as a Data Source on Power BI, you can follow the steps mentioned in the [Power BI Help Docs](https://learn.microsoft.com/en-us/power-query/connectors/google-bigquery). MoEngage will dump all your campaign interaction data as per the schema defined in the [Data Exports Glossary](https://www.moengage.com/docs/user-guide/data/exports/events/data-export-glossary).
+  </Tab>
+</Tabs>
+
+## Step 2: Prepare your data for visualizations
+
+If you wish to do basic campaign data analytics, you can always make use of the event attribute columns that contain all the standard information for creating charts and reports:
+
+- event\_attributes\_campaign\_channel
+- event\_attributes\_campaign\_id
+- event\_attributes\_readable\_campaign\_id
+- event\_attributes\_campaign\_name
+- event\_attributes\_campaign\_type
+- event\_attributes\_parent\_campaign\_id
+- event\_attributes\_parent\_flow\_id
+- event\_attributes\_parent\_flow\_name
+- event\_attributes\_locale\_id
+- event\_attributes\_locale\_name
+- event\_attributes\_variation\_id
+- event\_attributes\_logged\_in\_status
+- event\_attributes\_platform
+- event\_attributes\_first\_session
+
+All the event attributes will be also stored as part of a JSON column called event\_attributes.
+
+### Extracting attributes as separate columns
+
+Power BI does not have native support for changing JSON structures and hence it is recommended to extract the attributes required for computation to make the computation faster. This can be done by creating a view on top of the tables created by MoEngage. Below is an example for a few attributes, but the same can be extended to any of your use cases:
+
+<AccordionGroup>
+  <Accordion title="Snowflake">
+    To create a view in Snowflake, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```sql SQL
+    CREATE VIEW moe_event_add_to_cart COMMENT='Add to cart' AS
+          SELECT *,
+          e.event_attributes['cart_value'] as cart_value,
+          e.event_attributes['total_items'] as total_items,
+          e.event_attributes['discount'] as discount,
+          FROM moe_events_1714216012 AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="Redshift">
+    To create a view in Redshift, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```sql SQL
+    CREATE VIEW moe_event_add_to_cart AS
+          SELECT *,
+          json_extract_path_text(e.event_attributes, 'cart_value') as cart_value,
+          json_extract_path_text(e.event_attributes, 'total_items') as total_items,
+          json_extract_path_text(e.event_attributes, 'discount') as discount
+          FROM moe_events_1714216012 AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="BigQuery">
+    To create a view in BigQuery, you can use the following command as a base:
+
+    <CodeGroup>
+
+    ```sql SQL
+    CREATE VIEW moe_event_add_to_cart AS
+          SELECT *,
+          JSON_VALUE(e.event_attributes, '$.cart_value') AS cart_value,
+          JSON_VALUE(e.event_attributes, '$.total_items') AS total_items,
+          JSON_VALUE(e.event_attributes, '$.discount') AS discount
+          FROM `moe_events_1714216012` AS e WHERE e.event_name = 'Add to cart';
+    ```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+## Step 3: Load the data inside Power BI
+
+Once you have created multiple views based on the events you need to analyze, you can then load these views as a new data source within Power BI:
+
+<AccordionGroup>
+  <Accordion title="Snowflake">
+    To connect your Snowflake database to Power BI:
+
+    1. Open Power BI Desktop. Either create a new report, or add a new data source to an existing report.
+    2. Click on "Get data from another source" (or "Get Data" \> "More..."), and then search for "Snowflake".
+
+    ![1718261107138.png](/images/partner_27516697736596.png)
+
+    1. Fill in your connection details and click "OK". You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![1718261152268.png](/images/partner_27516701387540.png)
+
+    4. You will now be taken to the Data Navigator, wherein you can select all the tables/views you want to import. For an example, we will load the view that we created from the MoEngage Exports table. Click "Load" to load this data or "Tranform" to further transform your data, if required.
+
+    ![1718267998348.png](/images/partner_27516697741588.png)
+
+    5. \[Optional\] If you wish to transform your data, you can choose to either "Import" all this data into Power BI, or use DirectQuery to connect live. If you have a large dataset, it is recommended to do DirectQuery, however some operations might not be available in this mode. Please read the [Power BI help docs](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-add-custom-column) for more information. Click "Close & Apply" when done.
+    6. Your data should now be available to use inside Power BI for powerful visualisations and reports.
+
+    Note: Snowflake as a Data Source is only available on the Power BI Desktop Version.
+  </Accordion>
+
+  <Accordion title="Redshift">
+    To connect your Redshift database to Power BI:
+
+    1. Open Power BI Desktop. Either create a new report, or add a new data source to an existing report.
+    2. Click on "Get data from another source" (or "Get Data" \> "More..."), and then search for "Redshift".
+
+    ![1718269266097.png](/images/partner_27518737143572.png)
+
+    1. Fill in your connection details and click "OK". You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![1718269293575.png](/images/partner_27518737146644.png)
+
+    4. You will now be taken to the Data Navigator, wherein you can select all the tables/views you want to import. For an example, we will load the view that we created from the MoEngage Exports table. Click "Load" to load this data or "Tranform" to further transform your data, if required.
+
+    ![Image of the Navigator with the customers element selected, and the data from that element displayed on the right side.](https://learn.microsoft.com/en-us/power-query/connectors/media/amazon-redshift/navigator.png)
+
+    5. \[Optional\] If you wish to transform your data, you can choose to either "Import" all this data into Power BI, or use DirectQuery to connect live. If you have a large dataset, it is recommended to do DirectQuery, however some operations might not be available in this mode. Please read the [Power BI help docs](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-add-custom-column) for more information. Click "Close & Apply" when done.
+    6. Your data should now be available to use inside Power BI for powerful visualisations and reports.
+
+    Note: Redshift as a Data Source is only available on the Power BI Desktop Version.
+  </Accordion>
+
+  <Accordion title="BigQuery">
+    To connect your BigQuery database to Power BI:
+
+    1. Open Power BI Desktop. Either create a new report, or add a new data source to an existing report.
+    2. Click on "Get data from another source" (or "Get Data" \> "More..."), and then search for "BigQuery".
+    3. Fill in your connection details and click "OK". You can also add advanced configurations like SQL statements to fire after connecting:
+
+    ![Image showing initial dialog box with the advanced options selection.](https://learn.microsoft.com/en-us/power-query/connectors/media/google-bigquery/sign-in-advanced-options.png)
+
+    4. The Google BigQuery connector supports connecting through an organizational account or a service account sign-in. When connecting via a Service Account, enter your service account email and your service account JSON key file contents. Then select Connect.
+    5. You will now be taken to the Data Navigator, wherein you can select all the tables/views you want to import. For an example, we will load the view that we created from the MoEngage Exports table. Click "Load" to load this data or "Tranform" to further transform your data, if required.
+
+    ![Image of Power Query navigator loading Google BigQuery data to desktop app.](https://learn.microsoft.com/en-us/power-query/connectors/media/google-bigquery/navigator-bigquery.png)
+
+    6. \[Optional\] If you wish to transform your data, you can choose to either "Import" all this data into Power BI, or use DirectQuery to connect live. If you have a large dataset, it is recommended to do DirectQuery, however some operations might not be available in this mode. Please read the [Power BI help docs](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-add-custom-column) for more information. Click "Close & Apply" when done.
+    7. Your data should now be available to use inside Power BI for powerful visualisations and reports.
+
+    Note: BigQuery as a Data Source is only available on the Power BI Desktop Version.
+  </Accordion>
+</AccordionGroup>
+
+## Examples use cases
+
+With Power BI, you can create a dashboard with metrics such as Daily Active Users count, Monthly Active Users count, Daily New Users, Daily Uninstalled Users, etc. Below are some examples to get you started -
+
+1. **User Activity Monitoring:** This report can showcase how frequently users engage with the app. Events such as "App/Site Open", "App Exit" can inform daily or monthly user activity. This might include metrics such as Daily Active Users (DAU), Monthly Active Users (MAU), and session duration.
+2. **User Engagement Tracking:** Events like "Notification Clicked Android", "Notification Clicked iOS", or "Notification Clicked Web" can be used to track user engagement on different platforms.
+3. **Campaign Performance Analysis:** For email-specific campaigns, you could use the events such as "Email Sent", "Email Opened", "Email Clicked", "Email Bounced", "Email Complained" and "Email Unsubscribed". These would provide insights into aspects such as email delivery success rate, open rate, click-through rate, bounce rate, complaint rate, and unsubscribe rate. This information can be used to gauge the efficacy of your email campaigns and identify areas for improvement.
+4. **User acquisition and churn report:** Using "Install", "ReInstall", "Device Uninstall" and "User ReInstall" events, create a report to monitor user acquisition and churn rate. You can break it down based on various dimensions such as geographical location, device type, and so on.
+5. **Behavior Flow Analysis:** With events such as "App/Site Opened", "Notification Clicked" (or "Card Clicked"), and a custom event of "Added to Cart" event, you're able to track key user actions within a typical purchase funnel. This can allow you to visualize the user's journey from opening the app, interacting with a promotional notification or in-app message, and adding an item to their shopping cart.

@@ -18,12 +18,44 @@ User Attributes are pieces of information you know about a user which could be d
 
 ```c# c#
 using MoEngage;
-MoEngageClient.SetUniqueId("UNIQUE ID");
+MoEngageClient.IdentifyUser("UNIQUE ID");
 ```
 
 </CodeGroup>
 
 **Note:** The following values are not allowed in the UniqueID field: "unknown", "guest", "null", "0", "1", "true", "false", "user_attribute_unique_id", "(empty)", "na", "n/a", "", "dummy_seller_code", "user_id", "id", "customer_id", "uid", "userid", "none", "-2", "-1", "2"
+
+### Set a Single Identity
+
+Use `MoEngageClient.IdentifyUser()` to set a single user identifier:
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+MoEngageClient.IdentifyUser("UNIQUE_ID"); // Pass any unique value for your user
+```
+
+</CodeGroup>
+
+### Set Multiple User Identities
+
+Use `MoEngageClient.IdentifyUser()` with a dictionary to set multiple user identities at once:
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+
+var identities = new Dictionary<string, string> {
+    { "uniqueId", "UNIQUE_ID" },
+    { "email", "user@example.com" },
+    { "mobile", "+911234567890" }
+};
+MoEngageClient.IdentifyUser(identities);
+```
+
+</CodeGroup>
 
 ## Logout
 
@@ -40,9 +72,39 @@ MoEngageClient.Logout();
 
 In case the application is registering for push token it should pass the new push token to MoEngage SDK after user logout. For more information about passing push tokens, refer to [Push Configuration for Android SDK](/developer-guide/android-sdk/push/basic/push-configuration).
 
+### Logout Complete Callback
+
+To receive a callback when logout completes, register a listener using `MoECoreHelper.addLogoutCompleteListener()`:
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+
+MoEGameObject.LogoutCompleteCallback += LogoutCompleteCallback;
+
+public void LogoutCompleteCallback(object sender, LogoutCompleteData data) {
+    Debug.Log("LogoutCompleteCallback() : platform=" + data.platform + " appId=" + data.accountMeta.appId);
+}
+```
+
+</CodeGroup>
+
+<Info>
+  **Updates to SDK functions for User Identification and Session Management**
+
+  - **Forced Logout:** The MoEngage SDK no longer automatically logs out the previous user when a new user is detected on the device. Logout should now be explicitly called for workspaces enabled with Identity resolution to avoid data corruption.
+  - **SetUniqueID:** `identifyUser` function supports multiple identifiers, which replaces the need of using `SetUniqueID` function for user identification. Note that `SetUniqueID` is marked for removal in the future releases of SDK versions - it is important to use `identifyUser` instead especially if you are using Identity resolution in your workspace.
+  - **SetAlias:** For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When `identifyUser` function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
+
+  If you call the `identifyUser` function without logging out, then the existing logged-in user's ID is updated.
+</Info>
+
+If you call `identifyUser()` multiple times with different identifier names, the SDK will append this identifier to the already set identifiers.
+
 ## Updating User Attribute Unique Id
 
-Use the method _setAlias()_ to update the user attribute unique id instead of _setUniqueId()_ with a different value. Using the method _setUniqueId()_ with a new value creates unintended users in MoEngage.
+Use the method _setAlias()_ to update the user attribute unique id instead of _IdentifyUser()_ with a different value. Using the method _IdentifyUser()_ with a new value creates unintended users in MoEngage.
 
 <CodeGroup>
 
@@ -54,7 +116,7 @@ MoEngageClient.SetAlias("Updated Unique Id");
 </CodeGroup>
 
 <Warning>
-  Please make sure that you use **SetAlias()** for updating the Unique Identifier and not **SetUniqueId()** as calling **SetUniqueId()** with a new value will reset the current user and lead to the creation of unintended users in our system.
+  Please make sure that you use **SetAlias()** for updating the Unique Identifier and not **IdentifyUser()** as calling **IdentifyUser()** with a new value will reset the current user and lead to the creation of unintended users in our system.
 </Warning>
 
 # Tracking User Attributes
@@ -90,16 +152,29 @@ MoEngageClient.SetUserAttribute(key, value);
 
 ## Tracking Date as user attributes
 
-To track any date as user attributes use the **_SetUserAttributeISODate()_**. This API takes the attribute name and ISO Date as input.\
-Date Format - **_yyyy-MM-dd'T'HH:mm:ss.fff'Z'_**
+**ISO date**
 
-Example:
+Use `SetUserAttributeISODate()` to track a date attribute using an ISO 8601 string.\
+Date format: `yyyy-MM-dd'T'HH:mm:ss.fff'Z'`
 
 <CodeGroup>
 
 ```c# c#
 using MoEngage;
 MoEngageClient.SetUserAttributeISODate("userAttrDate", "2019-01-02T08:26:21.170Z");
+```
+
+</CodeGroup>
+
+**Epoch time**
+
+Use `SetUserAttributeEpochTime()` to track a date attribute using a Unix epoch timestamp (milliseconds).
+
+<CodeGroup>
+
+```c# c#
+using MoEngage;
+MoEngageClient.SetUserAttributeEpochTime("userAttrDate", 1546417581170L);
 ```
 
 </CodeGroup>
@@ -167,3 +242,4 @@ Below is the list of keys that should not be used when tracking user attributes.
 - MOE_ISLAT
 - status
 - user_id
+- source

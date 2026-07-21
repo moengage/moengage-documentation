@@ -1,0 +1,83 @@
+---
+title: "Kognitiv Inspire"
+---
+
+# Introduction
+
+[Kognitiv Inspire](http://kognitiv.com/) is a loyalty technology system trusted by leading global brands. It aids in building deeper relationships with customers and boosting their lifetime value through its intelligent, omnichannel SaaS platform.
+
+# MoEngage × Kognitiv Inspire
+
+With the integration of Kognitiv Inspire and MoEngage, you can streamline the loyalty program enrollment process. This is achieved by delivering a personalized welcome message through the member's preferred communication channel. With this integration, you can:
+
+1. Forward events from Kognitiv Inspire to MoEngage
+2. Forward users from Kognitiv Inspire to MoEngage
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  - Ensure you have access to your Kognitiv account.
+</Info>
+
+This integration makes use of Kognitiv's custom webhooks feature to forward data to MoEngage.
+
+## Step 1: Create a Kognitiv Webhook
+
+To use Webhooks, you must first connect with Kognitiv's Services team to turn on the Azure service bus per client.
+
+1. To create a webhook, log into Kognitiv Loyalty using your username and password.
+2. From the Menu, click **Settings**, and then click **Webhooks**.
+3. Click the **Create Webhook** button.
+4. Complete Step 1 of the creation process by providing the required information, and then click **Continue**:
+   - Webhook name is a required field.
+   - Webhook name may not contain trailing space(s).
+   - Webhook name must be unique (case sensitive) within a KLS client program/environment.
+   - Description is an optional field.
+   - Users must establish the Event Group.
+5. Complete Step 2 of the creation process by providing the required information, and then click **Continue**.
+6. Review the information provided and click **Submit**.
+
+You can read more about Kognitiv Webhooks [here](https://info.kognitivloyalty.com/f/page%3FW2024.html).
+
+## Step 2: Send events from Kognitiv to MoEngage
+
+To forward events such as Member Rewards, follow the above steps to create your webhook. Then, provide the following information as per MoEngage's [Event APIs](/api/event/track-event):
+
+| **Field** | **Description** |
+| --- | --- |
+| Method | POST |
+| Webhook URL | `https://api-0X.moengage.com/v1/event/&lt;Workspace_ID&gt;`<br />The 'X' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number (value of X) and replace the value of 'X' in the URL by referring to the DC and API endpoint mapping [here](/user-guide/data/key-concepts/data-centers-in-moengage). |
+| Request Headers | 1. Authorization: Basic `AUTH_TOKEN`<br />2. Content-Type: `application/json`<br />3. MOE-APPKEY: `Workspace_ID`<br />To find out `AUTH_TOKEN` see below. |
+| \<Workspace\_ID\> | The Workspace ID of your MoEngage account is available at **Settings -\> Account -\> APIs -\> Workspace ID**. |
+| \<API\_KEY\> | The Data API key of your MoEngage account is available at **Settings -\> Account -\> APIs -\> API keys \> Data** API settings. |
+| \<AUTH\_TOKEN\> | The API request will be authenticated through Basic Authentication. Basic Authentication sends a Base64-encoded string containing your username and password with every API request. It encodes a '\<APP\_ID\>:\<API\_KEY\>' string in Base64 and appends the encoded string with 'Basic '. You can [generate this online](https://www.blitter.se/utils/basic-authentication-header-generator/). |
+
+For the Request Body, you can enter this code:
+
+<CodeGroup>
+
+```json JSON
+{
+      "type": "event",
+      "customer_id": "{{memberId}}",
+      "actions": [
+            {
+                  "action": "rewards_issued",
+                  "attributes": {
+                        "time" : "{{issuedDate}}", 
+                        "issued_date" : "{{issuedDate}}", 
+                        "issued_location_name" : "{{issuedLocationName}}", 
+                        "reward_type" : "{{rewardType}}" 
+                  }
+            }
+      ]
+}
+```
+
+</CodeGroup>
+
+## Step 3: Send a MoEngage Campaign
+
+To make use of this event data, create a new Event-Triggered Campaign and select "rewards\_issued" as the trigger. You can now communicate to your users when a reward is issued to them.
