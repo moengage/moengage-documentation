@@ -106,6 +106,15 @@ To define an Input Variable, you must add the following to your `input_variables
 | `type` | Yes | String | <ul><li>`text`</li><li>`number`</li><li>`bool`</li><li>`datetime`</li><li>`password`</li><li>`dropdown`</li><li>`radio`</li><li>`json`</li><li>`code`</li><li>`key_value`</li></ul> | It determines what to display on the UI based on the excepted values. |
 | `validations` | No | Object | Refer [here](/user-guide/campaigns-and-channels/connected-apps/getting-started-with-connected-apps/create-a-channel-connector-config-file#supported-input-types) for the validations. | Use it when you want to restrict the values. You can add regex rules to add frontend validations. |
 
+In addition to the required keys above, the following optional keys are supported across all input types to enhance the UI and data handling:
+
+| Key | Required | Type | Valid Values | Description |
+| --- | --- | --- | --- | --- |
+| `header` | No | String | Any string | A section heading displayed above the input field on the UI. Use this to group related fields, such as a set of key-value pairs. |
+| `help_text` | No | String | Any string | A short description displayed below the header to guide the user on what to enter. |
+| `is_hidden` | No | Boolean | `true` / `false` | If `true`, the field is hidden from the UI, but its value (including any `default_value`) is still passed to the request. Defaults to `false`. |
+| `default_value` | No | Object / Array | Depends on type | A pre-filled value rendered when the field first loads. For the `key_value` type, this is an array of key-value objects. |
+
 ## Visibility Scope
 
 The Input Variables are collected in the following places:
@@ -164,6 +173,64 @@ To add a Text, follow the structure:
   "type": "text",
   "validations": [{{array of validation rules if any}}]
 }
+```
+
+</CodeGroup>
+
+### Rich-Text (HTML)
+
+Rich-Text is not a separate input type. It is a formatting mode available on the Text input type for fields used in message content. HTML support is a workspace-level feature and is not toggled via the config file. Contact support to get this enabled for your workspace.
+
+Once enabled, Text fields used in message content accept standard HTML tags. All HTML tags are supported except `<script>`, which is disallowed.
+
+To use Rich-Text, follow the Text structure:
+
+<CodeGroup>
+
+```json Structure wrap
+{
+  "visibility_scope": "campaign",
+  "key": "{{key used in code}}",
+  "event_export_key": "{{key used for events}}",
+  "name": "Message Text",
+  "required": true,
+  "type": "text"
+}
+```
+
+</CodeGroup>
+
+<Info>
+  Nested tags are supported. For example, `<b><i>Text</i></b>` renders as bold italic text.
+</Info>
+
+<Warning>
+  Unsupported tags are automatically stripped from the value before the request is sent, and the user is shown a warning notification on the UI at the time of input.
+</Warning>
+
+The following HTML elements are prohibited and intercepted during Step 2 validation:
+
+- `<script>`
+- `<iframe>`
+- `<style>`
+- `<object>`
+- `<applet>`
+- `<meta>` — carries a risk of unauthorized refresh redirection via `http-equiv="refresh"`.
+- `<base>` — poses a vulnerability for manipulating relative link paths.
+- `<svg>` elements that contain nested `<script>` blocks.
+- All inline event handlers (such as `onclick`, `onerror`, `onload`, and `onmouseover`), even when appended to generally permitted elements like `<img>` or `<a>`.
+- `javascript:` protocol links implemented within an `<a href="javascript:...">`.
+
+<Warning>
+  Tags omitted from this index clear UI validation during the second phase of campaign creation. However, this status only confirms that the form-level sanitizer does not explicitly block them. It provides no guarantee about how downstream client applications (such as Telegram) interpret, escape, or display them, nor does it guarantee that dynamic attributes (like `onclick` or `onerror`) are removed before payload transmission. Always validate end-to-end rendering behavior on your target channel before deploying these tags in live production campaigns.
+</Warning>
+
+Example of user input in a Connected App:
+
+<CodeGroup>
+
+```html Example wrap
+<b>Your order is ready!</b> Use code <code>SAVE10</code> for 10% off
 ```
 
 </CodeGroup>
@@ -319,15 +386,17 @@ To add a Drop-down List, follow the structure:
 
 ### Hash Maps
 
-This input type is used for key-value pair inputs. It appears as two interconnected input boxes for key and value. Use this when you require key-value data, such as settings or configurations.
+This input type is used for key-value pair inputs. It renders as a dynamic UI section where users can add, edit, and delete rows of key-value pairs. Use this when you require variable, user-defined data, such as button labels and URLs, or custom metadata.
+
+If your config file contains more than one input variable with `"type": "key_value"`, each is rendered as its own independent UI section, with its own header, help text, and set of rows.
 
 <img
   src="/images/moengage_bfcb06.png"
-  alt="Hashmap.png"
+  alt="Hash Maps input rendered as key and value input boxes"
   style={{ width:"50%" }}
 />
 
-To add a Hasmap, follow the structure:
+To add a Hash Map, follow the structure:
 
 <CodeGroup>
 
@@ -338,11 +407,110 @@ To add a Hasmap, follow the structure:
   "event_export_key": "{{key used for events}}",
   "name": "display label",
   "required": {{true or false}},
-  "type": "key_value"
+  "type": "key_value",
+  "is_hidden": {{true or false}},
+  "header": "Section heading shown above the field",
+  "help_text": "Short instructions shown below the header",
+  "default_value": [
+    {
+      "key": "default_key_1",
+      "value": "default_value_1"
+    }
+  ]
 }
 ```
 
 </CodeGroup>
+
+#### UI Behavior
+
+| Behavior | Details |
+| --- | --- |
+| Default state | One empty key-value row is rendered by default. If `default_value` is provided, rows are pre-filled accordingly instead. |
+| Add row | An **Add** control appends a new empty key-value row to the section. |
+| Delete row | Each row has a delete (trash) icon to remove that row. |
+| Personalization | Both the key and value inputs support `@` personalization, the same as other text fields in campaign creation. |
+| Required | If `required: true`, at least one row must have both a non-empty key and a non-empty value before the campaign can be saved. |
+| Hidden | If `is_hidden: true`, the field does not render on the UI, but its value (default or otherwise) is still included in the request payload. |
+
+#### Example Scenario
+
+Two `key_value` input variables in the same config file:
+
+<CodeGroup>
+
+```json Example wrap
+[
+  {
+    "visibility_scope": "app_marketplace",
+    "key": "source_config.inlinebuttons",
+    "event_export_key": "source_config.inlinebuttons",
+    "name": "Inline Keyboard Buttons",
+    "required": true,
+    "type": "key_value",
+    "is_hidden": false,
+    "header": "Call to Action Buttons",
+    "help_text": "Add buttons. Key = Button Text, Value = URL."
+  },
+  {
+    "visibility_scope": "app_marketplace",
+    "key": "source_config.metadata",
+    "event_export_key": "source_config.metadata",
+    "name": "Optional Metadata",
+    "required": false,
+    "is_hidden": true,
+    "type": "key_value",
+    "header": "Additional Data",
+    "help_text": ""
+  }
+]
+```
+
+</CodeGroup>
+
+This renders as two separate sections — **Call to Action Buttons** (visible, required) and **Additional Data** (hidden, optional but still submitted with whatever default value is set).
+
+#### Output Format
+
+When the form is submitted, MoEngage passes the value of a `key_value` field as an array of row objects:
+
+<CodeGroup>
+
+```json Output wrap
+[
+  {
+    "key": "reply_markup",
+    "value": "yes",
+    "disableKey": false,
+    "disableValue": false,
+    "deletable": true,
+    "uniqueKey": "1e2006d1-bb13-44b1-bfa1-11d3ca896901"
+  },
+  {
+    "key": "protect_content",
+    "value": "true",
+    "disableKey": false,
+    "disableValue": false,
+    "deletable": true,
+    "uniqueKey": "62cc6db5-e49d-4b16-91fd-4e79b6d61ea4"
+  }
+]
+```
+
+</CodeGroup>
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `key` | String | The key entered by the user for this row. |
+| `value` | String | The value entered by the user for this row, which may contain personalization tags. |
+| `disableKey` | Boolean | If `true`, the key input for this row is rendered as read-only. Used for pre-filled rows the user shouldn't rename. |
+| `disableValue` | Boolean | If `true`, the value input for this row is rendered as read-only. |
+| `deletable` | Boolean | If `false`, the delete icon is hidden for this row, preventing removal. |
+| `uniqueKey` | String | A UUID generated per row, used internally to track rows across edits. Not user-editable. |
+
+<Info>
+  Reference a `key_value` field in your request body the same way you reference any other input variable using JINJA, but note that the value resolves to an array, not a single string. You typically iterate over it when constructing your body.
+</Info>
 
 ## Input Validations
 

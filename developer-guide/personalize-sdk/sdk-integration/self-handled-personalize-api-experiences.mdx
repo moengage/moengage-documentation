@@ -1,13 +1,17 @@
 ---
-title: "Self Handled Personalize API experiences"
-description: "Fetch Personalize API campaign data using the SDK and build custom UI for personalized experiences."
+title: "fetchExperiences - MoEngage Personalize SDK"
+description: "Fetch personalized experience payloads for the current user and render them using your own frontend components."
 ---
 
 # Overview
 
-MoEngage's Self-handled experience gives you the flexibility of creating Personalize API Campaigns on the MoEngage Platform and displaying the experience anywhere on the website. It allows you to fetch the experience's data using the SDK which you can use to personalize the user experience on the website. 
+`fetchExperiences` is a client-side method on the MoEngage Personalize SDK. Call it at runtime  typically on page load or component mount - with a list of experience keys, and it returns the personalized content that MoEngage has resolved for the current user.
 
-# Implementing Self Handled Experiences
+Experience keys are identifiers configured in the MoEngage dashboard for Personalize API experiences. Each key maps to a placement on your website - a homepage banner, a cart offer slot, a product listing card, and so on. MoEngage evaluates the current user against your active experiences and returns only the experiences the user qualifies for. Experiences that cannot be resolved for the user are returned in a separate `failures` array with a structured reason code.
+
+Your website owns the rendering layer. MoEngage provides the decision and the content payload.
+
+# Implementing fetchExperiences
 
 ## Pre-requisites
 
@@ -16,30 +20,412 @@ MoEngage's Self-handled experience gives you the flexibility of creating Persona
 1. Refer to [this article](/developer-guide/web-sdk/web-sdk-integration/basic-integration/web-sdk-integration) to integrate the Web SDK on your website.
 2. Refer to [this article](/developer-guide/personalize-sdk/sdk-integration/web-personalization-v2) to integrate the Personalize SDK on your website.
 
-### Creating Personalize API experience
+### Creating a Personalize API experience
 
-Refer to [this article](https://www.moengage.com/docs/user-guide/personalize/server-side-personalization/create-server-side-personalization-experience) to create a Personalize API experience. 
+Refer to [this article](https://www.moengage.com/docs/user-guide/personalize/server-side-personalization/create-server-side-personalization-experience) to create a Personalize API experience.
 
-## Fetching Personalize API experiences
+## When to use
 
-Use the below SDK method to fetch the experiences and build your own UI using the result.
+Use `fetchExperiences` when your website renders personalized content using its own components and MoEngage provides the content payload and decisioning. Common use cases include personalized banners, offer cards, loyalty modules, product listing promotions, cart upsells, and dynamic recommendation blocks.
+
+<Info>
+Implement through a centralized personalization layer rather than independently from unrelated page components. This makes it easier to manage fallback behaviour, attribution, and experience key governance across your site.
+</Info>
+
+## Method signature
+
+```javascript
+Moengage.personalize.fetchExperiences(experienceKeys, customAttributes?)
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `experienceKeys` | `string[]` | Required | Array of experience key strings. Pass specific keys to evaluate only those experiences. Pass `[]` to evaluate all active experiences - MoEngage returns up to 25 eligible results. |
+| `customAttributes` | `Object` | Optional | Key-value pairs for runtime audience decisioning. Omit entirely when not needed - do not pass an empty object. |
+
+The method returns a **Promise** that resolves with a response object containing `experiences` and `failures`.
+
+## Fetching experiences
+
+### Fetch specific experiences
+
+Use this when the page has fixed placements and you know exactly which experience keys to request.
 
 <CodeGroup>
 
 ```javascript JavaScript wrap
 <script type="text/javascript">
-Moengage.personalize.fetchExperiences([experienceKey1,experienceKey2,...,experiencekeyN],{json KV pair for custom attributes}).then((result) => {
-  // additional processing using 'result' containing the Response payload
-})
+Moengage.personalize
+  .fetchExperiences(['homepage-banner', 'cart-offers', 'listing-promo'])
+  .then((result) => {
+    // result.experiences - resolved content keyed by experience key
+    // result.failures   - unresolved keys with structured reason codes
+  })
+  .catch((error) => {
+    // SDK, network, or initialization error - render fallback content
+  });
 </script>
 ```
 
 </CodeGroup>
 
-| Parameter                                                                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Moengage.personalize.fetchExperiences([<list of experience keys>], {custom attributes KV pair})` | `fetchExperiences` is the Web SDK method that will fetch all the Personalize API experiences as per the experience keys & custom attributes specified as input.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `[<list of experience keys>]`                                                                     | This is an optional input. <br />If no input is specified, then the method will return the response payload based on the following conditions: <br /> 1. **Logged in User** - If the user is logged in using the SDK, then response will contain the payload of all the experiences in which user is part of the target audience. <br /> 2. **Anonymous user** - If there is no user logged in using the SDK, then the response will contain the payload of all experiences that are targeted for **All Users**. <br /> Example: `["home-page-banner", "cart-checkout-offers"]`<br /><br />In the above input, the method will return the payload for experiences configured with the keys "home-page-banner" and "cart-checkout-offers" respectively. |
-| `{custom attributes KV pair}`                                                                     | This is an optional input. Custom Attributes are the additional values used to define a target audience while creating a Personalized API experience. Refer to [this article](https://www.moengage.com/docs/user-guide/personalize/server-side-personalization/create-server-side-personalization-experience) for more details. <br /> Example: `{"locale": "en"}`<br /><br />When you pass the above input, the response will contain all the experiences with audiences defined using the custom attribute **locale** and value equals **"en"**                                                                                                                                                                                                                            |
+### Fetch experiences with custom attributes
+
+Pass custom attributes when your MoEngage audiences use runtime values for targeting - such as locale, page type, or country.
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+Moengage.personalize
+  .fetchExperiences(
+    ['homepage-banner', 'cart-offers'],
+    {
+      "page_type": "cart",
+      "locale": "en-US",
+      "country": "US"
+    }
+  )
+  .then((result) => {
+    // result.experiences
+    // result.failures
+  })
+  .catch((error) => {
+    // Render fallback content
+  });
+</script>
+```
+
+</CodeGroup>
+
+### Fetch all eligible active experiences
+
+Pass an empty array to evaluate the current user against all active experiences. MoEngage returns up to 25 eligible results.
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+Moengage.personalize
+  .fetchExperiences([])
+  .then((result) => {
+    // result.experiences - up to 25 eligible active experiences
+    // result.failures
+  })
+  .catch((error) => {
+    // Render fallback content
+  });
+</script>
+```
+
+</CodeGroup>
+
+<Warning>
+Use explicit experience keys for fixed placements. Pass empty-array only when your frontend is built to handle a dynamic set of returned experiences - such as a dynamic offer feed or a discovery-style content area. With empty-array mode, your rendering logic must decide where each returned experience belongs, what to do when a required placement is not returned, and how to handle more results than available slots.
+</Warning>
+
+## How it works
+
+1. The page initializes the MoEngage SDK and establishes user identity and consent.
+2. Your code calls `fetchExperiences` with the relevant experience keys and any custom attributes.
+3. MoEngage evaluates the user against active campaign and associated segment rules, control groups, A/B variants, and decision policies.
+4. The Promise resolves with a response object containing `experiences` and `failures`.
+5. Your code reads, validates, and renders the payload from each resolved experience.
+6. Your code passes the `experience_context` and `offering_context` (if present in the response) back to MoEngage impression and click tracking calls.
+
+# Response
+
+## Response structure
+
+The resolved response contains two top-level keys: `experiences` and `failures`. Both can be present in the same response - a single call can return some resolved experiences and some failures simultaneously.
+
+```json
+{
+  "experiences": {
+    "homepage-banner": {
+      "payload": {
+        "title":          { "value": "Dress Like You Mean It",          "data_type": "string" },
+        "imageURL":       { "value": "https://cdn.example.com/banner.jpg", "data_type": "string" },
+        "ctaText":        { "value": "Shop Men's Edit",                 "data_type": "string" },
+        "redirectionURL": { "value": "/collections/mens-fashion",       "data_type": "string" }
+      },
+      "experience_context": {
+        "cid":               "6a268ba7_F_T_WP_AB_2_P_0_AU_9",
+        "experience":        "Home Page Banner Update",
+        "moe_variation_id":  "2",
+        "audience_name":     "Category viewed - Mens Fashion",
+        "audience_id":       "9",
+        "moe_locale_id":     "0",
+        "type":              "Web Personalization",
+        "experience_type":   "API based Experience"
+      }
+    }
+  },
+  "failures": [
+    {
+      "code": "E003",
+      "msg":  "user not in segment",
+      "keys": ["cart-offers"]
+    }
+  ]
+}
+```
+
+## Response fields
+
+| Field | Description |
+| --- | --- |
+| `experiences` | Map of resolved experiences keyed by experience key string. Only experiences the user qualifies for appear here. |
+| `experiences.<key>` | The resolved experience object. Use bracket notation for keys containing hyphens - for example, `result.experiences['homepage-banner']`. Dot notation (`result.experiences.homepage-banner`) treats `-` as the subtraction operator and produces a runtime error that can be difficult to trace. |
+| `payload` | Object containing the content fields configured for the experience in MoEngage. Field names match what was configured in the dashboard. |
+| `payload.<field>.value` | The value for a payload field. May be a direct scalar such as a title or URL, or a serialized JSON string - depending on how the experience is configured. See [Payload formats](#payload-formats). |
+| `payload.<field>.data_type` | Data type of the field. For example, `string`. |
+| `experience_context` | Campaign-level metadata used for impression and click attribution. **Pass this object as-is to MoEngage tracking calls — do not modify, omit, or restructure any of its fields.** The fields below describe what each value represents, but none of them should be altered by your implementation. See [Personalize API Experience events tracking](/developer-guide/personalize-sdk/sdk-integration/personalize-api-experience-events-tracking). |
+| `experience_context.cid` | Composite impression ID used by MoEngage to attribute the event to the correct campaign, variant, and audience. |
+| `experience_context.experience` | Name of the experience or campaign as configured in MoEngage. |
+| `experience_context.moe_variation_id` | A/B variation the user is assigned to. |
+| `experience_context.audience_name` | Name of the matched audience segment. |
+| `experience_context.audience_id` | ID of the matched audience segment. |
+| `experience_context.type` | Experience channel - for example, `Web Personalization`. |
+| `experience_context.experience_type` | Experience implementation type - for example, `API based Experience`. |
+| `failures` | Array of experience keys that could not be resolved for the current user. See [Handling failures](#handling-failures). |
+| `failures[].code` | Machine-readable failure code. |
+| `failures[].msg` | Human-readable failure message. |
+| `failures[].keys` | The experience key(s) affected by this failure. |
+
+## Payload formats
+
+The shape of the payload depends on how the experience is configured in MoEngage. There are two formats.
+
+### Format 1 - Direct field values
+
+Each content field is returned as a separate key under `payload`. Read values directly - no parsing required.
+
+```json
+{
+  "payload": {
+    "title":          { "value": "Dress Like You Mean It",          "data_type": "string" },
+    "imageURL":       { "value": "https://cdn.example.com/banner.jpg", "data_type": "string" },
+    "ctaText":        { "value": "Shop Men's Edit",                 "data_type": "string" },
+    "redirectionURL": { "value": "/collections/mens-fashion",       "data_type": "string" }
+  }
+}
+```
+
+Read values directly using optional chaining:
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+const experience = result.experiences?.['homepage-banner'];
+
+const title          = experience?.payload?.title?.value;
+const imageURL       = experience?.payload?.imageURL?.value;
+const ctaText        = experience?.payload?.ctaText?.value;
+const redirectionURL = experience?.payload?.redirectionURL?.value;
+</script>
+```
+
+</CodeGroup>
+
+<Info>
+Use bracket notation for experience keys that contain hyphens - `result.experiences['homepage-banner']`. Dot notation (`result.experiences.homepage-banner`) treats `-` as the subtraction operator and produces a runtime error that can be difficult to trace.
+</Info>
+
+### Format 2 - Serialized JSON offer array
+
+One payload field contains a JSON-encoded string representing a ranked list of offers returned by a Decision Policy. Parse it with `JSON.parse()` before use.
+
+```json
+{
+  "payload": {
+    "promo_card": {
+      "value": "[{\"dp_offering_id\":\"...\",\"offering_content\":{\"payload\":{\"title\":\"Voucher Zone\",\"cTAText\":\"Explore\",\"imageURL\":\"https://...\"}}}]",
+      "data_type": "string"
+    }
+  }
+}
+```
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+const experience = result.experiences?.Homepage_offers_experience;
+const rawValue   = experience?.payload?.promo_card?.value;
+const offers     = JSON.parse(rawValue); // Array of ranked offer objects
+</script>
+```
+
+</CodeGroup>
+
+<Warning>
+Do not call `JSON.parse()` on every payload field. Parse only fields you know contain serialized JSON. Calling `JSON.parse()` on a plain string value such as a title or URL will throw an error.
+</Warning>
+
+## Handling failures
+
+When an experience key appears in `failures`, it was not served to the current user. Your implementation should suppress the placement or render default content.
+
+| Code | Reason | Recommended handling |
+| --- | --- | --- |
+| `E001` | User is in campaign control group | Suppress placement or serve default content |
+| `E002` | User is in global control group | Suppress placement or serve default content |
+| `E003` | User is not in the segment | Suppress placement or serve default content |
+| `E004` | Invalid experience key | Log as a configuration error |
+| `E005` | Maximum limit breached for experience key | Log as a configuration error |
+| `E006` | Experience is not active | Log as a configuration error |
+| `E007` | Experience is expired | Log as a configuration error |
+| `E008` | Personalization failed for user | Serve default/fallback content |
+
+E001–E003 and E008 are expected runtime states. E004–E007 indicate a configuration issue in MoEngage and should trigger a log entry or alert for investigation.
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+result.failures?.forEach(({ code, keys }) => {
+  keys.forEach((key) => {
+    if (['E004', 'E005', 'E006', 'E007'].includes(code)) {
+      console.error(`MoEngage config error [${code}] for experience: ${key}`);
+    } else {
+      renderDefault(key); // Suppress or show fallback content
+    }
+  });
+});
+</script>
+```
+
+</CodeGroup>
+
+# Implementation examples
+
+## Full example - reading a direct field-value payload
+
+The click handler below uses `attachClickHandler()` as a sample reference. Replace this with whichever event binding pattern your frontend framework or component library uses.
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+Moengage.personalize
+  .fetchExperiences(['homepage-banner'])
+  .then((result) => {
+
+    // Check if the experience was resolved
+    const experience = result.experiences?.['homepage-banner'];
+    if (!experience) {
+      renderDefault('homepage-banner');
+      return;
+    }
+
+    // Read payload field values directly
+    const banner = {
+      title:          experience.payload?.title?.value,
+      imageURL:       experience.payload?.imageURL?.value,
+      ctaText:        experience.payload?.ctaText?.value,
+      redirectionURL: experience.payload?.redirectionURL?.value
+    };
+
+    // Validate required fields before rendering
+    if (!banner.title || !banner.imageURL || !banner.ctaText || !banner.redirectionURL) {
+      renderDefault('homepage-banner');
+      return;
+    }
+
+    // Render using your own components
+    renderBanner(banner);
+
+    // Track experience impression — must be called for every resolved experience key.
+    // Pass experience_context exactly as returned in the response. Do not modify its fields.
+    Moengage.personalize.trackImpression(experience.experience_context);
+
+    // Track experience click when the user interacts with the rendered content.
+    // extraAttributes is optional — use it to pass additional context about the CTA clicked.
+    attachClickHandler(() => {
+      Moengage.personalize.trackClick(experience.experience_context, {
+        button_name: banner.ctaText
+      });
+    });
+  })
+  .catch(() => {
+    renderDefault('homepage-banner');
+  });
+</script>
+```
+
+</CodeGroup>
+
+## Full example - reading a serialized JSON offer array payload
+
+When an experience payload contains offering data (Format 2), each offer in the array has its own `offering_context`. Track an impression and click for each offer that is shown or interacted with.
+
+Refer to [Offerings events tracking](https://www.moengage.com/docs/developer-guide/personalize-sdk/sdk-integration/offerings-events-tracking) for the full method reference.
+
+The click handler below uses `attachClickHandler(offer, index)` as a sample reference. Replace this with whichever event binding pattern your frontend framework or component library uses.
+
+<CodeGroup>
+
+```javascript JavaScript wrap
+<script type="text/javascript">
+Moengage.personalize
+  .fetchExperiences(['Homepage_offers_experience'])
+  .then((result) => {
+
+    const experience = result.experiences?.Homepage_offers_experience;
+    if (!experience) {
+      renderDefault('Homepage_offers_experience');
+      return;
+    }
+
+    // Parse the serialized JSON offer array
+    const offers = parseJsonArrayPayloadField(experience, 'promo_card');
+
+    if (!offers.length) {
+      renderDefault('Homepage_offers_experience');
+      return;
+    }
+
+    // Render each offer and track its impression.
+    // offering_context must be passed as-is from each offer object — do not modify its fields.
+    offers.forEach((offer, index) => {
+      renderOffer(offer.offering_content);
+      Moengage.personalize.offeringShown(offer.offering_context);
+
+      // On offer click — pass both offeringContext and experienceContext.
+      // Passing both means MoEngage automatically tracks the click for the offering
+      // AND the parent experience in a single call.
+      attachClickHandler(offer, index, () => {
+        Moengage.personalize.offeringClicked(
+          offer.offering_context,
+          experience.experience_context  // Optional — omit if tracking experience click separately
+        );
+      });
+    });
+
+    // Track experience impression — must be called once for the resolved experience key.
+    // Pass experience_context exactly as returned in the response. Do not modify its fields.
+    Moengage.personalize.trackImpression(experience.experience_context);
+  })
+  .catch(() => {
+    renderDefault('Homepage_offers_experience');
+  });
+</script>
+```
+
+</CodeGroup>
+
+
+## Tracking impressions and clicks
+
+Call the appropriate MoEngage SDK tracking methods after rendering each resolved experience and its offers.
+
+- For every resolved experience key, call `Moengage.personalize.trackImpression(experience_context)` after rendering.
+- When a user interacts with the rendered experience, call `Moengage.personalize.trackClick(experience_context, extraAttributes)`. `extraAttributes` is optional — use it to pass additional context about the CTA clicked.
+- For experiences that contain offering data, call `Moengage.personalize.offeringShown(offering_context)` for each offer rendered. Each offer in the array has its own `offering_context` — pass it as-is and do not reuse contexts across offers.
+- On offer click, call `Moengage.personalize.offeringClicked(offering_context, experience_context)`. Passing both contexts tracks the click for the offering and the parent experience in a single call.
+
+Refer to [Personalize API Experience events tracking](https://www.moengage.com/docs/developer-guide/personalize-sdk/sdk-integration/personalize-api-experience-events-tracking) and [Offerings events tracking](https://www.moengage.com/docs/developer-guide/personalize-sdk/sdk-integration/offerings-events-tracking) for the full method reference.
 
 For further assistance, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
