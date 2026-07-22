@@ -1,0 +1,508 @@
+openapi: 3.0.3
+info:
+  title: MoEngage Analytics Query API
+  version: '5.0'
+  description: |
+    Asynchronous REST APIs to run MoEngage Analytics queries — Behavior, Funnels, Retention,
+    Session/Source (BFRS) and User Property Analysis (UPA) — and retrieve their results.
+
+    These queries are asynchronous. A `POST` registers the query and immediately returns a
+    `request_id`; a worker executes the query; you then poll the status and fetch the results:
+
+    1. **Submit** — `POST` one of the analysis endpoints. The response echoes the analysis `type` and returns a `request_id`.
+    2. **Poll** — `GET /v5/analytics/query/{request_id}/status` until `status` is `SUCCESSFUL` (or `FAILED`).
+    3. **Fetch** — `GET /v5/analytics/query/{request_id}/results` to retrieve the resolved series.
+servers:
+  - url: 'https://api-{dc}.moengage.com'
+    description: MoEngage API Server
+    variables:
+      dc:
+        default: '01'
+        description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+tags:
+  - name: Analytics Queries
+    description: Register asynchronous BFRS and UPA analytics queries, then poll status and fetch results.
+security:
+  - basicAuth: []
+paths:
+  /v5/analytics/behavior:
+    post:
+      tags: [Analytics Queries]
+      summary: Register a Behavior Query
+      operationId: submitBehaviorQuery
+      description: |
+        Registers an asynchronous Behavior analysis query and returns a `request_id`.
+
+        **Limits**
+        - `events`: 1–10.
+        - `user_attr_grouped_by`: ≤ 10.
+        - `segmentation`: ≤ 5.
+        - `split_by` + `user_attr_grouped_by` combined: ≤ 10.
+        - Percentile: 1–100 (when using percentile aggregation).
+        - Hourly granularity: ≤ 31 days.
+        - Custom distribution buckets: ≤ 10.
+        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {
+                "version": "2.0",
+                "type": "behavior",
+                "analysis_type": "events",
+                "events": [
+                  {
+                    "id": "A",
+                    "actions": [
+                      {
+                        "c_at_trigger_seg_v2": {
+                          "included_filters": {
+                            "filter_operator": "and",
+                            "filters": [
+                              {
+                                "filter_type": "actions",
+                                "action_name": "MOE_APP_OPENED",
+                                "execution": { "type": "atleast", "count": 1 },
+                                "executed": true,
+                                "attributes": { "filter_operator": "and", "filters": [] }
+                              }
+                            ]
+                          }
+                        },
+                        "c_at_act_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [] } }
+                      }
+                    ],
+                    "split_by": [],
+                    "aggregation": {}
+                  }
+                ],
+                "segmentation": [
+                  { "filters": { "included_filters": { "filter_operator": "and", "filters": [ { "id": "moe_all_users", "name": "All Users", "filter_type": "custom_segments" } ] } } }
+                ],
+                "user_attr_grouped_by": [],
+                "distribution": {},
+                "timerange": { "start": "2026-06-09 00:00:00", "end": "2026-06-16 23:59:59", "label": "Last 7 Days", "dt_label": "last", "value": 7 },
+                "granularity": "d",
+                "chart_type": "line",
+                "count_type": "number",
+                "chart_plot_type": "linear",
+                "rolling_value": -1,
+                "user_aggregation_type": "",
+                "user_aggregation_percentile": -1,
+                "comparison_timerange": {},
+                "chart_sort_type": "descending"
+              }
+      responses:
+        "200":
+          description: Query registered. Poll status and fetch results with `data.request_id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryRegistration" }
+              example:
+                response_id: "fc803857-632e-4bf0-8df1-fbc2bdeedb66"
+                type: "behavior"
+                data: { request_id: "6a57577219749c10af96ed2a" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "428": { $ref: "#/components/responses/QuotaExceeded" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/funnels:
+    post:
+      tags: [Analytics Queries]
+      summary: Register a Funnels Query
+      operationId: submitFunnelsQuery
+      description: |
+        Registers an asynchronous Funnels analysis query and returns a `request_id`.
+
+        **Limits**
+        - `events`: ≥ 2.
+        - `funnel_split`: ≤ 3.
+        - `holding_attributes`: ≤ 3.
+        - `segmentation`: ≤ 5.
+        - Custom distribution buckets: ≤ 25.
+        - Hourly granularity: ≤ 31 days.
+        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {
+                "events": [
+                  {
+                    "from_step": null, "to_step": null, "step_type": "include", "step_number": 1,
+                    "c_at_trigger_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [ { "filter_type": "actions", "action_name": "MOE_APP_OPENED", "execution": { "type": "atleast", "count": 1 }, "executed": true, "attributes": { "filter_operator": "and", "filters": [] } } ] } },
+                    "c_at_act_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [] } }
+                  },
+                  {
+                    "from_step": null, "to_step": null, "step_type": "include", "step_number": 2,
+                    "c_at_trigger_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [ { "filter_type": "actions", "action_name": "UPDATE", "execution": { "type": "atleast", "count": 1 }, "executed": true, "attributes": { "filter_operator": "and", "filters": [] } } ] } },
+                    "c_at_act_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [] } }
+                  }
+                ],
+                "segmentation": [
+                  { "filters": { "included_filters": { "filter_operator": "and", "filters": [ { "id": "moe_all_users", "name": "All Users", "filter_type": "custom_segments" } ] } } }
+                ],
+                "funnel_type": "user_funnel",
+                "timerange": { "start": "2026-07-07 00:00:00", "end": "2026-07-14 23:59:59", "label": "Last 7 Days", "dt_label": "last", "value": 7 },
+                "grouped_by_meta": {},
+                "grouped_by": [],
+                "holding_attributes_meta": {},
+                "holding_attributes": [],
+                "funnel_window": 86400,
+                "funnel_window_multiplier": 86400,
+                "strict_order": false,
+                "distribution": {},
+                "countType": "number",
+                "showConversionEventOnly": false,
+                "chart_type": "column",
+                "comparison_timerange": {},
+                "version": "2.0",
+                "type": "funnel",
+                "granularity": "e",
+                "chart_plot_type": "linear"
+              }
+      responses:
+        "200":
+          description: Query registered. Poll status and fetch results with `data.request_id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryRegistration" }
+              example:
+                response_id: "498b1a8f-027b-4aba-b71e-2f6fac76deba"
+                type: "funnels"
+                data: { request_id: "6a5621f99f22da29f1ec05ed" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "428": { $ref: "#/components/responses/QuotaExceeded" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/retention:
+    post:
+      tags: [Analytics Queries]
+      summary: Register a Retention Query
+      operationId: submitRetentionQuery
+      description: |
+        Registers an asynchronous Retention analysis query and returns a `request_id`.
+
+        **Limits**
+        - `events`: 1–2.
+        - `segmentation`: ≤ 5 (mutually exclusive with time comparison).
+        - `split_by`: ≤ 10.
+        - Per-granularity date windows: 24 hours / 90 days / 180 days.
+        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {
+                "version": "2.0",
+                "type": "retention",
+                "events": [
+                  { "id": "first", "actions": [ { "c_at_trigger_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [ { "filter_type": "actions", "action_name": "MOE_APP_OPENED", "execution": { "type": "atleast", "count": 1 }, "executed": true, "attributes": { "filter_operator": "and", "filters": [] } } ] } }, "c_at_act_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [] } } } ] },
+                  { "id": "return", "actions": [ { "c_at_trigger_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [ { "filter_type": "actions", "action_name": "UPDATE", "execution": { "type": "atleast", "count": 1 }, "executed": true, "attributes": { "filter_operator": "and", "filters": [] } } ] } }, "c_at_act_seg_v2": { "included_filters": { "filter_operator": "and", "filters": [] } } } ] }
+                ],
+                "segmentation": [
+                  { "filters": { "included_filters": { "filter_operator": "and", "filters": [ { "id": "moe_all_users", "name": "All Users", "filter_type": "custom_segments" } ] } } }
+                ],
+                "timerange": { "start": "2026-07-07 00:00:00", "end": "2026-07-14 23:59:59", "label": "Last 7 Days", "dt_label": "last", "value": 7 },
+                "granularity": "d",
+                "chart_type": "line",
+                "retention_type": "every",
+                "split_by": [],
+                "comparison_timerange": {}
+              }
+      responses:
+        "200":
+          description: Query registered. Poll status and fetch results with `data.request_id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryRegistration" }
+              example:
+                response_id: "79b86153-abfc-4499-9d24-c955636d74a2"
+                type: "retention"
+                data: { request_id: "6a5622049f22da29f1ec05ee" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "428": { $ref: "#/components/responses/QuotaExceeded" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/session-source:
+    post:
+      tags: [Analytics Queries]
+      summary: Register a Session-Source Query
+      operationId: submitSessionSourceQuery
+      description: |
+        Registers an asynchronous Session/Source analysis query and returns a `request_id`.
+
+        **Limits**
+        - `grouped_by`: ≤ 2.
+        - `segmentation`: ≤ 5.
+        - Hourly granularity: ≤ 31 days.
+        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {
+                "version": "2.0",
+                "type": "session-source",
+                "report_type": "session_count",
+                "filters": [],
+                "grouped_by": [],
+                "segmentation": [
+                  { "filters": { "included_filters": { "filter_operator": "and", "filters": [ { "id": "moe_all_users", "name": "All Users", "filter_type": "custom_segments" } ] } } }
+                ],
+                "granularity": "d",
+                "chart_type": "line",
+                "count_type": "number",
+                "timerange": { "start": "2026-07-07 00:00:00", "end": "2026-07-14 23:59:59", "label": "Last 7 Days", "dt_label": "last", "value": 7 },
+                "comparison_timerange": {},
+                "chart_sort_type": "descending"
+              }
+      responses:
+        "200":
+          description: Query registered. Poll status and fetch results with `data.request_id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryRegistration" }
+              example:
+                response_id: "513bdf7c-951b-4e35-979d-5956488975e3"
+                type: "session_source"
+                data: { request_id: "6a56220b9f22da29f1ec05ef" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "428": { $ref: "#/components/responses/QuotaExceeded" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/user-analysis:
+    post:
+      tags: [Analytics Queries]
+      summary: Register a User Analysis Query
+      operationId: submitUserAnalysisQuery
+      description: |
+        Registers an asynchronous User Property Analysis (UPA) query and returns a `request_id`.
+
+        **Limits**
+        - `user_properties`: 1–5.
+        - `split_by`: ≤ 10.
+        - Percentile: 1–100 (when using percentile aggregation).
+        - Custom distribution: numerical attributes only; buckets ≤ 10.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+            example: {
+                "version": "2.0",
+                "type": "user_analysis",
+                "analysis_type": "distribution",
+                "user_properties": [
+                  {
+                    "id": "A",
+                    "property": { "action_name": "u_l_a", "executed": true, "filter_type": "user_attributes", "execution": { "count": 1, "type": "atleast" }, "attributes": { "filter_operator": "and", "filters": [] }, "pii": false, "encrypted": false },
+                    "projection": { "data_type": "datetime", "extract_type": "date" },
+                    "object_projection": {},
+                    "aggregation": {}
+                  }
+                ],
+                "segmentation": [
+                  { "filters": { "included_filters": { "filter_operator": "and", "filters": [ { "id": "moe_all_users", "name": "All Users", "filter_type": "custom_segments" } ] } } }
+                ],
+                "distribution": { "type": "auto", "from": -1, "to": -1, "interval": -1 },
+                "timerange": {},
+                "granularity": "e",
+                "chart_type": "column",
+                "count_type": "number",
+                "split_by": [],
+                "chart_sort_type": "descending"
+              }
+      responses:
+        "200":
+          description: Query registered. Poll status and fetch results with `data.request_id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueryRegistration" }
+              example:
+                response_id: "98fa8c1b-cb3f-4d29-b30e-d9e74dfb4adc"
+                type: "user_analysis"
+                data: { request_id: "6a56220f9f22da29f1ec05f0" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "428": { $ref: "#/components/responses/QuotaExceeded" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/query/{request_id}/status:
+    get:
+      tags: [Analytics Queries]
+      summary: Get Query Status
+      operationId: getQueryStatus
+      description: |
+        Returns the execution status of a registered query. Poll this endpoint until `status`
+        is `SUCCESSFUL` (or `FAILED`), then fetch the results.
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          description: The `request_id` returned when the query was registered.
+          schema: { type: string, example: "6a56220b9f22da29f1ec05ef" }
+      responses:
+        "200":
+          description: Current execution status of the query.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id: { $ref: "#/components/schemas/ResponseId" }
+                  type: { type: string, example: "query_status" }
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        # TODO(staging): confirm the complete set of status values and whether FAILED returns a reason/code.
+                        enum: [PENDING, SUCCESSFUL, FAILED]
+                        description: Execution status of the query.
+              example:
+                response_id: "199fb3c9-373f-4fe6-a40f-76185ef02b88"
+                type: "query_status"
+                data: { status: "SUCCESSFUL" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v5/analytics/query/{request_id}/results:
+    get:
+      tags: [Analytics Queries]
+      summary: Get Query Results
+      operationId: getQueryResults
+      description: |
+        Returns the resolved results of a completed query. The shape of the `data` array
+        varies per analysis type (behavior, funnels, retention, session-source, user-analysis).
+
+        The example below is a Session/Source (`session_count`) result.
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          description: The `request_id` returned when the query was registered.
+          schema: { type: string, example: "6a56220b9f22da29f1ec05ef" }
+      responses:
+        "200":
+          # TODO(staging): capture real result payloads for behavior, funnels, retention, and user-analysis.
+          description: Resolved query results.
+          content:
+            application/json:
+              example:
+                response_id: "92aace7b-404a-4e61-9035-2f88dec6ec73"
+                type: "query_result"
+                data:
+                  - analysis_type: "session_count"
+                    splitby: []
+                    granularity: "2026/07/14"
+                    metric: 15.0
+                    fseq: 0
+                    event_name: "MOE_SESSION"
+                    tseq: 0
+                    cseq: 0
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic authentication using your MoEngage App ID as the username and the API key (DATA API key) as the password.
+  schemas:
+    ResponseId:
+      type: string
+      description: A unique identifier for the response, useful for correlating logs and support requests.
+      example: fc803857-632e-4bf0-8df1-fbc2bdeedb66
+    QueryRegistration:
+      type: object
+      description: Acknowledgement that a query was registered. Use `data.request_id` to poll status and fetch results.
+      properties:
+        response_id: { $ref: "#/components/schemas/ResponseId" }
+        type:
+          type: string
+          description: The analysis type echoed back for the registered query.
+        data:
+          type: object
+          properties:
+            request_id:
+              type: string
+              description: Identifier of the registered query. Use it with the status and results endpoints.
+              example: "6a57577219749c10af96ed2a"
+    ErrorResponse:
+      type: object
+      required: [error, response_id]
+      description: Standard MoEngage error envelope.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: A machine-readable error code.
+              enum: [VALIDATION_FAILED, BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, QUOTA_EXCEEDED, INTERNAL_ERROR]
+            message: { type: string, description: A human-readable description of the error. }
+            doc_url: { type: string, description: A link to documentation about this error, when available. }
+        response_id: { $ref: "#/components/schemas/ResponseId" }
+  responses:
+    ValidationFailed:
+      description: Validation failed — a required field is missing, a value is invalid, or a documented limit is exceeded.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error:
+              code: "VALIDATION_FAILED"
+              message: "analysis_type - Enum doesnt allow value: eventsdfg, allowed values: [events, users, session, aggregation, aggregation_distribution, total_events_per_user, attribute_aggregation_per_user] : 'eventsdfg'"
+              doc_url: "/api/analytics-query/analytics-query-overview"
+            response_id: "01306019-419a-4728-ad82-9d522464f33a"
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error: { code: "UNAUTHORIZED", message: "Authentication required.", doc_url: "/api/analytics-query/analytics-query-overview" }
+            response_id: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+    Forbidden:
+      description: The caller does not have access to this workspace or resource, or the analytics feature is not enabled.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error: { code: "FORBIDDEN", message: "You do not have access to perform this action.", doc_url: "/api/analytics-query/analytics-query-overview" }
+            response_id: "c9d0e1f2-a3b4-4c5d-9e6f-7a8b9c0d1e2f"
+    NotFound:
+      description: The query `request_id` does not exist, or is not in this workspace.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error: { code: "NOT_FOUND", message: "The query request you are looking for does not exist.", doc_url: "/api/analytics-query/analytics-query-overview" }
+            response_id: "0998efae-b324-4559-afb0-756961d2e11a"
+    QuotaExceeded:
+      description: This response is returned when the workspace has reached its monthly Fair Usage Policy (FUP) limit for analytics usage.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error: { code: "QUOTA_EXCEEDED", message: "Your workspace has reached its monthly Fair Usage Policy limit for analytics usage. Please contact your Customer Success Manager to expand your quota.", doc_url: "/api/analytics-query/analytics-query-overview" }
+            response_id: "714b4690eba1deb53b065d92277e2910"
+    InternalError:
+      description: An unexpected server error occurred.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example:
+            error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred while processing the request.", doc_url: "/api/analytics-query/analytics-query-overview" }
+            response_id: "dcc4fd00-2980-41a5-94b3-ad4844ae3d72"
