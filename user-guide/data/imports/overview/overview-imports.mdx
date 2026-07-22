@@ -18,6 +18,7 @@ MoEngage also supports importing from data warehouses:
 
 1. [Snowflake Imports](/user-guide/data/imports/data-warehouses-imports/snowflake-imports)
 2. [Databricks Imports](/user-guide/data/imports/data-warehouses-imports/databricks-imports)
+3. [BigQuery Imports](/user-guide/data/imports/data-warehouses-imports/bigquery-imports)
 
 # Types of Imports
 
@@ -333,6 +334,32 @@ The above sample manifest file consists of 5 standard attributes. You can refer 
   MoEngage does not support the | (pipe) character in non-array type columns. Ensure your String, Numeric, and Boolean columns do not contain this character.
 </Info>
 
+## Reserved Keywords for User Attributes
+
+Below is the list of keys that should not be used when tracking user attributes.
+
+* USER_ATTRIBUTE_UNIQUE_ID
+* USER_ATTRIBUTE_USER_EMAIL
+* USER_ATTRIBUTE_USER_MOBILE
+* USER_ATTRIBUTE_USER_NAME
+* USER_ATTRIBUTE_USER_GENDER
+* USER_ATTRIBUTE_USER_FIRST_NAME
+* USER_ATTRIBUTE_USER_LAST_NAME
+* USER_ATTRIBUTE_USER_BDAY
+* USER_ATTRIBUTE_NOTIFICATION_PREF
+* USER_ATTRIBUTE_OLD_ID
+* MOE_TIME_FORMAT
+* MOE_TIME_TIMEZONE
+* USER_ATTRIBUTE_DND_START_TIME
+* USER_ATTRIBUTE_DND_END_TIME
+* MOE_GAID
+* INSTALL
+* UPDATE
+* MOE_ISLAT
+* status
+* user_id
+* source
+
 ## Supported Datetime Formats
 
 | **Datetime Format** | **Examples** |
@@ -382,6 +409,10 @@ To learn about the types of authentication methods MoEngage support and the step
 
 The S3/SFTP Imports Dashboard contains all the information you must keep track of your imports. You can view the most important information at a glance:
 
+<Info>
+  Import schedule and detail times on this dashboard are shown in your app's configured timezone. If your app does not have a timezone set, these times display in UTC by default. To see them in your preferred timezone, set the app timezone from **Settings**. This display timezone is separate from the requirement that mapped Event or Updated timestamp columns be in UTC.
+</Info>
+
 | **Name** | **Description** |
 | --- | --- |
 | **Name** | The name of the import you gave while setting it up. |
@@ -424,11 +455,11 @@ You can trigger imports using one of the following options:
 
 # File Limits
 
-The maximum file size that MoEngage supports is 200MB per file. In case of a bigger file, the file must be split into 200MB files each.
+The maximum file size that MoEngage supports is 500MB per file. In case of a bigger file, the file must be split into 500MB files each.
 
 1. **Rows:** A single CSV/JSON file supports up to your hourly row limit. Files exceeding your hourly limit are rejected.
 2. **Columns/Attributes:** MoEngage allows 100 columns (attributes) for users and 100 columns (attributes) per event.
-3. **File size:** The preferred file size should be less than 200MB (per CSV/JSON) for S3/SFTP and less than 150MB (per CSV) for Manual Uploads.
+3. **File size:** The preferred file size should be less than 500MB (per CSV/JSON) for S3/SFTP and less than 150MB (per CSV) for Manual Uploads.
 4. **File name prefix:** The maximum number of characters in the file name prefix should be 100. These limits apply to S3 and SFTP Imports.
 5. **Number of files:** In each import run, MoEngage can import a maximum of 250 files.
 6. **Import limits**: Refer to the table below.
@@ -461,6 +492,10 @@ To ensure your data imports run smoothly and efficiently, consider the following
 
 <Accordion title="What happens when there is an error in fetching the files from the S3/SFTP folder?">
   By default, imports are not retried when there is a failure. You can, however, configure to receive an email alert upon failure.
+</Accordion>
+
+<Accordion title="A file failed with 'Applicable rate limit breached'. Will the periodic import reprocess it automatically?">
+  No. When a file exhausts its processing retries and fails with the _Applicable rate limit breached_ status, MoEngage cannot replay that file on its own, so the periodic schedule does not reprocess it automatically. This retry limit protects the ingestion pipeline from being overloaded. To reprocess the affected files, rename them and re-upload them to the source folder so that MoEngage treats them as new files. To reduce the chance of hitting rate limits, stagger large batches instead of scheduling many files at once (see [Best Practices](#best-practices)).
 </Accordion>
 
 <Accordion title="What if a scheduled import adds the data into a recently archived segment?">

@@ -1,0 +1,401 @@
+---
+title: "Tracking User Attributes and User Identity"
+description: "Track user attributes and set identifiers in the MoEngage Flutter SDK for cross-platform identification."
+---
+
+User attributes are pieces of information you know about a user. They could be demographics such as age and gender, account-specific like plan, or whether a user has seen a particular A/B test variation. User attributes are customer properties you can reference throughout the customer's lifecycle.
+
+## Difference Between User Attributes and User Identifiers
+
+User attributes and user identifiers serve different purposes in MoEngage: 
+
+**User Identifiers:**
+
+User identifiers are unique values that persist across multiple sessions and devices, allowing MoEngage to recognise a user as the same individual, even when they switch between different platforms or log in later. This process, known as identity resolution, is crucial for maintaining a unified user profile, providing a consistent user experience, and tracking user behaviour accurately.
+
+Common examples of user identifiers include:
+
+- Email address: A user's email address is a widely used identifier because it is unique to the individual and remains consistent across different platforms.
+- Phone number: Similar to email addresses, phone numbers can serve as unique identifiers, especially in mobile applications.
+- User ID: MoEngage assigns each user a unique ID upon registration. This ID is used as a reliable identifier within the MoEngage platform.
+- Customer ID: In e-commerce and customer relationship management (CRM) systems, a customer ID is assigned to track individual customers across various interactions.
+
+These identifiers are set using the **_identifyUser()_** method.
+
+By default, parameter **_ID_** is the identifier used for your workspaces, unless [Identity resolution](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#overview) is enabled and identifiers are activated in your workspace.
+
+**User Attributes**:
+
+Descriptive information about a user that enhances their profile - Used for segmentation, personalisation, and analytics - Examples: name, age, gender, preferences, purchase history - Set using dedicated methods like **_setFirstName()_** or **_setUserAttribute()_** - Help create personalised user experiences 
+
+In simple terms, identifiers answer "Who is this user?" while attributes answer "What do we know about this user?"
+
+## Powering MoEngage Features
+
+User attributes and identifiers are crucial for leveraging MoEngage effectively:
+
+- **Segmentation:**
+  - Use attributes to create targeted user groups based on demographics, behavior, etc.
+  - Example: Segment users by age, purchase history for specific campaigns.
+- **Personalisation:**
+  - Identifiers ensure consistent user experience across devices.
+  - Attributes enable tailored content (messages, recommendations).
+  - Example: Personalise emails with names, recommend relevant products.
+- **Analytics:**
+  - Attributes provide context to user actions and behavior data.
+  - Analyze conversion rates by segments, feature engagement by demographics.
+  - Gain deeper insights for data-driven decisions.
+
+By using attributes and identifiers, you can build more relevant and engaging user experiences.
+
+# Implementing Login/Logout
+
+For SDK versions below 9.2.00 refer to [this](/developer-guide/flutter-sdk/data-tracking/setting-unique-id-for-sdk-versions-below-920) document.
+
+## Login User
+
+**Single Identifier**
+
+If your application relies on a single unique user identifier, such as an email ID for login, use the API below to pass the identifier to the MoEngage SDK
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter();
+_moengagePlugin.initialise();
+
+_moengagePlugin.identifyUser("flutter-uid"); //Pass any unique value for your user
+```
+
+</CodeGroup>
+
+**Multiple Identifiers**
+
+If your application supports multiple login identifiers, such as an email ID, user ID, or mobile number, pass all relevant identifiers to the SDK using the following function:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter();
+_moengagePlugin.initialise();
+_moengagePlugin.identifyUser({"email": "flutter@moengage.com", "id": "flutter"});
+```
+
+</CodeGroup>
+
+<Note>
+  Updates are made to SDK functions to improve user identification and session management.
+
+  - **Forced Logout**: The MoEngage SDK no longer automatically logs out the previous user when a new user is detected on the device. Logout should now be explicitly called for workspaces enabled with Identity resolution to avoid data corruption.
+  - **SetUniqueID**: _IdentifyUser_ function supports multiple identifiers, which replaces the need of using _SetUniqueID_ function for user identification. Note that _SetUniqueID_ is marked for removal in the future releases of SDK versions - it is important to use _identifyUser_ instead especially if you are using Identity resolution in your workspace.
+  - **SetAlias**: For workspaces with the Identity resolution feature enabled, MoEngage SDK stores the previous identifier values. When _IdentifyUser_ function is used to track the new identifier values, MoEngage SDK detects the change in identifier value and reports accordingly.
+  - If you call the _IdentifyUser_ function without logging out, then the existing logged-in user's ID is updated.
+</Note>
+
+**Note**: Before implementing **_identifyUser()_** with multiple identifiers, you must activate the defined identifiers on the MoEngage dashboard. For configuration steps, see [this documentation](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#configure-multiple-identifiers).
+
+**_Behaviour of Multiple identifyUser() calls_**
+
+- When calling **_identifyUser()_** multiple times, the new identifiers are appended to the existing list rather than replacing them. Here's an example of how this works:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter();
+_moengagePlugin.initialise();
+//First call with email _moengagePlugin.identifyUser({"u_em": "flutter@moengage.com"});
+//Later call identifyUser() with mobile Number
+_moengagePlugin.identifyUser({"u_mb":"999999999"});
+
+//Result now the user has both email and mobile identifiers;
+```
+
+</CodeGroup>
+
+- If you call **_identifyUser()_** with an identifier key that already exists, the new value will be update the existing one. Here's an example of how this works:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter();
+_moengagePlugin.initialise();
+//First call with initial email _moengagePlugin.identifyUser({"u_em":"abc@xyz.com"});
+//Later call identifyUser() when User updates their email
+_moengagePlugin.identifyUser({"u_em":"jfk@xyz.com"});
+//Result now the user email is updated with the later one;
+```
+
+</CodeGroup>
+
+This behaviour allows you to:
+
+- Add new identifiers as they become available
+- Update specific identifiers without affecting others
+- Build a complete user identity profile over time
+
+Here, `u_em`, `u_mb` are standard user attributes. Please refer to [this section](/developer-guide/react-native-sdk/data-tracking/tracking-user-attributes-and-user-identity) to identify user with more standard user attributes
+
+## Standard and Custom Attributes
+
+**Standard attributes:** These are common user attributes that are pre-defined within the MoEngage dashboard, such as email address and mobile phone number. The table below lists these standard attributes and their corresponding key names
+
+| User Attribute Name | Key name to be used in identifyUser method |
+| --- | --- |
+| ID | uid |
+| Email (Standard) | u\_em |
+| Gender | u\_gd |
+| Birthday | u\_bd |
+| Name | u\_n |
+| First Name | u\_fn |
+| Last Name | u\_ln |
+| Mobile Number (Standard) | u\_mb |
+
+**Custom attributes:**  These are attributes that you define yourself within the MoEngage dashboard in addition to the standard attributes. Here's an example of how you might work with custom attributes:
+
+<CodeGroup>
+
+```Dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';final MoEngageFlutter _moengagePlugin = MoEngageFlutter(<YOUR_WORKSPACE_ID>);_moengagePlugin.initialise();
+
+//replace custom_attribute_name with the actual name of your custom user attribute and attributeValue with the actual value you want to assign to the attribute
+_moengagePlugin.identifyUser({ custom_attribute_name: 'attributeValue' });
+      
+//you can set two or more identities at the same time
+_moengagePlugin.identifyUser({ cust_attr_1: 'value1', cust_attr_2: 'value2' });
+      
+//you can set custom user identity and standard user identity at the same time
+_moengagePlugin.identifyUser({ cust_attr_1: 'value1', cust_attr_2: 'value2', u_em: 'emailValue@emailDomain.com' });
+```
+
+</CodeGroup>
+
+For detailed instructions on selecting both custom and standard attributes when configuring multiple identifiers, please refer to [this document](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution#step-1-select-identifiers).
+
+## Logout User
+
+The application needs to notify the MoEngage SDK whenever the user is logged out of the application. To notify the SDK, call the API whenever the user is logged out of the application.
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+_moengagePlugin.initialise();
+_moengagePlugin.logout();
+```
+
+</CodeGroup>
+
+<Warning>
+  **Critical - Very Important Integration Guideline**
+
+  Never use both the login methods - `identifyUser` and `setUserUniqueID()`(method to assign identifier present in versions below 9.2.0) in your project. Use only either one of the methods. Using both the methods can lead to inconsistent user profile creation and merging in your MoEngage account.
+</Warning>
+
+### Logout Callback Listener
+
+To receive a callback when logout is complete, register a listener for the `onLogoutComplete` event:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_Workspace_ID);
+
+void _onLogoutComplete(LogoutCompleteData data) {
+// process your logout complete here
+print("Logout completed: $data");
+}
+
+// Set this before initialise() so no callback is missed
+_moengagePlugin.setLogoutCompleteCallbackHandler(_onLogoutComplete);
+```
+
+</CodeGroup>
+
+<Info>
+  The logout callback listener requires Flutter SDK version 10.8.0 or later.
+</Info>
+
+### Logout Callback Data
+
+<CodeGroup>
+
+```dart Dart wrap
+class LogoutCompleteData {
+Platforms platform;      // Platforms.android | Platforms.iOS
+AccountMeta accountMeta;
+}
+
+class AccountMeta {
+String appId;            // MoEngage Workspace ID for the instance
+}
+/// platform — platform the logout occurred on.
+/// accountMeta — account info for the logged-out user; accountMeta.appId is the Workspace ID.
+/// All types resolve from the single package:moengage_flutter/moengage_flutter.dart import.
+```
+
+</CodeGroup>
+
+# Tracking User Attributes
+
+Use the following helper methods to set User attributes like Name, Email, Mobile, Gender, etc.
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+_moengagePlugin.initialise();
+
+_moengagePlugin.setUserName("User Name");
+_moengagePlugin.setFirstName("FirstName");
+_moengagePlugin.setLastName("LastName");
+_moengagePlugin.setEmail("EmailID");
+_moengagePlugin.setPhoneNumber("PhoneNumber");
+_moengagePlugin.setGender(MoEGender.male); // Supported values also include MoEGender.female OR MoEGender.other
+_moengagePlugin.setLocation(new MoEGeoLocation(23.1, 21.2)); // Pass coordinates with MoEGeoLocation instance
+_moengagePlugin.setBirthDate("2000-12-02T08:26:21.170Z"); // date format - ` yyyy-MM-dd'T'HH:mm:ss.fff'Z'`
+```
+
+</CodeGroup>
+
+For setting other User Attributes, you can use the generic method **_setUserAttribute(key,value)_**
+
+To set custom user attributes, you will have to provide the attribute name as shown below:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+_moengagePlugin.initialise();
+
+_moengagePlugin.setUserAttribute("int-attr", 0);
+_moengagePlugin.setUserAttribute("bool-attr", true);
+_moengagePlugin.setUserAttribute("string-attr", "Some Value");
+_moengagePlugin.setUserAttribute("double-attr", 10.0);
+_moengagePlugin.setUserAttribute("int-arr-attr", [100,200,300]);
+_moengagePlugin.setUserAttribute("string-arr-attr", ["a","b","c"]);
+_moengagePlugin.setUserAttribute("double-arr-attr", [1.0,2.0,3.0]);
+_moengagePlugin.setUserAttribute('product', {'item-id' : 123,'item-type' : 'books','item-cost' : {'amount' : 100,'currency' : 'USD'}});
+_moengagePlugin.setUserAttribute('products', [{'item-id' : 123,'item-cost' : {'amount' : 100,'currency' : 'USD'}},{'item-id' : 323,'item-cost' : {'amount' : 90,'currency' : 'USD'}}]);
+```
+
+</CodeGroup>
+
+<Info>
+  You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
+</Info>
+
+## Tracking Date as user attributes:
+
+To track any date as user attributes use the **_setUserAttributeIsoDate(name, date)_**. This API takes the attribute name and ISO Date as input.\
+Date Format -**_yyyy-MM-dd'T'HH:mm:ss.fff'Z_**'\
+Example:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+_moengagePlugin.initialise();
+_moengagePlugin.setUserAttributeIsoDate("timeStamp", "2019-12-02T08:26:21.170Z")
+```
+
+</CodeGroup>
+
+## Tracking Location as user attributes: (Not available for Web)
+
+To track any location as user attributes use the _setUserAttributeLocation()_. This API takes the attribute name and an instance of MoEGeoLocation for coordinates as input.\
+Example:
+
+<CodeGroup>
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+_moengagePlugin.initialise();
+_moengagePlugin.setUserAttributeLocation("locationAttr", new MoEGeoLocation(72.8, 53.2));
+```
+
+</CodeGroup>
+
+## Custom Boolean User Attribute
+
+### iOS (optional)
+
+Starting from version 8.x.x of **moengage\_flutter**, the default tracking for the custom boolean attribute will be changed to **_boolean(true/false)_** from **_double(0/1)_**. To configure this, use **_AnalyticsConfig_** with **_shouldTrackUserAttributeBooleanAsNumber_** and pass true to track the boolean as double. By default, this is set as **_false_** to track boolean as true/false.
+
+Refer to the example below
+
+<CodeGroup>
+
+```dart Dart wrap
+ import 'package:moengage_flutter/moengage_flutter.dart';
+
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_Workspace_ID, moEInitConfig: MoEInitConfig(analyticsConfig: AnalyticsConfig(shouldTrackUserAttributeBooleanAsNumber:true)));
+
+@override
+void initState() {
+super.initState();
+initPlatformState();
+_moengagePlugin.initialise();
+}
+```
+
+</CodeGroup>
+
+Refer to the example code below for tracking the boolean user attribute 
+
+<CodeGroup>
+
+```dart Dart wrap
+ import 'package:moengage_flutter/moengage_flutter.dart';
+
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_Workspace_ID, moEInitConfig: MoEInitConfig(analyticsConfig: AnalyticsConfig(shouldTrackUserAttributeBooleanAsNumber: false)));
+_moengagePlugin.initialise();
+
+// If shouldTrackUserAttributeBooleanAsNumber is passed as true then `bool-attr-false` will tracked with value 0 else false
+_moengagePlugin.setUserAttribute("bool-attr-false", false);
+
+// If shouldTrackUserAttributeBooleanAsNumber is passed as true then `bool-attr-true` will tracked with value 1 else true
+_moengagePlugin.setUserAttribute("bool-attr-true", true);
+```
+
+</CodeGroup>
+
+## Reserved keywords for User Attributes
+
+Below is the list of keys that should not be used when tracking user attributes.
+
+- USER\_ATTRIBUTE\_UNIQUE\_ID
+- USER\_ATTRIBUTE\_USER\_EMAIL
+- USER\_ATTRIBUTE\_USER\_MOBILE
+- USER\_ATTRIBUTE\_USER\_NAME
+- USER\_ATTRIBUTE\_USER\_GENDER
+- USER\_ATTRIBUTE\_USER\_FIRST\_NAME
+- USER\_ATTRIBUTE\_USER\_LAST\_NAME
+- USER\_ATTRIBUTE\_USER\_BDAY
+- USER\_ATTRIBUTE\_NOTIFICATION\_PREF
+- USER\_ATTRIBUTE\_OLD\_ID
+- MOE\_TIME\_FORMAT
+- MOE\_TIME\_TIMEZONE
+- USER\_ATTRIBUTE\_DND\_START\_TIME
+- USER\_ATTRIBUTE\_DND\_END\_TIME
+- MOE\_GAID
+- MOE\_ISLAT
+- INSTALL
+- UPDATE
+- status
+- user\_id
+- source
+
+<Info>
+  You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
+</Info>
