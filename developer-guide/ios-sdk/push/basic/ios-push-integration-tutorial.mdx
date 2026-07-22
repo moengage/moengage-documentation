@@ -17,16 +17,21 @@ This article covers the following essential topics:
 
   To enable push notifications:
 
-  1. **Integrate the MoEngage iOS SDK**: Use CocoaPods, Swift Package Manager (SPM), or manual framework import as detailed in the [MoEngage documentation]((https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic).
+  1. **Integrate the MoEngage iOS SDK**: Use CocoaPods, Swift Package Manager (SPM), or manual framework import as detailed in the [MoEngage documentation](https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic).
   2. **Configure APNs credentials in the MoEngage UI**:
-     - MoEngage requires either an APNs Authentication Key (.p8) or an [APNs Certificate]((https://www.moengage.com/docs/developer-guide/ios-sdk/push/basic/apns-certificate-pem-file-legacy) (.pem) to communicate with Apple Push Notification Service (APNs).
-     - **Recommendation**: Use an APNs Authentication Key because it is non-expiring. Refer to the [APNs Authentication Key Setup Guide]((https://www.moengage.com/docs/developer-guide/ios-sdk/push/basic/apns-authentication-key).
+     - MoEngage requires either an APNs Authentication Key (.p8) or an [APNs Certificate](https://www.moengage.com/docs/developer-guide/ios-sdk/push/basic/apns-certificate-pem-file-legacy) (.pem) to communicate with Apple Push Notification Service (APNs).
+     - **Recommendation**: Use an APNs Authentication Key because it is non-expiring. Refer to the [APNs Authentication Key Setup Guide](https://www.moengage.com/docs/developer-guide/ios-sdk/push/basic/apns-authentication-key).
   3. Ensure you have added **Push Notifications** capability in the main target by navigating to **Target** -\> **Signing & Capabilities**.
 </Info>
 
 ## Step 1: Implement Notification Service Extension (NSE)
 
 NSE enables rich push notifications (including images, video, and GIFs) and tracks notification impressions across all app states.
+
+<Warning>
+- Verify that the Notification Service Extension is configured and the MoEngageRichNotification framework is integrated in your iOS project. If a device receives a rich push notification payload with a service extension configured and the MoEngageRichNotification framework is not added, the SDK throws a fatal error in `DEBUG` builds. In release builds, the rich content fails to render and the notification falls back to the standard payload.
+- If you are upgrading an existing app and these strict `DEBUG` validations cause disruptive crashes while you refactor your tracking code, you can temporarily opt out by calling `disableIntegrationValidator()` during SDK initialization. Use this strictly as a stopgap for phased upgrades, and aim to remove the opt-out once your attribute call sites are properly validated.
+</Warning>
 
 <Steps>
   <Step title="Create NSE Target">
@@ -48,7 +53,7 @@ NSE enables rich push notifications (including images, video, and GIFs) and trac
       </Tab>
       <Tab title="CocoaPods">
         <Warning>
-          **Information** CocoaPods is being deprecated. MoEngage recommends using Swift Package Manager for all new integrations. For more info, refer [here]((https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic/sdk-integration).
+          **Information** CocoaPods is being deprecated. MoEngage recommends using Swift Package Manager for all new integrations. For more info, refer \[here\](([https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic/sdk-integration](https://www.moengage.com/docs/developer-guide/ios-sdk/sdk-integration/basic/sdk-integration)).
         </Warning>
 
         Add the following to your `Podfile`:
@@ -164,6 +169,10 @@ NSE enables rich push notifications (including images, video, and GIFs) and trac
 ## Step 2: Implement Push Handling in AppDelegate
 
 Integrate push notification registration and token management within your `AppDelegate` to ensure proper communication with Apple Push Notification service (APNs) and MoEngage. This setup allows MoEngage to effectively map APNs tokens with your users.
+
+<Note>
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `setPushToken(_:)` returns a typed task object instead of `Void`, so you can observe per-call success or failure through `.onSuccess` / `.onFailure` or the async `result()` method. Direct calls like the one above compile unchanged.
+</Note>
 
 ### Choose a Notification Registration Method
 
@@ -360,6 +369,7 @@ This manual approach requires you to forward the push payload directly to our SD
      ```
      </CodeGroup>
 </Accordion>
+
 
 ## Step 3: Validate Notifications
 

@@ -1,0 +1,96 @@
+---
+title: "ver 0.1 (0.8)"
+---
+
+Package Link: Click [here](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOS00000G9lGGYAZ).
+
+This release introduces a robust Custom Queue Framework, enhanced exception logging, improved manual retry capabilities, and flexible configuration settings. It also delivers UI improvements, better reporting support, and several key fixes to streamline your sync experience with MoEngage.
+
+# What's New?
+
+The following are the new features and improvements introduced in this version:
+
+### Custom Queue Framework (Real-Time & Historical Syncs)
+
+- Sync operations now run through a dedicated Sync Queue framework, removing dependency on mapped object triggers.
+- Each sync is tracked via a Sync Queue record; all related exceptions are linked directly for traceability.
+- Ensures FIFO-based syncing with MoEngage to preserve event order.
+- Automatic retries up to 4 times for failures; unlimited manual retry available post that.
+- ‘Flex Queue full’ errors eliminated using Flex Queue Limit and auto-scheduling when full.
+- Intelligent FUP (429) retry handling with exponential backoff until limits are cleared.
+- Sync records now include last historical sync metadata for better visibility.
+
+### Enhanced Exception Handling
+
+- Exceptions now log detailed MoEngage API responses.
+- Exceptions are directly linked to their Sync Queue records.
+- Each retry attempt logs a new exception entry to aid in debugging.
+- Existing Salesforce-originated exceptions (e.g., NullPointer) remain logged as before.
+
+### Sync Logic Configuration (Admin-Editable)
+
+A new Configuration Custom Setting allows admins to control core sync behaviour. The following records are created by default:
+
+| Setting Name | Default Value | Description |
+| :-- | :-- | :-- |
+| Flex Queue Limit | 50 | Max concurrent jobs running on org before delaying batch execution. |
+| Historic Sync Scheduler Time (min) | 5 | Delay before retrying historical sync when queue is full. |
+| Record Deletion Batch Size | 2000 | Batch size for deletion of old successful records. |
+| Record Deletion Interval (days) | 7 | Retention period for successful Sync Queue records. |
+| Sync Queue Batch Size | 20 | Batch size for Real-Time processing. |
+| Sync Queue Scheduler Time (min) | 5 | Delay before retrying Real-Time sync when the queue is full. |
+
+Admins may modify these values in _Setup_ → _Custom Settings_ → _Configuration_. Please ensure only valid values are used.
+
+### Manual Retry (Admin Only)
+
+- Available for users with the MoEngage Admin permission set.
+- Retry option appears on failed Sync Queue records after all 4 automatic retries.
+- Retry option appears on failed Sync Queue records in the following cases:
+  - After all 4 automatic retry attempts are exhausted, or
+  - When the sync fails due to non-retriable errors, such as:
+    - Account Suspended
+    - Authentication Required
+    - BlockedClient
+    - MissingAttributeError
+- Manual retry supports both Real-Time (immediate retry) and Historical (scheduled batch) syncs.
+
+### Field-Level Security (FLS) Bypass
+
+- Sync now bypasses FLS checks for mapped fields.
+- Users with MoEngage User/Admin permission sets can sync records without needing field-level access to all mapped fields.
+
+### Automatic Cleanup of Successful Records
+
+- A job named Delete Processed Syncs runs daily at 1:00 AM to delete old successful syncs & related data.
+- Controlled by the Record Deletion Interval (default: 7 days).
+- Admins should reschedule the job under their own user context (Setup → Scheduled Jobs) to avoid permission-related failures.
+
+### UI Improvements
+
+- Reload button added to the Data Sync Field Mapping component to fetch live status.
+- The Sync button dynamically updates its label based on the last sync status:
+  - Sync, Sync Scheduled, Sync Processing, Sync Successful, Sync Partial Success, Sync Failed
+- Sync button redirects to the latest Sync Queue record for live tracking.
+- New syncs can only be started if the last sync status is Successful, Failed, or Partial Success.
+- Tooltips now display:
+  - “Run Historical Sync” (if allowed)
+  - “Historical Sync Running” (if in progress)
+
+### Reporting Enhancements
+
+- Sync Queue and Exceptions objects are now reportable.
+- Users can build custom reports for both sync activities and error analysis.
+
+## System Behaviour Updates
+
+- FLS bypass now prevents errors for users lacking access to all mapped fields.
+- Sync no longer fails when client-side batches modify mapped object records, those records are now\
+  handled gracefully.
+
+## Deployment and Admin notes
+
+- Post-install scripts:
+  - Create Configuration records.
+  - Schedule Delete Processed Syncs job (non-duplicated if already present).
+- Trigger deployment and test classes are now Managed via Metadata API.

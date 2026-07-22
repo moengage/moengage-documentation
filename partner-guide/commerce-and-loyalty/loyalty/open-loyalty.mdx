@@ -1,0 +1,109 @@
+---
+title: "Open Loyalty"
+---
+
+# Introduction
+
+[Open Loyalty](https://www.openloyalty.io/) provides a set of flexible building blocks for developing personalized loyalty programs. It’s a headless solution for global brands that want to achieve success when it comes to customer retention.
+
+# MoEngage × Open Loyalty
+
+With the MoEngage and Open Loyalty integration, you can dynamically display coupon codes inside MoEngage Campaigns. You can also forward events from MoEngage to Open Loyalty using Connector Campaigns. Use this to develop your loyalty programs across various channels on MoEngage.
+
+# Integration
+
+<Info>
+  - You would need your Open Loyalty token to use their APIs.
+  - You would need to know your Open Loyalty host endpoint.
+</Info>
+
+## Forward events on MoEngage to Open Loyalty
+
+With MoEngage's Connector Campaigns, you can forward your events to Open Loyalty when they perform a purchase on your app or website.
+
+To create a connector campaign on MoEngage,
+
+1. Navigate to Create Campaign \> Connectors \> Custom and choose the delivery type most suitable to your needs. For this example, we will select "Event Triggered" and select the event as "Purchased". <img src="/images/partner_19877118701076.png" />
+2. On step 2 of the campaign:
+
+### Call the Open Loyalty API
+
+To send your event to Open Loyalty, use the `POST` method and configure the payload.
+
+- Select the method as POST
+- Headers
+  - `Authorization`: For this, you need to pass the token from Open Loyalty Authorization APIs like so: `Bearer <your_token>`
+  - `Content-Type`: `application/json`
+- Add the endpoint as Webhook URL: `https://<openloyalty_host>/api/{storeCode}/customEvent` - enter your respective store code to track this event into.
+- Body:\
+  Type @ to personalize your payload.
+  <CodeGroup>
+  ```json JSON
+  {
+      "event": {
+          "type": "string",
+          "customerData": {
+              "customerId": "{{UserAttribute['ID']}}",
+              "email": "{{UserAttribute['Email (Standard)']}}",
+              "phone": "{{UserAttribute['Mobile Number (Standard)']}}",
+              "loyaltyCardNumber": "{{UserAttribute['LoyaltyCardNumber']}}"
+          },
+          "eventDate": "{{EventAttribute['current_time']}}",
+          "body": {
+              "event_attribute": "{{EventAttribute['my_attribute']}}"
+          }
+      }
+  }
+  ```
+  </CodeGroup>
+
+![](/images/partner_19877055777556.png)
+
+- Refer to the [Open Loyalty API documentation](https://apidocs.openloyalty.io/#operation/customEventPost) for more information.
+
+### Preview your request
+
+At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available in Step 2 of Create Connector Campaign.<img src="/images/partner_19877118702484.png" alt="Screen_Shot_2022-02-22_at_11.12.42_AM.png" />
+
+You can go ahead and Publish the campaign.
+
+## Display dynamic coupon codes in MoEngage Campaigns
+
+Using MoEngage's Content APIs, you can dynamically pull coupon codes inside MoEngage campaigns for a more personalized experience.
+
+### Step 1: Set up a MoEngage Content API
+
+1. Navigate to **Settings** \> **Advanced settings** \> **Content API**. Click **\+ Add content API** at the top right corner of the Content API screen.<img src="/images/partner_21979528374036.png" alt="ContentAPI_Navogation.png" />
+2. Add your Open Loyalty API to the endpoint URL. Depending on your use case, the endpoint will change.
+
+![](/images/partner_19877613896084.png)
+
+To display your coupon code rewards, use Open Loyalty's [Get Coupon List API](https://apidocs.openloyalty.io/#operation/couponGetList).
+
+While setting up your content API, insert the following URL:
+
+`https://<openloyalty_host>/api/{storeCode}/reward/{reward}/coupon`
+
+Under URL Parameters, add the following:
+
+1. `_itemsOnPage`: `1`
+
+Under Headers, add the following:
+
+1. `Authorization`: For this, you need to pass the token from Open Loyalty Authorization APIs like so: `Bearer <your_token>`
+2. `Content-Type`: `application/json`
+3. Click on "Save" and then "Done" once you see a successful response.
+
+<Note>
+  You can also test your APIs. To test your APIs, from the Content API's action menu, click on "Test". You can test your API response and validate it.
+</Note>
+
+### Step 2: Display your coupons inside MoEngage campaigns
+
+To use this API in your MoEngage campaigns,
+
+1. On step 2 on your campaign creation, enter @.
+2. In the pop up, you can select the Open Loyalty Content API configured in Step 1.
+3. You can use [MoEngage Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language) to parse through the API response and use the content in your campaigns. <img src="/images/partner_19877975892884.png" />
+4. You can click on the Preview tab to view your campaign in real-time personalization: <img src="/images/partner_19877992759956.png" />
+5. You can go ahead and Publish the campaign.

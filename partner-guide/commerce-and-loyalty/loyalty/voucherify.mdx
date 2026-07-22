@@ -1,0 +1,144 @@
+---
+title: "Voucherify"
+---
+
+# Introduction
+
+[Voucherify](https://www.voucherify.io/) is an all-in-one promotional platform that allows for personalized campaigns and loyalty programs that drive user engagement and retention.
+
+# MoEngage × Voucherify
+
+The MoEngage and Voucherify integration allows you to grow your promotional campaigns by sending unique codes through the use of Content APIs. With this integration, you can inform your customers of promotions and distribute personalized coupons to every one of them. Thanks to event-triggered MoEngage campaigns, you can react to certain occasions with new Voucherify coupons and gift cards being delivered to your customers.
+
+The below example implements the following scenario:
+
+1. Customers who haven’t visited the store should be offered a discount coupon to draw them back.
+2. Only the customer who has been gifted with the voucher should be able to redeem it.
+3. The customer should receive personalized coupons via email.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  - Ensure you have access to your Voucherify account.
+</Info>
+
+## Step 1: Prepare a Voucherify campaign to engage inactive customers
+
+1. On your Voucherify dashboard, create a new [Unique Coupons Campaign](https://support.voucherify.io/article/46-bulk-unique-codes-campaign).
+2. Get your Campaign ID by calling [the get campaign endpoint](https://docs.voucherify.io/reference/get-campaign) or in your browser address bar when you open the campaign dashboard:
+
+![](/images/partner_15879185978388.png)
+
+## Step 2: Configure a MoEngage ContentAPI endpoint which will publish new code from the above campaign
+
+On your MoEngage account, navigate to Settings → App → APIs → Content API tab and click the ‘Add’ button.
+
+1. API Name: this is the name of the Content API endpoints. It cannot be changed afterward. In this case, it is named `new_reactivation_voucher` because it will send out voucher codes from the `Customer Reactivation` campaign.
+2. API Url: type in the address of the Create Publications endpoint: `{{API_URL}}/v1/publications/create`. You can find your API Url in your Voucherify Project Settings in the `Application Information` section.
+3. In the _Parameters_ tab:
+   1. Add a _campaign_ parameter and fill in your Voucherify campaign ID.
+   2. Add a _customer_ parameter and fill in the MoEngage field that should be used as the customer’s source\_id field in Voucherify. In this case, the customer’s email is used as source\_id. You can learn more about MoEngage users’ attributes [here](/user-guide/data/event-data/derived-events-and-attributes).
+
+<img
+  src="/images/partner_15879310627732.png"
+  className="mr-auto"
+/>
+
+4. In the _Headers_ tab:
+   1. Add `X-App-Id` and `X-App-Token` headers. You can generate the application keys for integration with MoEngage in your Voucherify Project Settings, in the `Integration Keys` section.
+
+<img
+  src="/images/partner_15879301166612.png"
+  className="mr-auto"
+/>
+
+2. Set `Content-Type` header to `application/json`.
+
+<img
+  src="/images/partner_15879333346580.png"
+  className="mr-auto"
+/>
+
+5. After you save the configuration, you can test it with a _play_ icon. If everything was configured correctly, you will see Voucherify’s response.
+
+<img
+  src="/images/partner_15879370756884.png"
+  className="mr-auto"
+/>
+
+## Step 3: Use the Content API endpoint in a MoEngage campaign
+
+1. Create a new MoEngage campaign.
+
+<img
+  src="/images/partner_15879396555924.png"
+  className="mr-auto"
+/>
+
+2. Prepare the email content. Using the templating language Jinja you can insert e.g. customer name into the content and call the Content API endpoint created in step 2, parse its response, and display the desired information to the customer. You can find out more about using Jinja in MoEngage [in this article](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language).
+   1. To call Voucherify’s create publication endpoint and publish a new code to an email’s recipient use this code snippet:
+
+```jinja wrap
+   {% set publication
+        = ContentApi.new_reactivation_voucher({({"params":{"customer":"{{UserAttribute['Email
+        (Standard)']}}"}})}) %}
+```
+
+2. To extract only the published voucher’s code from the response, use this expression `{{publication.voucher.code}}`
+
+<img
+  src="/images/partner_15879477980180.png"
+  className="mr-auto"
+/>
+
+3. You can preview how the message will look to a particular customer after you click the preview button in the template editor, [in the personalised mode](/user-guide/campaigns-and-channels/getting-started/message-personalization/personalized-preview) or you can test it by sending an email using the _Test Campaign_ field below the template editor.
+
+<img
+  src="/images/partner_15879480332180.png"
+  className="mr-auto"
+/>
+
+4. When you publish your campaign and messages will be sent (on a scheduled time or as soon as possible), each message will be tailored for every customer and will contain a voucher code that has been published to them:
+
+<img
+  src="/images/partner_15879482764436.png"
+  className="mr-auto"
+/>
+
+5. You can also observe each publication call made during the email send-out in the Audit Log in your Voucherify Dashboard:
+
+<img
+  src="/images/partner_15879531262868.png"
+  className="mr-auto"
+/>
+
+And see generated codes on your Voucherify campaign dashboard:
+
+<img
+  src="/images/partner_15879535034516.png"
+  className="mr-auto"
+/>
+
+## Referral code and loyalty card publication
+
+The process of assigning a referral code or loyalty card is very similar to the one described above. All you need to do is to change the campaign name parameter to the referral or loyalty campaign that you have created. Here you can learn more about Voucherify [referral programs](https://support.voucherify.io/article/48-referral-program-basics) and [loyalty programs](https://support.voucherify.io/category/389-loyalty-campaigns).
+
+In this example, we’ll retrieve the customer’s code from the referral program with the id: `camp_f0bKCWIYyTfOept56g2UMLY7`. Thanks to the ‘Customer will be allowed to join campaign only once’ option turned on in the referral program configuration if the customer is already a program member, then their card code will be returned and if they have not yet got a referral code assigned, they will and new code will be present in the response.
+
+1. Configure the Content API endpoint:
+
+<img
+  src="/images/partner_15879519884692.png"
+  className="mr-auto"
+/>
+
+2. To invoke the function to retrieve the loyalty card use the following code:
+
+```django wrap
+{% set ref_code = ContentApi.get_customer_referral_code({({"params":{"customer":"{{UserAttribute['Email
+    (Standard)']}}"}})}) %}
+```
+
+The customer’s referral or loyalty card code will be accessible using the same snippet: `{{ref_code.voucher.code}}`. The customer can share their referral code with a friend. When they use it during making a purchase, the referrer will be awarded the gift you’ve set up in the Voucherify Dashboard.

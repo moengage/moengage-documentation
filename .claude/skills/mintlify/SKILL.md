@@ -181,7 +181,7 @@ response = requests.post('/api/v1/user/add',
 
 ```mdx
 <Columns cols={2}>
-  <Card title="Getting started" icon="rocket" href="/user-guide/getting-started">
+  <Card title="Getting Started" icon="rocket" href="/user-guide/getting-started">
     Set up MoEngage for your account.
   </Card>
   <Card title="Send your first campaign" icon="send" href="/user-guide/campaigns-and-channels">
@@ -214,8 +214,8 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 - Second-person voice ("you").
 - Active voice, direct language.
-- Sentence case for headings ("Getting started", not "Getting Started").
-- Sentence case for code block titles.
+- Title case for headings ("Getting Started", not "Getting started").
+- Title case for code block titles.
 - All code blocks must have language tags.
 - All images must have descriptive alt text.
 - No marketing language, filler phrases, or emoji.

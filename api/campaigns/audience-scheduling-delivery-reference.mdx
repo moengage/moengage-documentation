@@ -1,0 +1,1457 @@
+---
+title: "Audience and delivery reference"
+description: "Reference for trigger_condition, segmentation_details, scheduling_details, delivery_controls, conversion_goal_details, control_group_details, utm_params, campaign_audience_limit, advanced, and geofences. Used by the Create Campaign and Update Campaign endpoints."
+keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping"]
+icon: "users-viewfinder"
+---
+
+This reference covers the request-body components that define how a campaign reaches users: `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls`, `conversion_goal_details`, `control_group_details`, `utm_params`, `campaign_audience_limit`, `advanced`, and `basic_details.geofences`. Used by [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) and [Update Campaign](/api/update-campaigns/update-campaign-v5).
+
+For `basic_details` (excluding geofences) and `campaign_content` per channel, platform, and template type, see [Campaign content reference](/api/campaigns/campaign-content-reference).
+
+<Note>
+The OpenAPI spec at `/api/campaigns/campaign-draft.yaml` is the authoritative source for field types, enums, and required markers. This page adds runnable variants and conditional rules not expressible in inline schema descriptions.
+</Note>
+
+## Quick start
+
+The minimum audience configuration is either `segmentation_details.is_all_user_campaign: true` or a single filter under `segmentation_details.included_filters`. The minimum schedule is `scheduling_details.delivery_type: ASAP`. Event-triggered campaigns also require `trigger_condition`.
+
+<CodeGroup>
+
+```json One-time Push to a custom segment
+{
+  "segmentation_details": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "custom_segments",
+          "name": "High-LTV users",
+          "id": "seg_5f1a3b2c"
+        }
+      ]
+    }
+  },
+  "scheduling_details": {
+    "delivery_type": "ASAP"
+  }
+}
+```
+
+```json Event-triggered Email
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "cart_abandoned",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "trigger_delay_type": "ASAP"
+  },
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "expiry_time": "2026-12-31T23:59:59"
+  }
+}
+```
+
+</CodeGroup>
+
+Everything below is reference material covering every supported delivery type, filter primitive, and delivery-control flag.
+
+## Page contents
+
+| Section | Location in request body |
+| :--- | :--- |
+| [Trigger conditions](#trigger-conditions) | `trigger_condition` |
+| [Filter primitives](#filter-primitives) | `included_filters.filters[]`, `excluded_filters.filters[]`, `trigger_condition.*_filters.filters[]` |
+| [Campaign audience](#campaign-audience) | `segmentation_details` |
+| [Campaign delivery schedule](#campaign-delivery-schedule) | `scheduling_details` |
+| [Delivery controls](#delivery-controls) | `delivery_controls` |
+| [Conversion goal tracking](#conversion-goal-tracking) | `conversion_goal_details` |
+| [Control groups](#control-groups) | `control_group_details` |
+| [UTM parameters](#utm-parameters) | `utm_params` |
+| [Campaign audience cap](#campaign-audience-cap) | `campaign_audience_limit` |
+| [Advanced Push settings](#advanced-push-settings) | `advanced` (Push only) |
+| [Geofence targeting](#geofence-targeting) | `basic_details.geofences` |
+| [Validation rules](#validation-rules) | Cross-cutting rules enforced at validate or publish |
+| [Updating an existing campaign](#updating-an-existing-campaign) | Per-state restrictions for `PATCH /v5/campaigns/{campaign_id}` |
+
+## Trigger conditions
+
+The `trigger_condition` object defines when a triggered campaign fires. It is **required** for the following delivery types:
+
+- Push `EVENT_TRIGGERED`, `DEVICE_TRIGGERED`, and `LOCATION_TRIGGERED`.
+- Email `EVENT_TRIGGERED`.
+
+`BUSINESS_EVENT_TRIGGERED` campaigns identify the trigger via `basic_details.business_event` and do not use `trigger_condition`.
+
+| Field | Type | Channel support |
+| :--- | :--- | :--- |
+| `included_filters` | [FilterGroup](#filter-primitives) | Push, Email. The primary condition that must match for the trigger to fire. |
+| `secondary_included_filters` | [FilterGroup](#filter-primitives) | Push, Email. Additional filters combined with the primary condition. |
+| `trigger_delay_type` | enum | Push: `DELAY`, `ASAP`, `INTELLIGENT_DELAY`. Email: `DELAY`, `ASAP`. |
+| `trigger_delay_value` | integer | The numeric delay value. **Required** when `trigger_delay_type` is `DELAY`. |
+| `trigger_delay_granularity` | enum | `MINUTES`, `HOURS`, or `DAYS`. **Required** when `trigger_delay_type` is `DELAY`. |
+| `trigger_relation` | enum | `BEFORE` or `AFTER`. **Required** when `trigger_delay_type` is `DELAY`. |
+| `trigger_attr` | object | The attribute used as the time anchor when `trigger_relation` is `BEFORE`. |
+| `intelligent_delay_optimization` | object | Push only. **Required** when `trigger_delay_type` is `INTELLIGENT_DELAY`. See [Intelligent delay optimization (Push)](#intelligent-delay-optimization-push). |
+
+<Warning>
+`INTELLIGENT_DELAY` is supported on **Push only**. Email `trigger_delay_type` accepts `DELAY` or `ASAP`.
+</Warning>
+
+### Trigger delay variants
+
+<Tabs>
+<Tab title="ASAP">
+
+The campaign fires as soon as the trigger condition is met.
+
+```json
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "purchase_completed",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "trigger_delay_type": "ASAP"
+  }
+}
+```
+
+</Tab>
+<Tab title="DELAY (AFTER)">
+
+The campaign fires a fixed amount of time after the trigger condition is met.
+
+```json
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "cart_abandoned",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "trigger_delay_type": "DELAY",
+    "trigger_delay_value": 30,
+    "trigger_delay_granularity": "MINUTES",
+    "trigger_relation": "AFTER"
+  }
+}
+```
+
+`trigger_delay_value`, `trigger_delay_granularity`, and `trigger_relation` are all required when `trigger_delay_type` is `DELAY`.
+
+</Tab>
+<Tab title="DELAY (BEFORE)">
+
+The campaign fires before a time anchored to a user attribute (for example, a flight departure). `trigger_relation` is `BEFORE` and the time anchor is passed in `trigger_attr.name`.
+
+```json
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "ticket_booked",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "trigger_delay_type": "DELAY",
+    "trigger_delay_value": 2,
+    "trigger_delay_granularity": "HOURS",
+    "trigger_relation": "BEFORE",
+    "trigger_attr": {
+      "name": "departure_time"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="INTELLIGENT_DELAY (Push)">
+
+MoEngage picks the optimal send time per user within a min/max window. Push only.
+
+```json
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "session_start",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "trigger_delay_type": "INTELLIGENT_DELAY",
+    "intelligent_delay_optimization": {
+      "min_delay_value": 1,
+      "min_delay_granularity": "HOURS",
+      "max_delay_value": 24,
+      "max_delay_granularity": "HOURS"
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+### Intelligent delay optimization (Push)
+
+The `intelligent_delay_optimization` object defines the window within which MoEngage selects the optimal send time.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `min_delay_value` | integer | The numeric component of the lower bound. |
+| `min_delay_granularity` | enum | `MINUTES` or `HOURS`. |
+| `max_delay_value` | integer | The numeric component of the upper bound. |
+| `max_delay_granularity` | enum | `HOURS` or `DAYS`. |
+
+### Primary and secondary trigger filters
+
+`secondary_included_filters` adds an extra filter group that must also match. Useful for triggers of the form "user did X and also Y".
+
+```json
+{
+  "trigger_condition": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "actions",
+          "action_name": "purchase_completed",
+          "execution": { "type": "atleast", "count": 1 },
+          "executed": true
+        }
+      ]
+    },
+    "secondary_included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "user_attributes",
+          "data_type": "string",
+          "name": "loyalty_tier",
+          "operator": "is",
+          "value": "gold"
+        }
+      ]
+    },
+    "trigger_delay_type": "ASAP"
+  }
+}
+```
+
+### Trigger requirements per delivery type
+
+| Delivery type | `trigger_condition` | `basic_details.business_event` | `basic_details.geofences` |
+| :--- | :--- | :--- | :--- |
+| `EVENT_TRIGGERED` (Push, Email) | **Required**. | — | — |
+| `BUSINESS_EVENT_TRIGGERED` (Push, Email) | Not used. | **Required**. | — |
+| `DEVICE_TRIGGERED` (Push) | **Required**. | — | — |
+| `LOCATION_TRIGGERED` (Push) | **Required**. | — | **Required**. See [Geofence targeting](#geofence-targeting). |
+| `ONE_TIME` (Push, Email) | Not applicable. | — | — |
+| `PERIODIC` (Push, Email) | Not applicable. | — | — |
+
+## Filter primitives
+
+Filters are the primitives used inside `included_filters.filters[]` and `excluded_filters.filters[]` on `segmentation_details` and inside `included_filters.filters[]` and `secondary_included_filters.filters[]` on `trigger_condition`. Every filter group has the shape:
+
+```json
+{
+  "filter_operator": "and",
+  "filters": [
+    /* one or more filter objects */
+  ]
+}
+```
+
+`filter_operator` is `and` or `or` (lowercase). Filters are objects discriminated by `filter_type`:
+
+| `filter_type` | Purpose |
+| :--- | :--- |
+| `user_attributes` | Match on a user attribute (string, double, datetime, bool). |
+| `actions` | Match on whether a user performed an event. |
+| `custom_segments` | Match users in a saved custom segment. |
+
+<Tabs>
+<Tab title="User attributes-based filters">
+
+```json
+{
+  "filter_type": "user_attributes",
+  "data_type": "string",
+  "category": "Tracked Standard Attribute",
+  "name": "country",
+  "operator": "is",
+  "value": "IN",
+  "case_sensitive": false,
+  "negate": false
+}
+```
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `filter_type` | enum | `user_attributes` (fixed). |
+| `data_type` | enum | `string`, `double`, `datetime`, or `bool` (lowercase). |
+| `category` | string | The attribute category (for example, `Tracked Standard Attribute`). |
+| `name` | string | The attribute name (for example, `country`, `uid`). |
+| `operator` | string | The operator depends on `data_type`. See [Operators per data type](#operators-per-data-type). |
+| `value` | varies | The value to match. Not required for the `exists` operator. |
+| `case_sensitive` | boolean | Whether the comparison is case-sensitive. |
+| `negate` | boolean | Whether to negate the condition. |
+| `project_name` | string | **Required** when the Portfolio feature is enabled in the workspace. |
+
+#### Operators per data type
+
+| `data_type` | Allowed `operator` values |
+| :--- | :--- |
+| `bool` | `is`, `exists` |
+| `double` | `in`, `between`, `lessThan`, `greaterThan`, `exists` |
+| `string` | `in`, `contains`, `containsInTheFollowing`, `startWithInTheFollowing`, `endsWithInTheFollowing`, `exists`, `is` |
+| `datetime` | `inTheLast`, `on`, `between`, `before`, `after`, `inTheNext`, `exists`, `today` |
+
+</Tab>
+<Tab title="Action-based filters (with or without attributes)">
+
+Filter on whether a user performed (or did not perform) an event.
+
+```json
+{
+  "filter_type": "actions",
+  "action_name": "purchase_completed",
+  "execution": { "type": "atleast", "count": 1 },
+  "executed": true
+}
+```
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `filter_type` | enum | `actions` (fixed). |
+| `action_name` | string | The event name. |
+| `execution.type` | enum | `atleast`, `atmost`, or `exactly`. |
+| `execution.count` | integer | The count compared against. |
+| `executed` | boolean | Whether the action was executed. |
+| `attributes` | [FilterGroup](#filter-primitives) | Optional. Filter on event attributes (nested filter group). |
+| `condition` | string | Optional. Condition label (for example, `IF`). |
+
+Action filter with event-attribute filters:
+
+```json
+{
+  "filter_type": "actions",
+  "action_name": "product_viewed",
+  "execution": { "type": "atleast", "count": 1 },
+  "executed": true,
+  "attributes": {
+    "filter_operator": "and",
+    "filters": [
+      {
+        "filter_type": "user_attributes",
+        "data_type": "double",
+        "name": "price",
+        "operator": "greaterThan",
+        "value": 100
+      }
+    ]
+  }
+}
+```
+
+</Tab>
+<Tab title="Custom segments">
+
+References a saved custom segment by name and ID.
+
+```json
+{
+  "filter_type": "custom_segments",
+  "name": "High-LTV users",
+  "id": "seg_5f1a3b2c"
+}
+```
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `filter_type` | enum | `custom_segments` (fixed). |
+| `name` | string | The custom segment name (as it appears in the dashboard). |
+| `id` | string | The custom segment ID. |
+
+The segment ID and name are visible in the MoEngage dashboard under **Segments**. For full segment construction details, refer to [Custom Segments](/user-guide/segment/segment-operations/custom-segments).
+
+</Tab>
+</Tabs>
+
+## Campaign audience
+
+The `segmentation_details` object defines who receives the campaign. Two top-level modes are supported: an explicit filter group, or a flag that targets all users.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `included_filters` | [FilterGroup](#filter-primitives) | Filters that include users in the audience. |
+| `excluded_filters` | [FilterGroup](#filter-primitives) | Filters that exclude users from the audience. |
+| `is_all_user_campaign` | boolean | When `true`, all users are targeted (subject to opt-in status). |
+| `send_campaign_to_opt_out_users` | boolean | When `true`, users who have opted out are also targeted. |
+
+<Tabs>
+<Tab title="All users">
+
+```json
+{
+  "segmentation_details": {
+    "is_all_user_campaign": true
+  }
+}
+```
+
+</Tab>
+<Tab title="Custom segment">
+
+```json
+{
+  "segmentation_details": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "custom_segments",
+          "name": "High-LTV users",
+          "id": "seg_5f1a3b2c"
+        }
+      ]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="User attribute filter">
+
+```json
+{
+  "segmentation_details": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "user_attributes",
+          "data_type": "string",
+          "name": "country",
+          "operator": "is",
+          "value": "IN"
+        }
+      ]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Included with excluded">
+
+```json
+{
+  "segmentation_details": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "user_attributes",
+          "data_type": "string",
+          "name": "country",
+          "operator": "is",
+          "value": "IN"
+        }
+      ]
+    },
+    "excluded_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "custom_segments",
+          "name": "Internal testers",
+          "id": "seg_testers"
+        }
+      ]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Include opt-outs">
+
+```json
+{
+  "segmentation_details": {
+    "is_all_user_campaign": true,
+    "send_campaign_to_opt_out_users": true
+  }
+}
+```
+
+`send_campaign_to_opt_out_users: true` is intended for transactional or operational messaging where consent is implied by the user relationship.
+
+</Tab>
+</Tabs>
+
+## Campaign delivery schedule
+
+The `scheduling_details.delivery_type` field selects the send model. Different fields are required based on the value.
+
+| `delivery_type` | Send behavior | Required companion fields |
+| :--- | :--- | :--- |
+| `ASAP` | As soon as the campaign is published. | None. |
+| `AT_FIXED_TIME` | At a specific timestamp. | `start_time` (ISO 8601). |
+| `SEND_IN_BTS` | At each user's optimal time within a window. | `start_time` and `bts_details`. |
+| `SEND_IN_USER_TIMEZONE` | At a fixed wall-clock time in each user's local timezone. | `start_time` and `user_timezone_details`. |
+
+For `PERIODIC` campaigns, `delivery_type` is `AT_FIXED_TIME` and `periodic_details` is required.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `delivery_type` | enum | `ASAP`, `AT_FIXED_TIME`, `SEND_IN_BTS`, or `SEND_IN_USER_TIMEZONE`. |
+| `start_time` | date-time (ISO 8601) | The campaign start time. |
+| `expiry_time` | date-time (ISO 8601) | The campaign expiry time. Used on triggered campaigns to bound activity. |
+| `periodic_details` | object | **Required** for `PERIODIC` campaigns. See [Periodic schedules](#periodic-schedules). |
+| `bts_details` | object | **Required** when `delivery_type` is `SEND_IN_BTS`. See [Best Time to Send](#best-time-to-send). |
+| `user_timezone_details` | object | **Required** when `delivery_type` is `SEND_IN_USER_TIMEZONE`. See [User timezone](#user-timezone). |
+
+### Schedule variants
+
+<Tabs>
+<Tab title="ASAP">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "ASAP"
+  }
+}
+```
+
+</Tab>
+<Tab title="AT_FIXED_TIME">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "expiry_time": "2026-07-15T18:00:00"
+  }
+}
+```
+
+`start_time` is in ISO 8601. `expiry_time` is optional and is commonly used on event-triggered campaigns to define a delivery window.
+
+</Tab>
+<Tab title="SEND_IN_BTS">
+
+Best Time to Send: MoEngage selects the optimal send time per user based on historical engagement, within the window defined by `start_time` and `bts_details.window_end_time`.
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "SEND_IN_BTS",
+    "start_time": "2026-07-15T09:00:00",
+    "bts_details": {
+      "send_in_bts": true,
+      "if_user_bts_is_not_available": "send_at_start_time",
+      "if_user_bts_outside_time_window": "send_at_window_end",
+      "window_end_time": "6:43 am"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="SEND_IN_USER_TIMEZONE">
+
+The campaign sends at the same wall-clock time in each user's local timezone.
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "SEND_IN_USER_TIMEZONE",
+    "start_time": "2026-07-15T09:00:00",
+    "user_timezone_details": {
+      "send_in_user_timezone": true,
+      "send_if_user_timezone_has_passed": false
+    }
+  }
+}
+```
+
+When `send_if_user_timezone_has_passed` is `false`, users whose local time has already passed `start_time` are skipped.
+
+</Tab>
+<Tab title="PERIODIC">
+
+Periodic campaigns combine `AT_FIXED_TIME` with `periodic_details`.
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "periodic_details": {
+      "sending_frequency": "WEEKLY",
+      "repeat_frequency": 1,
+      "repeat_on_days_of_week": ["MONDAY"]
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+### Periodic schedules
+
+The `periodic_details` object is **required** for `PERIODIC` campaigns.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `sending_frequency` | enum | `DAILY`, `WEEKLY`, or `MONTHLY`. |
+| `repeat_frequency` | integer | The repeat interval (for example, `1` for every week, `2` for every two weeks). |
+| `no_of_occurences` | integer | The total number of times the campaign sends. |
+| `repeat_on_date_of_month` | array of integer | Dates of the month to send on (1–31). Used with `MONTHLY`. |
+| `repeat_on_days_of_week` | array of enum | One or more of `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, `SATURDAY`, `SUNDAY`. Used with `WEEKLY` or `MONTHLY`. |
+| `repeat_on_days_of_week_for_month` | array of `{ week_granularity, repeat_on_days_of_week }` | Used with `MONTHLY` to target specific weeks of the month. |
+
+The `repeat_on_days_of_week_for_month` entries have the following shape:
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `week_granularity` | enum | `FIRST`, `SECOND`, `THIRD`, `FOURTH`, or `LAST`. |
+| `repeat_on_days_of_week` | array of enum | One or more day names. |
+
+<Tabs>
+<Tab title="Daily">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "periodic_details": {
+      "sending_frequency": "DAILY",
+      "repeat_frequency": 1,
+      "no_of_occurences": 10
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Weekly">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "periodic_details": {
+      "sending_frequency": "WEEKLY",
+      "repeat_frequency": 1,
+      "repeat_on_days_of_week": ["FRIDAY"]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Monthly on specific dates">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "periodic_details": {
+      "sending_frequency": "MONTHLY",
+      "repeat_frequency": 1,
+      "repeat_on_date_of_month": [1, 15]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Monthly on first Monday">
+
+```json
+{
+  "scheduling_details": {
+    "delivery_type": "AT_FIXED_TIME",
+    "start_time": "2026-07-15T09:00:00",
+    "periodic_details": {
+      "sending_frequency": "MONTHLY",
+      "repeat_frequency": 1,
+      "repeat_on_days_of_week_for_month": [
+        { "week_granularity": "FIRST", "repeat_on_days_of_week": ["MONDAY"] }
+      ]
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+### Best Time to Send
+
+The `bts_details` object is **required** when `delivery_type` is `SEND_IN_BTS`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `send_in_bts` | boolean | Whether to send at the best time. |
+| `if_user_bts_is_not_available` | string | Fallback behavior when a user's best time is unknown. |
+| `if_user_bts_outside_time_window` | string | Fallback behavior when a user's best time falls outside the window. |
+| `window_end_time` | string | The end of the BTS window. |
+
+### User timezone
+
+The `user_timezone_details` object is **required** when `delivery_type` is `SEND_IN_USER_TIMEZONE`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `send_in_user_timezone` | boolean | Whether to send in each user's local timezone. |
+| `send_if_user_timezone_has_passed` | boolean | Whether to still send to users whose local time has already passed `start_time`. |
+
+## Delivery controls
+
+The `delivery_controls` object carries throttling, frequency capping, DND behavior, and offline/queueing flags. The accepted fields differ between Push and Email.
+
+### Push delivery controls
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `bypass_dnd` | boolean | Whether to bypass Do Not Disturb. **Required** for event-triggered campaigns. |
+| `campaign_throttle_rpm` | integer | The throttle in requests per minute. **Not applicable** for device-triggered, location-triggered, and event-triggered campaigns. |
+| `count_for_frequency_capping` | boolean | Whether sends from this campaign count toward workspace frequency caps. |
+| `ignore_frequency_capping` | boolean | Whether this campaign bypasses workspace frequency caps. |
+| `minimum_delay_between_two_notification_in_hour` | integer | Minimum hours between two pushes from this campaign. Applies to event-triggered and device-triggered campaigns. |
+| `max_time_to_show_message_of_same_camapign` | string | Maximum hours the message is shown to a user. Applies to device-triggered campaigns. (Field name retains the spec typo `camapign`.) |
+| `expiry_time_of_sync_data_in_hour` | string | Hours after which synced campaign data expires if the trigger condition is not met. Applies to device-triggered campaigns. |
+| `send_message_in_offline_mode` | boolean | Whether to store and deliver the message while the device is offline. Applies to device-triggered campaigns. |
+| `send_limit_value` | string | Maximum times a user can receive the campaign within the window. Applies to location-triggered campaigns. |
+| `send_limit_granularity_in_hours` | string | The window in hours for `send_limit_value`. Applies to location-triggered campaigns. |
+| `ignore_global_minimum_delay` | boolean | Whether to bypass the workspace-wide minimum interval between pushes. Applies to event-triggered campaigns. |
+| `queuing_enabled` | boolean | Whether undeliverable messages are queued for later delivery. **Flag-gated**. Contact the MoEngage account team to enable. |
+| `queue_duration` | integer | The hours to keep messages queued. Must be greater than `0` when `queuing_enabled` is `true`. **Flag-gated**. |
+
+<Tabs>
+<Tab title="Throttle with frequency capping">
+
+```json
+{
+  "delivery_controls": {
+    "campaign_throttle_rpm": 50000,
+    "count_for_frequency_capping": true,
+    "ignore_frequency_capping": false
+  }
+}
+```
+
+</Tab>
+<Tab title="Event-triggered">
+
+```json
+{
+  "delivery_controls": {
+    "bypass_dnd": false,
+    "minimum_delay_between_two_notification_in_hour": 24,
+    "ignore_global_minimum_delay": false
+  }
+}
+```
+
+</Tab>
+<Tab title="Device-triggered">
+
+```json
+{
+  "delivery_controls": {
+    "minimum_delay_between_two_notification_in_hour": 12,
+    "max_time_to_show_message_of_same_camapign": "48",
+    "expiry_time_of_sync_data_in_hour": "24",
+    "send_message_in_offline_mode": true
+  }
+}
+```
+
+</Tab>
+<Tab title="Location-triggered">
+
+```json
+{
+  "delivery_controls": {
+    "send_limit_value": "1",
+    "send_limit_granularity_in_hours": "24"
+  }
+}
+```
+
+</Tab>
+<Tab title="Queuing (flag-gated)">
+
+```json
+{
+  "delivery_controls": {
+    "queuing_enabled": true,
+    "queue_duration": 12
+  }
+}
+```
+
+`queuing_enabled` and `queue_duration` are flag-gated. Including them on a workspace where the feature is not enabled returns a validation error.
+
+</Tab>
+</Tabs>
+
+### Email delivery controls
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `bypass_dnd` | boolean | Whether to bypass Do Not Disturb. |
+| `campaign_throttle_rpm` | integer | The throttle in requests per minute. |
+| `count_for_frequency_capping` | boolean | Whether the campaign counts toward frequency caps. |
+| `ignore_frequency_capping` | boolean | Whether to bypass frequency capping. |
+| `minimum_delay_between_two_notification_in_hour` | integer | Minimum hours between two emails from this campaign. |
+
+```json
+{
+  "delivery_controls": {
+    "campaign_throttle_rpm": 2000,
+    "count_for_frequency_capping": true,
+    "ignore_frequency_capping": false,
+    "minimum_delay_between_two_notification_in_hour": 24
+  }
+}
+```
+
+## Conversion goal tracking
+
+The `conversion_goal_details` object configures the events MoEngage tracks to attribute campaign success.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `attribution_window_in_hours` | integer | The lookback window in hours for attributing goal events to the campaign. |
+| `goals` | array of [Goal fields](#goal-fields) | The list of goals tracked. |
+
+### Goal fields
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `goal_name` | string | The display name of the goal. |
+| `goal_event_name` | string | The event tracked as a conversion. |
+| `goal_event_attribute` | object | Optional. See [Goal event attribute fields](#goal-event-attribute-fields). |
+| `is_primary_goal` | boolean | Whether the goal is the primary goal. |
+| `revenue_attribute` | string | The event attribute used to track revenue. |
+| `revenue_currency` | string | The currency for revenue tracking. |
+
+#### Goal event attribute fields
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `name` | string | The attribute name. |
+| `condition` | string | The condition (for example, `is`, `contains`, `between`). |
+| `data_type` | enum | `STRING`, `DOUBLE`, `BOOL`, `NUMBER`, `GEOPOINT`, `DATETIME`, `ARRAY_DOUBLE`, `ARRAY_STRING`, `OBJECT`, or `ARRAY_OBJECT`. (Uppercase, differs from filter `data_type`.) |
+| `value` | string | The match value. |
+| `value1` | string | A secondary value (used with `between`). |
+| `negate` | boolean | Whether to negate the condition. |
+| `value_type` | string | The type of value being filtered. |
+| `array_filter_type` | string | The logical filter type for array attributes. |
+| `filters` | array of object | Sub-filters used when `data_type` is `OBJECT` or `ARRAY_OBJECT`. |
+| `is_case_sensitive` | boolean | Whether the comparison is case-sensitive. |
+
+<Tabs>
+<Tab title="Single conversion goal">
+
+```json
+{
+  "conversion_goal_details": {
+    "attribution_window_in_hours": 36,
+    "goals": [
+      {
+        "goal_name": "Purchase",
+        "goal_event_name": "purchase_completed",
+        "is_primary_goal": true,
+        "goal_event_attribute": {
+          "name": "category",
+          "condition": "is",
+          "data_type": "STRING",
+          "value": "electronics"
+        }
+      }
+    ]
+  }
+}
+```
+
+</Tab>
+<Tab title="Multiple conversion goals">
+
+```json
+{
+  "conversion_goal_details": {
+    "attribution_window_in_hours": 72,
+    "goals": [
+      { "goal_name": "Add to cart", "goal_event_name": "cart_added", "is_primary_goal": true },
+      { "goal_name": "Purchase", "goal_event_name": "purchase_completed", "is_primary_goal": false }
+    ]
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## Control groups
+
+The `control_group_details` object configures the campaign-level and global control groups (users held back from the send).
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `is_campaign_control_group_enabled` | boolean | Whether the campaign control group is enabled. |
+| `campaign_control_group_percentage` | integer (0–100) | The percentage of the audience held back. **Required** when `is_campaign_control_group_enabled` is `true`. |
+| `is_global_control_group_enabled` | boolean | Whether the workspace global control group applies to the campaign. |
+
+<Tabs>
+<Tab title="Campaign control group">
+
+```json
+{
+  "control_group_details": {
+    "is_campaign_control_group_enabled": true,
+    "campaign_control_group_percentage": 10,
+    "is_global_control_group_enabled": false
+  }
+}
+```
+
+</Tab>
+<Tab title="Global control group">
+
+```json
+{
+  "control_group_details": {
+    "is_campaign_control_group_enabled": false,
+    "is_global_control_group_enabled": true
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## UTM parameters
+
+The `utm_params` object appends UTM tracking parameters to URLs in the campaign content. The five standard keys are explicitly defined. Up to **5 additional custom keys** prefixed with `utm_` are also supported.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `utm_source` | string | The source of the traffic. **Required** when UTM parameters are used. |
+| `utm_medium` | string | The channel type. **Required** when UTM parameters are used. |
+| `utm_campaign` | string | The campaign name. |
+| `utm_term` | string | Search terms for paid traffic. |
+| `utm_content` | string | The content element that differentiates links. |
+| Custom `utm_*` keys | string | Up to 5 additional keys prefixed with `utm_` (for example, `utm_cust`, `utm_c1ust`). |
+
+```json
+{
+  "utm_params": {
+    "utm_source": "google",
+    "utm_medium": "push",
+    "utm_campaign": "summer_sale",
+    "utm_term": "mobile+sale",
+    "utm_content": "banner",
+    "utm_cust": "value1",
+    "utm_c1ust": "value2"
+  }
+}
+```
+
+<Warning>
+The cap is 5 custom keys in total. Custom keys not prefixed with `utm_` are rejected.
+</Warning>
+
+## Campaign audience cap
+
+The `campaign_audience_limit` object caps the number of users a campaign can reach.
+
+<Warning>
+**Flag-gated feature.** Not enabled by default for any workspace. Including `campaign_audience_limit` on a workspace where the flag is not enabled returns a `400` with `error.code: VALIDATION_FAILED` and `error.message: "Campaign Audience Limit feature is not enabled for this db"`. Contact the MoEngage account team to enable.
+</Warning>
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `is_campaign_audience_limit_enabled` | boolean | Whether the cap is enforced. When `true`, `metric`, `frequency`, and `limit` are all required. When `false`, those three fields must not be provided. |
+| `metric` | enum | `SENT` (the only value currently supported). **Required** when enabled. |
+| `frequency` | enum | `TOTAL` (lifetime cap, all delivery types on Push and Email) or `INSTANCE` (per-send cap, **Periodic Push only**). **Required** when enabled. |
+| `limit` | integer (1–9,999,999,999) | The maximum number of users. **Required** when enabled. |
+
+**Supported channels:** Email, Push. Not supported for `BROADCAST_LIVE_ACTIVITY`.
+
+<Tabs>
+<Tab title="Lifetime cap (TOTAL)">
+
+```json
+{
+  "campaign_audience_limit": {
+    "is_campaign_audience_limit_enabled": true,
+    "metric": "SENT",
+    "frequency": "TOTAL",
+    "limit": 100000
+  }
+}
+```
+
+Applies to all delivery types on both Push and Email.
+
+</Tab>
+<Tab title="Per-instance cap (INSTANCE)">
+
+```json
+{
+  "campaign_audience_limit": {
+    "is_campaign_audience_limit_enabled": true,
+    "metric": "SENT",
+    "frequency": "INSTANCE",
+    "limit": 50000
+  }
+}
+```
+
+Supported only for **Periodic Push** campaigns. Caps the audience per send.
+
+</Tab>
+<Tab title="Disabled">
+
+```json
+{
+  "campaign_audience_limit": {
+    "is_campaign_audience_limit_enabled": false
+  }
+}
+```
+
+When `false`, `metric`, `frequency`, and `limit` must not be included.
+
+</Tab>
+</Tabs>
+
+## Advanced Push settings
+
+The `advanced` object (Push only) carries notification-expiration settings and per-platform priority.
+
+<Note>
+`advanced` is part of the Push request body. It is not part of the Email request body.
+</Note>
+
+### Expiration settings
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `expire_notification_after_value` | integer | The numeric value for notification expiration. |
+| `expire_notification_after_type` | enum | `HOUR` or `DAY`. |
+| `remove_from_inbox_after_value` | integer | The numeric value for inbox removal. |
+| `remove_from_inbox_after_type` | enum | `DAY` (the only accepted value). |
+
+```json
+{
+  "advanced": {
+    "expiration_settings": {
+      "expire_notification_after_value": 24,
+      "expire_notification_after_type": "HOUR",
+      "remove_from_inbox_after_value": 7,
+      "remove_from_inbox_after_type": "DAY"
+    }
+  }
+}
+```
+
+### Platform-level priority
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `android_specific_priority.send_with_priority` | boolean | Whether to send with priority on Android. |
+| `ios_specific_priority.apns_priority` | enum | `1`, `5`, or `10` (strings). The APNS priority. |
+| `ios_specific_priority.interruption_level` | enum | `Passive`, `Active`, `Time sensitive`, or `Critical`. |
+| `ios_specific_priority.relevance_score` | number | `0`, `0.5`, or `1`. |
+
+<Tabs>
+<Tab title="iOS APNS priority">
+
+```json
+{
+  "advanced": {
+    "platform_level_priority": {
+      "ios_specific_priority": {
+        "apns_priority": "10",
+        "interruption_level": "Time sensitive",
+        "relevance_score": 1
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Android priority">
+
+```json
+{
+  "advanced": {
+    "platform_level_priority": {
+      "android_specific_priority": {
+        "send_with_priority": true
+      }
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## Geofence targeting
+
+The `basic_details.geofences` object is **required** for Push `LOCATION_TRIGGERED` campaigns. The field lives structurally inside `basic_details` and is documented here because it works in concert with `trigger_condition` and `delivery_controls.send_limit_*` for location-triggered targeting.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `name` | string | The unique name of the geofence. **Required**. |
+| `latitude` | string | The center latitude. **Required**. |
+| `longitude` | string | The center longitude. **Required**. |
+| `radius` | string | The radius in meters. **Required**. |
+| `dwell_time_value` | string | The numeric dwell time. **Required** when `triggered_at` is `dwell`. |
+| `dwell_time_granularity` | enum | `MINUTES`, `HOURS`, or `DAYS`. **Required** when `triggered_at` is `dwell`. |
+| `response_time_value` | string | The numeric response time before sending after the trigger condition is met. **Required**. |
+| `response_time_granularity` | enum | `MINUTES`, `HOURS`, or `DAYS`. **Required**. |
+| `triggered_at` | enum | `ENTRY`, `EXIT`, or `dwell` (note: `dwell` is lowercase). **Required**. |
+
+<Tabs>
+<Tab title="ENTRY">
+
+The campaign fires when the user enters the geofence.
+
+```json
+{
+  "basic_details": {
+    "platforms": ["ANDROID", "IOS"],
+    "geofences": {
+      "name": "Downtown Store",
+      "latitude": "40.758",
+      "longitude": "-73.985",
+      "radius": "500",
+      "response_time_value": "5",
+      "response_time_granularity": "MINUTES",
+      "triggered_at": "ENTRY"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="EXIT">
+
+The campaign fires when the user leaves the geofence.
+
+```json
+{
+  "basic_details": {
+    "platforms": ["ANDROID", "IOS"],
+    "geofences": {
+      "name": "Downtown Store",
+      "latitude": "40.758",
+      "longitude": "-73.985",
+      "radius": "500",
+      "response_time_value": "5",
+      "response_time_granularity": "MINUTES",
+      "triggered_at": "EXIT"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="dwell">
+
+The campaign fires after the user has remained inside the geofence for the configured dwell time.
+
+```json
+{
+  "basic_details": {
+    "platforms": ["ANDROID"],
+    "geofences": {
+      "name": "Mall - Food Court",
+      "latitude": "40.758",
+      "longitude": "-73.985",
+      "radius": "200",
+      "dwell_time_value": "10",
+      "dwell_time_granularity": "MINUTES",
+      "response_time_value": "0",
+      "response_time_granularity": "MINUTES",
+      "triggered_at": "dwell"
+    }
+  }
+}
+```
+
+The `triggered_at` value `dwell` is lowercase. The spec discriminates it from `ENTRY` and `EXIT` (both uppercase). When `dwell` is set, `dwell_time_value` and `dwell_time_granularity` are required.
+
+</Tab>
+</Tabs>
+
+## Validation rules
+
+The following rules span multiple sub-objects on this page.
+
+| Rule | Source |
+| :--- | :--- |
+| `trigger_condition` is required for Push `EVENT_TRIGGERED`, `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, and Email `EVENT_TRIGGERED`. | `PushTriggerCondition`, `EmailTriggerCondition` descriptions |
+| `basic_details.business_event` is required for `BUSINESS_EVENT_TRIGGERED` (Push and Email). For `BUSINESS_EVENT_TRIGGERED`, `trigger_condition` is not used. | `PushBasicDetailsV5.business_event`, `EmailBasicDetailsV5.business_event` |
+| `basic_details.geofences` is required for `LOCATION_TRIGGERED`. `LOCATION_TRIGGERED` is **Push only**. | [Geofence targeting](#geofence-targeting) |
+| `geofences.triggered_at: dwell` requires `dwell_time_value` and `dwell_time_granularity`. The value `dwell` is **lowercase**. `ENTRY` and `EXIT` are uppercase. | `Geofences.triggered_at` |
+| `trigger_delay_type: DELAY` requires `trigger_delay_value`, `trigger_delay_granularity`, and `trigger_relation`. | `PushTriggerCondition.trigger_delay_type`, `EmailTriggerCondition.trigger_delay_type` |
+| `trigger_delay_type: INTELLIGENT_DELAY` is **Push only**. Requires `intelligent_delay_optimization` (with `min_delay_value`, `min_delay_granularity`, `max_delay_value`, `max_delay_granularity`). `min_delay_granularity` accepts `MINUTES` or `HOURS`. `max_delay_granularity` accepts `HOURS` or `DAYS`. | `PushTriggerCondition` description |
+| `trigger_relation: BEFORE` requires `trigger_attr.name` (the time-attribute used as the anchor for the send). | `PushTriggerCondition.trigger_relation` |
+| `filter_operator` is **lowercase**, `and` or `or`. | `FilterGroup.filter_operator` |
+| `UserAttributeFilter.data_type` values are **lowercase** (`string`, `double`, `datetime`, `bool`). `GoalEventAttribute.data_type` values are **uppercase** (`STRING`, `DOUBLE`, ...). The schemas are distinct. | `UserAttributeFilter.data_type`, `GoalEventAttribute.data_type` |
+| `UserAttributeFilter.operator` allowed values depend on `data_type`. Refer to [Operators per data type](#operators-per-data-type). | `UserAttributeFilter.operator` |
+| `UserAttributeFilter.project_name` is **required** when the Portfolio feature is enabled in the workspace. | `UserAttributeFilter.project_name` |
+| For `PERIODIC` campaigns, `scheduling_details.periodic_details` is required, and `scheduling_details.delivery_type` is `AT_FIXED_TIME`. | `PeriodicDetails` description |
+| For `SEND_IN_BTS`, `bts_details` is required. For `SEND_IN_USER_TIMEZONE`, `user_timezone_details` is required. | `BTSDetails`, `UserTimezoneDetails` descriptions |
+| `delivery_controls.bypass_dnd` is **required** for Push event-triggered campaigns. | `PushDeliveryControls.bypass_dnd` |
+| `delivery_controls.campaign_throttle_rpm` is **not applicable** for Push device-triggered, location-triggered, and event-triggered campaigns. | `PushDeliveryControls.campaign_throttle_rpm` |
+| `delivery_controls.queuing_enabled` and `queue_duration` are flag-gated. `queue_duration` must be greater than `0` when `queuing_enabled` is `true`. | `PushDeliveryControls.queuing_enabled` |
+| `delivery_controls.send_limit_value` and `send_limit_granularity_in_hours` apply to **location-triggered** campaigns. | `PushDeliveryControls.send_limit_value` |
+| `delivery_controls.max_time_to_show_message_of_same_camapign`, `expiry_time_of_sync_data_in_hour`, and `send_message_in_offline_mode` apply to **device-triggered** campaigns. | `PushDeliveryControls` |
+| `control_group_details.campaign_control_group_percentage` is **required** when `is_campaign_control_group_enabled` is `true`. The percentage must be between `0` and `100`. | `ControlGroupDetails.campaign_control_group_percentage` |
+| `campaign_audience_limit` is flag-gated. Including it on a workspace where the feature is not enabled returns a `400 VALIDATION_FAILED`. When enabled, `metric`, `frequency`, and `limit` are all required. When disabled, those three fields must not be provided. `frequency: INSTANCE` is **Periodic Push only**. | `CampaignAudienceLimit` description |
+| `utm_params` accepts the 5 standard keys plus up to 5 additional `utm_`-prefixed custom keys. `utm_source` and `utm_medium` are required when UTM parameters are used. | `UTMParams` description |
+| `advanced.expiration_settings.remove_from_inbox_after_type` accepts only `DAY`. Other granularities fail. | `AdvancedDetails.expiration_settings` |
+| `advanced.platform_level_priority.ios_specific_priority.apns_priority` values are **strings** (`"1"`, `"5"`, `"10"`). `relevance_score` values are **numbers** (`0`, `0.5`, `1`). `interruption_level` accepts `Passive`, `Active`, `Time sensitive`, `Critical` (note the space and casing of `Time sensitive`). | `AdvancedDetails.platform_level_priority` |
+
+## Updating an existing campaign
+
+`PATCH /v5/campaigns/{campaign_id}` reuses every schema on this page. Additional rules apply for updates.
+
+- When a field inside a nested object is updated, the **complete parent object** must be included in the request. For example, to change a single filter in `segmentation_details.included_filters.filters`, the full `segmentation_details` block is included.
+- For campaigns in **`ACTIVE`** state, the following fields cannot be edited:
+  - `trigger_condition`
+  - `segmentation_details`
+  - `conversion_goal_details`
+  - The scheduling **type** (`delivery_type`)
+  - The scheduling **start date** (`scheduling_details.start_time`)
+- For campaigns in **`SCHEDULED`** state, all fields except the scheduling type can be edited.
+- Campaigns in **`STOPPED`** or **`ARCHIVED`** state cannot be updated.
+- Updates to `trigger_condition` or `campaign_content` on event-triggered campaigns can take up to **30 minutes** to propagate to users due to content caching.
+- For periodic campaigns, configuration changes apply from the next scheduled run.
+- For one-time campaigns, changes apply to messages not yet dispatched at the time of the update.
+
+The full FAQ on per-state restrictions is at [Update Campaign](/api/update-campaigns/update-campaign-v5).
+
+<Tabs>
+<Tab title="segmentation_details (Email)">
+
+```json
+{
+  "channel": "EMAIL",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "segmentation_details": {
+    "included_filters": {
+      "filter_operator": "and",
+      "filters": [
+        {
+          "filter_type": "user_attributes",
+          "data_type": "string",
+          "name": "city",
+          "operator": "in",
+          "value": "{{city_value}}"
+        }
+      ]
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="delivery_controls (Push)">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "delivery_controls": {
+    "bypass_dnd": false,
+    "campaign_throttle_rpm": 50000,
+    "count_for_frequency_capping": true
+  }
+}
+```
+
+</Tab>
+<Tab title="delivery_controls (Email)">
+
+```json
+{
+  "channel": "EMAIL",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "delivery_controls": {
+    "bypass_dnd": false,
+    "campaign_throttle_rpm": 2000,
+    "count_for_frequency_capping": true
+  }
+}
+```
+
+</Tab>
+<Tab title="conversion_goal_details">
+
+```json
+{
+  "channel": "{{channel}}",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "conversion_goal_details": {
+    "attribution_window_in_hours": 36,
+    "goals": [
+      {
+        "goal_name": "Goal 1",
+        "goal_event_name": "{{conversion_event_name}}",
+        "is_primary_goal": true
+      }
+    ]
+  }
+}
+```
+
+</Tab>
+<Tab title="control_group_details">
+
+```json
+{
+  "channel": "{{channel}}",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "control_group_details": {
+    "is_campaign_control_group_enabled": true,
+    "campaign_control_group_percentage": 10
+  }
+}
+```
+
+</Tab>
+<Tab title="campaign_audience_limit">
+
+```json
+{
+  "channel": "{{channel}}",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "campaign_audience_limit": {
+    "is_campaign_audience_limit_enabled": true,
+    "metric": "SENT",
+    "frequency": "TOTAL",
+    "limit": 100000
+  }
+}
+```
+
+</Tab>
+<Tab title="advanced (Push)">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "advanced": {
+    "expiration_settings": {
+      "expire_notification_after_value": 24,
+      "expire_notification_after_type": "HOUR"
+    },
+    "platform_level_priority": {
+      "ios_specific_priority": {
+        "apns_priority": "10",
+        "interruption_level": "Active"
+      },
+      "android_specific_priority": {
+        "send_with_priority": true
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="basic_details.geofences">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "LOCATION_TRIGGERED",
+  "updated_by": "{{user_email}}",
+  "basic_details": {
+    "geofences": {
+      "name": "{{geofence_name}}",
+      "latitude": "{{latitude}}",
+      "longitude": "{{longitude}}",
+      "radius": "{{radius_meters}}",
+      "response_time_value": "5",
+      "response_time_granularity": "MINUTES",
+      "triggered_at": "ENTRY"
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## See also
+
+- [Campaign content reference](/api/campaigns/campaign-content-reference) — `basic_details` and `campaign_content` per channel, platform, and template type.
+- [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) — required fields, happy-path cURLs, error responses.
+- [Update Campaign](/api/update-campaigns/update-campaign-v5) — per-state edit restrictions, publish action.
+- [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5) — `STOP`, `PAUSE`, `RESUME` transitions.
+- [Validate Campaign](/api/create-campaigns/validate-campaign-v5) — pre-publish validation check.
+- [Campaign drafts overview](/api/campaigns/campaign-draft-overview) — lifecycle, channels, supported delivery types.

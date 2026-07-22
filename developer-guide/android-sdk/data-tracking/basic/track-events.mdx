@@ -13,6 +13,8 @@ You can track an event using trackEvent with the event name and its characterist
 
 Every event has 2 attributes, action name, and key, value pairs which represent additional information about the action. Add all the additional information which you think would be useful for segmentation while creating campaigns. For eg., the following code tracks a purchase event of a product. We are including attributes like amount, quantity, a category that describes the event we are tracking.
 
+For eg. The following code tracks an `Purchase` event. We are including attributes such as the `quantity`, `product name` that describes the event we are tracking.
+
 <CodeGroup>
 
 ```Kotlin Kotlin wrap
@@ -34,7 +36,6 @@ val properties = Properties()
         .addAttribute("jsonObjectAttr", JSONObject().put("name", "value"))
 MoEAnalyticsHelper.trackEvent(context, "Purchase", properties)
 ```
-
 
 ```Java Java wrap
 Properties properties = new Properties();
@@ -59,12 +60,6 @@ MoEAnalyticsHelper.INSTANCE.trackEvent(context, "Purchase", properties);
 </CodeGroup>
 
 context - context instance, change the name accordingly.
-
-Ensure that you are tracking event attributes without changing the data types. For example, in the purchase event, amount and quantity are tracked in numeric form. MoEngage detects the data type automatically unless you explicitly specify it as a String. MoEngage supports the following data types: String, Integer, Long, Double, Float, Boolean, Date, GeoLocation, JSON Object, and JSON Array. If any other data type is passed, MoEngage will reject the payload.
-
-The SDK by default tracks a certain set of commonly used events, make sure you use those events instead of tracking similar events again. Refer to the [documentation](https://www.moengage.com/docs/user-guide/getting-started/integration/default-android-sdk#default-events) to know more about the default events tracked by the SDK.
-
-Having unique timestamps for events is crucial to maintain accurate and reliable data. Please ensure that events do not share the same timestamp down to the millisecond level.
 
 # Analytics
 
@@ -101,7 +96,6 @@ properties.addAttribute("quantity", 2)
 MoEAnalyticsHelper.trackEvent(context, "Purchase", properties)
 ```
 
-
 ```Java Java wrap
 Properties properties = new Properties();
 properties.addAttribute("quantity", 2)
@@ -118,6 +112,24 @@ MoEAnalyticsHelper.INSTANCE.trackEvent(context, "Purchase", properties);
 </CodeGroup>
 
 For more information, refer to [MoEAnalyticsHelper#trackEvent](https://moengage.github.io/android-api-reference/core/com.moengage.core.analytics/-mo-e-analytics-helper/track-event.html) and [Properties](https://moengage.github.io/android-api-reference/core/com.moengage.core/-properties/index.html).
+
+## Validations and restrictions
+
+Event attributes have two layers of validation that apply across both debug and release builds:
+
+- **Naming and format rules** — these always apply, regardless of build configuration.
+- **Type validation** — invalid attribute values cause a fatal exception in debug builds and are silently dropped from the payload in release builds. The rest of the event is tracked.
+
+### Naming and format rules
+
+- **Reserved prefixes.** You cannot use `moe_` as a prefix when naming events, event attributes, or user attributes. It is a system prefix, and using it might result in periodic blocklisting without prior communication.
+
+### Supported attribute value types
+
+MoEngage supports the following data types: `String`, `Integer`, `Long`, `Double`, `Float`, `Boolean`, `Date`, `GeoLocation`, `JSONObject`, and `JSONArray`. If an unsupported value is passed:
+
+- Starting from SDK version **13.6.00**, in debug builds the SDK throws an exception and crashes the app to surface data issues early in development.
+- In release builds, the SDK silently drops the specific invalid attribute and logs the issue. The rest of the event payload is still tracked.
 
 # Track Custom Event for Exit Intent
 

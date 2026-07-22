@@ -88,7 +88,7 @@ paths:
       x-mint:
         content: |
          <Note>
-         - If your file is private, you should whitelist [these IPs](https://help.moengage.com/hc/en-us/articles/35329024618772-A-Guide-to-MoEngage-IP-Whitelisting-Mechanism#h_01JNGJNR5F141E7KRK89YW1X8H) to provide access only to MoEngage for the file.
+         - If your file is private, you should whitelist [these IPs](/user-guide/settings/account/security/ip-whitelisting-in-moengage) to provide access only to MoEngage for the file.
          - This API endpoint does not currently support Team-level scoping. All segments generated using this call will be assigned to the Default Team automatically.
          </Note>
          
@@ -107,7 +107,7 @@ paths:
            **Notes**
            * Breaching the limits will reject the request.
            * Per hour and per day limits will consider the calculation based on the last hour and last 24 hrs respectively.
-           * The limit of 1000 file segments is calculated only for the file segments that are active. Most of our customers utilize only 30-40% of this limit at any given point.
+           * The limit of 1000 active segments is calculated across all types of 'active segments'. Most of our customers utilise only 30-40% of this limit at any given point.
            </Note>
           
            #### CSV File Requirements
@@ -120,8 +120,38 @@ paths:
             * [Sample File Link](https://app-cdn.moengage.com/assets/Sample_GAIDs.csv)
          
            #### Segment Processing and Availability
-          
-            As soon as the request is received at the MoEngage system, MoEngage creates a segment with zero users. After this, the file is processed and users are added to the segment. If the created segment is queried in between the file processing, it will show zero or partial user count.
+
+            As soon as the request is received at the MoEngage system, MoEngage creates a segment with zero users. After this, the file is downloaded, processed, and users are added to the segment. If the segment is queried during processing, it will show zero or partial user count.
+
+            There is no fixed processing timeout. If the initial file download fails, MoEngage automatically retries before reporting a failure via the callback.
+
+           #### Callback Payload
+
+           When file processing completes, MoEngage sends a `POST` request to your `callback_url`. Your server must return an HTTP `200` to acknowledge receipt.
+
+           The payload structure depends on the processing outcome.
+
+           **Success (status: 201)**
+
+           | Field | Type | Description |
+           | :--- | :--- | :--- |
+           | `db_name` | string | The MoEngage database name for your workspace. |
+           | `segment_name` | string | The name of the processed segment. |
+           | `request_id` | string | Unique identifier for this processing request. |
+           | `status` | integer | `201` on successful processing. |
+           | `values_found` | integer | Number of rows present in the uploaded file. |
+           | `values_processed` | integer | Number of values processed from `values_found`. Values with corrupted or empty data are skipped. |
+           | `user_count` | integer | Number of users found in MoEngage from the processed values and added to the segment. |
+
+           **Failure (status: 400 or 500)**
+
+           | Field | Type | Description |
+           | :--- | :--- | :--- |
+           | `db_name` | string | The MoEngage database name for your workspace. |
+           | `segment_name` | string | The name of the segment for which processing failed. |
+           | `request_id` | string | Unique identifier for this processing request. |
+           | `status` | integer | `400` for client errors (for example, file too large, download failed), `500` for server errors. |
+           | `error_message` | string | Description of what caused the processing to fail. |
 
       requestBody:
         description: Configuration for the new file segment.
@@ -160,6 +190,7 @@ paths:
                     message: "File-segment creation request accepted"
                     success: true
                     cs_name: "custom_segment_unique_name"
+                    cs_id: "6a1d8c3292d59351fe910b13"
                 callback_success:
                   summary: Callback - Success
                   description: Callback sent to your callback_url when segment processing completes successfully.
@@ -293,6 +324,7 @@ paths:
               $ref: '#/components/schemas/UpdateSegmentRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
               attribute_name: "unique_identifier"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_add.csv"
@@ -309,6 +341,7 @@ paths:
                 message: "File-segment user-add request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -374,6 +407,7 @@ paths:
               $ref: '#/components/schemas/UpdateSegmentRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
               attribute_name: "unique_identifier"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_remove.csv"
@@ -390,6 +424,7 @@ paths:
                 message: "File-segment user-remove request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -460,6 +495,7 @@ paths:
             example:
               name: "custom_segment_unique_name"
               attribute_name: "unique_identifier"
+              "cs_id": "<unique cs id>"
               attribute_type: "string"
               file_url: "https://s3.amazonaws.com/Sample_GAIDs_replace.csv"
               callback_url: "http://example.com/moengage-callback"
@@ -475,6 +511,7 @@ paths:
                 message: "File-segment user-replace request accepted"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           description: Bad Request. Invalid payload format.
           content:
@@ -522,6 +559,7 @@ paths:
               $ref: '#/components/schemas/SegmentNameRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
       responses:
         '202':
           description: Segment archive request accepted.
@@ -533,6 +571,7 @@ paths:
                 message: "Successfully archived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -562,6 +601,7 @@ paths:
               $ref: '#/components/schemas/SegmentNameRequestV2'
             example:
               name: "custom_segment_unique_name"
+              "cs_id": "<unique cs id>"
       responses:
         '202':
           description: Segment unarchive request accepted.
@@ -573,6 +613,7 @@ paths:
                 message: "Successfully unarchived the custom segment"
                 success: true
                 cs_name: "custom_segment_unique_name"
+                "cs_id": "<unique cs id>"
         '400':
           $ref: '#/components/responses/400_FileSegmentError'
         '401':
@@ -810,10 +851,10 @@ components:
         - $ref: '#/components/schemas/BaseSegmentRequestV2'
         - type: object
           properties:
-            segment_id:
+            cs_id:
               type: string
               description: |
-                Unique identifier corresponding to the target segment. When both `segment_id` and `name` are populated, the system prioritizes `segment_id`.
+                Unique identifier corresponding to the target segment. When both `cs_id` and `name` are populated, the system prioritizes `cs_id`.
     SegmentNameRequestV2:
       description: Schema for requests that only require the segment name.
       type: object
@@ -821,10 +862,10 @@ components:
         name:
           type: string
           description: The name of the segment.
-        segment_id:
+        cs_id:
           type: string
           description: |
-            Unique identifier corresponding to the target segment. When both `segment_id` and `name` are populated, the system prioritizes `segment_id`.
+            Unique identifier corresponding to the target segment. When both `cs_id` and `name` are populated, the system prioritizes `cs_id`.
       required:
         - name
     ApiResponseSuccessV2:
@@ -840,6 +881,9 @@ components:
         cs_name:
           type: string
           description: The unique name of the segment being processed.
+        cs_id:
+          type: string
+          description: The unique identifier of the segment.
     ApiErrorV2:
       type: object
       properties:
@@ -871,13 +915,13 @@ components:
           example: 201
         values_found:
           type: integer
-          description: (Success only) Total number of identifiers found in the file.
+          description: (Success only) Number of rows present in the uploaded file.
         values_processed:
           type: integer
-          description: (Success only) Number of identifiers successfully processed.
+          description: (Success only) Number of values processed from values_found. Values with corrupted or empty data are skipped.
         user_count:
           type: integer
-          description: (Success only) Number of users added to the segment.
+          description: (Success only) Number of users found in MoEngage from the processed values and added to the segment.
         error_message:
           type: string
           description: (Failure only) A description of the error.

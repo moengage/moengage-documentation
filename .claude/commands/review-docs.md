@@ -6,7 +6,7 @@ description: Review MoEngage documentation changes for writing standards, techni
 Please review the changes I'm about to commit and check:
 
 1. Do they follow MoEngage writing standards (`.cursor/rules/writing-rules.mdc`, `.claude/CLAUDE.md`)?
-2. Do they follow general technical writing best practices — second-person voice, sentence case, active voice, no promotional language?
+2. Do they follow general technical writing best practices — second-person voice, title case, active voice, no promotional language?
 3. Are code examples accurate and do they have language tags?
 4. Is the frontmatter complete and correct (`title`, `description`, and `keywords` where useful)?
 5. Does the content match the style, depth, and structure of neighboring pages in the same section (`user-guide/` / `developer-guide/` / `api/`)?

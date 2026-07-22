@@ -1,6 +1,7 @@
 ---
 title: "Tracking user attributes"
 description: "Track user attributes and set unique identifiers for cross-platform identification in the iOS SDK."
+keywords: "UserAttributeLevel, MoEngageUserAttributeLevelProject, MoEngageUserAttributeLevelPortfolio, project-level attribute, portfolio-level attribute, attribute level, setUserAttribute level"
 ---
 
 User Attributes are pieces of information you know about a user. They could be demographics like age or gender, account-specific like plan, or whether a user has seen a particular A/B test variation. User attributes are a customer identity you can reference throughout the customer’s lifetime.
@@ -122,13 +123,12 @@ MoEngageSDKAnalytics.sharedInstance.setLocation(MoEngageGeoLocation(withLatitude
 
 </CodeGroup>
 
-<Warning>
-  **Note**
-
-  - We support strings and numbers as values for UserAttributes. NSURL is not supported. If you wish to use it, please convert them to string.
+<Note>
   - User Phone No / Mobile Number must be tracked as a string to work properly in MoEngage systems.
-  - For more information on supported data types and data tracking policies, please refer to [Data Tracking Policies](https://www.moengage.com/docs/user-guide/data/key-concepts/data-tracking-policies).
-</Warning>
+  - For more information on supported data types and data tracking policies, refer to [Data Tracking Policies](/user-guide/data/key-concepts/data-tracking-policies).
+</Note>
+
+For the full list of validation rules and what happens in `DEBUG` versus release builds, refer to [Validations and restrictions](#validations-and-restrictions).
 
 # Custom User Attributes
 
@@ -150,17 +150,11 @@ NSArray *myArray = @[@"Bengaluru", @"Delhi", @"Chennai"];
 
 </CodeGroup>
 
-User Attributes have the following restrictions :
+<Note>
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `setUserAttribute(_:withAttributeName:level:forAppID:)` requires the `value` parameter to conform to `Sendable` for Swift concurrency safety (`Any` → `any Sendable`). The literal values used in these examples (strings, arrays, dictionaries of these) already conform to `Sendable`, so they compile unchanged. Under the Swift 6 language mode or strict concurrency, non-`Sendable` values need to be updated.
+</Note>
 
-- User Attribute Names should not contain dot(.)
-- User Attribute Names should not start with dollar sign(\$)
-- User Attribute Values should be a String or Number
-
-<Info>
-  **Note**
-
-  You can not use "moe\_" as a prefix while naming events, event attributes, or user attributes. It is a system prefix and using it might result in periodic blacklisting without prior communication.
-</Info>
+For the full list of validation rules, refer to [Validations and restrictions](#validations-and-restrictions).
 
 ## JSON Attributes
 
@@ -182,6 +176,49 @@ MoEngageSDKAnalytics.sharedInstance.setUserAttribute([["item-id" : 123,"item-cos
 ```
 
 </CodeGroup>
+
+# Portfolio-Level User Attributes
+
+<Info>
+  **Prerequisites**
+
+  - iOS SDK version 10.07.0 or above.
+  - Multiple projects must be configured in your MoEngage workspace. For more information, refer to [Portfolio](/user-guide/settings/account/portfolio/portfolio) or contact your MoEngage account manager.
+</Info>
+
+In a [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled workspace, user attributes can be tracked either at the project level (scoped to a specific project) or at the portfolio level (shared across all projects in the workspace).
+
+## Set Portfolio-Level Attributes
+
+To set a user attribute at the portfolio level, use the API shown below. The `level` parameter accepts `.project` (Objective-C: `MoEngageUserAttributeLevelProject`) to scope the attribute to the current project, or `.portfolio` (Objective-C: `MoEngageUserAttributeLevelPortfolio`) to share it across all projects in the portfolio. When you omit the `level` parameter, the attribute defaults to project level.
+
+<CodeGroup>
+
+```swift Swift wrap
+// Project-level attribute (default — same as existing behaviour)
+MoEngageSDKAnalytics.sharedInstance.setUserAttribute("value", withAttributeName: "attribute_name", level: .project)
+
+// Portfolio-level attribute (shared across all projects in the portfolio)
+MoEngageSDKAnalytics.sharedInstance.setUserAttribute("value", withAttributeName: "attribute_name", level: .portfolio)
+```
+
+```objective-c Objective C wrap
+// Project-level attribute (default)
+[[MoEngageSDKAnalytics sharedInstance] setUserAttribute:@"value"
+                                      withAttributeName:@"attribute_name"
+                                                  level:MoEngageUserAttributeLevelProject];
+
+// Portfolio-level attribute
+[[MoEngageSDKAnalytics sharedInstance] setUserAttribute:@"value"
+                                      withAttributeName:@"attribute_name"
+                                                  level:MoEngageUserAttributeLevelPortfolio];
+```
+
+</CodeGroup>
+
+<Warning>
+  Setting a unique ID at the portfolio level is not supported and causes a fatal exception in Xcode debug builds. Use the project-level `identifyUser` APIs to set identifiers. See [Identifying Users](#identifying-users).
+</Warning>
 
 # Date and Time User Attributes
 
@@ -232,29 +269,123 @@ MoEngageSDKAnalytics.sharedInstance.setLocation(MoEngageGeoLocation.init(withLat
 
 </CodeGroup>
 
-## Reserved keywords for User Attributes
+# Validations and restrictions
 
-Below is the list of keys that should not be used when tracking user attributes.
+User attributes have two layers of validation that apply across both `DEBUG` and release builds:
 
-- USER_ATTRIBUTE_UNIQUE_ID
-- USER_ATTRIBUTE_USER_EMAIL
-- USER_ATTRIBUTE_USER_MOBILE
-- USER_ATTRIBUTE_USER_NAME
-- USER_ATTRIBUTE_USER_GENDER
-- USER_ATTRIBUTE_USER_FIRST_NAME
-- USER_ATTRIBUTE_USER_LAST_NAME
-- USER_ATTRIBUTE_USER_BDAY
-- MOE_TIME_FORMAT
-- MOE_TIME_TIMEZONE
-- USER_ATTRIBUTE_NOTIFICATION_PREF
-- USER_ATTRIBUTE_OLD_ID
-- MOE_TIME_FORMAT
-- MOE_TIME_TIMEZONE
-- USER_ATTRIBUTE_DND_START_TIME
-- USER_ATTRIBUTE_DND_END_TIME
-- MOE_GAID
-- MOE_ISLAT
-- INSTALL
-- UPDATE
-- status
-- user_id
+- **Naming and format rules** — these always apply, regardless of build configuration. Refer to [Naming and format rules](#naming-and-format-rules) below.
+- **Type validation** — invalid attribute values (unsupported types such as `null`, custom models, `NaN`, `Infinity`, empty collections, `NSURL`, or `Date`/`MoEngageGeoLocation` nested inside an Array or Dictionary) cause a fatal exception in `DEBUG` builds and are silently dropped in release builds. Refer to [Supported attribute value types](#supported-attribute-value-types) below.
+
+<Info>
+  In the iOS SDK, `DEBUG` mode means the SDK was initialized using `initializeDefaultTestInstance(_:)` (TEST workspace) and the app is running attached to Xcode. This is different from a release build that has debug symbols enabled.
+</Info>
+
+## Naming and format rules
+
+- **Attribute names must be non-empty.** Passing an empty string (`""`) as an attribute name causes a fatal exception in `DEBUG` builds. In release builds, the attribute is dropped.
+- **No dot (`.`) in attribute names.**
+- **Attribute names must not start with a dollar sign (`$`).**
+- **Reserved prefix.** You cannot use `moe_` as a prefix when naming events, event attributes, or user attributes. It is a system prefix, and using it might result in periodic blocklisting without prior communication.
+- **Reserved keywords.** Do not use any of the following keys when tracking user attributes — they are reserved for SDK and system use:
+  - `USER_ATTRIBUTE_UNIQUE_ID`
+  - `USER_ATTRIBUTE_USER_EMAIL`
+  - `USER_ATTRIBUTE_USER_MOBILE`
+  - `USER_ATTRIBUTE_USER_NAME`
+  - `USER_ATTRIBUTE_USER_GENDER`
+  - `USER_ATTRIBUTE_USER_FIRST_NAME`
+  - `USER_ATTRIBUTE_USER_LAST_NAME`
+  - `USER_ATTRIBUTE_USER_BDAY`
+  - `USER_ATTRIBUTE_NOTIFICATION_PREF`
+  - `USER_ATTRIBUTE_OLD_ID`
+  - `USER_ATTRIBUTE_DND_START_TIME`
+  - `USER_ATTRIBUTE_DND_END_TIME`
+  - `MOE_TIME_FORMAT`
+  - `MOE_TIME_TIMEZONE`
+  - `MOE_GAID`
+  - `MOE_ISLAT`
+  - `INSTALL`
+  - `UPDATE`
+  - `status`
+  - `user_id`
+  - `source`
+
+## Supported attribute value types
+
+Attribute values must be one of: `String`, `Number`, `Date`, `MoEngageGeoLocation`, `Dictionary`, or `Array` (of strings or numbers). `NSURL` is not supported — convert to a string before passing it.
+
+If an unsupported value is passed:
+
+- In `DEBUG` builds, the SDK throws a fatal exception and crashes the app so you can catch data issues early.
+- In release builds, the SDK drops the specific invalid attribute. Other attributes set on the user are unaffected.
+
+Common triggers for the `DEBUG` exception:
+
+- Passing `null` (`NSNull()`).
+- Passing custom models or UI elements (for example, `UIColor`, `UIImage`).
+- Passing invalid numbers like `NaN` or `Infinity`.
+- Passing empty Arrays or Dictionaries.
+- Nesting `Date` or `MoEngageGeoLocation` objects inside an Array or Dictionary. These must be passed directly as values.
+
+<Info>
+  If you are upgrading an existing app and these strict `DEBUG` validations cause disruptive crashes while you refactor your tracking code, you can temporarily opt out by calling `disableIntegrationValidator()` during SDK initialization. Use this strictly as a stopgap for phased upgrades, and aim to remove the opt-out once your attribute call sites are properly validated.
+</Info>
+
+## Filtering unsupported attribute values
+
+If you are upgrading to a newer version of the iOS SDK and your app passes attribute values whose types are not validated at the call site, add a type-check guard before calling `setUserAttribute`. This prevents `DEBUG` crashes and ensures only valid data reaches the SDK in all builds.
+
+<CodeGroup>
+
+```swift Swift wrap
+// Helper to check if a value is a supported user attribute type.
+  // Call this before passing any dynamically-typed value to setUserAttribute(_:withAttributeName:).
+  func isSupportedUserAttributeValue(_ value: Any) -> Bool {
+      switch value {
+      case let d as Double: return !d.isNaN && !d.isInfinite
+      case let f as Float:  return !f.isNaN && !f.isInfinite
+      case is String, is Bool, is Int, is Int8, is Int16, is Int32, is Int64,
+           is UInt, is UInt8, is UInt16, is UInt32, is UInt64, is NSNumber:
+          return true
+      case let arr as [Any]:          return !arr.isEmpty
+      case let dict as [String: Any]: return !dict.isEmpty
+      default: return false
+      }
+  }
+
+  // Usage — value comes from a server response, external model, or unknown source
+  if isSupportedUserAttributeValue(dynamicValue) {
+      MoEngageSDKAnalytics.sharedInstance.setUserAttribute(dynamicValue, withAttributeName: "attribute_name")
+  }
+  // Values that fail the check (custom objects, NSNull, NaN, empty collections, etc.)
+  // are skipped without crashing in both DEBUG and Release builds.
+
+```
+
+```objective-c Objective C wrap
+// Check if a value is a supported user attribute type before passing to the SDK.
+  - (BOOL)isSupportedUserAttributeValue:(id)value {
+      if ([value isKindOfClass:[NSString class]] || [value isKindOfClass:[NSNumber class]]) {
+          if ([value isKindOfClass:[NSNumber class]]) {
+              double d = [(NSNumber *)value doubleValue];
+              if (isnan(d) || isinf(d)) return NO;
+          }
+          return YES;
+      }
+      if ([value isKindOfClass:[NSArray class]])      return [(NSArray *)value count] > 0;
+      if ([value isKindOfClass:[NSDictionary class]]) return [(NSDictionary *)value count] > 0;
+      return NO;
+  }
+
+  // Usage
+  if ([self isSupportedUserAttributeValue:dynamicValue]) {
+      [[MoEngageSDKAnalytics sharedInstance] setUserAttribute:dynamicValue
+                                           withAttributeName:@"attribute_name"];
+  }
+  // Unsupported values are skipped without crashing in both DEBUG and Release builds.
+```
+
+</CodeGroup>
+
+<Note>
+  `Date` and `MoEngageGeoLocation` values must be passed using the dedicated `setUserAttributeDate`, `setUserAttributeISODate`, `setUserAttributeEpochTime`, and `setLocation:withAttributeName:` methods — not through `setUserAttribute:withAttributeName:`.
+</Note>

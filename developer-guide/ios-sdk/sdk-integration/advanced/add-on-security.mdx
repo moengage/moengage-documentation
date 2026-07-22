@@ -61,6 +61,11 @@ MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR W
   Once storage encryption is enabled and a build is released to production(App Store), you should not disable encryption. Disabling the encryption after the build is released will result in a new user being created in the MoEngage system when the user updates the application.
 </Note>
 
+<Warning>
+  - When storage encryption is enabled, you must pass a valid keychain group to `MoEngageKeyChainConfig`. If the keychain group is missing or your app is not configured with the matching Keychain Sharing capability, the SDK throws a fatal exception and crashes the app in `DEBUG` builds. In release builds, storage encryption fails to initialize and the SDK falls back to unencrypted storage.
+  - If you are upgrading an existing app and these strict `DEBUG` validations cause disruptive crashes while you refactor your tracking code, you can temporarily opt out by calling `disableIntegrationValidator()` during SDK initialization. Use this strictly as a stopgap for phased upgrades, and aim to remove the opt-out once your attribute call sites are properly validated.
+</Warning>
+
 # Encrypted Network Communication
 
 By default, we use HTTPS protocol for all requests made from the SDK; HTTPS encrypts the requests by default. MoEngage SDK optionally adds another layer of encryption apart from the encryption done by HTTPS.
@@ -90,3 +95,7 @@ sdkConfig.networkConfig = [[MoEngageNetworkRequestConfig alloc] initWithDataSecu
   1. When using encrypted network communication, we strongly recommend you enable Storage encryption as well.
   2. Adding the above dependency and enabling the flag isn't enough for this feature to work; there is some additional configuration required on our side to enable this feature completely. In case you want to use this feature, reach out to your account manager or the MoEngage Support team.
 </Note>
+
+<Warning>
+  When network encryption is enabled (`isEncryptionEnabled: true`), you must provide non-empty values for both `encryptionKeyDebug` and `encryptionKeyRelease`. Passing an empty key for the active build configuration throws a fatal exception and crashes the app in `DEBUG` builds. In release builds, network requests fall back to standard HTTPS without the additional encryption layer.
+</Warning>
