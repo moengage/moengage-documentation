@@ -1,0 +1,332 @@
+---
+title: "MoEngage MCP Server: Segmentation Tools"
+description: "Use the MoEngage MCP segmentation tools to discover events and attributes, validate filters, create custom segments, count audiences with channel reachability, and check segment membership in real time."
+keywords: "MoEngage MCP, segmentation tools, custom segments, segment count, audience estimation, recent query, segment membership, deep validation, MCP tools"
+---
+
+The [MoEngage MCP server](/user-guide/ai-and-intelligence/merlin-ai/moengage-mcp-server) includes a set of **segmentation tools** that let your AI assistant work with audiences end to end: discover the right events and attributes, build and validate filters, create reusable custom segments, estimate audience size (with or without creating a segment), and check whether a specific user belongs to a segment in real time.
+
+This page describes each tool in the segmentation tool belt — what it does, when to use it, its parameters, and known caveats. For connector setup, authentication, and the full tool catalog, see [MoEngage MCP Server and Connector](/user-guide/ai-and-intelligence/merlin-ai/moengage-mcp-server).
+
+{/* TODO (tech writer): add a hero screenshot of an assistant conversation creating and counting a segment via the MCP connector. */}
+
+<Warning>
+  **Always resolve internal names first.** Segment filters must use the exact **internal** (platform) names of events and attributes — for example, `moe_city`, not the dashboard display name "City". A display name is **accepted when you create a segment or query**, but the count job later **fails with no error reason**. Before creating or counting anything, resolve names with `find_events`, `find_user_attributes`, and `find_event_attributes`, and always use the returned `name` field — never `readable_name`.
+</Warning>
+
+## How the tools fit together
+
+<Steps>
+  <Step title="Discover">
+    Resolve the exact internal names with `find_events`, `find_user_attributes`, and `find_event_attributes`, and explore stored values with `get_value_suggestions`.
+  </Step>
+  <Step title="Validate">
+    Run `deep_validate_segment_filters` on the filter set to catch bad names, data types, or operators before anything is created.
+  </Step>
+  <Step title="Confirm intent">
+    Use `describe_segment_filters` to turn the filter JSON into a plain-English sentence and confirm it matches what you asked for.
+  </Step>
+  <Step title="Create or count">
+    Create a reusable segment with `create_custom_segment`, or run a one-off count without creating anything using `create_recent_query`.
+  </Step>
+  <Step title="Measure">
+    Get the user count and channel reachability with `start_segment_count` + `poll_segment_count` (for saved segments) or by polling the recent query.
+  </Step>
+</Steps>
+
+## Discover events, attributes, and values
+
+Use these tools before building any filter. They return top-ranked matches with confidence scores, never the full catalog.
+
+### `find_events`
+
+Finds user events (actions) matching a natural-language term — for example, "purchase" or "app opened". Event names vary per workspace, so the assistant should never guess them.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `query` | Yes | Natural-language description of the event (for example, "purchase", "checkout"). |
+| `limit` | No | Maximum results, 1–50 (default 10). |
+
+Returns ranked matches with `name`, `readable_name`, `category`, a relevance `score`, and a `confident` flag. Use the returned `name` as `action_name` in filters.
+
+<Note>
+  Events with no activity in the last **60 days** are excluded from results. If no result is marked `confident`, rephrase or broaden the search term.
+</Note>
+
+### `find_user_attributes`
+
+Finds user (profile) attributes matching a natural-language term — for example, "city" or "lifetime value". Returns the internal `name` (for example, `moe_city`), the display `readable_name`, and the attribute's `data_type`, which determines the operators you can use in a filter.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `query` | Yes | Natural-language description of the attribute (for example, "city", "signup date"). |
+| `limit` | No | Maximum results, 1–50 (default 10). |
+
+### `find_event_attributes`
+
+Finds the attributes (properties) of a specific event — for example, the "amount" attribute of a "Product Purchased" event. Resolve the exact event name with `find_events` first.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `event_name` | Yes | Exact event name from `find_events` (for example, "Product Purchased"). |
+| `query` | Yes | Natural-language description of the attribute (for example, "amount", "category"). |
+| `limit` | No | Maximum results, 1–50 (default 10). |
+
+<Note>
+  When no confident match is found, the response includes a `hint` and `all_attributes` — the complete list of attributes on that event — so the right attribute can be picked directly. Don't switch to a different event just because its name looks like a better literal match.
+</Note>
+
+### `get_value_suggestions`
+
+Fetches up to **5,000 distinct stored values** for a user or event attribute — useful for checking which values actually exist (for example, which cities) before writing an equality filter.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `attribute_name` | Yes | Internal attribute name (the `name` from `find_user_attributes` / `find_event_attributes`). |
+| `data_type` | Yes | Stored data type: `string`, `double`, `array_string`, `array_double`, `array_object`, or `object`. |
+| `action` | No | Exact event name from `find_events` when the attribute is an event attribute. Omit for user attributes. |
+| `prefix` | No | Only return values starting with this prefix (for example, "ele" returns "electronics"). |
+| `node_attribute_name` | No | For `array_object` attributes — the child attribute to resolve values for. |
+| `node_data_type` | No | Data type of the child attribute (required with `node_attribute_name`). |
+
+**Example prompt:** _"What values does the `moe_city` attribute have that start with 'San'?"_
+
+## Describe and validate filters
+
+Segment filters are JSON structures (the same filter format across `create_custom_segment`, `create_recent_query`, and the validation tools). These two tools help you check a filter set **before** anything is created.
+
+### `describe_segment_filters`
+
+Turns a segment filter set into a **plain-English sentence** — so you can confirm what a filter actually means before creating a segment or query, or explain the logic of an existing segment (pass in the filters returned by `get_segment`).
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `included_filters` | Yes | Filter group of users to include: `{"filter_operator": "and"\|"or"\|"difference", "filters": [...]}`. |
+| `excluded_filters` | No | Filter group of users to exclude. Same shape. |
+| `validation_required` | No | When `true`, the filter set is validated before it is described (default `false`). |
+
+Returns `{description: "<plain-English sentence>"}`.
+
+<Note>
+  Filter items use a **flat** format — `filter_type`, `name`, `data_type`, `operator`, and `value` at the top level of each filter object. Unlike `create_custom_segment`, the `filter_operator` here also accepts `difference`. Display names in the filters produce a misleading description — resolve internal names first.
+</Note>
+
+### `deep_validate_segment_filters`
+
+Runs **deep (semantic) validation** of a filter payload against your workspace's live metadata catalog — attribute existence, data types, and operator compatibility — beyond basic structural checks. Run it before `create_custom_segment` or `create_recent_query` to catch a bad attribute or event name up front instead of a silent count-job failure later.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `included_filters` | Yes | Filter group of users to include. Same filter format `create_custom_segment` accepts. |
+| `excluded_filters` | No | Filter group of users to exclude. |
+
+<Warning>
+  The call returns **HTTP 200 whether or not the filters are valid** — always check the `is_valid` field in the response, not the status code. When invalid, `errors` lists each failure as `{path, field, message}`, where `path` is the dot-notation location of the failing filter node.
+</Warning>
+
+## Create and browse segments
+
+### `create_custom_segment`
+
+Creates a new **filter-based custom segment** in the workspace. The segment type is fixed to filter-based (ELASTIC_SEARCH) and the source to API — neither can be set by the caller.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `name` | Yes | Segment name. Must be unique in the workspace, maximum 200 characters, no HTML. `All Users` is reserved. |
+| `included_filters` | Yes | Filter group of users to include: `{"filter_operator": "and"\|"or", "filters": [...]}` with a non-empty `filters` array. |
+| `description` | No | Free-text description. |
+| `excluded_filters` | No | Filter group — users matching these are excluded even if they match `included_filters`. |
+
+Each filter in a filter group is one of four types: `user_attributes` (a condition on a user attribute), `actions` (a condition on an event, with optional execution count and time range), `custom_segments` (membership in another segment), or `nested_filters` (one level of AND/OR nesting).
+
+**Example** — users in Mumbai who purchased at least 3 times in the last 30 days:
+
+```json
+{
+  "name": "Mumbai frequent purchasers",
+  "included_filters": {
+    "filter_operator": "and",
+    "filters": [
+      {
+        "filter_type": "user_attributes",
+        "name": "moe_city",
+        "data_type": "string",
+        "operator": "equals",
+        "value": "Mumbai"
+      },
+      {
+        "filter_type": "actions",
+        "action_name": "Product Purchased",
+        "executed": true,
+        "attributes": { "filter_operator": "and", "filters": [] },
+        "execution": { "type": "atleast", "count": 3 },
+        "primary_time_range": {
+          "type": "inTheLast",
+          "value": 30,
+          "value_type": "relative_past",
+          "period_unit": "days"
+        }
+      }
+    ]
+  }
+}
+```
+
+<Warning>
+  Attribute and event names are **not validated at create time**. A display name (or any wrong name) is accepted and the segment is created — but the segment count later fails with **no error reason**. Resolve names with the [discovery tools](#discover-events-attributes-and-values) first and validate with `deep_validate_segment_filters`. As a safety net, the tool checks user-attribute filter names against the workspace catalog before creating and rejects a recognized display name (or wrongly cased internal name) — but this check fails open when the catalog is unavailable, so resolving names first remains essential.
+</Warning>
+
+<Note>
+  Common errors: `409` when the segment name already exists; `400` when filters are malformed (the error is generic, without field-level detail — re-check the filter structure rather than retrying variations); `413` when the filter query exceeds size or depth limits. On `actions` filters, the `attributes` key is required even when empty — pass `{"filter_operator": "and", "filters": []}`.
+</Note>
+
+### `list_segments`
+
+Lists the custom segments in the workspace, **paginated**, with an optional partial-match name filter. Returns Filter (ELASTIC_SEARCH) and File type segments; Warehouse, Analytics, and Composite segments are excluded.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `name` | No | Partial-match filter on segment name. |
+| `page` | No | Page number, 1-based (default 1). |
+| `page_size` | No | Segments per page, 1–100 (default 10). |
+
+Results contain metadata only (`id`, `name`, `type`, `source`, timestamps) — use `get_segment` to fetch a segment's filter definition.
+
+### `get_segment`
+
+Retrieves the full details of one segment by its ID, including the complete `included_filters` / `excluded_filters` tree. The returned filter tree uses the same format `create_custom_segment` accepts, so it can be read, edited, and resubmitted as a new segment.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `segment_id` | Yes | The segment's 24-character ID (as returned by `list_segments` or `create_custom_segment`). |
+
+<Note>
+  For file-based or cohort-import segments, only metadata is returned — there is no filter tree.
+</Note>
+
+## Count users and check reachability
+
+Counting is **asynchronous**: one tool starts the job, another polls for the result.
+
+### `start_segment_count`
+
+Starts an async job that computes the **user count** and **channel reachability** (push, email, SMS, WhatsApp) for a saved segment.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `segment_id` | Yes | The segment's 24-character ID. |
+| `callback_url` | No | Webhook URL to notify when the job completes. |
+
+Returns a `tracking_id` and a `status`. Results are cached server-side for **15 minutes** — if a fresh result already exists, the response has `served_from_cache: true` and `status: "finished"` immediately; otherwise poll with `poll_segment_count`.
+
+### `poll_segment_count`
+
+Polls the result of a count job started by `start_segment_count`. Repeat until `status` is `finished` (result ready) or `failure`.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `segment_id` | Yes | The segment's 24-character ID. |
+| `tracking_id` | Yes | The `tracking_id` returned by `start_segment_count`. |
+| `channels` | No | Comma-separated channels to include in reachability (for example, `push,email`). Omit for all channels. |
+| `push_platforms` | No | Comma-separated push platforms for a per-platform breakdown (for example, `ANDROID,iOS,web`). |
+
+When finished, the response contains `user_count` and a `reachability_count` breakdown per channel. Typical jobs finish in under 30 seconds; the assistant should wait a few seconds between polls.
+
+<Warning>
+  A count that ends in `failure` **without an error reason** almost always means a filter in the segment uses a display name instead of the internal attribute or event name. Fix the segment's filters using the [discovery tools](#discover-events-attributes-and-values) and `deep_validate_segment_filters`.
+</Warning>
+
+## Count an audience without creating a segment
+
+To estimate audience size for a filter set **without saving a segment**, use a recent query — an ad-hoc, asynchronously executed audience query.
+
+### `create_recent_query`
+
+Creates and asynchronously runs an audience query. Returns a query ID (`rq_id`) immediately; the count is fetched by polling `get_recent_query`.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `included_filters` | Yes, when `query_type` is `filter` | Filter group of users to include — the same filter format `create_custom_segment` uses. |
+| `excluded_filters` | No | Filter group of users to exclude. |
+| `extra_filters` | No | Additional user-attribute query layered on top. |
+| `platforms` | No | Restrict results to platforms (for example, `["ANDROID", "iOS", "web"]`). |
+| `installed` | No | Install-status filter: `installed` or `uninstalled`. |
+| `reachability` | No | Which channels to compute reachability counts for (for example, `{"push": {}, "email": {}}`). |
+| `emails` | No | Email recipients notified when the query completes. |
+| `channel_source` | No | Channel source scope (default `all`). |
+| `cs_id` | No | Associate the run with an existing custom segment's ID. |
+| `query_type` | No | `filter` (default), `merlin`, or `adhoc`. |
+| `merlin_prompt` | No | Free-text prompt, used when `query_type` is `merlin`. |
+| `callback_url` | No | Webhook URL to notify on completion. |
+
+**Example prompt:** _"How many users opened an email in the last 7 days but didn't purchase? Don't create a segment — just give me the count."_
+
+<Note>
+  The same "internal names only" rule applies: resolve event and attribute names with the discovery tools before creating a query, and validate the filters with `deep_validate_segment_filters` first.
+</Note>
+
+### `get_recent_query`
+
+Fetches a recent query by its `rq_id`, including its `status` and — once the query succeeds — the `user_count` and reachability counts. Poll it after `create_recent_query` until `status` is `success` or `failure` (see `failure_reason`).
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `rq_id` | Yes | The query's 24-character ID returned by `create_recent_query`. |
+
+### `get_recent_query_filters`
+
+Returns just the filter definition (included/excluded filters, platforms, and the reachability request) that a recent query was created with — useful to inspect an earlier query's audience, or to clone it into a new query or a saved segment.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `rq_id` | Yes | The query's 24-character ID. |
+
+## Check segment membership in real time
+
+### `is_user_in_segment`
+
+Checks in **real time** whether a specific user is a member of one or more segments — up to **10 segments per call**. Results are returned in the same order as the requested segment IDs.
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `uid` | Yes | The customer's own user identifier (the `uid` field in user profiles) — **not** the internal MoEngage ID. |
+| `segment_ids` | Yes | List of 1–10 segment IDs to evaluate. |
+
+Each result carries a `segment_eligibility` flag:
+
+- `true` — the segment can be evaluated in real time; `user_in_segment` (true/false) is present and authoritative.
+- `false` — the segment **cannot** be evaluated in real time (file-based, funnel, retention, and predictive segments are batch-only); `user_in_segment` is absent and a `message` explains why.
+
+<Warning>
+  `segment_eligibility: false` means "could not evaluate in real time" — it is **not** a "no". Always check `segment_eligibility` before acting on `user_in_segment`.
+</Warning>
+
+<Note>
+  Duplicate segment IDs are de-duplicated server-side before the 10-segment limit is applied. A `404` means no user was found for the given `uid` in this workspace.
+</Note>
+
+**Example prompt:** _"Is user `alice@example.com` in my 'Cart abandoners' and 'VIP customers' segments right now?"_
+
+## Example prompts
+
+| What you want to do | Example prompt |
+| --- | --- |
+| Explore the catalog | _"What purchase-related events do we track, and what attributes do they have?"_ |
+| Sanity-check a filter | _"Before creating it, explain in plain English what this segment's filters mean."_ |
+| Create a segment | _"Create a segment of users in Mumbai who purchased at least 3 times in the last 30 days."_ |
+| Count a segment | _"How many reachable users are in my 'Cart abandoners' segment, split by channel?"_ |
+| Count without creating | _"How many users opened an email in the last 7 days but didn't purchase? Just the count — don't create a segment."_ |
+| Check membership | _"Is user 12345 currently in the 'Churn risk' segment?"_ |
+
+## Known behaviors and limitations
+
+- **Internal names only.** Filters silently accept display names at create time; the failure surfaces later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`.
+- **Stale events are hidden.** `find_events` excludes events inactive for more than 60 days.
+- **Segment type is fixed.** `create_custom_segment` always creates a filter-based (ELASTIC_SEARCH) segment with source API; other segment types (file, warehouse, composite) cannot be created through the MCP.
+- **Counts are cached for 15 minutes.** `start_segment_count` returns the cached result (`served_from_cache: true`) when a successful count already exists within the window.
+- **Validation returns HTTP 200 either way.** For `deep_validate_segment_filters`, check `is_valid` in the response body.
+- **Real-time membership covers filter-based segments only.** Batch-only segments (file-based, funnel, retention, predictive) return `segment_eligibility: false` with an explanatory message.
+- **Value suggestions are capped** at 5,000 distinct values per attribute.
+- **Role-based permissions apply.** Creating segments and queries requires the matching create/manage permission on your MoEngage role; read tools require read access. See [Security and permissions](/user-guide/ai-and-intelligence/merlin-ai/moengage-mcp-server#security-and-permissions).
+
+{/* TODO (tech writer): add a screenshot of the created segment as it appears in the MoEngage dashboard's Segments list, and one of a segment count result conversation. */}
