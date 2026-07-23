@@ -53,38 +53,42 @@ Build these three first. They give you the fastest return and the most reuse acr
 
 ## Browse Traits by Goal
 
+<Info>
+  The event and attribute names in these tables are examples. The exact names in your account depend on how your app tracks data, so you might not find an event named `Deposit Successful` as written here. Check your tracked events and attributes under **Data** before you build a trait, and ask your development team to track any that are missing. For how tracking works, see [A Complete Guide to Event Tracking](/user-guide/data/event-data/a-complete-guide-to-event-tracking).
+</Info>
+
 <Tabs>
   <Tab title="Customer Value" icon="gem">
     Rank customers by how deep their relationship with your bank runs, so premium service, wealth outreach, and card upgrades reach the right people.
 
     | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Activate |
     | --- | --- | --- | --- | --- |
-    | Lifetime Deposit Value | Aggregation (Sum) | Event: Deposit Successful; Attribute: `amount` | Identify high-net-worth customers for priority banking and dedicated relationship managers. | Personalize private-banking email invites; segment for RM assignment; use in Jinja to greet by tier. |
-    | Total Amount Invested | Aggregation (Sum) | Event: Investment Successful; Attribute: `amount` | Bucket users into Bronze, Silver, Gold, and Platinum wealth tiers automatically. | Trigger tier-upgrade campaigns; personalize research reports; feed into RFM. |
-    | Total Investments Made | Count | Event: Investment Successful | Activity indicator: active investors vs. one-time depositors. | Reward frequent investors; nurture single-transaction users toward a second investment. |
-    | Average Monthly Balance (AMB) | Aggregation (Average) | Event: End-of-Day Balance; Attribute: `balance` | Detect customers falling below the minimum AMB before they are penalized. | Event-triggered nudge before month-end when trending low; educational push for new joiners. |
-    | Wallet Share Score | SQL Computation | Investment, Deposit, and Loan events combined with the `declared_income` attribute | Composite score measuring how much of a customer's financial life sits with you vs. competitors. | Prioritize cross-sell for low-share, high-income customers; suppress users already at ceiling. |
+    | Lifetime Deposit Value | Aggregation (Sum) | **Event:** `Deposit Successful`; **Attribute:** `amount` | Identify high-net-worth customers for priority banking and dedicated relationship managers. | Personalize private-banking email invites; segment for RM assignment; use in Jinja to greet by tier. |
+    | Total Amount Invested | Aggregation (Sum) | **Event:** `Investment Successful`; **Attribute:** `amount` | Bucket users into Bronze, Silver, Gold, and Platinum wealth tiers automatically. | Trigger tier-upgrade campaigns; personalize research reports; feed into RFM. |
+    | Total Investments Made | Count | **Event:** `Investment Successful` | Activity indicator: active investors vs. one-time depositors. | Reward frequent investors; nurture single-transaction users toward a second investment. |
+    | Average Monthly Balance (AMB) | Aggregation (Average) | **Event:** `End-of-Day Balance`; **Attribute:** `balance` | Detect customers falling below the minimum AMB before they are penalized. | Event-triggered nudge before month-end when trending low; educational push for new joiners. |
+    | Wallet Share Score | SQL Computation | **Events:** `Investment`, `Deposit`, and `Loan`, combined with the `declared_income` attribute | Composite score measuring how much of a customer's financial life sits with you vs. competitors. | Prioritize cross-sell for low-share, high-income customers; suppress users already at ceiling. |
   </Tab>
   <Tab title="Product Affinity" icon="arrows-repeat">
     Track what each customer browses, applies for, and buys, so cross-sell points to the next right product instead of everyone.
 
     | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Activate |
     | --- | --- | --- | --- | --- |
-    | Last Loan Product Viewed | Last Value | Event: Loan Product Viewed; Attribute: `loan_type` | Re-engage drop-off users with the exact product they last considered (Home, Auto, or Personal). | Dynamic content in email or push using `{{last_loan_product_viewed}}`; retargeting Flow. |
-    | Preferred Investment Category | Last Value | Event: Investment Successful; Attribute: `category` (Equity, Debt, Gold, ELSS) | Recommend NFOs and thematic funds aligned to a demonstrated preference. | Content blocks in the newsletter switch by category; suppress irrelevant fund launches. |
-    | Distinct Product Categories Held | Aggregation (Count Distinct) | Event: Product Owned Snapshot; Attribute: `product_type` | Identify single-product customers who are ready for cross-sell. | Cross-sell adjacent products to single-product holders; suppress if already at 3 or more products. |
-    | Total Card Spend (Last 90 Days) | Aggregation (Sum) | Event: Card Transaction; Attribute: `amount` | Identify heavy card users for premium-card upgrades and reward programs. | Trigger a limit-enhancement offer for high spenders; activation nudge for low spenders. |
-    | Loan Pre-Qualified | SQL Computation | Events: Loan Offer Viewed, Documents Submitted; Attributes: `credit_score`, `income` | Composite trait for users who meet pre-approval criteria without applying. | One-tap pre-approved offer in in-app; personalized push ("You're pre-approved for a loan"). |
+    | Last Loan Product Viewed | Last Value | **Event:** `Loan Product Viewed`; **Attribute:** `loan_type` | Re-engage drop-off users with the exact product they last considered (Home, Auto, or Personal). | Dynamic content in email or push using `{{last_loan_product_viewed}}`; retargeting Flow. |
+    | Preferred Investment Category | Last Value | **Event:** `Investment Successful`; **Attribute:** `category` (Equity, Debt, Gold, ELSS) | Recommend NFOs and thematic funds aligned to a demonstrated preference. | Content blocks in the newsletter switch by category; suppress irrelevant fund launches. |
+    | Distinct Product Categories Held | Aggregation (Count Distinct) | **Event:** `Product Owned Snapshot`; **Attribute:** `product_type` | Identify single-product customers who are ready for cross-sell. | Cross-sell adjacent products to single-product holders; suppress if already at 3 or more products. |
+    | Total Card Spend (Last 90 Days) | Aggregation (Sum) | **Event:** `Card Transaction`; **Attribute:** `amount` | Identify heavy card users for premium-card upgrades and reward programs. | Trigger a limit-enhancement offer for high spenders; activation nudge for low spenders. |
+    | Loan Pre-Qualified | SQL Computation | **Events:** `Loan Offer Viewed`, `Documents Submitted`; **Attributes:** `credit_score`, `income` | Composite trait for users who meet pre-approval criteria without applying. | One-tap pre-approved offer in in-app; personalized push ("You're pre-approved for a loan"). |
   </Tab>
   <Tab title="Risk & Lifecycle" icon="shield-check">
     Catch the early signals like dormancy, complaints, or an expiring policy, and act before they turn into churn or an escalation.
 
     | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Activate |
     | --- | --- | --- | --- | --- |
-    | Last Transaction Date | Last Value | Event: Any Transaction; Attribute: `timestamp` | Detect dormancy: catch users lapsing at 60, 90, or 120 days with date operators in segmentation. | Re-activation campaign at day 60, 90, and 120 with escalating incentives. |
-    | Total Transactions (Last 30 Days) | Count | Event: Any Transaction | Activity intensity: a drop in transactions is an early churn-risk signal. | Trigger a check-in nudge when transactions in the last 30 days fall below half of usual activity. |
-    | Total Support Tickets Raised | Count | Event: Support Ticket Raised | Identify customers who may be at risk after raising complaints. | NPS follow-up and goodwill offer within 7 days of a resolved ticket. |
-    | Days to Policy Expiry | Last Value | Attribute: `policy_expiry_date` on the Policy Purchased event | Trigger renewal campaigns at the right moment for each customer. | Use date operators in segmentation to trigger at 30, 15, and 7 days before expiry. |
+    | Last Transaction Date | Last Value | **Event:** `Any Transaction`; **Attribute:** `timestamp` | Detect dormancy: catch users lapsing at 60, 90, or 120 days with date operators in segmentation. | Re-activation campaign at day 60, 90, and 120 with escalating incentives. |
+    | Total Transactions (Last 30 Days) | Count | **Event:** `Any Transaction` | Activity intensity: a drop in transactions is an early churn-risk signal. | Trigger a check-in nudge when transactions in the last 30 days fall below half of usual activity. |
+    | Total Support Tickets Raised | Count | **Event:** `Support Ticket Raised` | Identify customers who may be at risk after raising complaints. | NPS follow-up and goodwill offer within 7 days of a resolved ticket. |
+    | Days to Policy Expiry | Last Value | **Attribute:** `policy_expiry_date` on the `Policy Purchased` event | Trigger renewal campaigns at the right moment for each customer. | Use date operators in segmentation to trigger at 30, 15, and 7 days before expiry. |
     | Policy Renewal Score | SQL Computation | Combines historical renewal count, claims filed, and engagement recency | Composite score predicting renewal likelihood; reserve premium outreach for low scores. | SMS and WhatsApp sequence 30, 15, and 7 days out for low-score renewals only. |
   </Tab>
   <Tab title="Engagement" icon="signal">
@@ -92,11 +96,11 @@ Build these three first. They give you the fastest return and the most reuse acr
 
     | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Activate |
     | --- | --- | --- | --- | --- |
-    | Total Digital Sessions (30 Days) | Count | Event: App Session Started | Identify digital-active vs. dormant users for separate marketing tracks. | Reactivation for zero-session users; feature-adoption nudges for casual users. |
-    | Total SIPs Completed | Count | Event: SIP Successful | Celebrate disciplined investors; identify serial missers. | Milestone congratulations at 6, 12, and 24 SIPs; recovery nudge after a miss. |
-    | Rewards Points Balance | Aggregation (Sum) | Event: Points Balance Updated; Attribute: `current_balance` | Drive redemption and reduce point-expiry churn. | Jinja personalization: "You have `{{points_balance}}` points expiring in 30 days." |
-    | Preferred Login Channel | Last Value | Event: App Session Started; Attribute: `platform` | Optimize the channel mix per user: no push if they only use web banking. | Reachability-aware campaigns; suppress mobile push for web-only users. |
-    | Preferred Transaction Channel | Last Value | Event: Transaction Completed; Attribute: `channel` (App, Web, Branch, IVR) | Understand true channel preference and message through the channel a customer actually uses. | Match the campaign channel to the preferred channel; suppress irrelevant channel promotions. |
+    | Total Digital Sessions (30 Days) | Count | **Event:** `App Session Started` | Identify digital-active vs. dormant users for separate marketing tracks. | Reactivation for zero-session users; feature-adoption nudges for casual users. |
+    | Total SIPs Completed | Count | **Event:** `SIP Successful` | Celebrate disciplined investors; identify serial missers. | Milestone congratulations at 6, 12, and 24 SIPs; recovery nudge after a miss. |
+    | Rewards Points Balance | Aggregation (Sum) | **Event:** `Points Balance Updated`; **Attribute:** `current_balance` | Drive redemption and reduce point-expiry churn. | Jinja personalization: "You have `{{points_balance}}` points expiring in 30 days." |
+    | Preferred Login Channel | Last Value | **Event:** `App Session Started`; **Attribute:** `platform` | Optimize the channel mix per user: no push if they only use web banking. | Reachability-aware campaigns; suppress mobile push for web-only users. |
+    | Preferred Transaction Channel | Last Value | **Event:** `Transaction Completed`; **Attribute:** `channel` (App, Web, Branch, IVR) | Understand true channel preference and message through the channel a customer actually uses. | Match the campaign channel to the preferred channel; suppress irrelevant channel promotions. |
   </Tab>
 </Tabs>
 
