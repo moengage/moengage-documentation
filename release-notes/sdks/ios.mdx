@@ -15,6 +15,131 @@ rss: true
 
 {/* ---- 2026 Releases ---- */}
 
+<Update label="22nd July 2026" description="SDK 11.0.0">
+
+<CardGroup cols={2}>
+  <Card title="Modules">
+
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Core</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>InApp</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Messaging</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Cards</span>
+
+    RichNotification · CampaignsCore · LiveActivity · Inbox · Geofence · RealTimeTrigger · Personalize
+  </Card>
+
+  <Card title="Dependencies">
+    - Swift: 5.0.0
+    - iOS: 13.0
+    - tvOS: 13.0
+  </Card>
+</CardGroup>
+
+<span style={{ backgroundColor: 'rgba(212, 56, 13, 0.1)', color: '#D4380D', border: '1px solid #FFCCC7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Breaking Changes</span>
+
+* **SDK initialization enforced before API use:** The SDK now triggers a `fatalError` across all build configurations — Debug, Release, and TestFlight builds — when any public API is invoked before initialization, so incorrect integration order surfaces immediately instead of failing silently.
+* **Public APIs return typed task objects:** Several APIs that previously returned `Void` now return typed task objects. Function-reference assignments with an explicit `Void` return type no longer compile.
+* **Objective-C enums migrated to Swift:** The public Objective-C enums `MoEngageInAppActionType` and `MoEngageNudgePosition` have been migrated to Swift (see the migration tables below).
+
+#### Core
+<span style={{ backgroundColor: 'rgba(212, 56, 13, 0.1)', color: '#D4380D', border: '1px solid #FFCCC7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Breaking Changes</span>
+
+* Public APIs that previously returned `Void` now return a typed task object (a `MoEngageBaseTask` subclass, for example `MoEngageTrackEventTask`, `MoEngageShowInAppTask`) so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Modules changed: Core, InApp, Messaging. Direct calls and Objective-C callers compile unchanged, since `@discardableResult` covers ignored return values. Swift function-reference assignments with an explicit `Void` return type no longer compile.
+
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `trackEvent` (`MoEngageSDKAnalytics`) | `let trackFn: (String, MoEngageProperties?, String?) -> Void = MoEngageSDKAnalytics.sharedInstance.trackEvent` | `let trackFn: (String, MoEngageProperties?, String?) -> Void = { name, props, appID in`<br />`    _ = MoEngageSDKAnalytics.sharedInstance.trackEvent(name, withProperties: props, forAppID: appID)`<br />`}` |
+  | `initializeDefaultLiveInstance` (`MoEngage`) | `let initFn: (MoEngageSDKConfig) -> Void = MoEngage.sharedInstance.initializeDefaultLiveInstance` | `let initFn: (MoEngageSDKConfig) -> Void = {`<br />`    _ = MoEngage.sharedInstance.initializeDefaultLiveInstance($0)`<br />`}` |
+
+  Direct calls stay untouched:
+
+  ```swift
+  // This continues to compile and behave exactly as before:
+  MoEngageSDKAnalytics.sharedInstance.trackEvent("Purchase", withProperties: properties)
+
+  // Optionally observe the outcome now:
+  MoEngageSDKAnalytics.sharedInstance.trackEvent("Purchase", withProperties: properties)
+      .onSuccess { result in /* tracked */ }
+      .onFailure { failure in /* see failure.reason */ }
+  ```
+
+* `MoEngageSDKAnalytics` now requires user and device attribute values to conform to `Sendable` for Swift concurrency safety. The `value` parameters of the following public APIs changed from `Any` to `any Sendable`, including untyped `[String: Any]` dictionaries, which are now `[String: any Sendable]`. Under the Swift 6 language mode or strict concurrency, call sites passing non-`Sendable` values need to be updated.
+  * `setUserAttribute(_:withAttributeName:level:forAppID:)` — `value` parameter (`Any` → `any Sendable`)
+  * `setDeviceAttribute(_:withName:forWorkspaceId:)` — `value` parameter (`Any` → `any Sendable`)
+
+* The following public callback protocols are now `Sendable` and `@MainActor` isolated. Conforming types must be safe to use across concurrency domains, and their callback methods are now invoked on the main actor, so implementations that were not already main-thread confined need to be updated.
+  * `MoEngageAnalyticsCallBack`
+  * `MoEngageAuthenticationError.Listener`
+
+* `MoEngageProperties` now requires event attribute values to conform to `Sendable` for Swift concurrency safety. The value and payload parameters of the following public APIs changed from `Any` to `any Sendable`. Under the Swift 6 language mode or strict concurrency, call sites passing non-`Sendable` values, including untyped `[String: Any]` dictionaries, need to be updated.
+  * `init(withAttributes:)` — `attributesDict` parameter (`[String: Any]` → `[String: any Sendable]`)
+  * `addAttribute(_:withName:)` — `attrVal` parameter (`Any` → `any Sendable`)
+
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed a possible deadlock that could occur for scene-based apps when passing URLs to the MoEngage SDK.
+
+#### InApp
+<span style={{ backgroundColor: 'rgba(212, 56, 13, 0.1)', color: '#D4380D', border: '1px solid #FFCCC7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Breaking Changes</span>
+
+* `showInApp` now returns a typed task object (`MoEngageShowInAppTask`) instead of `Void`, so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Direct calls and Objective-C callers compile unchanged. Swift function-reference assignments with an explicit `Void` return type no longer compile.
+
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `showInApp` (`MoEngageSDKInApp`) | `let showFn: () -> Void = MoEngageSDKInApp.sharedInstance.showInApp` | `let showFn: () -> Void = {`<br />`    _ = MoEngageSDKInApp.sharedInstance.showInApp()`<br />`}` |
+
+* The public Objective-C enums `MoEngageInAppActionType` and `MoEngageNudgePosition` have been migrated to Swift. Update your code to use the Swift equivalents listed below. For more information, refer to the [In-App Messages](/developer-guide/ios-sdk/in-app-messages/in-app-nativ) guide.
+
+  **`MoEngageInAppActionType` migration:**
+
+  | | Swift (before) | Swift (after) | Objective-C (before) | Objective-C (after) |
+  | :-- | :-- | :-- | :-- | :-- |
+  | Navigation action | `NavigationAction` | `.navigationAction` | `NavigationAction` | `MoEngageInAppActionTypeNavigationAction` |
+  | Custom action | `CustomAction` | `.customAction` | `CustomAction` | `MoEngageInAppActionTypeCustomAction` |
+
+  **`MoEngageNudgePosition` migration:**
+
+  | | Swift (before) | Swift (after) | Objective-C (before) | Objective-C (after) |
+  | :-- | :-- | :-- | :-- | :-- |
+  | Top | `NudgePositionTop` | `.top` | `NudgePositionTop` | `MoEngageNudgePositionTop` |
+  | Bottom | `NudgePositionBottom` | `.bottom` | `NudgePositionBottom` | `MoEngageNudgePositionBottom` |
+  | Bottom-left | `NudgePositionBottomLeft` | `.bottomLeft` | `NudgePositionBottomLeft` | `MoEngageNudgePositionBottomLeft` |
+  | Bottom-right | `NudgePositionBottomRight` | `.bottomRight` | `NudgePositionBottomRight` | `MoEngageNudgePositionBottomRight` |
+  | Any | `NudgePositionAny` | `.any` | `NudgePositionAny` | `MoEngageNudgePositionAny` |
+  | None | `NudgePositionNone` | `.none` | `NudgePositionNone` | `MoEngageNudgePositionNone` |
+
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed the nudge visibility check to correctly scope by the current screen.
+* Fixed a cropped HTML non-intrusive in-app on device orientation change.
+* Fixed a bottom-positioned non-intrusive nudge rendering pushed above the screen with an unreachable close button when the content exceeded the visible area.
+
+#### Messaging
+<span style={{ backgroundColor: 'rgba(212, 56, 13, 0.1)', color: '#D4380D', border: '1px solid #FFCCC7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Breaking Changes</span>
+
+* `setPushToken` now returns a typed task object instead of `Void`, so you can observe per-call success or failure through `onSuccess` / `onFailure` or the async `result()` method. Direct calls and Objective-C callers compile unchanged. Swift function-reference assignments with an explicit `Void` return type no longer compile.
+
+  | API | Before (compiled) | After (explicit closure required) |
+  | :-- | :-- | :-- |
+  | `setPushToken` (`MoEngageSDKMessaging`) | `let tokenFn: (Data?) -> Void = MoEngageSDKMessaging.sharedInstance.setPushToken` | `let tokenFn: (Data?) -> Void = {`<br />`    _ = MoEngageSDKMessaging.sharedInstance.setPushToken($0)`<br />`}` |
+
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed the push notification received impression being dropped if storage encryption is enabled (introduced in `10.08.1`).
+
+#### Cards
+<span style={{ backgroundColor: 'rgba(212, 56, 13, 0.1)', color: '#D4380D', border: '1px solid #FFCCC7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Breaking Changes</span>
+
+* `presentCardsViewController`, `pushCardsViewController`, and `getCardsViewController` are now annotated `@MainActor`. Objective-C callers are unaffected. Swift callers invoking these methods from a non-main-actor context must now hop to the main actor.
+
+  | API | Before (compiled anywhere) | After (must be on the main actor) |
+  | :-- | :-- | :-- |
+  | `presentCardsViewController` | `func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`}` | `func openCards() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.presentCardsViewController()`<br />`}` |
+  | `pushCardsViewController` | `func openCards(in navController: UINavigationController) {`<br />`    MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`}` | `func openCards(in navController: UINavigationController) async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards(in navController: UINavigationController) {`<br />`    MoEngageSDKCards.sharedInstance.pushCardsViewController(toNavigationController: navController)`<br />`}` |
+  | `getCardsViewController` | `func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`        // use cardsVC`<br />`    })`<br />`}` | `func openCards() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`            // use cardsVC`<br />`        })`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openCards() {`<br />`    MoEngageSDKCards.sharedInstance.getCardsViewController(withCompletionBlock: { cardsVC in`<br />`        // use cardsVC`<br />`    })`<br />`}` |
+
+</Update>
+
 <Update label="29th June 2026" description="SDK 10.14.0">
 
 <CardGroup cols={2}>
