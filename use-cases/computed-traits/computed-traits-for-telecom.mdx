@@ -1,0 +1,127 @@
+---
+title: "Computed Traits for Telecom"
+description: "A reference of computed traits for telecom: the computation method, data source, and business use case for each trait."
+keywords: "computed traits, telecom, prepaid, recharge, data usage, roaming, VAS, churn, user attributes"
+---
+
+<Note>
+  Computed Traits is an Early Access feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
+</Note>
+
+Telecom apps generate some of the richest behavioral data in any industry: recharges, data usage, VAS activation, roaming, and device profile. Computed traits turn that raw activity into live user attributes you can segment on, personalize with, and branch Flows on, without engineering support or CSV uploads.
+
+This page is a menu. Each row tells you what to build, which computation method to pick, what event data it needs, the business outcome, and how to use it.
+
+New to computed traits? [Computed Traits - Overview](/user-guide/data/computed-traits/computed-traits-overview) explains what they are and how each computation method works, and [Create a Computed Trait](/user-guide/data/computed-traits/create-a-computed-trait) walks through building one.
+
+## How Computed Traits Work
+
+Every trait on this page follows the same four-step model. Once you recognize it, the tables below read at a glance.
+
+<Steps>
+  <Step title="Start with an event" icon="database">
+    A user behavior you already track, such as Recharge Successful or Daily Usage Summary.
+  </Step>
+  <Step title="Choose a method" icon="calculator">
+    [Count, Aggregation, First/Last Value, or SQL](/user-guide/data/computed-traits/computed-traits-overview#methods-of-computations).
+  </Step>
+  <Step title="Get a trait" icon="user-check">
+    A live attribute like Last Recharge Date that updates automatically.
+  </Step>
+  <Step title="Activate it" icon="rocket">
+    Use it in segmentation, Jinja personalization, and Flows.
+  </Step>
+</Steps>
+
+Once a trait runs, it becomes a standard user attribute you can use anywhere in MoEngage: build [segments](/user-guide/segment/segment-operations/rule-based-filter-segments) from it, insert its value into message copy with [Jinja personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language), or branch a [Flow](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows) on it.
+
+<Tip>
+  **Most traits here are no-code.** The <Badge color="green">Count</Badge> <Badge color="green">Aggregation</Badge> and <Badge color="green">First/Last Value</Badge> methods need no SQL. Reach for <Badge color="purple">SQL</Badge> only for composite scores that combine multiple events, or for ratios such as redemption or completion rate. You can build every no-code trait on this page yourself.
+</Tip>
+
+## Start Here
+
+Build these three first. They give you the fastest return and the most reuse across campaigns.
+
+<CardGroup cols={3}>
+  <Card title="Last Recharge Date" icon="clock">
+    **Last Value** · The highest-impact telecom trait; unlocks all prepaid retention.
+  </Card>
+  <Card title="Preferred Recharge Denomination" icon="sim-card">
+    **Last Value** · Transforms home-screen and SMS personalization.
+  </Card>
+  <Card title="Total Data Consumed" icon="gauge">
+    **Aggregation** · Powers plan-fit recommendations, no SQL needed.
+  </Card>
+</CardGroup>
+
+## Browse Traits by Goal
+
+<Info>
+  The event and attribute names in these tables are examples. The exact names in your account depend on how your app tracks data, so you might not find an event named `Recharge Successful` as written here. Check your tracked events and attributes under **Data** before you build a trait, and ask your development team to track any that are missing. For how tracking works, see [A Complete Guide to Event Tracking](/user-guide/data/event-data/a-complete-guide-to-event-tracking).
+</Info>
+
+<Tabs>
+  <Tab title="Recharge & Renewal" icon="arrows-rotate">
+    Every prepaid user has a recharge rhythm. Capture it, and each reminder lands at the right moment.
+
+    | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Use It |
+    | --- | --- | --- | --- | --- |
+    | Total Recharges Last 90 Days | Count | **Event:** `Recharge Successful` | Tell heavy recharge users apart from light ones for VIP treatment and offer strength. | Run loyalty-tier promotions for heavy users, and skip low-value users from cashback-heavy offers. |
+    | Total Recharge Amount Lifetime | Aggregation (Sum) | **Event:** `Recharge Successful`; **Attribute:** `amount` | The prepaid equivalent of wallet share: rank users by revenue. | Segment top-revenue users for VIP roaming or device offers, and exclude them from margin-eroding promos. |
+    | Average Recharge Amount | Aggregation (Average) | **Event:** `Recharge Successful`; **Attribute:** `amount` | Recommend the right pack denomination without over-upselling. | Personalize in-app pack cards to around each user's average recharge. |
+    | Preferred Recharge Denomination | Last Value | **Event:** `Recharge Successful`; **Attribute:** `pack_type` (Voice, Data, Combo, Unlimited) | Surface the exact pack the user actually buys, reducing friction. | Personalize the home screen, and send an SMS with a pre-filled recharge deep link. |
+    | Last Recharge Date | Last Value | **Event:** `Recharge Successful`; **Attribute:** `timestamp` | Detect users about to enter grace or disconnect state. | Build segments with date operators to send an escalating reminder sequence: 3 days before, 1 day before, on expiry, and 3 days after. |
+    | Recharge Cycle (Days) | SQL Computation | Average interval between `Recharge Successful` events | Per-user recharge cadence, the master trait for prepaid retention. | Run a Flow that sends a reminder at 90% of each user's cycle length. |
+  </Tab>
+  <Tab title="Data & Plan Fit" icon="gauge">
+    Match users to plans that fit their real usage, which cuts bill-shock complaints and drives voluntary upgrades.
+
+    | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Use It |
+    | --- | --- | --- | --- | --- |
+    | Average Daily Data Usage (GB) | Aggregation (Average) | **Event:** `Daily Usage Summary`; **Attribute:** `data_gb` | Recommend the right data pack; mismatched users churn fastest. | Send a pack-upgrade offer when usage runs above 1.5x the plan, and a downsell suggestion when it runs well below. |
+    | Total Data Consumed (30 Days) | Aggregation (Sum) | **Event:** `Daily Usage Summary`; **Attribute:** `data_gb` | Absolute usage that sizes plan recommendations correctly. | Personalize pack-fit calculator emails with the value. |
+    | Data Overage Incidents | Count | **Event:** `Data Limit Exceeded` | Repeat overage users are prime upgrade candidates, or churn risks. | After 2 overages in 30 days, send an unlimited-pack offer and skip non-data upsells. |
+    | Streaming Data Ratio | SQL Computation | `Video Streaming GB` / `Total Data` | Ratio that flags streaming-heavy users for OTT bundle cross-sell. | Send an in-app OTT bundle offer, and a co-branded partnership push. |
+  </Tab>
+  <Tab title="VAS & Roaming" icon="plane">
+    Value-added services and roaming lift ARPU. These traits show who is ready for what.
+
+    | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Use It |
+    | --- | --- | --- | --- | --- |
+    | Total VAS Services Activated | Count | **Event:** `VAS Activated` | Measure VAS adoption and spot saturation vs. opportunity. | Skip cross-sell when a user is already at 3 or more services, and upsell caller tunes or entertainment when they are at zero. |
+    | Preferred VAS Category | Last Value | **Event:** `VAS Activated`; **Attribute:** `category` (Entertainment, Utility, Regional) | Personalize the VAS carousel and recommend the right category. | Send a category-based email digest, and promote regional-language content. |
+    | Total Roaming Sessions | Count | **Event:** `Roaming Session Started` | Frequent travelers are prime targets for pre-departure roaming packs. | Send a roaming-pack push before the user's typical travel window, and auto-enable premium roaming for frequent travelers. |
+    | Last Roaming Country | Last Value | **Event:** `Roaming Session Started`; **Attribute:** `country` | Localize roaming-pack offers per traveler. | Recommend region-specific packs, and run travel-partner co-marketing. |
+  </Tab>
+  <Tab title="Cross-sell" icon="arrows-repeat">
+    Most telco customers hold a single product. These traits identify who is ready for a second.
+
+    | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Use It |
+    | --- | --- | --- | --- | --- |
+    | Distinct Products Held | Aggregation (Count Distinct) | **Event:** `Product Owned Snapshot`; **Attribute:** `product_type` | A single-product vs. multi-product indicator. | Cross-sell to single-product users, and skip anyone already holding 3 or more products. |
+    | Last Broadband Interest Event | Last Value | **Events:** `Broadband Page Viewed`, `Callback Requested`; **Attribute:** `timestamp` | Surface hot leads for field sales quickly. | Run a Connector campaign that notifies your sales team when a user shows recent interest. |
+    | Prepaid-to-Postpaid Propensity | SQL Computation | Average recharge above a threshold, recharge consistency, and tenure over 12 months | Composite score identifying prepaid users ready to convert to postpaid. | Run a postpaid-offer campaign with a personalized bill estimate. |
+    | Broadband Cross-sell Score | SQL Computation | Home Wi-Fi usage patterns, no active `broadband_id`, and an available address | Composite score that prioritizes the field-sales pipeline for home broadband. | Send a webform and callback booking, and hand off to sales through a Connector campaign. |
+  </Tab>
+  <Tab title="Churn & Retention" icon="shield-halved">
+    Prepaid churn is the biggest leak. These traits give you enough early warning to intervene.
+
+    | Computed Trait | Method | Data Source (Events / Attributes) | Business Use Case | How to Use It |
+    | --- | --- | --- | --- | --- |
+    | Last Complaint Date | Last Value | **Event:** `Support Ticket Raised`; **Attribute:** `timestamp` | Customers who recently complained are at higher risk of porting out. | Run a Flow that sends an NPS survey and a goodwill offer within 7 days of a resolved ticket. |
+    | Total Complaints Raised | Count | **Event:** `Support Ticket Raised` | Serial complainers need dedicated support routing, not more marketing. | Route users with more than 3 complaints in 90 days to a support escalation, and exclude them from campaigns. |
+    | Days Since Last Recharge | Last Value | **Event:** `Recharge Successful`; **Attribute:** `timestamp` | The earliest recency-based churn indicator. | Build segments with date operators for an escalating win-back: a reminder push, then an offer, then a deeper offer. |
+    | Port-Out Risk Score | SQL Computation | Recharge delay, complaint recency, and competitor-site visit signals | Composite churn score for retention teams. | Trigger a retention call-back, and send a win-back offer over SMS. |
+  </Tab>
+</Tabs>
+
+## Related Documentation
+
+Computed traits are used across MoEngage. These guides cover the surfaces referenced in the tables above:
+
+- [Segments](/user-guide/segment/segment-operations/rule-based-filter-segments): build audiences from a computed trait's value.
+- [Campaigns and channels](/user-guide/campaigns-and-channels/getting-started/introduction/moengage-channels): the channels you can reach users on.
+- [Flows](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows): branch users down different paths based on a trait.
+- [Message personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/overview): insert trait values into your content with Jinja.
+- [Data](/user-guide/data/key-concepts/overview-data): how MoEngage collects and manages the event data these traits build on.
