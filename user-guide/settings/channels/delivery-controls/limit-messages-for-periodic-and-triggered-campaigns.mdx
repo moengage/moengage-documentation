@@ -39,7 +39,8 @@ Without this feature, marketers had to build workarounds using custom attributes
 - This feature works independently of, and alongside, Frequency Capping — enabling one does not change the behavior of the other.
 - The maximum frequency window you can configure is 1 year.
 - This feature is also supported on existing campaigns.
-
+- This feature is not applicable to transactional campaigns (for example, transactional email campaigns).
+- This feature is not applicable to Flows.
 
 ## How the Limit is Counted
 
@@ -57,8 +58,8 @@ For each channel and delivery type, there are different mechanisms on how MoEnga
 
 > **Note:** This event-based counting logic applies only to the channels listed above.
 
-### Platform-level limit for Push and Cards
- 
+### Platform-level Limit for Push and Cards
+
 <Info>
 For **Push** and **Cards**, the limit is applied at the **platform level**, not at the user level. This means the count is tracked separately for each platform — **Android**, **iOS**, and **Web** — rather than as a single combined count for the user.
 **Example:** Suppose you set a limit of **2 messages in 7 days** on a push campaign.
@@ -79,6 +80,24 @@ The limit works on a **sliding window**, not a fixed calendar period. Each time 
 - If the user has already received 2 within the trailing 7-day period, the message is blocked for that user until enough time has passed for one of the earlier sends to fall outside the 7-day window.
 
 This means the window continuously "slides" forward with time rather than resetting on a fixed schedule (such as every Monday or on the 1st of the month).
+
+<Warning>
+ - A delay in a periodic campaign's send time can affect delivery on the following day: The window is measured from the exact time of the user's previous successful send, not from the campaign's scheduled time. As a result, a delay on one day can cause a user to be skipped on the next.
+
+     **Example:** A periodic campaign is scheduled to send daily at 8:00 AM, with a limit of **1 message in 1 day**.
+     - On Day 1, the send is delayed and goes out at **8:15 AM**. The user receives it at 8:15 AM.
+     - On Day 2, the campaign runs on schedule at 8:00 AM, and this user is due to receive it at **8:01 AM**.
+     - Only 23 hours and 46 minutes have elapsed since the user's last successful delivery (8:15 AM the previous day), so the 24-hour window has not yet completed. The send is blocked, and the user does not receive the campaign that day.
+     This behavior is more likely to occur with tight limits, such as 1 message per day, on campaigns prone to delayed sends.
+  
+ - Calendar months have differing lengths, which can affect delivery for monthly campaigns: A frequency defined in days (for example, 30 days) is measured as an exact day count, not as a calendar month. If a calendar month has fewer days than the configured frequency, a user may not be eligible to receive the next occurrence.
+    
+     **Example:** A campaign is set to send monthly on the 15th, with a limit of **1 message in 30 days**.
+     - The user receives the campaign on **February 15**.
+     - There are fewer than 30 days between February 15 and March 15 (28 or 29, depending on the year).
+     - As a result, the 30-day window has not completed by March 15, and the user is not eligible to receive the campaign on that occurrence.
+     To avoid this, use a frequency unit of **Month(s)** rather than an equivalent number of days for monthly campaigns.
+</Warning>
 
 ## Configure Limit Messages per User
      <img alt="limit_message1.png"  src="/images/limit_message1.png"  />
@@ -128,7 +147,9 @@ If you notice a drop or dip in the number of users reached by your campaign, che
     No. It uses a sliding window that is recalculated relative to the current time at every send attempt, not a fixed calendar period.
   </Accordion>
   <Accordion title="What happens if a message fails to deliver — does it still count against the limit?">
-    It depends on the channel and connector type, since that determines whether **Sent** or **Delivered** is used to count the limit. For more information, refer to [How the limit is counted](/user-guide/settings/channels/delivery-controls/limit-messages-for-periodic-and-triggered-campaigns#how-the-limit-is-counted) above.
+    It depends on the channel and connector type, since that determines whether **Sent** or **Delivered** is used to count the limit. Where **Delivered** is used, failed or dropped sends don't count. For Push and Cards, the limit applies separately per platform, not shared across platforms.
+
+    For more information, refer to [How the limit is counted](/user-guide/settings/channels/delivery-controls/limit-messages-for-periodic-and-triggered-campaigns#how-the-limit-is-counted) above.
   </Accordion>
   <Accordion title="If I change the frequency on a live campaign, does it apply to users who are already partway through their current window?">
     Yes. When you update the number of days/months, each user's existing countdown is adjusted to reflect the new frequency.
