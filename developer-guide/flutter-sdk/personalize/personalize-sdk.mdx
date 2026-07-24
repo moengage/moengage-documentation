@@ -15,14 +15,10 @@ The MoEngage Personalize SDK provides a secure framework for delivering personal
 
 # How It All Fits Together
 
-Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
-
-1. **Dashboard Configuration:** A marketer creates an Experience Campaign in the MoEngage dashboard and assigns it a unique `experienceKey` (e.g., `home_banner`). They configure the specific JSON payload to be returned for different user segments.
-2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user.
-3. **The Fetch Call :** Your application calls `fetchExperience` or `fetchExperiences` with a specific key to retrieve the actual payload. The SDK uses the metadata gathered in Step 2 to accurately resolve and return this request.
+<snippet file="/snippets/personalize-workflow-overview.mdx" />
 
 <Info>
-  The SDK returns **raw** JSON only. As the developer, you are responsible for parsing this payload and building the corresponding UI in your application.
+  The SDK returns a **map data structure** representing the payload. As the developer, you are responsible for parsing this data and building the corresponding UI in your application.
 </Info>
 # Integrating MoEngage Personalization
 
@@ -89,7 +85,7 @@ personalize.fetchExperiencesMeta(statuses)
 The returned `Future` resolves with an [`ExperienceCampaignsMetadata`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) object containing all necessary metadata for campaign execution. The `catchError` handler receives a [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) with a `code` and `message` identifying the reason for failure.
 
 <Note>
-  `fetchExperience` and `fetchExperiences` resolve keys against the result of the most recent `fetchExperiencesMeta` call. If you skip the metadata call, or call it with a status filter that does not include the keys you later request, the subsequent fetch returns `INVALID_EXPERIENCE_KEY` for those keys.
+  You can call `fetchExperience` and `fetchExperiences` with or without calling `fetchExperiencesMeta` first. The metadata call helps optimize the experience fetch by identifying which experience keys are available for the current user.
 </Note>
 
 ## 2. Fetch Personalized Content
@@ -129,9 +125,7 @@ personalize.fetchExperience('<experience_key>', attributes: attributes)
 
 - **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
 
-<Note>
-  You can fetch up to 25 experiences in a single call. If you exceed this, the SDK returns the 25 most recently updated experiences and notifies you of the unfulfilled keys.
-</Note>
+<snippet file="/snippets/personalize-experience-fetch-limit.mdx" />
 
 <CodeGroup>
 
@@ -155,26 +149,13 @@ Throws [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize
 
 Use Cases:
 
-**Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
+<snippet file="/snippets/personalize-contextual-targeting.mdx" />
 
-Attribute values must be strings.
-
-```json Example
-{
-  "loyalty_tier": "gold",
-  "app_lang": "spanish"
-}
-```
-
-<Warning>
-  Do not include PII (email, phone, government IDs) in attributes. Use the dedicated user attribute APIs for identity data.
-</Warning>
+<snippet file="/snippets/personalize-pii-warning.mdx" />
 
 ## 3. Notify SDK on Showing the Experience (Track Impressions)
 
-An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
-
-To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
+<snippet file="/snippets/personalize-impression-definition.mdx" />
 
 ### 3a. Notify SDK for Experience Campaigns
 
@@ -198,7 +179,7 @@ personalize.experienceShown(campaigns.first);
 
 ### 3b. Notify SDK for Offering Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content (such as a product recommendation or a coupon code). Each experience campaign can carry one or more offerings inside its `payload`. A fetched campaign that carries an offerings group has the following shape:
+<snippet file="/snippets/personalize-offerings-definition.mdx" />
 
 ```json Sample ExperienceCampaign
 {
@@ -214,14 +195,7 @@ personalize.experienceShown(campaigns.first);
 }
 ```
 
-The following fields appear in the sample payload:
-
-- `payload` is the campaign's content map. Offerings are nested one level below it.
-- `<your_offering_key>` is configured for this campaign on the MoEngage dashboard. You define the key name when authoring the campaign.
-- `value` is a **stringified JSON array**. Parse it with `jsonDecode(value)` to obtain the list of offering maps.
-- Each offering map contains:
-  - `offering_content` — the data you render into your UI.
-  - `offering_context` — attribution data used by the SDK; do not modify it.
+<snippet file="/snippets/personalize-offerings-payload-structure.mdx" />
 
 Once you have decoded one or more offering maps out of `campaign.payload`, pass them back to the SDK when the corresponding UI renders:
 
@@ -289,9 +263,7 @@ personalize.offeringClicked(campaign, offeringPayload);
 
 For the structure of `offeringPayload`, see [Sample ExperienceCampaign](#3b-notify-sdk-for-offering-campaigns) under §3b. Pass one of the decoded offering maps (parsed from the campaign's `payload`) as `offeringPayload`.
 
-<Info>
-  You can use these Offering-specific functions only if the data is part of an offering payload. For all other experience data, use the standard experience shown/clicked functions.
-</Info>
+<snippet file="/snippets/personalize-offering-functions-restriction.mdx" />
 
 # FAQs
 
