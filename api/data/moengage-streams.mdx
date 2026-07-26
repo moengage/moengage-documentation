@@ -16,74 +16,6 @@ The following are a few popular use cases for Streams:
 - Export the notification interaction data from MoEngage to your machine learning system for optimizing the performance of your algorithms.
 - Send all user events present in MoEngage to an external data lake.
 
-## Enable Streams for Your Account
-
-<Note>
-  Contact your Customer Success Manager to get this enabled for your account. Note that Streams is available as a part of the Streams add-on.
-</Note>
-
-Streams can export data to your API endpoint or one of the partners integrated with MoEngage.
-
-### Set Up Streams for Exporting Data to Your API Endpoint
-
-To export data from MoEngage to your servers, contact your MoEngage Customer Success Manager (CSM) or the Support team with the following information:
-
-1. API endpoint to send the data. It can be something like `https://api.example.com/events`.
-2. List of events that need to be sent to this API endpoint. A list of campaign events available for export is mentioned in the [next section](#campaign-interaction-events).
-3. List of user attributes and device attributes that need to be sent to the API endpoint with each event.
-4. If you need all campaign interaction events, we will export such events as mentioned in the [next section](#campaign-interaction-events).
-
-You can use the following template to raise a Streams enablement request:
-
-<Tabs>
-  <Tab title="Support Ticket">
-    ```text
-    Hey!
-    
-    Please enable Streams for my Workspace.
-    
-    Workspace Region: DC-01/DC-02/DC-03/DC-04
-    Workspace Name: MyWorkspace
-    Workspace ID: <my-workspace-id>
-    
-    API Endpoint: [https://www.example.com/api?url_param1=vaue1](https://www.example.com/api?url_param1=vaue1)
-    
-    Headers:
-    header1: value1
-    header2: value2
-    
-    Authentication:
-    Method: No auth/Basic Auth
-    [Only for basic auth] Basic Auth username: "Username"
-    [Only for basic auth] Basic Auth password: "Password"
-    
-    Events to export: All/List of events
-    [Optional] List of events: List of events to export
-    
-    User properties to export: All/List of user properties
-    [Optional] List of user properties: List of user properties to export
-    ```
-  </Tab>
-</Tabs>
-
-<Info>
-  **Whitelist IPs**
-
-  If your endpoints are in a Virtual Private Cloud (VPC) or not accessible publicly, you must whitelist [these](/user-guide/settings/account/security/ip-whitelisting-in-moengage) MoEngage IPs depending on the region of your Workspace.
-</Info>
-
-### Set Up Streams for Exporting Data to Partners
-
-With Streams, you can export data directly to integrated partners so that you can enrich your marketing/analytics activities on these platforms. As of now, Streams can export data to the following partners:
-
-- [Mixpanel](https://partners.moengage.com/hc/en-us/articles/4410027746836-Mixpanel#01FV1SH74TEQEBE0JVVAWJSWAS)
-- [Amplitude](https://partners.moengage.com/hc/en-us/articles/4409507678228-Amplitude-Audiences#h_01HJ11HMQGHRZT4GR260D27QK3)
-- [Segment](https://partners.moengage.com/hc/en-us/articles/12661517099284-MoEngage-Source)
-- [mParticle](https://partners.moengage.com/hc/en-us/articles/10223363585428-mParticle-Inbound)
-- [Rudderstack](https://partners.moengage.com/hc/en-us/articles/12718141249556-MoEngage-Source)
-
-Please follow partner-specific integration documents for setting this up.
-
 ## Campaign Interaction Events
 
 The following is a list of Campaign Interaction Events that MoEngage generates, which you will often need to be sent to your API endpoint:
@@ -128,15 +60,6 @@ The following is a list of Campaign Interaction Events that MoEngage generates, 
 - The following event attributes are not supported for export in streams currently: `email_subject`, `email_click_url`, `inapp_widget_clicked`, `onsite_message_url_clicked`.
 
 For more information on when the campaign events and attributes are tracked, refer to [Data Exports Glossary](/user-guide/data/exports/events/data-export-glossary).
-
-## Authentication Methods
-
-Streams supports the following types of authentications:
-
-- **No auth**
-- **Basic Auth**: Streams supports the standard Basic Auth implementation. You must provide us with the username and password while configuring Streams. All data related to authentication is always encrypted in our systems.
-
-To support other authentication methods such as API Key, Bearer Token, and so on, you can communicate the same through the enablement ticket and provide us the Header key and static value to be passed. We will not be able to support dynamically refreshing API keys and tokens.
 
 ## API Request Format
 
@@ -221,35 +144,135 @@ The keys in the API request and their description are:
 | parent_flow_id     | Identifier for campaigns within a MoEngage Flow.             |
 | parent_flow_name   | Name of the MoEngage Flow.                                   |
 
-## Limitations
+## Authentication Methods
 
-Please be aware of the following constraints or limitations while integrating Streams with third-party apps.
+Streams supports the following types of authentications:
 
-- We can send data to only one static endpoint where the access token or link has no expiry. We cannot integrate it on a dynamic endpoint where the access token is refreshed every few hours.
-- We cannot modify the body or key names while streaming the data from MoEngage.
+- **No auth**
+- **Basic Auth**: Streams supports the standard Basic Auth implementation. You must provide us with the username and password while configuring Streams. All data related to authentication is always encrypted in our systems.
+- **OAuth 2.0**: Streams supports OAuth 2.0 authentication using the Client Credentials grant type, where MoEngage fetches and refreshes the access token for you. A self-serve option to select OAuth 2.0 directly in Streams is not yet available. For setup steps, refer to [Configure OAuth 2.0 for Streams](#configure-oauth-20-for-streams).
 
-## Sync Events from One MoEngage App to Another
+To support other authentication methods such as API Key, Bearer Token, and so on, you can communicate the same through the enablement ticket and provide us the Header key and static value to be passed. Apart from OAuth 2.0, where MoEngage fetches and refreshes the access token through your Authorization configuration, we cannot support dynamically refreshing API keys and tokens.
 
-With MoEngage Streams, it is possible to sync your events from one MoEngage App to another. The following are some use cases:
+## Configure OAuth 2.0 for Streams
 
-- **Cross-Product Promotions**: If you have teams across various product offerings, keeping two apps synced can help you cross-promote your products to upsell and increase conversion.
-- **Centralized Analysis**: Businesses with multiple apps can do cross-app analysis to unlock higher LTV, provide opportunities for cross-selling, and increase brand loyalty.
+To use OAuth 2.0 as the authentication method for Streams, first create an OAuth 2.0 configuration in MoEngage, and then request enablement for your Streams endpoint through a support ticket.
+
+<Steps>
+  <Step title="Create an OAuth 2.0 configuration">
+    Navigate to **Settings** \> **Advanced settings** \> **Authorization configuration** and add an OAuth 2.0 configuration using the Client Credentials grant type. Provide the token endpoint, credentials, and response settings for your authorization server. For the full walkthrough, refer to [Authorization Configuration with OAuth 2.0](/user-guide/settings/advanced-settings/authorization-configuration-with-oauth-20).
+  </Step>
+  <Step title="Confirm the configuration is active">
+    Save the configuration and verify that its status is **Active** on the Authorization configuration page. A "Failed" configuration cannot fetch a token and cannot be used for Streams.
+  </Step>
+  <Step title="Note the OAuth configuration ID">
+    Open the OAuth 2.0 configuration you created. The configuration ID is the last segment of the page URL. For example, if the URL is `.../advanced/auth-config/edit/69242b6047c75584338719e5`, the configuration ID is `69242b6047c75584338719e5`. Copy this ID to include in the enablement ticket.
+
+    ![The OAuth configuration ID appears as the last segment of the Authorization configuration page URL](/images/streams-oauth-config-full.png)
+  </Step>
+  <Step title="Raise a support ticket to enable OAuth 2.0 for Streams">
+    Follow the steps in [Enable Streams for Your Account](#enable-streams-for-your-account) and include the OAuth configuration ID so that the Support team can link your OAuth 2.0 configuration to your Streams endpoint.
+  </Step>
+</Steps>
+
+## Enable Streams for Your Account
+
+<Note>
+  Streams is available as part of the Streams add-on. Contact your dedicated MoEngage Customer Success Manager (CSM) to enable it for your account.
+</Note>
+
+Streams can export data to your API endpoint or one of the partners integrated with MoEngage.
+
+### Set Up Streams for Exporting Data to Your API Endpoint
+
+To export data from MoEngage to your servers, contact your MoEngage Customer Success Manager (CSM) or the Support team with the following information:
+
+1. API endpoint to send the data. It can be something like `https://api.example.com/events`.
+2. List of events that need to be sent to this API endpoint. A list of campaign events available for export is mentioned in the [Campaign Interaction Events](#campaign-interaction-events) section.
+3. List of user attributes and device attributes that need to be sent to the API endpoint with each event.
+4. If you need all campaign interaction events, we will export such events as mentioned in the [Campaign Interaction Events](#campaign-interaction-events) section.
+
+You can use the following template to raise a Streams enablement request:
+
+<Tabs>
+  <Tab title="Support Ticket">
+    ```text
+    Hey!
+    
+    Please enable Streams for my Workspace.
+    
+    Workspace Region: DC-01/DC-02/DC-03/DC-04
+    Workspace Name: MyWorkspace
+    Workspace ID: <my-workspace-id>
+    
+    API Endpoint: [https://www.example.com/api?url_param1=vaue1](https://www.example.com/api?url_param1=vaue1)
+    
+    Headers:
+    header1: value1
+    header2: value2
+    
+    Authentication:
+    Method: No auth/Basic Auth/OAuth 2.0
+    [Only for basic auth] Basic Auth username: "Username"
+    [Only for basic auth] Basic Auth password: "Password"
+    [Only for OAuth 2.0] OAuth configuration ID: "<oauth-config-id>"
+    
+    Events to export: All/List of events
+    [Optional] List of events: List of events to export
+    
+    User properties to export: All/List of user properties
+    [Optional] List of user properties: List of user properties to export
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+  **Whitelist IPs**
+
+  If your endpoints are in a Virtual Private Cloud (VPC) or not accessible publicly, you must whitelist [these](/user-guide/settings/account/security/ip-whitelisting-in-moengage) MoEngage IPs depending on the region of your Workspace.
+</Info>
+
+### Set Up Streams for Exporting Data to Partners
+
+With Streams, you can export data directly to integrated partners so that you can enrich your marketing/analytics activities on these platforms. As of now, Streams can export data to the following partners:
+
+- [Mixpanel](https://partners.moengage.com/hc/en-us/articles/4410027746836-Mixpanel#01FV1SH74TEQEBE0JVVAWJSWAS)
+- [Amplitude](https://partners.moengage.com/hc/en-us/articles/4409507678228-Amplitude-Audiences#h_01HJ11HMQGHRZT4GR260D27QK3)
+- [Segment](https://partners.moengage.com/hc/en-us/articles/12661517099284-MoEngage-Source)
+- [mParticle](https://partners.moengage.com/hc/en-us/articles/10223363585428-mParticle-Inbound)
+- [Rudderstack](https://partners.moengage.com/hc/en-us/articles/12718141249556-MoEngage-Source)
+
+Please follow partner-specific integration documents for setting this up.
 
 ## Stream Events to Another MoEngage App
+
+With MoEngage Streams, you can sync events from one MoEngage App to another. Common use cases include:
+
+- **Cross-Product Promotions**: If you have teams across various product offerings, keeping two apps synced helps you cross-promote products to upsell and increase conversion.
+- **Centralized Analysis**: Businesses with multiple apps can run cross-app analysis to unlock higher LTV, cross-sell, and increase brand loyalty.
+
+To set this up:
 
 <Steps>
   <Step title="Get your Streams endpoint">
     Speak to your CSM to get your dedicated Streams endpoint for your destination app.
   </Step>
-  <Step title="Set up Streams on source App">
-    Follow the enablement steps to configure the source App with the following details:
+  <Step title="Set up Streams on the source app">
+    Follow the [enablement steps](#enable-streams-for-your-account) to configure the source app with the following details:
 
     - **Endpoint:** Use the dedicated MoEngage endpoint provided for your destination app.
-    - **Authentication:** Enable Basic Auth. Use your destination app's **Workspace ID** as Username and its **Data API Key** as Password.
+    - **Authentication:** Enable Basic Auth. Use your destination app's **Workspace ID** as the username and its **Data API Key** as the password.
     - **Header:** Provide `"Content-Type" : "application/json"`.
     - **Events/Properties:** Select the list of events and user properties you want to stream.
   </Step>
 </Steps>
+
+## Limitations
+
+Please be aware of the following constraints or limitations while integrating Streams with third-party apps.
+
+- We can send data to only one static endpoint. If the access token expires, use an OAuth 2.0 configuration so that MoEngage can fetch and refresh the token for you (see [Authentication Methods](#authentication-methods)). For any other authentication method, we cannot integrate with an endpoint where the access token or link expires or is refreshed every few hours.
+- We cannot modify the body or key names while streaming the data from MoEngage.
 
 ## Frequently Asked Questions
 
