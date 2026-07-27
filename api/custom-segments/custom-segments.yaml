@@ -591,21 +591,28 @@ paths:
 
           | `data_type` | Allowed operators | Extra fields |
           |---|---|---|
-          | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
+          | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `contains`, `is`, `exists` | `case_sensitive` |
           | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
           | `bool` | `is`, `exists` | — |
           | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
           | `geopoint` | (implicit `around`) | `value` (latitude), `value1` (longitude), `radius`; no `operator` or `negate` |
-          | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
+          | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
           | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
           | `object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
           | `array_object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
 
+          **"Contains spaces" and "is empty":** the dashboard shows these as operators, but there is no `containsSpaces` or `is_empty` operator at the payload level. Send the equivalent operator and value instead:
+
+          | Dashboard option | `operator` | `value` |
+          |---|---|---|
+          | Contains spaces | `contains` | `" "` (a single space) |
+          | Is empty | `is` | `""` (an empty string) |
+
+          Negate either one with `negate: true` to express "does not contain spaces" or "is not empty".
+
           **`value` shape by operator:**
           - Array: `in` (string, double, array types); `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing` (string); `contains`, `startsWith`, `endsWith` (array_string); `in` (datetime with time/day/month extract types)
-          - Scalar: `is` (bool, datetime, and the string/array_string special cases below), `on`, `before`, `after`, `lessThan`, `greaterThan`, `inTheLast`, `inTheNext`
-          - Empty string (`""`): `is_empty`
-          - Single space (`" "`): `containsSpaces`
+          - Scalar: `is` (bool, datetime, and the string/array_string cases in the table above), `on`, `before`, `after`, `lessThan`, `greaterThan`, `inTheLast`, `inTheNext`
           - Absent: `exists`, `today`
 
           **`exists` cleans up:** When `operator` is `exists`, `value`, `value1`, and `value_type` are removed from the payload.
@@ -622,19 +629,25 @@ paths:
           - `"day_of_the_week"` — weekday (0–6)
           - `"day_of_the_month"` — day (1–31)
           - `"month_of_the_year"` — month (1–12)
-          - `"date_month_of_the_year"` — MM-DD combination
+          - `"date_month_of_the_year"` — month and day as an `MM-DD` string, for example `"06-15"`
 
           #### Cross-Attribute Comparison (Dynamic Values)
 
-          To compare an attribute against another attribute rather than a literal, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string in `value`:
+          To compare a user attribute against another user attribute rather than a literal, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string in `value`:
 
           | Source | `value` template |
           |---|---|
           | User attribute | `"{{MoeUserAttribute['<attr_name>']}}"` |
-          | Event attribute | `"{{MoeEventAttribute['<attr_name>']}}"` |
-          | Business event attribute | `"{{BusinessEventAttribute['<attr_name>']}}"` |
+
+          <Note>
+          Segment creation supports comparing a user attribute against another **user attribute** only. Comparing against an event attribute or a business event attribute is available in campaign filters, not when creating a segment.
+          </Note>
 
           For array types, `dynamic_attribute_type` uses the base element type: `array_string` → `"string"`, `array_double` → `"double"`. For `datetime`, `value_type` is forced to `"absolute"`.
+
+          Cross-attribute comparison is not available for:
+          - `object` and `array_object` attributes.
+          - `double` and `array_double` attributes when `operator` is `between`.
 
           ```json
           {
@@ -659,7 +672,7 @@ paths:
           |---|---|---|
           | `filter_type` | string | Always `"actions"` |
           | `action_name` | string | The internal event name |
-          | `project_name` | string | Optional; required only in multi-app workspaces |
+          | `project_name` | string | Optional; portfolio (multi-project) workspaces only. See below. |
           | `executed` | boolean | `true` = has performed; `false` = has NOT performed |
           | `execution` | object | Frequency condition |
           | `primary_time_range` | object | Time window for the event |
@@ -697,26 +710,75 @@ paths:
 
           #### Primary Time Range
 
-          | `type` | `value` shape | Needs `value1` |
-          |---|---|---|
-          | `inTheLast` | Integer count of `period_unit` | No |
-          | `between` | Start (ISO date or integer days) | Yes (end value) |
-          | `on` | ISO date or relative offset (0 = today, 1 = yesterday) | No |
-          | `before` | ISO 8601 date | No |
-          | `after` | ISO 8601 date | No |
-          | `inThisWeek` / `inLastWeek` / `inThisMonth` / `inLastMonth` | N/A | No |
+          `primary_time_range` stores five keys: `type`, `value`, `value1` (only for `between`), `value_type`, and `period_unit`. The payload accepts five `type` values:
 
-          Absolute date formatting: `value` → `YYYY-MM-DDT00:00:00.000Z`; `value1` → `YYYY-MM-DDT23:59:59.999Z`.
+          | `type` | `value` shape | Needs `value1` | `value_type` |
+          |---|---|---|---|
+          | `inTheLast` | Integer count of `period_unit` | No | `relative_past` (locked) |
+          | `between` | Start value: ISO date or integer count | Yes (end value) | `absolute` or `relative_past` |
+          | `on` | ISO date or integer count | No | `absolute` or `relative_past` |
+          | `before` | ISO date or integer count | No | `absolute` or `relative_past` |
+          | `after` | ISO 8601 date | No | `absolute` (locked) |
+
+          `period_unit` accepts `hours`, `days`, `weeks`, or `months`, and applies to `inTheLast`.
+
+          The dashboard also offers calendar windows such as **Today** and **This week**. These are not payload `type` values — each maps onto `type: "on"` with a specific `value` and `period_unit`:
+
+          | Dashboard option | Payload |
+          |---|---|
+          | Today | `{ "type": "on", "value": 0, "value_type": "relative_past", "period_unit": "days" }` |
+          | Yesterday | `{ "type": "on", "value": 1, "value_type": "relative_past", "period_unit": "days" }` |
+          | This week | `{ "type": "on", "value": 0, "value_type": "relative_past", "period_unit": "weeks" }` |
+          | Last week | `{ "type": "on", "value": 1, "value_type": "relative_past", "period_unit": "weeks" }` |
+          | This month | `{ "type": "on", "value": 0, "value_type": "relative_past", "period_unit": "months" }` |
+          | Last month | `{ "type": "on", "value": 1, "value_type": "relative_past", "period_unit": "months" }` |
+
+          Absolute date formatting: `value` → `YYYY-MM-DDT00:00:00.000Z`; `value1` → `YYYY-MM-DDT23:59:59.999Z`. For `between`, `value1` must be greater than `value`.
 
           #### Event Attribute Sub-Filters
 
-          Use the `attributes` block to narrow which event occurrences count — for example, a `purchase` event where `product_category` is `"electronics"`. Inner filters follow the same shape as User Property filters, with `category` set to `"event_property"`.
+          Use the `attributes` block to narrow which event occurrences count — for example, a `purchase` event where `product_category` is `"electronics"`.
+
+          Inner filters follow the same shape as User Property filters, with two differences:
+          - `filter_type` is `"action_attributes"` instead of `"user_attributes"`.
+          - `category` is the event attribute's own category, for example `"Event Property"`.
 
           Inner filters start directly from `filter_operator` and `filters` — do not add `included_filters` or `excluded_filters` inside the `attributes` block.
 
-          #### Aggregation (sum / avg / min / max)
+          ```json
+          "attributes": {
+            "filter_operator": "and",
+            "filters": [
+              {
+                "name": "currency",
+                "data_type": "string",
+                "category": "Event Property",
+                "filter_type": "action_attributes",
+                "operator": "is",
+                "negate": false,
+                "case_sensitive": false,
+                "value": "USD"
+              }
+            ]
+          }
+          ```
 
-          Add `aggregation_attributes` to compare an aggregate of a numeric event attribute against a threshold. Only valid when `executed: true`, `execution.type` is not `firstTime` or `lastTime`, and `primary_time_range.type` is not `before` or `after`.
+          #### Aggregation (sum / avg / min / max / median)
+
+          Add `aggregation_attributes` to compare an aggregate of a numeric event attribute against a threshold. The block holds exactly one filter.
+
+          Aggregation is only available when `executed: true`, `execution.type` is not `firstTime` or `lastTime`, and `primary_time_range.type` is not `before` or `after`.
+
+          | Key | Values |
+          |---|---|
+          | `attribute_name` | The numeric event attribute to aggregate |
+          | `data_type` | `double` |
+          | `aggregation_type` | `sum`, `avg`, `min`, `max`, `median` |
+          | `operator` | `is`, `between`, `lessThan`, `greaterThan` |
+          | `negate` | `true` inverts the comparison ("is not equal to", "is not between") |
+          | `value` | The numeric threshold; add `value1` when `operator` is `between` |
+          | `comparator` | Omit for a plain aggregate. Set to `change` or `percentageChange` to compare against an earlier window |
+          | `base_time_range` | Required when `comparator` is set; omit otherwise |
 
           ```json
           "aggregation_attributes": {
@@ -726,15 +788,45 @@ paths:
                 "attribute_name": "revenue",
                 "data_type": "double",
                 "aggregation_type": "sum",
-                "operator": ">",
-                "comparator": "greater_than",
-                "value": 1000,
+                "operator": "greaterThan",
                 "negate": false,
+                "value": 1000,
                 "is_dynamic_value": false
               }
             ]
           }
           ```
+
+          **Comparing against an earlier window.** When `comparator` is `change` or `percentageChange`, add `base_time_range` to define the window to compare against:
+
+          | Base window | `base_time_range` |
+          |---|---|
+          | Previous period | `{ "type": "previousPeriod" }` |
+          | Fixed date range | `{ "type": "between", "value": "<start ISO>", "value1": "<end ISO>" }` |
+
+          ```json
+          {
+            "attribute_name": "revenue",
+            "data_type": "double",
+            "aggregation_type": "sum",
+            "operator": "greaterThan",
+            "negate": false,
+            "value": 25,
+            "is_dynamic_value": false,
+            "comparator": "percentageChange",
+            "base_time_range": {
+              "type": "between",
+              "value": "2024-01-01T00:00:00.000Z",
+              "value1": "2024-01-31T23:59:59.999Z"
+            }
+          }
+          ```
+
+          #### Portfolio (Multi-Project) Workspaces
+
+          In workspaces with more than one project, add `project_name` to the event filter to scope the event to a specific project. Omit it in single-project workspaces.
+
+          To target all projects, set `project_name` to `"moe_portfolio"`.
 
           ---
 
@@ -950,6 +1042,36 @@ paths:
                             operator: "greaterThan"
                             negate: false
                             value: 100
+              user_property_object_nested:
+                summary: "User Property — Nested object (multiple levels)"
+                value:
+                  name: "users-with-nyc-billing-address"
+                  included_filters:
+                    filter_operator: "and"
+                    filters:
+                      - filter_type: "user_attributes"
+                        name: "profile"
+                        data_type: "object"
+                        filter_operator: "and"
+                        filters:
+                          - name: "billing_address"
+                            data_type: "object"
+                            filter_operator: "and"
+                            filters:
+                              - name: "city"
+                                data_type: "string"
+                                category: "Location"
+                                operator: "in"
+                                negate: false
+                                case_sensitive: false
+                                value: ["New York"]
+                              - name: "postal_code"
+                                data_type: "string"
+                                category: "Location"
+                                operator: "in"
+                                negate: false
+                                case_sensitive: false
+                                value: ["10001"]
               behavior_executed:
                 summary: "User Behavior — Has executed at least once"
                 value:
@@ -1015,7 +1137,8 @@ paths:
                           filters:
                             - name: "product_category"
                               data_type: "string"
-                              category: "event_property"
+                              category: "Event Property"
+                              filter_type: "action_attributes"
                               operator: "is"
                               negate: false
                               case_sensitive: false
@@ -1067,8 +1190,7 @@ paths:
                             - attribute_name: "revenue"
                               data_type: "double"
                               aggregation_type: "sum"
-                              operator: ">"
-                              comparator: "greater_than"
+                              operator: "greaterThan"
                               value: 1000
                               negate: false
                               is_dynamic_value: false
@@ -1508,24 +1630,30 @@ components:
 
         | `data_type` | Allowed `operator` values | Extra fields |
         |---|---|---|
-        | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive` |
+        | `string` | `in`, `containsInTheFollowing`, `startsWithInTheFollowing`, `endsWithInTheFollowing`, `contains`, `is`, `exists` | `case_sensitive` |
         | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
         | `bool` | `is`, `exists` | — |
         | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
         | `geopoint` | (implicit `around` — no `operator` or `negate` in payload) | `value` (latitude), `value1` (longitude), `radius` |
-        | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `containsSpaces`, `is_empty`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
+        | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
         | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
         | `object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
         | `array_object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
 
         When `operator` is `exists`, omit `value`, `value1`, and `value_type`.
 
-        For cross-attribute comparison, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string as `value`: `"{{MoeUserAttribute['attr_name']}}"`, `"{{MoeEventAttribute['attr_name']}}"`, or `"{{BusinessEventAttribute['attr_name']}}"`. For array types, `dynamic_attribute_type` is the element type (`array_string` → `"string"`, `array_double` → `"double"`).
+        The dashboard's "contains spaces" and "is empty" options have no matching payload operator.
+        Send `operator: "contains"` with `value: " "` for contains spaces, and `operator: "is"`
+        with `value: ""` for is empty.
+
+        For cross-attribute comparison, set `is_dynamic_value: true`, set `dynamic_attribute_type` to the base type of the referenced attribute, and use a template string as `value`: `"{{MoeUserAttribute['attr_name']}}"`. For array types, `dynamic_attribute_type` is the element type (`array_string` → `"string"`, `array_double` → `"double"`). Cross-attribute comparison is not available for `object` or `array_object`, or for `double` and `array_double` when `operator` is `between`.
       properties:
         filter_type:
           type: string
-          description: Must be `user_attributes` for a User Property filter.
-          enum: [user_attributes]
+          description: |
+            Set to `user_attributes` for a User Property filter, or `action_attributes` when the filter
+            sits inside an event's `attributes` block.
+          enum: [user_attributes, action_attributes]
         name:
           type: string
           description: The internal name of the user attribute (for example, `last_purchase_date`).
@@ -1545,12 +1673,10 @@ components:
             - in
             - contains
             - containsInTheFollowing
-            - containsSpaces
             - startsWith
             - startsWithInTheFollowing
             - endsWith
             - endsWithInTheFollowing
-            - is_empty
             - exists
             - lessThan
             - greaterThan
@@ -1609,7 +1735,7 @@ components:
             - `day_of_the_week` — weekday (0–6)
             - `day_of_the_month` — day (1–31)
             - `month_of_the_year` — month (1–12)
-            - `date_month_of_the_year` — MM-DD combination
+            - `date_month_of_the_year` — month and day as an `MM-DD` string, for example `"06-15"`
           enum:
             - default_option_date
             - time_of_the_day
@@ -1645,12 +1771,13 @@ components:
         is_dynamic_value:
           type: boolean
           description: |
-            Set to `true` when `value` references another attribute rather than a literal.
+            Set to `true` when `value` references another user attribute rather than a literal.
             Pair with `dynamic_attribute_type` to specify the base type of the referenced attribute.
-            Supported template formats for `value`:
-            - User attribute: `"{{MoeUserAttribute['<attr_name>']}}"`
-            - Event attribute: `"{{MoeEventAttribute['<attr_name>']}}"`
-            - Business event attribute: `"{{BusinessEventAttribute['<attr_name>']}}"`
+            Use the template format `"{{MoeUserAttribute['<attr_name>']}}"` for `value`.
+
+            Segment creation supports user attribute comparison only. Comparing against an event
+            attribute or a business event attribute is available in campaign filters.
+
             For `datetime` with a dynamic value, `value_type` is forced to `absolute`.
           default: false
         dynamic_attribute_type:
@@ -1674,7 +1801,9 @@ components:
         filters:
           type: array
           description: |
-            Attribute filters scoped to the event's properties. Each uses `category` set to `event_property`.
+            Attribute filters scoped to the event's properties. Each uses `filter_type` set to
+            `action_attributes` and `category` set to the event attribute's own category,
+            for example `Event Property`.
           items:
             $ref: '#/components/schemas/AttributeFilterV3'
       required:
@@ -1685,7 +1814,9 @@ components:
       type: object
       description: |
         A single condition in the `aggregation_attributes` block of a User Behavior filter.
-        Computes an aggregate (sum, avg, min, max) of a numeric event attribute and compares it to a threshold.
+        Computes an aggregate (sum, avg, min, max, median) of a numeric event attribute and compares it to a threshold.
+
+        The `aggregation_attributes` block holds exactly one condition.
 
         Only available when:
         - `executed: true`
@@ -1702,23 +1833,20 @@ components:
           description: The data type of the aggregated attribute.
         aggregation_type:
           type: string
-          enum: [sum, avg, min, max]
+          enum: [sum, avg, min, max, median]
           description: The aggregation function to apply across the user's matching event occurrences.
         operator:
           type: string
-          enum: [">", "<", ">=", "<=", "==", "!="]
-          description: The comparison operator symbol. Must match `comparator`.
-        comparator:
-          type: string
-          enum: [greater_than, less_than, greater_than_or_equal, less_than_or_equal, equals, not_equal]
-          description: Human-readable form of `operator`.
+          enum: [is, between, lessThan, greaterThan]
+          description: |
+            The comparison operator. Combine with `negate` to express the negative forms:
+            `is` with `negate: true` is "is not equal to", and `between` with `negate: true` is "is not between".
         value:
           type: number
           description: The numeric threshold to compare the aggregated result against.
         value1:
           type: number
-          nullable: true
-          description: Used for range comparisons. Set to `null` when not applicable.
+          description: The upper bound. Present only when `operator` is `between`.
         negate:
           type: boolean
           description: Set to `true` to invert the comparison.
@@ -1726,20 +1854,42 @@ components:
         is_dynamic_value:
           type: boolean
           description: |
-            Set to `true` when `value` references another attribute via `"{{MoeUserAttribute['attr_name']}}"`.
+            Set to `true` when `value` is a business event personalization token rather than a literal number.
           default: false
+        comparator:
+          type: string
+          enum: [change, percentageChange]
+          description: |
+            Compares the aggregate against an earlier window instead of a fixed threshold.
+            Omit this key for a plain aggregate. When set, `base_time_range` is required.
         base_time_range:
           type: object
           description: |
-            Optional sub-window that restricts which event occurrences contribute to the aggregate.
-            Must be a window within the parent `primary_time_range`, and must not exceed the
-            backend-supplied aggregation window ceiling.
+            The earlier window to compare against. Required when `comparator` is set; omit it otherwise.
+
+            Use `{ "type": "previousPeriod" }` to compare against the period immediately before
+            `primary_time_range`, or `{ "type": "between", "value": "<start ISO>", "value1": "<end ISO>" }`
+            for a fixed date range.
+          properties:
+            type:
+              type: string
+              enum: [previousPeriod, between]
+              description: The kind of base window.
+            value:
+              type: string
+              format: date-time
+              description: Start of the base window. Applies when `type` is `between`.
+            value1:
+              type: string
+              format: date-time
+              description: End of the base window. Applies when `type` is `between`.
+          required:
+            - type
       required:
         - attribute_name
         - data_type
         - aggregation_type
         - operator
-        - comparator
         - value
     ActionFilterV3:
       title: User Behavior Filter
@@ -1767,7 +1917,9 @@ components:
           description: The internal name of the event to filter on.
         project_name:
           type: string
-          description: Optional. Required only in multi-app workspaces to scope the event to a specific app.
+          description: |
+            Optional. Portfolio (multi-project) workspaces only. Scopes the event to a specific project.
+            Set to `moe_portfolio` to target all projects. Omit this key in single-project workspaces.
         executed:
           type: boolean
           description: Set to `true` to match users who performed the event; `false` to match users who did not.
@@ -1800,32 +1952,34 @@ components:
 
             | `type` | `value` shape | Needs `value1` | Notes |
             |---|---|---|---|
-            | `inTheLast` | Integer count of `period_unit` | No | `value_type: relative_past` |
-            | `between` | Start value (integer days or ISO date) | Yes (end value) | Both absolute and relative supported |
-            | `on` | ISO date or relative day offset (0 = today, 1 = yesterday) | No | Both supported |
-            | `before` | ISO 8601 date | No | `value_type: absolute` |
-            | `after` | ISO 8601 date | No | `value_type: absolute` |
-            | `today` | (legacy — auto-migrated to `on` with `value: 0`) | No | |
-            | `yesterday` | (legacy — auto-migrated to `on` with `value: 1`) | No | |
-            | `inThisWeek` / `inLastWeek` / `inThisMonth` / `inLastMonth` | N/A | No | Calendar-aligned windows |
+            | `inTheLast` | Integer count of `period_unit` | No | `value_type: relative_past` (locked) |
+            | `between` | Start value (integer count or ISO date) | Yes (end value) | Both absolute and relative supported |
+            | `on` | ISO date or integer count | No | Both supported |
+            | `before` | ISO date or integer count | No | Both supported |
+            | `after` | ISO 8601 date | No | `value_type: absolute` (locked) |
+
+            The dashboard's calendar windows are not payload `type` values. Today, Yesterday, This week,
+            Last week, This month, and Last month all map onto `type: "on"` with `value: 0` or `1`,
+            `value_type: "relative_past"`, and `period_unit` set to `days`, `weeks`, or `months`.
 
             Absolute date formatting: `value` → `YYYY-MM-DDT00:00:00.000Z`; `value1` → `YYYY-MM-DDT23:59:59.999Z`.
-            Relative values must satisfy `0 < value ≤ retention` (workspace setting).
+            For `between`, `value1` must be greater than `value`. Relative values beyond the workspace
+            retention setting return a warning rather than an error.
           properties:
             type:
               type: string
-              enum: [inTheLast, between, on, before, after, today, yesterday, inThisWeek, inLastWeek, inThisMonth, inLastMonth]
+              enum: [inTheLast, between, on, before, after]
             value_type:
               type: string
               description: Whether `value` is an ISO 8601 date (`absolute`) or an integer offset (`relative_past`).
               enum: [absolute, relative_past]
             value:
-              description: Integer for relative ranges (`inTheLast`), or ISO 8601 date string for absolute ranges.
+              description: Integer count of `period_unit` for relative ranges, or an ISO 8601 date string for absolute ranges.
             value1:
-              description: End bound for `between`. ISO 8601 date or integer day count.
+              description: End bound for `between`. ISO 8601 date or integer count.
             period_unit:
               type: string
-              description: The unit of time for `inTheLast`.
+              description: The unit of time. Applies to `inTheLast`, and disambiguates the calendar windows mapped onto `on`.
               enum: [hours, days, weeks, months]
           required:
             - type
@@ -2003,7 +2157,6 @@ components:
             - contains
             - startsWith
             - endsWith
-            - is_empty
             - exists
             - lessThan
             - greaterThan
