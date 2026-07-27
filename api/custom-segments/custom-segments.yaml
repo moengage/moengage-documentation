@@ -161,7 +161,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
                 title: "Invalid Request"
-                description: "<message>"
+                description: "Mandatory field missing in the request: file_url"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '409':
@@ -233,7 +233,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
                 title: "Invalid Request"
-                description: "<message>"
+                description: "Mandatory field missing in the request: file_url"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -302,7 +302,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
                 title: "Invalid Request"
-                description: "<message>"
+                description: "Mandatory field missing in the request: file_url"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -375,7 +375,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
                 title: "Invalid Request"
-                description: "<message>"
+                description: "Mandatory field missing in the request: file_url"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -587,6 +587,8 @@ paths:
           | `negate` | boolean | `true` inverts the filter; absent for `geopoint` |
           | `value` | varies | Shape depends on operator; absent for `exists` and `today` |
 
+          User Property filters do not take `project_name`. User attributes are stored per user rather than per project, so project scoping applies only to User Behavior filters.
+
           #### Supported Data Types
 
           | `data_type` | Allowed operators | Extra fields |
@@ -624,7 +626,7 @@ paths:
           - `"relative_past"` — `value` is an integer number of days/hours/months ago
           - `"relative_future"` — `value` is an integer number of days/hours/months in the future (used with the `after` and `inTheNext` operators)
 
-          Set `extract_type` to filter on a specific part of the date:
+          Set `extract_type` to filter on a specific part of the date. Use `"default_option_date"` to match on the full date with no part extracted:
           - `"time_of_the_day"` — hour (0–23)
           - `"day_of_the_week"` — weekday (0–6)
           - `"day_of_the_month"` — day (1–31)
@@ -1730,7 +1732,7 @@ components:
           type: string
           description: |
             Applies to `datetime` only. Filters on a specific part of the date rather than the full timestamp.
-            - `default_option_date` — stored date as-is
+            - `default_option_date` — the full date, with no date part extracted
             - `time_of_the_day` — hour of day (0–23)
             - `day_of_the_week` — weekday (0–6)
             - `day_of_the_month` — day (1–31)
@@ -2277,6 +2279,543 @@ components:
           description: Email of the user performing the update (for example, admin@companyemail.com).
       required:
         - included_filters
+    # --- V3 Response Schemas (same shape as the request, without required markers) ---
+    FilterGroupResponseV3:
+      type: object
+      description: |-
+        A logical grouping of filters as stored on the segment.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_operator:
+          type: string
+          description: The logical operator to combine the filters.
+          enum:
+          - and
+          - or
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterResponseV3'
+    FilterResponseV3:
+      description: |-
+        A single stored filter criterion. The `filter_type` field selects the filter kind.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      oneOf:
+      - $ref: '#/components/schemas/AttributeFilterResponseV3'
+      - $ref: '#/components/schemas/ActionFilterResponseV3'
+      - $ref: '#/components/schemas/AffinityFilterResponseV3'
+      - $ref: '#/components/schemas/CustomSegmentFilterResponseV3'
+      - $ref: '#/components/schemas/NestedFiltersResponseV3'
+      discriminator:
+        propertyName: filter_type
+        mapping:
+          user_attributes: '#/components/schemas/AttributeFilterResponseV3'
+          actions: '#/components/schemas/ActionFilterResponseV3'
+          psychographic_event: '#/components/schemas/AffinityFilterResponseV3'
+          custom_segments: '#/components/schemas/CustomSegmentFilterResponseV3'
+          nested_filters: '#/components/schemas/NestedFiltersResponseV3'
+    AttributeFilterResponseV3:
+      title: User Property Filter
+      type: object
+      description: |-
+        A stored user profile attribute filter (`filter_type: "user_attributes"`), or an event attribute filter (`filter_type: "action_attributes"`) inside an event's `attributes` block.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_type:
+          type: string
+          description: Set to `user_attributes` for a User Property filter, or `action_attributes` when the filter sits
+            inside an event's `attributes` block.
+          enum:
+          - user_attributes
+          - action_attributes
+        name:
+          type: string
+          description: The internal name of the user attribute (for example, `last_purchase_date`).
+        data_type:
+          type: string
+          description: The data type of the attribute.
+          enum:
+          - string
+          - double
+          - bool
+          - datetime
+          - geopoint
+          - array_string
+          - array_double
+          - object
+          - array_object
+        category:
+          type: string
+          description: The attribute group the attribute belongs to (for example, `Tracked Custom Attribute`).
+        operator:
+          type: string
+          description: The comparison operator.
+          enum:
+          - is
+          - in
+          - contains
+          - containsInTheFollowing
+          - startsWith
+          - startsWithInTheFollowing
+          - endsWith
+          - endsWithInTheFollowing
+          - exists
+          - lessThan
+          - greaterThan
+          - between
+          - true
+          - before
+          - after
+          - inTheLast
+          - inTheNext
+          - today
+        negate:
+          type: boolean
+          description: Set to `true` to invert the filter (NOT condition).
+          default: false
+        value:
+          description: The comparison value.
+          oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: number
+        value1:
+          description: 'The second bound for range comparisons: - Upper bound when `operator` is `between` (numeric
+            and datetime types). - Longitude for `geopoint`.'
+          oneOf:
+          - type: string
+          - type: number
+        case_sensitive:
+          type: boolean
+          description: Applies to `string` and `array_string`.
+          default: false
+        value_type:
+          type: string
+          description: Applies to `datetime` only.
+          enum:
+          - absolute
+          - relative_past
+          - relative_future
+        extract_type:
+          type: string
+          description: Applies to `datetime` only.
+          enum:
+          - default_option_date
+          - time_of_the_day
+          - day_of_the_week
+          - day_of_the_month
+          - month_of_the_year
+          - date_month_of_the_year
+        radius:
+          type: number
+          description: Applies to `geopoint` only.
+        array_filter_type:
+          type: string
+          description: Applies to `array_string` and `array_double`.
+          enum:
+          - any_of
+          - all_of
+        filter_operator:
+          type: string
+          description: Applies to `object` and `array_object`.
+          enum:
+          - and
+          - or
+        filters:
+          type: array
+          description: Applies to `object` and `array_object`.
+          items:
+            $ref: '#/components/schemas/AttributeFilterResponseV3'
+        is_dynamic_value:
+          type: boolean
+          description: Set to `true` when `value` references another user attribute rather than a literal.
+          default: false
+        dynamic_attribute_type:
+          type: string
+          description: Required when `is_dynamic_value` is `true`.
+          enum:
+          - string
+          - double
+          - bool
+          - datetime
+    ActionAttributeFilterGroupResponseV3:
+      type: object
+      description: |-
+        Stored attribute filters scoped to an event's own properties.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_operator:
+          type: string
+          description: The logical operator to combine the attribute filters.
+          enum:
+          - and
+          - or
+        filters:
+          type: array
+          description: Attribute filters scoped to the event's properties.
+          items:
+            $ref: '#/components/schemas/AttributeFilterResponseV3'
+    AggregationAttributeFilterResponseV3:
+      title: Aggregation Condition
+      type: object
+      description: |-
+        A stored aggregation condition on a numeric event attribute.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        attribute_name:
+          type: string
+          description: The name of the numeric event attribute to aggregate.
+        data_type:
+          type: string
+          enum:
+          - double
+          description: The data type of the aggregated attribute.
+        aggregation_type:
+          type: string
+          enum:
+          - sum
+          - avg
+          - min
+          - max
+          - median
+          description: The aggregation function to apply across the user's matching event occurrences.
+        operator:
+          type: string
+          enum:
+          - is
+          - between
+          - lessThan
+          - greaterThan
+          description: The comparison operator.
+        value:
+          type: number
+          description: The numeric threshold to compare the aggregated result against.
+        value1:
+          type: number
+          description: The upper bound.
+        negate:
+          type: boolean
+          description: Set to `true` to invert the comparison.
+          default: false
+        is_dynamic_value:
+          type: boolean
+          description: Set to `true` when `value` is a business event personalization token rather than a literal number.
+          default: false
+        comparator:
+          type: string
+          enum:
+          - change
+          - percentageChange
+          description: Compares the aggregate against an earlier window instead of a fixed threshold.
+        base_time_range:
+          type: object
+          description: The earlier window to compare against.
+          properties:
+            type:
+              type: string
+              enum:
+              - previousPeriod
+              - between
+              description: The kind of base window.
+            value:
+              type: string
+              format: date-time
+              description: Start of the base window.
+            value1:
+              type: string
+              format: date-time
+              description: End of the base window.
+    ActionFilterResponseV3:
+      title: User Behavior Filter
+      type: object
+      description: |-
+        A stored event filter (`filter_type: "actions"`).
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_type:
+          type: string
+          description: Must be `actions` for a User Behavior filter.
+          enum:
+          - actions
+        action_name:
+          type: string
+          description: The internal name of the event to filter on.
+        project_name:
+          type: string
+          description: Optional.
+        executed:
+          type: boolean
+          description: Set to `true` to match users who performed the event; `false` to match users who did not.
+        execution:
+          type: object
+          description: The frequency condition for the event.
+          properties:
+            type:
+              type: string
+              enum:
+              - atleast
+              - exactly
+              - atmost
+              - firstTime
+              - lastTime
+            count:
+              type: integer
+              format: int32
+              description: Required for `atleast`, `exactly`, and `atmost`.
+        primary_time_range:
+          type: object
+          description: The time window during which the event must have been performed.
+          properties:
+            type:
+              type: string
+              enum:
+              - inTheLast
+              - between
+              - true
+              - before
+              - after
+            value_type:
+              type: string
+              description: Whether `value` is an ISO 8601 date (`absolute`) or an integer offset (`relative_past`).
+              enum:
+              - absolute
+              - relative_past
+            value:
+              description: Integer count of `period_unit` for relative ranges, or an ISO 8601 date string for absolute
+                ranges.
+            value1:
+              description: End bound for `between`.
+            period_unit:
+              type: string
+              description: The unit of time.
+              enum:
+              - hours
+              - days
+              - weeks
+              - months
+        attributes:
+          $ref: '#/components/schemas/ActionAttributeFilterGroupResponseV3'
+          description: Sub-filters on the event's own attributes — for example, `purchase` where `product_category`
+            is `Electronics`.
+        aggregation_attributes:
+          type: object
+          description: Optional aggregation block.
+          properties:
+            filter_operator:
+              type: string
+              enum:
+              - and
+              - or
+            filters:
+              type: array
+              items:
+                $ref: '#/components/schemas/AggregationAttributeFilterResponseV3'
+    AffinityFilterResponseV3:
+      title: User Affinity Filter
+      type: object
+      description: |-
+        A stored affinity filter (`filter_type: "psychographic_event"`).
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_type:
+          type: string
+          enum:
+          - psychographic_event
+          description: Must be `psychographic_event` for a User Affinity filter.
+        action_name:
+          type: string
+          description: The internal name of the event to evaluate affinity on.
+        executed:
+          type: boolean
+          description: Whether the user has performed the event.
+          default: true
+        execution:
+          type: object
+          description: The frequency condition for the event.
+          properties:
+            type:
+              type: string
+              enum:
+              - atleast
+              - exactly
+              - atmost
+              - firstTime
+              - lastTime
+            count:
+              type: integer
+              description: Required for `atleast`, `exactly`, and `atmost`.
+        operator_type:
+          type: string
+          description: The affinity matching mode.
+          enum:
+          - predominant
+          - minimum
+          - top
+          - bottom
+        percent_of_times:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Required when `operator_type` is `minimum`.
+        percent_of_users:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Required when `operator_type` is `top` or `bottom`.
+        psychographic_attributes:
+          type: object
+          description: Defines what the affinity is about (for example, `product_category is "Electronics"`).
+          properties:
+            filter_operator:
+              type: string
+              enum:
+              - and
+              - or
+            filters:
+              type: array
+              items:
+                $ref: '#/components/schemas/PsychographicAttributeFilterResponseV3'
+        attributes:
+          $ref: '#/components/schemas/ActionAttributeFilterGroupResponseV3'
+          description: Optional additional event-attribute filters to narrow which event occurrences count toward the
+            affinity.
+        primary_time_range:
+          type: object
+          description: The time window over which affinity is evaluated.
+          properties:
+            type:
+              type: string
+              description: The type of time window.
+            value_type:
+              type: string
+              enum:
+              - absolute
+              - relative_past
+              description: Whether the window is expressed as relative day counts (`days`/`days1`) or absolute dates
+                (`from`/`to`).
+            days:
+              type: integer
+              description: Relative windows only.
+            days1:
+              type: integer
+              description: Relative windows only.
+            from:
+              type: string
+              format: date-time
+              description: Absolute windows only.
+            to:
+              type: string
+              format: date-time
+              description: Absolute windows only.
+    PsychographicAttributeFilterResponseV3:
+      title: Psychographic Attribute Filter
+      type: object
+      description: |-
+        A stored attribute filter inside `psychographic_attributes`.
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        name:
+          type: string
+          description: The internal name of the event attribute the affinity is evaluated on.
+        data_type:
+          type: string
+          description: The data type of the attribute.
+          enum:
+          - string
+          - double
+        category:
+          type: string
+          description: The attribute group the attribute belongs to.
+        operator:
+          type: string
+          description: The comparison operator.
+          enum:
+          - is
+          - in
+          - contains
+          - startsWith
+          - endsWith
+          - exists
+          - lessThan
+          - greaterThan
+          - between
+        negate:
+          type: boolean
+          description: Set to `true` to invert the filter (NOT condition).
+          default: false
+        value:
+          description: The comparison value.
+          oneOf:
+          - type: string
+          - type: number
+          - type: array
+            items:
+              oneOf:
+              - type: string
+              - type: number
+        value1:
+          type: number
+          description: The upper bound when `operator` is `between`.
+        case_sensitive:
+          type: boolean
+          description: Applies to `string`.
+          default: false
+    CustomSegmentFilterResponseV3:
+      title: Custom Segment Filter
+      type: object
+      description: |-
+        A stored reference to a saved segment (`filter_type: "custom_segments"`).
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_type:
+          type: string
+          enum:
+          - custom_segments
+          description: Must be `custom_segments` for a Custom Segment filter.
+        id:
+          type: string
+          description: The unique ID of the saved segment.
+        name:
+          type: string
+          description: Display label for the segment.
+    NestedFiltersResponseV3:
+      title: Nested Filters (AND/OR Group)
+      type: object
+      description: |-
+        A stored AND/OR group container (`filter_type: "nested_filters"`).
+
+        Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
+      properties:
+        filter_type:
+          type: string
+          enum:
+          - nested_filters
+          description: Must be `nested_filters` for a logical group container.
+        filter_operator:
+          type: string
+          enum:
+          - and
+          - or
+          description: The logical operator combining the filters in this group.
+        filters:
+          type: array
+          description: The filters within this group.
+          items:
+            $ref: '#/components/schemas/FilterResponseV3'
     FilterSegmentDataV3:
       type: object
       description: Detailed information about a segment.
@@ -2308,10 +2847,10 @@ components:
           description: A textual description summarizing the segment definition.
         included_filters:
           description: The filter criteria used to include users in this segment.
-          $ref: '#/components/schemas/FilterGroupV3'
+          $ref: '#/components/schemas/FilterGroupResponseV3'
         excluded_filters:
           description: The filter criteria used to exclude users from this segment. Present when `excluded_filters` was used while creating or updating the segment.
-          $ref: '#/components/schemas/FilterGroupV3'
+          $ref: '#/components/schemas/FilterGroupResponseV3'
     FilterSegmentResponseV3:
       type: object
       description: Response schema for filter segment operations (create/update).
@@ -2512,7 +3051,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Invalid Request"
-            description: "<message>"
+            description: "Mandatory field missing in the request: file_url"
     '401_FileSegmentError':
       description: Unauthorized. Authentication or Authorization Failure.
       content:
@@ -2521,7 +3060,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Authentication required"
-            description: "<message>"
+            description: "Invalid Workspace ID or API key used in the Authorization header"
     '404_FileSegmentNotFound':
       description: Entity Not Found. The segment name does not exist.
       content:
@@ -2548,7 +3087,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Too Many Requests"
-            description: "<message>"
+            description: "File segment operations limit breached. Please retry after some time."
     '5XX_FileSegmentError':
       description: Server Errors. Something went wrong on MoEngage.
       content:
