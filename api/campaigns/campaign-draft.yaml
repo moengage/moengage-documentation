@@ -2507,7 +2507,40 @@ components:
             If a user does not become eligible for delivery within the configured window, the message is dropped and the outcome is recorded in campaign analytics.
 
             For active `PERIODIC` and triggered campaigns, changes to this value apply only to messages queued after the update. Messages already in the queue retain the original duration.
-
+        limit_send_config:
+          type: object
+          description: |
+            Configuration for limiting how many times a user can receive this campaign within a specified rolling time window. When enabled, MoEngage drops deliveries to users who have already reached `max_count` within the window and records the outcome in campaign analytics.
+            Applies to `PERIODIC` and `EVENT_TRIGGERED` campaigns. Not applicable to other delivery types.
+          properties:
+            enabled:
+              type: boolean
+              description: |
+                Whether the send limit is enforced for this campaign. When `false`, `max_count`, `window_value`, and `window_unit` are ignored.
+              example: true
+            max_count:
+              type: integer
+              minimum: 1
+              description: |
+                The maximum number of times a user can receive this campaign within the window defined by `window_value` and `window_unit`.
+              example: 1
+            window_value:
+              type: integer
+              minimum: 1
+              description: |
+                The size of the rolling time window during which `max_count` is enforced. Combined with `window_unit` — for example, `window_value: 1` with `window_unit: DAYS` enforces the limit across a 24-hour rolling window.
+              example: 1
+            window_unit:
+              type: string
+              enum:
+                - DAYS
+                - HOURS
+              description: |
+                The unit of time for `window_value`.
+              example: DAYS
+          required:
+            - enabled
+          
     EmailDeliveryControls:
       type: object
       description: |
@@ -3509,6 +3542,11 @@ paths:
                     bypass_dnd: false
                     minimum_delay_between_two_notification_in_hour: 24
                     ignore_global_minimum_delay: false
+                    limit_send_config:
+                      enabled: true
+                      max_count: 1
+                      window_value: 1
+                      window_unit: "DAYS" 
               push_business_event_triggered:
                 summary: Push - BUSINESS_EVENT_TRIGGERED
                 value:
