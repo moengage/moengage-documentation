@@ -497,6 +497,7 @@ paths:
           The rate limit is 50 request/minute, 200 requests/hour, and 1000 requests/day.
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
+        - $ref: '#/components/parameters/DbNameHeaderOptional'
         - $ref: '#/components/parameters/SegmentNameQuery'
       responses:
         '200':
@@ -584,7 +585,7 @@ paths:
           | `data_type` | string | See data type table below |
           | `category` | string | The attribute group the attribute belongs to (for example, `"Tracked Custom Attribute"`). Always include this key. |
           | `operator` | string | Allowed set varies by `data_type`; omit for `geopoint`, `object`, `array_object` |
-          | `negate` | boolean | `true` inverts the filter; absent for `geopoint` |
+          | `negate` | boolean | `true` inverts the filter; omitted for `object` and `array_object` |
           | `value` | varies | Shape depends on operator; absent for `exists` and `today` |
 
           User Property filters do not take `project_name`. User attributes are stored per user rather than per project, so project scoping applies only to User Behavior filters.
@@ -597,7 +598,7 @@ paths:
           | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
           | `bool` | `is`, `exists` | — |
           | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
-          | `geopoint` | (implicit `around`) | `value` (latitude), `value1` (longitude), `radius`; no `operator` or `negate` |
+          | `geopoint` | (implicit `around` — no `operator`) | `value` (latitude), `value1` (longitude), `radius`; carries `negate` but no `operator` |
           | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
           | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
           | `object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
@@ -737,13 +738,17 @@ paths:
 
           Absolute date formatting: `value` → `YYYY-MM-DDT00:00:00.000Z`; `value1` → `YYYY-MM-DDT23:59:59.999Z`. For `between`, `value1` must be greater than `value`.
 
+          <Note>
+          Segments built in the dashboard store relative windows as `days` (and `days1`) instead of `value` and `period_unit`. A response for one of those segments returns that form. Send `value`, `value_type`, and `period_unit` when you create or update a segment through the API.
+          </Note>
+
           #### Event Attribute Sub-Filters
 
           Use the `attributes` block to narrow which event occurrences count — for example, a `purchase` event where `product_category` is `"electronics"`.
 
           Inner filters follow the same shape as User Property filters, with two differences:
-          - `filter_type` is `"action_attributes"` instead of `"user_attributes"`.
-          - `category` is the event attribute's own category, for example `"Event Property"`.
+          - They carry no `filter_type` key.
+          - `category` is `"default"`.
 
           Inner filters start directly from `filter_operator` and `filters` — do not add `included_filters` or `excluded_filters` inside the `attributes` block.
 
@@ -754,8 +759,7 @@ paths:
               {
                 "name": "currency",
                 "data_type": "string",
-                "category": "Event Property",
-                "filter_type": "action_attributes",
+                "category": "default",
                 "operator": "is",
                 "negate": false,
                 "case_sensitive": false,
@@ -873,6 +877,7 @@ paths:
           ```
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
+        - $ref: '#/components/parameters/DbNameHeaderOptional'
       requestBody:
         description: The filter definition for the new segment.
         required: true
@@ -1139,8 +1144,7 @@ paths:
                           filters:
                             - name: "product_category"
                               data_type: "string"
-                              category: "Event Property"
-                              filter_type: "action_attributes"
+                              category: "default"
                               operator: "is"
                               negate: false
                               case_sensitive: false
@@ -1380,6 +1384,7 @@ paths:
           The rate limit is 100 requests/minute, 1000 requests/hour, and 4000 requests/day.
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
+        - $ref: '#/components/parameters/DbNameHeaderOptional'
         - $ref: '#/components/parameters/SegmentIdPath'
       responses:
         '200':
@@ -1402,6 +1407,7 @@ paths:
       operationId: updateFilterSegment
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
+        - $ref: '#/components/parameters/DbNameHeaderOptional'
         - $ref: '#/components/parameters/SegmentIdPath'
       x-mint:
         content: |
@@ -1636,7 +1642,7 @@ components:
         | `double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `value1` when `operator` is `between` |
         | `bool` | `is`, `exists` | — |
         | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
-        | `geopoint` | (implicit `around` — no `operator` or `negate` in payload) | `value` (latitude), `value1` (longitude), `radius` |
+        | `geopoint` | (implicit `around` — no `operator` in payload) | `value` (latitude), `value1` (longitude), `radius`, `negate` |
         | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
         | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
         | `object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
@@ -1653,9 +1659,9 @@ components:
         filter_type:
           type: string
           description: |
-            Set to `user_attributes` for a User Property filter, or `action_attributes` when the filter
-            sits inside an event's `attributes` block.
-          enum: [user_attributes, action_attributes]
+            Must be `user_attributes` for a User Property filter. Omit this key for filters
+            inside an event's `attributes` block.
+          enum: [user_attributes]
         name:
           type: string
           description: The internal name of the user attribute (for example, `last_purchase_date`).
@@ -1669,7 +1675,7 @@ components:
         operator:
           type: string
           description: |
-            The comparison operator. Allowed values depend on `data_type`. Required for all data types except `geopoint`, `object`, and `array_object`, where it must be omitted.
+            The comparison operator. Allowed values depend on `data_type`. Omitted for `geopoint`, `object`, and `array_object`.
           enum:
             - is
             - in
@@ -1691,7 +1697,7 @@ components:
             - today
         negate:
           type: boolean
-          description: Set to `true` to invert the filter (NOT condition). Required for all data types except `geopoint`, `object`, and `array_object`, where it must be omitted.
+          description: Set to `true` to invert the filter (NOT condition). Present for all data types except `object` and `array_object`, where it is omitted.
           default: false
         value:
           description: |
@@ -1803,9 +1809,8 @@ components:
         filters:
           type: array
           description: |
-            Attribute filters scoped to the event's properties. Each uses `filter_type` set to
-            `action_attributes` and `category` set to the event attribute's own category,
-            for example `Event Property`.
+            Attribute filters scoped to the event's properties. Each omits `filter_type`
+            and sets `category` to `default`.
           items:
             $ref: '#/components/schemas/AttributeFilterV3'
       required:
@@ -1967,6 +1972,9 @@ components:
             Absolute date formatting: `value` → `YYYY-MM-DDT00:00:00.000Z`; `value1` → `YYYY-MM-DDT23:59:59.999Z`.
             For `between`, `value1` must be greater than `value`. Relative values beyond the workspace
             retention setting return a warning rather than an error.
+
+            Segments built in the dashboard store relative windows as `days` and `days1` rather than
+            `value` and `period_unit`, and a response for one of those segments returns that form.
           properties:
             type:
               type: string
@@ -2320,17 +2328,16 @@ components:
       title: User Property Filter
       type: object
       description: |-
-        A stored user profile attribute filter (`filter_type: "user_attributes"`), or an event attribute filter (`filter_type: "action_attributes"`) inside an event's `attributes` block.
+        A stored user profile attribute filter (`filter_type: "user_attributes"`), or an event attribute filter inside an event's `attributes` block, which omits `filter_type` and uses `category: "default"`.
 
         Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
       properties:
         filter_type:
           type: string
-          description: Set to `user_attributes` for a User Property filter, or `action_attributes` when the filter sits
-            inside an event's `attributes` block.
+          description: Must be `user_attributes` for a User Property filter. Omit this key for filters inside
+            an event's `attributes` block.
           enum:
           - user_attributes
-          - action_attributes
         name:
           type: string
           description: The internal name of the user attribute (for example, `last_purchase_date`).
@@ -3016,8 +3023,20 @@ components:
     AppKeyHeader:
       name: MOE-APPKEY
       in: header
-      description: This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+      description: |
+        This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+
+        You can send `MOE-DBNAME` with your database name instead of this header. The request must include one of the two.
       required: true
+      schema:
+        type: string
+    DbNameHeaderOptional:
+      name: MOE-DBNAME
+      in: header
+      description: |
+        Your MoEngage database name. Send this as an alternative to `MOE-APPKEY` when you identify the
+        workspace by database name. Omit it when `MOE-APPKEY` is already present.
+      required: false
       schema:
         type: string
     SegmentIdPath:
