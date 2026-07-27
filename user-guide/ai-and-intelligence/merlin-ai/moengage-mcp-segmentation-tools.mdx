@@ -171,7 +171,14 @@ Creates a new **filter-based custom segment** in the workspace. The segment type
 | `description` | No | Free-text description. |
 | `excluded_filters` | No | Filter group: users matching these are excluded even if they match `included_filters`. |
 
-Each filter in a filter group is one of four types: `user_attributes` (a condition on a user attribute), `actions` (a condition on an event, with optional execution count and time range), `custom_segments` (membership in another segment), or `nested_filters` (one level of AND/OR nesting). The example below shows `user_attributes` and `actions` filters. For `custom_segments` and `nested_filters`, build the filter with your assistant and confirm its shape with `describe_segment_filters` or `deep_validate_segment_filters` before creating anything.
+Each filter in a filter group is one of four types:
+
+- `user_attributes`: a flat condition on a user attribute, with `filter_type`, `name`, `data_type`, `operator`, and `value` at the top level of the filter object. Valid operators depend on the attribute's `data_type`; for text equality, the operator is `is` (not `equals`).
+- `actions`: a condition on an event, keyed by `action_name`. The `attributes` key holds event-property conditions (in the same flat shape as `user_attributes` filters) and is required even when empty: pass `{"filter_operator": "and", "filters": []}`. The optional `execution` object sets an execution count (`{"type": "atleast" | "exactly" | "atmost", "count": <n>}`), and the optional `primary_time_range` object sets a time window (its operator key is `type`, accompanied by `value`, `value_type`, and `period_unit`).
+- `custom_segments`: membership in another segment: `{"filter_type": "custom_segments", "id": "<segment_id>", "name": "<segment_name>"}`. The reference field is `id` (as returned by `list_segments`), not `segment_id`.
+- `nested_filters`: one level of AND/OR nesting: `{"filter_type": "nested_filters", "filter_operator": "and", "filters": [...]}`. Only one level is supported; deeper nesting is rejected.
+
+The example below shows `user_attributes` and `actions` filters. Whatever the filter mix, run `deep_validate_segment_filters` on the finished filter set before creating anything; it verifies names, data types, and operator compatibility against your workspace's live catalog.
 
 **Example:** Users in Mumbai who purchased at least 3 times in the last 30 days, excluding anyone who refunded a purchase in the last 90 days:
 
@@ -185,7 +192,7 @@ Each filter in a filter group is one of four types: `user_attributes` (a conditi
         "filter_type": "user_attributes",
         "name": "moe_city",
         "data_type": "string",
-        "operator": "equals",
+        "operator": "is",
         "value": "Mumbai"
       },
       {
@@ -224,6 +231,12 @@ Each filter in a filter group is one of four types: `user_attributes` (a conditi
 }
 ```
 
+To target users who did **not** perform an event, do not use `executed: false`.
+
+<Warning>
+  Setting `executed: false` on an `actions` filter is **silently ignored**: the query runs without error and the filter is evaluated as a positive "did the event" condition. Express a negative event condition in one of two ways: place a positive `actions` filter in `excluded_filters` (as the refund exclusion in the example above does), or keep the filter in `included_filters` with `"execution": {"type": "atmost", "count": 0}`. To confirm the negation was applied, pass the filters to `describe_segment_filters` and check that the description reads as a "did not" condition.
+</Warning>
+
 <Warning>
   Attribute and event names are **not validated at create time** by default. A wrong name is accepted, the segment is created, and the segment count later fails with **no error reason**. As a partial safety net, the tool checks user-attribute filter names against the workspace catalog before creating and rejects a recognized display name (or wrongly cased internal name), but this check fails open when the catalog is unavailable, so it isn't guaranteed. Resolve names with the [discovery tools](#discover-events-attributes-and-values) first and validate with `deep_validate_segment_filters`. Don't rely on the safety net.
 </Warning>
@@ -231,7 +244,7 @@ Each filter in a filter group is one of four types: `user_attributes` (a conditi
 Beyond name resolution, a few other create-time errors are common:
 
 <Note>
-  Common errors: `409` (Conflict) when the segment name already exists; `400` (Bad Request) when filters are malformed (the error is generic, without field-level detail; re-check the filter structure rather than retrying variations); `413` (Payload Too Large) when the filter query exceeds size or depth limits. On `actions` filters, the `attributes` key is required even when empty: pass `{"filter_operator": "and", "filters": []}`.
+  Common errors: `409` (Conflict) when the segment name already exists; `400` (Bad Request) when filters are malformed (the error is generic, without field-level detail; re-check the filter structure rather than retrying variations); `413` (Payload Too Large) when the filter query exceeds size or depth limits. On `actions` filters, the `attributes` key is required even when empty: pass `{"filter_operator": "and", "filters": []}`. A frequent cause of a `400` on `user_attributes` filters is the operator `equals`, which the API rejects; use `is` for text equality.
 </Note>
 
 ### `list_segments`
@@ -309,9 +322,9 @@ Creates and asynchronously runs an audience query. Returns a query ID (`rq_id`) 
 | `extra_filters` | No | Additional user-attribute query layered on top. |
 | `platforms` | No | Restrict results to platforms (for example, `["ANDROID", "iOS", "web"]`). |
 | `installed` | No | Install-status filter: `installed` or `uninstalled`. |
-| `reachability` | No | Which channels to compute reachability counts for (for example, `{"push": {}, "email": {}}`). |
+| `reachability` | No | Reachability request: one key per channel (`push`, `email`, `sms`, `whatsapp`), each mapping to a channel configuration object. An empty object (`{"push": {}}`) is valid; a channel key can also carry configuration, such as a platform list for push. See the note below on how this parameter is currently applied. |
 | `emails` | No | Email recipients notified when the query completes. |
-| `channel_source` | No | Channel source scope (default `all`). |
+| `channel_source` | No | Channel source scope. Queries created through this tool currently have their channel source set to `MCP` by the server. |
 | `cs_id` | No | Associate the run with an existing custom segment's ID. |
 | `query_type` | No | `filter` (default), `merlin`, or `adhoc`. |
 | `merlin_prompt` | No | Free-text prompt, used when `query_type` is `merlin`. |
@@ -320,12 +333,24 @@ Creates and asynchronously runs an audience query. Returns a query ID (`rq_id`) 
 **Example prompt:** _"How many users opened an email in the last 7 days but didn't purchase? Don't create a segment, just give me the count."_
 
 <Note>
-  The same "internal names only" rule applies: resolve event and attribute names with the discovery tools before creating a query, and validate the filters with `deep_validate_segment_filters` first.
+  The same "internal names only" rule applies: resolve event and attribute names with the discovery tools before creating a query, and validate the filters with `deep_validate_segment_filters` first. The same negation rule applies as well: express "did not do the event" with a positive filter in `excluded_filters` or with `"execution": {"type": "atmost", "count": 0}`, never with `executed: false`.
+</Note>
+
+Reachability counts for a recent query are currently computed with a standard server-side configuration.
+
+<Note>
+  Every query created through this tool computes reachability for all four channels (push, email, SMS, and WhatsApp), with push counts broken down by platform (Android, iOS, and web). Per-channel configuration in the `reachability` parameter is part of the API request format but is not applied to queries created through this tool today, so omitting the parameter gives the same result as passing it.
+</Note>
+
+Identical queries are also deduplicated for a short window.
+
+<Note>
+  Submitting a `create_recent_query` request with the same filters and options as an earlier request within the last 15 minutes returns the same `rq_id` as that earlier run instead of starting a new query. To get a genuinely fresh count for the same audience, wait for the window to pass.
 </Note>
 
 ### `get_recent_query`
 
-Fetches a recent query by its `rq_id`, including its `status` and, once the query succeeds, the `user_count` and reachability counts. Poll it after `create_recent_query` until `status` is `success` or `failure` (see `failure_reason`).
+Fetches a recent query by its `rq_id`, including its `status` and, once the query succeeds, the `user_count` and reachability counts. Poll it after `create_recent_query` until `status` is `success` or `failure` (see `failure_reason`). While the query is in progress, `status` is `received`, `running`, or `retry_wait` (a transient failure being retried automatically).
 
 | Parameter | Required | Description |
 | --- | --- | --- |
@@ -369,12 +394,35 @@ A few other request details apply:
 
 **Example prompt:** _"Is user `alice@example.com` in my 'Cart abandoners' and 'VIP customers' segments right now?"_
 
+## Limits
+
+The segmentation tools do not enforce rate limits of their own; the limits below come from the MoEngage APIs they call. There is no published quota on how many segments or queries you can create in a period, no enforced minimum interval between polls, and no documented cap on concurrent count jobs.
+
+| Limit | Value |
+| --- | --- |
+| Segments evaluated per `is_user_in_segment` call | 10 |
+| Values returned by `get_value_suggestions` | 5,000 distinct values |
+| Segments returned per `list_segments` page | 1 to 100 (default 10) |
+| Segment count result cache | 15 minutes |
+| `create_recent_query` deduplication window | 15 minutes (an identical request returns the same `rq_id`) |
+| Filter payload size | Oversized or overly deep filters are rejected with a `413` (Payload Too Large) error |
+| Filter nesting depth | One level of `nested_filters` |
+
+Rate limiting can still occur at the platform level.
+
+<Note>
+  Some segmentation APIs, including the real-time membership check, can return a `429` (Too Many Requests) error under heavy traffic. There is no published request quota; when a `429` occurs, retry after about 60 seconds. All tool calls also pass through the MoEngage API gateway, which can apply its own traffic controls.
+</Note>
+
 ## Known Behaviors and Limitations
 
 This section lists known constraints so you and your assistant can plan around them.
 
 - **Internal names only.** Filters usually accept display names at create time. `create_custom_segment` has a partial safety-net catalog check, but it fails open when the catalog is unavailable, so an unresolved bad name can still surface later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`.
 - **Stale events are hidden.** `find_events` excludes events inactive for more than 60 days.
+- **Text equality uses the `is` operator.** The operator `equals` on a `user_attributes` filter is rejected with a generic `400` (Bad Request) error.
+- **Negative event conditions require a specific pattern.** `executed: false` on an `actions` filter is silently ignored. Express "did not do the event" with a positive filter in `excluded_filters`, or with `"execution": {"type": "atmost", "count": 0}`.
+- **Identical recent queries are deduplicated.** An identical `create_recent_query` request within 15 minutes returns the same `rq_id` instead of running a new query.
 - **Segment types vary in MCP support.** `create_custom_segment` only creates filter-based (ELASTIC_SEARCH) segments. `list_segments` returns Filter and File segments, but excludes Warehouse, Analytics, and Composite. `get_segment` returns a full filter tree only for Filter segments; File and cohort-import segments return metadata only. `is_user_in_segment` evaluates Filter segments in real time; file-based, funnel, retention, and predictive segments are batch-only. See [Types of Segments](/user-guide/segment/basics-of-segmentation/types-of-segments) for what each type means.
 - **Counts are cached for 15 minutes.** `start_segment_count` returns the cached result (`served_from_cache: true`) when a successful count already exists within the window.
 - **Validation returns HTTP 200 either way.** For `deep_validate_segment_filters`, check `is_valid` in the response body.
@@ -389,7 +437,7 @@ This section lists known constraints so you and your assistant can plan around t
   </Accordion>
 
   <Accordion title="A segment or query is not created">
-    Check the response for a specific error code: `409` means the name is already taken, `400` means the filter structure is malformed, and `413` means the filter is too large or deeply nested. See the common-errors note under [Create and Browse Segments](#create-and-browse-segments).
+    Check the response for a specific error code: `409` means the name is already taken, `400` means the filter structure is malformed, and `413` means the filter is too large or deeply nested. A `400` on a filter that otherwise looks right is often the operator: use `is`, not `equals`, for text equality. See the common-errors note under [Create and Browse Segments](#create-and-browse-segments).
   </Accordion>
 
   <Accordion title="is_user_in_segment returned segment_eligibility: false">
