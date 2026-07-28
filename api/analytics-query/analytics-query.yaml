@@ -106,21 +106,14 @@ paths:
       summary: Register a Funnels Query
       operationId: submitFunnelsQuery
       description: |
-        Registers an asynchronous Funnels analysis query and returns a `request_id`.
+        Registers an asynchronous Funnels analysis query and returns a `request_id`. Funnels analysis measures step-by-step conversion and drop-off across an ordered sequence of events.
 
-        **Limits**
-        - `events`: ≥ 2.
-        - `funnel_split`: ≤ 3.
-        - `holding_attributes`: ≤ 3.
-        - `segmentation`: ≤ 5.
-        - Custom distribution buckets: ≤ 25.
-        - Hourly granularity: ≤ 31 days.
-        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+        Use the `request_id` with [Get Query Status](/api/analytics-queries/get-query-status) to poll for completion, then [Get Query Results](/api/analytics-queries/get-query-results) to fetch the resolved series.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/FunnelsQueryRequest" }
             example: {
                 "events": [
                   {
@@ -177,19 +170,14 @@ paths:
       summary: Register a Retention Query
       operationId: submitRetentionQuery
       description: |
-        Registers an asynchronous Retention analysis query and returns a `request_id`.
+        Registers an asynchronous Retention analysis query and returns a `request_id`. Retention analysis groups users who performed a first event into cohorts, then measures how many return to perform a second event in each later period.
 
-        **Limits**
-        - `events`: 1–2.
-        - `segmentation`: ≤ 5 (mutually exclusive with time comparison).
-        - `split_by`: ≤ 10.
-        - Per-granularity date windows: 24 hours / 90 days / 180 days.
-        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+        Use the `request_id` with [Get Query Status](/api/analytics-queries/get-query-status) to poll for completion, then [Get Query Results](/api/analytics-queries/get-query-results) to fetch the resolved series.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/RetentionQueryRequest" }
             example: {
                 "version": "2.0",
                 "type": "retention",
@@ -228,18 +216,14 @@ paths:
       summary: Register a Session-Source Query
       operationId: submitSessionSourceQuery
       description: |
-        Registers an asynchronous Session/Source analysis query and returns a `request_id`.
+        Registers an asynchronous Session/Source analysis query and returns a `request_id`. Session/Source analysis reports session count or average session duration, broken down by acquisition attributes such as source, medium, and campaign.
 
-        **Limits**
-        - `grouped_by`: ≤ 2.
-        - `segmentation`: ≤ 5.
-        - Hourly granularity: ≤ 31 days.
-        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+        Use the `request_id` with [Get Query Status](/api/analytics-queries/get-query-status) to poll for completion, then [Get Query Results](/api/analytics-queries/get-query-results) to fetch the resolved series.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/SessionSourceQueryRequest" }
             example: {
                 "version": "2.0",
                 "type": "session-source",
@@ -277,18 +261,14 @@ paths:
       summary: Register a User Analysis Query
       operationId: submitUserAnalysisQuery
       description: |
-        Registers an asynchronous User Property Analysis (UPA) query and returns a `request_id`.
+        Registers an asynchronous User Property Analysis (UPA) query and returns a `request_id`. User Property Analysis computes counts, distinct-value counts, distributions, and aggregations over user attributes for a cohort of users.
 
-        **Limits**
-        - `user_properties`: 1–5.
-        - `split_by`: ≤ 10.
-        - Percentile: 1–100 (when using percentile aggregation).
-        - Custom distribution: numerical attributes only; buckets ≤ 10.
+        Use the `request_id` with [Get Query Status](/api/analytics-queries/get-query-status) to poll for completion, then [Get Query Results](/api/analytics-queries/get-query-results) to fetch the resolved series.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/UserAnalysisQueryRequest" }
             example: {
                 "version": "2.0",
                 "type": "user_analysis",
@@ -608,6 +588,371 @@ components:
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
             comparison (2 or more segments). Pass an empty object for no comparison.
+        chart_sort_type:
+          type: string
+          description: Sort order applied to the result series.
+          enum: [ascending, descending]
+
+    # ---- Funnels ----
+    FunnelsQueryRequest:
+      type: object
+      description: Request body for registering a Funnels analysis query.
+      required: [type, events, funnel_type, timerange]
+      properties:
+        version:
+          type: string
+          description: Payload schema version.
+          example: "2.0"
+        type:
+          type: string
+          description: The analysis type. Must be `funnel` for this endpoint.
+          enum: [funnel]
+        events:
+          type: array
+          description: >
+            The ordered steps of the funnel. Include 2 to 10 steps. Each step defines the
+            event and attribute conditions a user must satisfy to be counted at that step.
+          minItems: 2
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              step_number:
+                type: integer
+                description: The 1-based position of this step in the funnel.
+                example: 1
+              step_type:
+                type: string
+                description: Whether users who match this step are included in or excluded from the funnel.
+                enum: [include, exclude]
+              from_step:
+                type: integer
+                nullable: true
+                description: For a distribution funnel, the step the window is measured from. Null otherwise.
+              to_step:
+                type: integer
+                nullable: true
+                description: For a distribution funnel, the step the window is measured to. Null otherwise.
+              c_at_trigger_seg_v2:
+                $ref: "#/components/schemas/FilterGroup"
+              c_at_act_seg_v2:
+                $ref: "#/components/schemas/FilterGroup"
+        segmentation:
+          $ref: "#/components/schemas/Segmentation"
+        funnel_type:
+          type: string
+          description: >
+            The kind of funnel to compute — `user_funnel` (standard conversion),
+            `event_time_to_convert` (time-to-convert distribution between two steps), or
+            `user_frequency` (frequency distribution of repeated actions between two steps).
+          enum: [user_funnel, event_time_to_convert, user_frequency]
+        grouped_by:
+          type: array
+          description: Attributes to split the funnel by. Include up to 3.
+          maxItems: 3
+          items:
+            type: object
+        grouped_by_meta:
+          type: object
+          description: Metadata for the `grouped_by` attributes.
+        holding_attributes:
+          type: array
+          description: Attributes held constant across funnel steps. Include up to 3.
+          maxItems: 3
+          items:
+            type: object
+        holding_attributes_meta:
+          type: object
+          description: Metadata for the `holding_attributes`.
+        funnel_window:
+          type: integer
+          description: The conversion window in seconds within which users must complete the funnel.
+          example: 86400
+        funnel_window_multiplier:
+          type: integer
+          description: Multiplier applied to the funnel window.
+          example: 86400
+        strict_order:
+          type: boolean
+          description: Whether steps must be performed in the exact order defined.
+          example: false
+        distribution:
+          type: object
+          description: >
+            Distribution configuration for `event_time_to_convert` and `user_frequency`
+            funnels. When using custom buckets, include at most 25 buckets. Pass an empty
+            object for a standard funnel.
+        countType:
+          type: string
+          description: Whether metrics are returned as absolute counts or percentages, such as `number`.
+          example: "number"
+        showConversionEventOnly:
+          type: boolean
+          description: Whether to return only the conversion event's metrics.
+          example: false
+        chart_type:
+          type: string
+          description: Visual representation of the result, such as `line`, `bar`, or `column`.
+          example: "column"
+        comparison_timerange:
+          type: object
+          description: >
+            A second time range to compare against. Time comparison is supported only on
+            line, bar, and column charts, and cannot be combined with custom-segment
+            comparison (2 or more segments). Pass an empty object for no comparison.
+        timerange:
+          $ref: "#/components/schemas/Timerange"
+        granularity:
+          type: string
+          description: >
+            Time bucket for the series — `h` (hour), `d` (day), `w` (week), `m` (month),
+            or `e` (entire range). When hourly, the time range must not exceed 31 days.
+          enum: [h, d, w, m, e]
+          example: "e"
+        chart_plot_type:
+          type: string
+          description: Plot scale for the chart, such as `linear`.
+          example: "linear"
+
+    # ---- Retention ----
+    RetentionQueryRequest:
+      type: object
+      description: Request body for registering a Retention analysis query.
+      required: [type, events, timerange, retention_type]
+      properties:
+        version:
+          type: string
+          description: Payload schema version.
+          example: "2.0"
+        type:
+          type: string
+          description: The analysis type. Must be `retention` for this endpoint.
+          enum: [retention]
+        events:
+          type: array
+          description: >
+            Exactly two events: the `first` event that places a user into a cohort, and the
+            `return` event measured in later periods.
+          minItems: 2
+          maxItems: 2
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The event's role in the analysis.
+                enum: [first, return]
+              actions:
+                type: array
+                description: The event and attribute conditions that define this event.
+                items:
+                  type: object
+                  properties:
+                    c_at_trigger_seg_v2:
+                      $ref: "#/components/schemas/FilterGroup"
+                    c_at_act_seg_v2:
+                      $ref: "#/components/schemas/FilterGroup"
+        segmentation:
+          allOf:
+            - $ref: "#/components/schemas/Segmentation"
+          description: >
+            Segments to scope the analysis (up to 5). Segmentation and `comparison_timerange`
+            are mutually exclusive — do not send 2 or more segments together with a time comparison.
+        timerange:
+          $ref: "#/components/schemas/Timerange"
+        granularity:
+          type: string
+          description: >
+            Cohort period — `h` (hourly, window up to 24 hours), `d` (daily, up to 90 days),
+            or `w` (weekly, up to 180 days).
+          enum: [h, d, w]
+          example: "d"
+        chart_type:
+          type: string
+          description: Visual representation of the result, such as `line`.
+          example: "line"
+        retention_type:
+          type: string
+          description: >
+            How return events are counted — `every` (return in every period),
+            `first` (first return only), or `last` (last return only).
+          enum: [every, first, last]
+        split_by:
+          type: array
+          description: Attributes to break the cohorts down by. Include up to 10.
+          maxItems: 10
+          items:
+            type: object
+        comparison_timerange:
+          type: object
+          description: >
+            A second time range to compare against. Mutually exclusive with sending 2 or more
+            segments. Pass an empty object for no comparison.
+
+    # ---- Session/Source ----
+    SessionSourceQueryRequest:
+      type: object
+      description: Request body for registering a Session/Source analysis query.
+      required: [type, report_type, timerange]
+      properties:
+        version:
+          type: string
+          description: Payload schema version.
+          example: "2.0"
+        type:
+          type: string
+          description: The analysis type. Must be `session-source` for this endpoint.
+          enum: [session-source]
+        report_type:
+          type: string
+          description: The session metric to compute.
+          enum: [session_count, average_session_duration]
+        filters:
+          type: array
+          description: >
+            Conditions on acquisition attributes (source, medium, campaign, and so on).
+            Combined with `grouped_by`, at most 2 source properties may be used.
+          items:
+            type: object
+        grouped_by:
+          type: array
+          description: >
+            Acquisition properties to break the report down by (for example, source and
+            medium). Include up to 2.
+          maxItems: 2
+          items:
+            type: object
+        segmentation:
+          $ref: "#/components/schemas/Segmentation"
+        granularity:
+          type: string
+          description: >
+            Time bucket for the series — `h` (hour), `d` (day), `w` (week), or `m` (month).
+            When hourly, the time range must not exceed 31 days.
+          enum: [h, d, w, m]
+          example: "d"
+        chart_type:
+          type: string
+          description: Visual representation of the result, such as `line`.
+          example: "line"
+        count_type:
+          type: string
+          description: Whether metrics are returned as absolute counts or percentages, such as `number`.
+          example: "number"
+        timerange:
+          $ref: "#/components/schemas/Timerange"
+        comparison_timerange:
+          type: object
+          description: >
+            A second time range to compare against. Time comparison is supported only on
+            line, bar, and column charts, and cannot be combined with custom-segment
+            comparison (2 or more segments). Pass an empty object for no comparison.
+        chart_sort_type:
+          type: string
+          description: Sort order applied to the result series.
+          enum: [ascending, descending]
+
+    # ---- User Property Analysis (UPA) ----
+    UserAnalysisQueryRequest:
+      type: object
+      description: Request body for registering a User Property Analysis (UPA) query.
+      required: [type, analysis_type, user_properties, segmentation]
+      properties:
+        version:
+          type: string
+          description: Payload schema version.
+          example: "2.0"
+        type:
+          type: string
+          description: The analysis type. Must be `user_analysis` for this endpoint.
+          enum: [user_analysis]
+        analysis_type:
+          type: string
+          description: >
+            The user-property computation to run, such as `distribution` (value distribution),
+            a count, or an aggregation.
+          example: "distribution"
+        user_properties:
+          type: array
+          description: >
+            The user attributes to analyze. Include 1 to 5 properties. When more than one is
+            provided, results are cross-tabulated across them.
+          minItems: 1
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Identifier for this property within the query (for example, `A`).
+                example: "A"
+              property:
+                type: object
+                description: The attribute definition and any attribute-level filters.
+                properties:
+                  action_name:
+                    type: string
+                    description: The user attribute to analyze.
+                    example: "u_l_a"
+                  filter_type:
+                    type: string
+                    description: The kind of attribute being analyzed.
+                    example: "user_attributes"
+                  executed:
+                    type: boolean
+                    description: Whether the attribute condition must be satisfied.
+                  execution:
+                    type: object
+                    description: Execution criteria for the attribute condition.
+                  attributes:
+                    $ref: "#/components/schemas/FilterGroup"
+                  pii:
+                    type: boolean
+                    description: Whether the attribute is marked as personally identifiable information.
+                  encrypted:
+                    type: boolean
+                    description: Whether the attribute is stored encrypted.
+              projection:
+                type: object
+                description: >
+                  How the property value is projected for grouping (for example, a datetime
+                  attribute projected as a date).
+              object_projection:
+                type: object
+                description: Projection configuration for object-type attributes.
+              aggregation:
+                type: object
+                description: Aggregation configuration for this property.
+        segmentation:
+          $ref: "#/components/schemas/Segmentation"
+        distribution:
+          type: object
+          description: >
+            Distribution configuration. Custom distributions apply to numerical attributes
+            only. Use `type: auto` for automatic bucketing.
+        timerange:
+          $ref: "#/components/schemas/Timerange"
+        granularity:
+          type: string
+          description: >
+            Time bucket for the series — `h` (hour), `d` (day), `w` (week), `m` (month),
+            or `e` (entire range).
+          enum: [h, d, w, m, e]
+          example: "e"
+        chart_type:
+          type: string
+          description: Visual representation of the result, such as `column`.
+          example: "column"
+        count_type:
+          type: string
+          description: Whether metrics are returned as absolute counts or percentages, such as `number`.
+          example: "number"
+        split_by:
+          type: array
+          description: Attributes to break the result down by. Include up to 10.
+          maxItems: 10
+          items:
+            type: object
         chart_sort_type:
           type: string
           description: Sort order applied to the result series.
