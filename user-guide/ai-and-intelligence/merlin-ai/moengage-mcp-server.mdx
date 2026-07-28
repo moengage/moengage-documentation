@@ -1,7 +1,7 @@
 ---
 title: "MoEngage MCP Server and Connector"
 description: "Connect AI assistants like Claude and ChatGPT to your MoEngage workspace to build campaigns, manage segments and flows, and analyze performance through natural language."
-keywords: "MoEngage MCP, MCP server, custom connector, Claude connector, ChatGPT connector, AI assistant, remote MCP, organization connector"
+keywords: "MoEngage MCP, MCP server, custom connector, Claude connector, ChatGPT connector, AI assistant, remote MCP, organization connector, segmentation tools, custom segments, segment count, audience estimation, recent query, segment membership, deep validation"
 ---
 
 MoEngage offers a hosted [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) server that lets AI assistants work with your workspace directly. Your assistant can **build campaign drafts, create and count segments, read and analyze flows, browse dashboards, and analyze performance** — all through natural-language conversation.
@@ -225,19 +225,22 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 
 ### Segments
 
-For per-tool parameters, examples, and caveats, see [MoEngage MCP Server: Segmentation Tools](/user-guide/ai-and-intelligence/merlin-ai/moengage-mcp-segmentation-tools).
-
 | Tool | Description |
 | --- | --- |
-| `create_custom_segment` | Create a custom segment from event and attribute filters. |
-| `list_segments` | Browse existing custom segments in the workspace. |
-| `get_segment` | Read a single segment's definition. |
-| `start_segment_count` / `poll_segment_count` | Kick off an async user count for a segment, then poll for the result — includes channel-level reachability. |
-| `get_value_suggestions` | Get suggested values for an event or user attribute while building a segment. |
-| `describe_segment_filters` | Turn a segment filter set into a plain-English sentence — confirm intent before creating anything. |
-| `deep_validate_segment_filters` | Semantically validate a filter set (attribute existence, data types, operators) before creating a segment or query. |
-| `create_recent_query` / `get_recent_query` / `get_recent_query_filters` | Count an audience **without creating a segment**: run an ad-hoc audience query, poll its result, and read back its filters. |
-| `is_user_in_segment` | Check in real time whether a specific user is in up to 10 segments. |
+| `create_custom_segment` | Creates a filter-based (ELASTIC_SEARCH) custom segment from `included_filters` / `excluded_filters`. The segment `name` must be unique, under 200 characters, and contain no HTML (`All Users` is reserved). Names inside filters are not validated at create time by default — a wrong name is accepted, and the segment count fails later with no error reason. |
+| `list_segments` | Browse existing segments, paginated (`page`, `page_size`, optional `name` filter). Returns Filter and File type segments only, as metadata (`id`, `name`, `type`, `source`, timestamps); Warehouse, Analytics, and Composite are excluded. |
+| `get_segment` | Read a single segment's full filter definition by ID, in the same format `create_custom_segment` accepts. File-based and cohort-import segments return metadata only, with no filter tree. |
+| `start_segment_count` / `poll_segment_count` | Kick off an async user count for a segment (with an optional `callback_url` webhook), then poll for the result — includes channel-level reachability, with per-channel and per-platform breakdowns available. Results are cached for 15 minutes; jobs typically finish in under 30 seconds. |
+| `get_value_suggestions` | Gets up to 5,000 distinct stored values (`string`, `double`, or array/object variants) for a user or event attribute, useful for checking real values before writing an equality filter. For `array_object` attributes, `node_attribute_name` / `node_data_type` resolve values for a child field. |
+| `describe_segment_filters` | Turns a filter set into a plain-English sentence to confirm intent before creating a segment or query. Its `filter_operator` also accepts `difference`, unlike `create_custom_segment`. |
+| `deep_validate_segment_filters` | Semantically validates a filter set (attribute existence, data types, operators) against the workspace's live catalog. **Always returns HTTP 200** — check the `is_valid` field in the response, not the status code; on failure, `errors` gives the dot-notation path of each problem. |
+| `create_recent_query` / `get_recent_query` / `get_recent_query_filters` | Count an audience **without creating a segment**: run an ad-hoc audience query (optionally restricted to specific `platforms`, or linked to an existing segment via `cs_id`), poll its result (`status`: `success` or `failure`), and read back its filters. Identical requests are deduplicated for 15 minutes; reachability is computed for all four channels regardless of the `reachability` parameter's contents. |
+| `is_user_in_segment` | Check in real time whether a specific user is in up to 10 segments. `segment_eligibility: false` means the segment type doesn't support real-time evaluation (batch-only) — it is not a "no". |
+
+<Info>
+  - Segment filters must use the exact **internal** (platform) names of events and attributes, not the dashboard display name (for example, `moe_city`, not "City"). A display name is often accepted at create time, but the count later fails with **no error reason**. Resolve names first with `find_events`, `find_user_attributes`, and `find_event_attributes` (see [Catalog Discovery](#catalog-discovery)), and always use the returned `name` field.
+  - To target users who did **not** perform an event, don't set `executed: false` on an `actions` filter — it is silently ignored. Place a positive `actions` filter in `excluded_filters` instead, or use `"execution": {"type": "atmost", "count": 0}`. Common create-time errors: `409` (name already taken), `400` (malformed filter, or the operator `equals` instead of `is`), `413` (filter too large or too deeply nested).
+</Info>
 
 ### Flows
 
@@ -297,13 +300,13 @@ For per-tool parameters, examples, and caveats, see [MoEngage MCP Server: Segmen
 
 ### Catalog Discovery
 
-Use these to find the right events and attributes before building a segment or running a behavior analysis.
+Use these to find the right events and attributes before building a segment or running a behavior analysis. All three return top-ranked matches with confidence scores, never the full catalog; event and attribute names vary per workspace, so the assistant should never guess them.
 
 | Tool | Description |
 | --- | --- |
-| `find_events` | Discover trackable events in the workspace. |
-| `find_event_attributes` | Discover the attributes available on a given event. |
-| `find_user_attributes` | Discover user attributes available for targeting and analysis. |
+| `find_events` | Discover trackable events matching a natural-language term (for example, "purchase"). Takes `query` and an optional `limit` (1–50, default 10); returns the internal `name` to use as `action_name` in filters. Events inactive for more than 60 days are excluded. |
+| `find_event_attributes` | Discover the attributes of a specific event. Takes `event_name` (the exact name from `find_events`), `query`, and an optional `limit`. |
+| `find_user_attributes` | Discover user attributes matching a natural-language term (for example, "city"). Takes `query` and an optional `limit`; returns the internal `name` and `data_type`, which determines valid filter operators. |
 
 ### Feedback
 
@@ -353,6 +356,12 @@ Use these to find the right events and attributes before building a segment or r
 | Analyze traffic sources | _"Which sources drove the most sessions last month, and what was the bounce rate?"_ |
 | Diagnose delivery | _"Why did my last push campaign have a low delivery rate?"_ |
 | Device insights | _"How does Android vs iOS performance compare for my push campaigns?"_ |
+| Explore the catalog | _"What purchase-related events do we track, and what attributes do they have?"_ |
+| Sanity-check a filter | _"Before creating it, explain in plain English what this segment's filters mean."_ |
+| Create a segment via MCP | _"Create a segment of users in Mumbai who purchased at least 3 times in the last 30 days."_ |
+| Count a segment | _"How many reachable users are in my 'Cart abandoners' segment, split by channel?"_ |
+| Count without creating | _"How many users opened an email in the last 7 days but didn't purchase? Just the count, don't create a segment."_ |
+| Check membership | _"Is user 12345 currently in the 'Churn risk' segment?"_ |
 
 ## Known Behaviors and Limitations
 
@@ -365,6 +374,41 @@ Write tools (for example, creating campaigns, editing content blocks, creating s
 ### Refresh the Tools List
 
 New tools are added to the connector over time. If a newly shipped tool doesn't appear, refresh the connector's tools list in your client. If the refresh option isn't available, disconnect and reconnect (re-authenticate) the MoEngage connector to pick up the latest tools.
+
+### Segmentation Behaviors
+
+| Behavior | Details |
+| --- | --- |
+| Internal names only | Filters usually accept display names at create time. `create_custom_segment` has a partial safety-net catalog check, but it fails open when the catalog is unavailable, so an unresolved bad name can still surface later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`. |
+| Stale events are hidden | `find_events` excludes events inactive for more than 60 days. |
+| Text equality uses the `is` operator | The operator `equals` on a `user_attributes` filter is rejected with a generic `400` (Bad Request) error. |
+| Negative event conditions require a specific pattern | `executed: false` on an `actions` filter is silently ignored. Express "did not do the event" with a positive filter in `excluded_filters`, or with `"execution": {"type": "atmost", "count": 0}`. |
+| Identical recent queries are deduplicated | An identical `create_recent_query` request within 15 minutes returns the same `rq_id` instead of running a new query. |
+| Segment types vary in MCP support | `create_custom_segment` only creates filter-based (ELASTIC_SEARCH) segments. `list_segments` returns Filter and File segments, but excludes Warehouse, Analytics, and Composite. `get_segment` returns a full filter tree only for Filter segments; File and cohort-import segments return metadata only. `is_user_in_segment` evaluates Filter segments in real time; file-based, funnel, retention, and predictive segments are batch-only. See [Types of Segments](/user-guide/segment/basics-of-segmentation/types-of-segments) for what each type means. |
+| Counts are cached for 15 minutes | `start_segment_count` returns the cached result (`served_from_cache: true`) when a successful count already exists within the window. |
+| Validation returns HTTP 200 either way | For `deep_validate_segment_filters`, check `is_valid` in the response body. |
+| Value suggestions are capped | 5,000 distinct values per attribute. |
+| Role-based permissions apply | Creating segments and queries requires the matching create/manage permission on your MoEngage role; read tools require read access. See [Security and Permissions](#security-and-permissions). |
+
+### Segmentation Limits
+
+The segmentation tools do not enforce rate limits of their own; the limits below come from the MoEngage APIs they call. There is no published quota on how many segments or queries you can create in a period, no enforced minimum interval between polls, and no documented cap on concurrent count jobs.
+
+| Limit | Value |
+| --- | --- |
+| Segments evaluated per `is_user_in_segment` call | 10 |
+| Values returned by `get_value_suggestions` | 5,000 distinct values |
+| Segments returned per `list_segments` page | 1 to 100 (default 10) |
+| Segment count result cache | 15 minutes |
+| `create_recent_query` deduplication window | 15 minutes (an identical request returns the same `rq_id`) |
+| Filter payload size | Oversized or overly deep filters are rejected with a `413` (Payload Too Large) error |
+| Filter nesting depth | One level of `nested_filters` |
+
+Rate limiting can still occur at the platform level.
+
+<Note>
+  Some segmentation APIs, including the real-time membership check, can return a `429` (Too Many Requests) error under heavy traffic. There is no published request quota; when a `429` occurs, retry after about 60 seconds. All tool calls also pass through the MoEngage API gateway, which can apply its own traffic controls.
+</Note>
 
 ### Other Limitations
 
@@ -404,5 +448,21 @@ New tools are added to the connector over time. If a newly shipped tool doesn't 
 
   <Accordion title="Re-authentication fails when switching workspace or data center">
     Switching the workspace or database on an active connection can briefly error. Wait a short while and re-authenticate — the connection typically succeeds on retry.
+  </Accordion>
+
+  <Accordion title="A segment count fails with no error reason">
+    This almost always means a filter uses a display name instead of an internal name. Resolve names with [Catalog Discovery](#catalog-discovery) and re-validate with `deep_validate_segment_filters` before creating the segment again.
+  </Accordion>
+
+  <Accordion title="A segment or query is not created">
+    Check the response for a specific error code: `409` means the name is already taken, `400` means the filter structure is malformed, and `413` means the filter is too large or deeply nested. A `400` on a filter that otherwise appears correct is often the operator: use `is`, not `equals`, for text equality. See the common-errors note under [Segments](#segments).
+  </Accordion>
+
+  <Accordion title="is_user_in_segment returned segment_eligibility: false">
+    This is not a "no": it means the segment type does not support real-time evaluation (file-based, funnel, retention, and predictive segments are batch-only). Check the segment's type, or fall back to a saved count with `start_segment_count`.
+  </Accordion>
+
+  <Accordion title="A segmentation tool is not available to the assistant">
+    Tool availability depends on your MoEngage role and your client's connector settings. See [Security and Permissions](#security-and-permissions) and [Enable the Tools You Need](#enable-the-tools-you-need).
   </Accordion>
 </AccordionGroup>
