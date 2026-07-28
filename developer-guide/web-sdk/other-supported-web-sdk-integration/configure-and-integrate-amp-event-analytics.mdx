@@ -31,7 +31,7 @@ Ensure to include the script in all of your AMP pages in the `<head>` section of
 {
   "vars": {
     "appId": "YOUR_WORKSPACE_ID",
-    "dataCenter": "sdk-01",
+    "dataCenter": "sdk-01"
   }
 }
 </script>
@@ -66,6 +66,10 @@ However, if any user of your website who visited your normal HTML pages earlier 
 Page Viewed event is tracked by default if you followed the above steps.\
 However with AMP framework limitations on event tracking, only a few kinds of events can be tracked such as `Page Viewed`, `Element Clicked`, `Page Scroll`.
 
+<Info>
+  The MoEngage vendor config automatically includes `identifiers` and `meta` in every request. You do not need to add them to your trigger configurations. Only add a custom `identifiers` object when tracking login events, to associate the request with a specific logged-in user.
+</Info>
+
 For more information on the list of events, refer to [AMP Analytics Examples](https://amp.dev/documentation/examples/components/amp-analytics/).
 
 ### Example 1: Element Click Event
@@ -77,45 +81,55 @@ You can track a Click Event when an HTML element with id `test` is clicked as de
 ```HTML HTML lines wrap
 <button id="test" data-vars-title="Example request title">
   Click here to generate an event
-  </button>
-  
-  
-  <amp-analytics type="moengage" id="moengage">
-  <script type="application/json">
-  {
-    "vars": {
-      "appId": "XXXXXXXXXXXXXXXX",
-      "dataCenter": "sdk-01"
-    },
-    "triggers": {
-      "clickTrigger": {
-        "on": "click",
-        "selector": "#test",
-        "request": "event",
-        "extraUrlParams": {
-          "a": {
-            "title": "${title}"
-          },
-          "e": "amp example button click"
-        }
+</button>
+
+<amp-analytics type="moengage" id="moengage">
+<script type="application/json">
+{
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
+    "clickTrigger": {
+      "on": "click",
+      "selector": "#test",
+      "request": "eventV2",
+      "extraUrlParams": {
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "amp example button click",
+            "EVENT_ATTRS": {
+              "title": "${title}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
-  </script>
-  </amp-analytics>
+}
+</script>
+</amp-analytics>
 ```
 
 </CodeGroup>
 
- 
+ 
 
-| Parameter  | Description                                                                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `on`       | Type of event                                                                                                                                                |
-| `selector` | standard CSS selector                                                                                                                                        |
-| `request`  | Should always be an event                                                                                                                                    |
-| `a`        | Event attributes.   In this example, the `title` is an attribute. Verify the change in the variable `title` using `data-vars-title` from the button element. |
-| `e`        | Event name                                                                                                                                                   |
+| Parameter | Description |
+| --------- | ----------- |
+| `on` | Type of event |
+| `selector` | Standard CSS selector |
+| `request` | Should always be `eventV2` |
+| `viewsCount` | Number of events in this request. Set to the number of objects in `viewsInfo`. |
+| `viewsInfo` | Array containing the event object. |
+| `viewsInfo[].EVENT_ACTION` | Event name. In this example, `"amp example button click"`. |
+| `viewsInfo[].EVENT_ATTRS` | Event attributes as key-value pairs. Verify the variable `title` using `data-vars-title` from the button element. |
+| `viewsInfo[].EVENT_G_TIME` | Global (UTC) timestamp of the event. Use `${timestamp}`. |
+| `viewsInfo[].EVENT_L_TIME` | Local timestamp of the event. Use `${timestamp}`. |
 
 ### Example 2: Page Scroll Event
 
@@ -135,12 +149,19 @@ You can track a Click Event when an HTML element with id `test` is clicked as de
       "scrollSpec": {
         "verticalBoundaries": [25, 50, 90]
       },
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-          "scrolledUpto": "${scrollTop}"
-        },
-        "e": "PageScroll"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "PageScroll",
+            "EVENT_ATTRS": {
+              "scrolledUpto": "${scrollTop}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -175,13 +196,20 @@ For more information about the list of all supported variables, refer to [Suppor
   "triggers": {
     "formSubmit": {
       "on": "amp-form-submit",
-      "request": "event",
+      "request": "eventV2",
       "selector": "#testForm",
       "extraUrlParams": {
-        "a": {
-          "anyKey": "anyValue"
-        },
-        "e": "FormSubmit"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "FormSubmit",
+            "EVENT_ATTRS": {
+              "anyKey": "anyValue"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -192,7 +220,7 @@ For more information about the list of all supported variables, refer to [Suppor
 
 </CodeGroup>
 
-In the above example, we are setting the id of the form as the selector value (**#testForm**). Inside "extraUrlParams", "e" is the event name and "a" contains the key and the value which we want to track for this event.
+In the above example, we are setting the id of the form as the selector value (**#testForm**). Inside `viewsInfo`, `EVENT_ACTION` is the event name and `EVENT_ATTRS` contains the key and the value which we want to track for this event.
 
 ## Tracking User Attributes
 
@@ -202,7 +230,7 @@ In the above example, we are setting the id of the form as the selector value (*
   If any user attribute is configured as an identity for your account, then track it as part of [login](#tracking-user-login-and-logout) instead of simply tracking it as a user attribute as it is shown in this section. Refer to [this document](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution) to learn more.
 </Warning>
 
-You can track user attributes using the "EVENT_ACTION_USER_ATTRIBUTE" event. For example, you have this button on your website:
+You can track user attributes using the `EVENT_ACTION_USER_ATTRIBUTE` event. For example, you have this button on your website:
 
 <CodeGroup>
 
@@ -228,12 +256,19 @@ Then, track the first name (considering it to be the user's first name) like thi
     "clickTrigger": {
       "on": "click",
       "selector": "#first-name",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-          "USER_ATTRIBUTE_USER_FIRST_NAME": "${first-name}"
-        },
-        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {
+              "USER_ATTRIBUTE_USER_FIRST_NAME": "${firstName}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -268,12 +303,19 @@ Similarly, to track the user's email upon clicking the below button
     "clickTrigger": {
       "on": "click",
       "selector": "#email",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-          "USER_ATTRIBUTE_USER_EMAIL": "${email}"
-        },
-        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {
+              "USER_ATTRIBUTE_USER_EMAIL": "${email}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -308,12 +350,19 @@ In the same way, you can track other **pre-defined user attributes**
     "clickTrigger": {
       "on": "click",
       "selector": "#btnId",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-         "USER_ATTRIBUTE_NAME": "${attribute-value}"
-        },
-        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {
+              "USER_ATTRIBUTE_NAME": "${attributeValue}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -348,20 +397,27 @@ To track a **custom user attribute**, in place of USER_ATTRIBUTE_NAME you have t
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#btnId",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-         "colors": ["blue","green","red"]
-        },
-        "e": "EVENT_ACTION_USER_ATTRIBUTE"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {
+              "colors": ["blue", "green", "red"]
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -410,23 +466,32 @@ Here, we want to track ID "someUniqueId" and Email "[emailValue@emailDomain.com]
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#login",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
         "identifiers": {
-            "moe_user_id": "${unique-id}",
-            "user_identities": { 
-              "uid": "${unique-id}", 
-              "u_em": "${user-email}" 
-            }
-        }
+          "moe_user_id": "${uniqueId}",
+          "user_identities": {
+            "uid": "${uniqueId}",
+            "u_em": "${userEmail}"
+          }
+        },
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {},
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -466,21 +531,30 @@ If we want to identify the user with just mobile number (for example)-
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#login",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
         "identifiers": {
-            "user_identities": { 
-              "u_mb": "${user-mobile}" 
-            }
-        }
+          "user_identities": {
+            "u_mb": "${userMobile}"
+          }
+        },
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {},
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -500,7 +574,7 @@ If we want to identify the user with just mobile number (for example)-
 <Warning>
   Important
 
-  After tracking the login, all further attributes and events tracking should have the "identifiers" object defined inside the tracking code (with the "moe_user_id" and/or "user_identities") as above, until logout event is performed. Otherwise, that attribute or event tracking will not be associated with this logged-in user in your MoEngage dashboard.
+  After you track the login, include the `identifiers` object (with `moe_user_id` and/or `user_identities`) in every subsequent trigger's `extraUrlParams`, until you perform a logout. The vendor config sends `identifiers: {}` (empty) by default, so you must override it with the user's actual identities in each post-login trigger. Otherwise, MoEngage does not associate those events with the logged-in user in your dashboard.
 </Warning>
 
 For example, if we want to track an event after identities have been set for the user-
@@ -519,27 +593,34 @@ For example, if we want to track an event after identities have been set for the
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#title",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {
-          "title": "${title}"
-        },
-        "e": "amp example button click",
         "identifiers": {
-            "moe_user_id": "someUniqueId",
-            "user_identities": { 
-              "uid": "someUniqueId", 
-              "u_em": "emailValue@emailDomain.com" 
-            } //because we logged-in the user with "someUniqueId" as the ID and "emailValue@emailDomain.com" as the Email
-        }
+          "moe_user_id": "someUniqueId",
+          "user_identities": {
+            "uid": "someUniqueId",
+            "u_em": "emailValue@emailDomain.com"
+          }
+        },
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "amp example button click",
+            "EVENT_ATTRS": {
+              "title": "${title}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -570,23 +651,32 @@ For example, let's assume you first set ID and Email as identities of the user.
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#login",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
         "identifiers": {
-            "moe_user_id": "${unique-id}",
-            "user_identities": { 
-              "uid": "${unique-id}", 
-              "u_em": "${user-email}" 
-            }
-        }
+          "moe_user_id": "${uniqueId}",
+          "user_identities": {
+            "uid": "${uniqueId}",
+            "u_em": "${userEmail}"
+          }
+        },
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {},
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -613,26 +703,35 @@ Now, let's say you want to update the ID of the user.
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#update",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
         "identifiers": {
-            "moe_user_id": "${updated-id}",
-            "user_identities": {
-              "uid": "${updated-id}", 
-              "u_em": "${user-email}" 
-            },
-            "previous_identities": {
-              "uid": "someUniqueId" // because we updated the ID from "someUniqueId"
-            }
-        }
+          "moe_user_id": "${updatedId}",
+          "user_identities": {
+            "uid": "${updatedId}",
+            "u_em": "${userEmail}"
+          },
+          "previous_identities": {
+            "uid": "someUniqueId"
+          }
+        },
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "EVENT_ACTION_USER_ATTRIBUTE",
+            "EVENT_ATTRS": {},
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -665,18 +764,25 @@ Now, let's say you want to update the ID of the user.
 <amp-analytics type="moengage" id="moengage">
 <script type="application/json">
 {
-"vars": {
-"appId": "XXXXXXXXXXXXXXXX",
-"dataCenter": "sdk-01"
-},
-"triggers": {
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
     "clickTrigger": {
       "on": "click",
       "selector": "#logout",
-      "request": "event",
+      "request": "eventV2",
       "extraUrlParams": {
-        "a": {},
-        "e": "MOE_LOGOUT"
+        "viewsCount": 1,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "MOE_LOGOUT",
+            "EVENT_ATTRS": {},
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
       }
     }
   }
@@ -690,5 +796,80 @@ Now, let's say you want to update the ID of the user.
 <Warning>
   Important
 
-  After performing the above Moengage logout event, do NOT send "identifiers" with any further tracking code. Because the user had logged-out and further attribute/event tracking must not be associated with this user.
+  After you perform the MoEngage logout event, do not include a custom `identifiers` object in any further trigger. The vendor config continues to send the default empty `identifiers: {}`, which correctly disassociates subsequent events from the logged-out user. Adding a custom `identifiers` block after logout risks associating events with the wrong user.
 </Warning>
+
+## Batching Events
+
+You can send multiple events in a single HTTP request by placing them all inside one trigger's `viewsInfo` array. Set `viewsCount` to the number of events and add each event object to `viewsInfo`. Use this pattern for events that always co-occur — for example, when you track both `MOE_PAGE_VIEWED` and `SESSION_START` on page load in one request.
+
+<Info>
+  Note
+
+  This approach works because you author both events inside a single trigger at config time. AMP fires the trigger once and sends all events together. This differs from automatic cross-trigger batching (grouping separate trigger firings into one request), which MoEngage does not support — see the note below.
+</Info>
+
+<CodeGroup>
+
+```HTML HTML lines wrap
+<amp-analytics type="moengage" id="moengage">
+<script type="application/json">
+{
+  "vars": {
+    "appId": "XXXXXXXXXXXXXXXX",
+    "dataCenter": "sdk-01"
+  },
+  "triggers": {
+    "pageLoadBundle": {
+      "on": "visible",
+      "request": "eventV2",
+      "extraUrlParams": {
+        "viewsCount": 2,
+        "viewsInfo": [
+          {
+            "EVENT_ACTION": "MOE_PAGE_VIEWED",
+            "EVENT_ATTRS": {
+              "URL": "${sourceUrl}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          },
+          {
+            "EVENT_ACTION": "SESSION_START",
+            "EVENT_ATTRS": {
+              "referrer": "${documentReferrer}"
+            },
+            "EVENT_G_TIME": "${timestamp}",
+            "EVENT_L_TIME": "${timestamp}"
+          }
+        ]
+      }
+    }
+  }
+}
+</script>
+</amp-analytics>
+```
+
+</CodeGroup>
+
+MoEngage receives the following request body:
+
+```json JSON lines wrap
+{
+  "viewsCount": 2,
+  "viewsInfo": [
+    { "EVENT_ACTION": "MOE_PAGE_VIEWED", "EVENT_ATTRS": { "URL": "..." }, "EVENT_G_TIME": "...", "EVENT_L_TIME": "..." },
+    { "EVENT_ACTION": "SESSION_START", "EVENT_ATTRS": { "referrer": "..." }, "EVENT_G_TIME": "...", "EVENT_L_TIME": "..." }
+  ],
+  "identifiers": {},
+  "meta": { "bid": "...", "request_time": "...", "integration_type": "AMP" }
+}
+```
+
+<Warning>
+  Automatic Cross-Trigger Batching Not Supported
+
+  AMP's built-in `batchInterval` collects firings from separate triggers and flushes them as a top-level JSON array, with one object per firing. The MoEngage `/v2/sdk/report` endpoint does not accept a top-level array body — it expects a single JSON object. Do not use `batchInterval`, since it results in rejected requests. Use the manual multi-event trigger pattern above instead for events that always co-occur.
+</Warning>
+
