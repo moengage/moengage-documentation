@@ -198,6 +198,7 @@ Select **By activating identity resolution, I understand the impact of merging t
     }'
 
     ```
+
     ### Pre-Flight Checklist for S2S User Creation
 
     Before sending S2S requests with multiple identifiers, confirm:
@@ -207,6 +208,51 @@ Select **By activating identity resolution, I understand the impact of merging t
     - Profile retention rules (Step 2) are configured to reflect which data source (online vs. offline, primary system vs. secondary) should win in a conflict.
     - You have a process to handle API error responses for merge conflicts (see above) rather than silently retrying.
     - You are aware that merges triggered this way are irreversible — test in a staging workspace before rolling out to production.
+
+    ### Cross-Profile Identifier Matching
+
+    A single ingested payload can carry identifier values that already belong to different existing users. For example, the `id` in the payload may match User A while `moe_mobile` matches User B. In these cases:
+
+    - All matching profiles merge into a single profile. There is no identifier priority order and no "first match wins" logic — every existing profile that matches on any active identifier is pulled into the merge.
+    - The merge is automatic. The request is not rejected, and it is not queued for manual review.
+    - The retained profile's values are decided by your configured [profile retention rules](/user-guide/data/user-data/unified-identity-identity-resolution#step-2-review-merge-rules). With the default *Latest Last Seen* tiebreaker, the incoming request typically becomes the most recent activity, so its identifier values are retained.
+
+    <Info>
+      **Example**
+
+      Assume `id`, `email`, and `moe_mobile` are all active identifiers, and the default profile retention rule (*Latest Last Seen*) applies.
+
+      Existing state:
+
+      - **User 1:** `id = ID1`, `email = E1`
+      - **User 2:** `id = ID2`, `email = E2`, `moe_mobile = M2`
+
+      Incoming payload: `id = ID3`, `email = E1`, `moe_mobile = M2`
+
+      The new payload matches User 1 on `email` and User 2 on `moe_mobile`. Both merge together with the incoming record, producing:
+
+      - **Merged User:** `id = ID3`, `email = E1`, `moe_mobile = M2`
+
+      `ID3` and the incoming values win because the new request has the most recent last-seen timestamp. `ID1`, `ID2`, and `E2` are dropped.
+    </Info>
+
+    This behavior is identical across every Data API (Track User, Create Event, Bulk Import) and across all other ingestion paths — SDKs, file imports, and native integrations such as Shopify. The merge is driven by your Identity Resolution configuration, not by which API or source the data arrived on.
+
+    <Warning>
+      Because a single request can collapse two or more existing profiles, review your profile retention and attribute merge rules carefully before activating Identity Resolution. Merges cannot be reversed.
+    </Warning>
+
+    ### Partial Identifier Payloads
+
+    When a Data API call includes only a subset of the identifiers configured for your workspace — for example, the workspace has `id`, `moe_email`, and `moe_mobile` active, but the request only carries `moe_mobile` — MoEngage treats the call as a straightforward user update, not a merge.
+
+    - **Lookup:** MoEngage searches for an existing user using whatever identifiers are present in the request (`moe_mobile` in the example above).
+    - **Update:** Every attribute in the request payload is written to the matched profile. Identifier values not included in the request are left untouched on the existing profile.
+    - **No merge:** Because only one profile is resolved, no profile retention or attribute merge rules are evaluated. This differs from [Cross-Profile Identifier Matching](#cross-profile-identifier-matching) above, where multiple existing profiles collapse into one and retention rules decide which values survive.
+
+    <Info>
+      A partial identifier payload does not cause data loss on its own — attributes outside the request are preserved on the existing profile. Data loss only happens when a payload's values overwrite existing values for the same attribute, which is standard update behavior across all ingestion paths.
+    </Info>
   </Tab>
   <Tab title="SDK">
     Supported SDKs:
