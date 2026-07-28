@@ -31,22 +31,14 @@ paths:
       summary: Register a Behavior Query
       operationId: submitBehaviorQuery
       description: |
-        Registers an asynchronous Behavior analysis query and returns a `request_id`.
+        Registers an asynchronous Behavior analysis query and returns a `request_id`. Behavior analysis measures how many users perform one or more events over a time range, broken down by the dimensions you choose.
 
-        **Limits**
-        - `events`: 1–10.
-        - `user_attr_grouped_by`: ≤ 10.
-        - `segmentation`: ≤ 5.
-        - `split_by` + `user_attr_grouped_by` combined: ≤ 10.
-        - Percentile: 1–100 (when using percentile aggregation).
-        - Hourly granularity: ≤ 31 days.
-        - Custom distribution buckets: ≤ 10.
-        - Time comparison is allowed only on line, bar, and column charts, and not together with custom-segment comparison (≥ 2 segments).
+        Use the `request_id` with [Get Query Status](/api/analytics-queries/get-query-status) to poll for completion, then [Get Query Results](/api/analytics-queries/get-query-results) to fetch the resolved series.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/BehaviorQueryRequest" }
             example: {
                 "version": "2.0",
                 "type": "behavior",
@@ -417,7 +409,13 @@ components:
     basicAuth:
       type: http
       scheme: basic
-      description: HTTP Basic authentication using your MoEngage App ID as the username and the API key (DATA API key) as the password.
+      description: |
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format `username:password`.
+
+        - **Username**: Use your MoEngage workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+        - **Password**: Use your Data API Key, which you can find in the MoEngage dashboard at **Settings** > **Account** > **APIs**.
+
+        For more information, see [Authentication](/api/introduction#authentication).
   schemas:
     ResponseId:
       type: string
@@ -438,6 +436,182 @@ components:
               type: string
               description: Identifier of the registered query. Use it with the status and results endpoints.
               example: "6a57577219749c10af96ed2a"
+
+    # ---- Shared request building blocks (reused across analyses) ----
+    FilterGroup:
+      type: object
+      description: >
+        A group of filter criteria combined by a logical operator. Used to define
+        segmentation and event-level conditions.
+      properties:
+        included_filters:
+          type: object
+          description: >
+            Criteria a user must match. For the supported filter payload and fields,
+            see [Create Filter Segment](/api/filter-segments/create-filter-segment).
+          properties:
+            filter_operator:
+              type: string
+              description: The logical operator used to combine the filters in this group.
+              enum: [and, or]
+            filters:
+              type: array
+              description: >
+                The individual filter criteria. Each item is a filter object whose
+                structure varies by `filter_type` (common values: `actions`,
+                `user_attributes`, `custom_segments`).
+              items:
+                type: object
+    Segmentation:
+      type: array
+      description: >
+        Segments used to scope the analysis to a subset of users. Include up to 5 segments.
+        To analyze all users, pass a single segment with the `All Users` custom segment.
+      maxItems: 5
+      items:
+        type: object
+        properties:
+          filters:
+            $ref: "#/components/schemas/FilterGroup"
+    Timerange:
+      type: object
+      description: The time window the analysis runs over.
+      properties:
+        start:
+          type: string
+          description: Start of the window, in `YYYY-MM-DD HH:MM:SS` (workspace time zone).
+          example: "2026-06-09 00:00:00"
+        end:
+          type: string
+          description: End of the window, in `YYYY-MM-DD HH:MM:SS` (workspace time zone).
+          example: "2026-06-16 23:59:59"
+        label:
+          type: string
+          description: Human-readable label for the window, as shown in the dashboard.
+          example: "Last 7 Days"
+        dt_label:
+          type: string
+          description: Relative-range keyword the label maps to.
+          example: "last"
+        value:
+          type: integer
+          description: Numeric component of a relative range (for example, 7 for the last 7 days).
+          example: 7
+
+    # ---- Behavior ----
+    BehaviorQueryRequest:
+      type: object
+      description: Request body for registering a Behavior analysis query.
+      required: [type, analysis_type, events, segmentation, timerange, granularity]
+      properties:
+        version:
+          type: string
+          description: Payload schema version.
+          example: "2.0"
+        type:
+          type: string
+          description: The analysis type. Must be `behavior` for this endpoint.
+          enum: [behavior]
+        analysis_type:
+          type: string
+          description: >
+            The behavior metric to compute — for example, `events` (event counts),
+            `users` (users who performed the event), or a per-user aggregation.
+          enum: [events, users, session, aggregation, aggregation_distribution, total_events_per_user, attribute_aggregation_per_user]
+        events:
+          type: array
+          description: >
+            The events to analyze. Include 1 to 10 events. Each event has an `id`, one or
+            more `actions` (event + attribute filters), an optional `split_by`, and an
+            optional `aggregation`.
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Identifier for the event within this query (for example, `A`).
+                example: "A"
+              actions:
+                type: array
+                description: The event and attribute conditions that define this event.
+                items:
+                  type: object
+                  properties:
+                    c_at_trigger_seg_v2:
+                      $ref: "#/components/schemas/FilterGroup"
+                    c_at_act_seg_v2:
+                      $ref: "#/components/schemas/FilterGroup"
+              split_by:
+                type: array
+                description: >
+                  Attributes to break this event down by. The combined total of all
+                  `split_by` entries and `user_attr_grouped_by` must not exceed 10.
+                items:
+                  type: object
+              aggregation:
+                type: object
+                description: Optional aggregation configuration for this event.
+        segmentation:
+          $ref: "#/components/schemas/Segmentation"
+        user_attr_grouped_by:
+          type: array
+          description: >
+            User attributes to group the results by. Include up to 10; the combined total
+            with all `split_by` entries must not exceed 10.
+          maxItems: 10
+          items:
+            type: object
+        distribution:
+          type: object
+          description: >
+            Custom distribution configuration. When using custom buckets, include at most
+            10 buckets. Pass an empty object for no custom distribution.
+        timerange:
+          $ref: "#/components/schemas/Timerange"
+        granularity:
+          type: string
+          description: >
+            Time bucket for the series — for example, `d` (day), `w` (week), `m` (month),
+            `h` (hour), or `e` (entire range). When hourly, the time range must not exceed 31 days.
+          example: "d"
+        chart_type:
+          type: string
+          description: Visual representation of the result, such as `line`, `column`, or `bar`.
+          example: "line"
+        count_type:
+          type: string
+          description: Whether metrics are returned as absolute counts or percentages, such as `number`.
+          example: "number"
+        chart_plot_type:
+          type: string
+          description: Plot scale for the chart, such as `linear`.
+          example: "linear"
+        rolling_value:
+          type: integer
+          description: Rolling-window size for the metric, or -1 when not used.
+          example: -1
+        user_aggregation_type:
+          type: string
+          description: The per-user aggregation to apply. Empty when not using an aggregation.
+          example: ""
+        user_aggregation_percentile:
+          type: integer
+          description: >
+            Percentile to compute when `user_aggregation_type` is a percentile aggregation.
+            A value from 1 to 100, or -1 when not used.
+          example: -1
+        comparison_timerange:
+          type: object
+          description: >
+            A second time range to compare against. Time comparison is supported only on
+            line, bar, and column charts, and cannot be combined with custom-segment
+            comparison (2 or more segments). Pass an empty object for no comparison.
+        chart_sort_type:
+          type: string
+          description: Sort order applied to the result series.
+          enum: [ascending, descending]
     ErrorResponse:
       type: object
       required: [error, response_id]
