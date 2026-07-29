@@ -1,40 +1,83 @@
 ---
 title: "API Firewall"
-description: "Restrict MoEngage Data API access to approved IP addresses by configuring workspace-specific allowlist rules."
+description: "Scope API Firewall IP allowlist rules to specific API categories, track enforcement status per category, and publish safely with built-in lockout and exposure warnings."
+keywords: ["API category whitelisting", "category-based firewall", "enforcement status strip"]
 ---
 
-The API Firewall gives you control over which IP addresses can send API requests to your MoEngage workspace. Even if an API key is compromised or stolen, the API Firewall rejects requests from any IP address that is not on your approved list. This protects your data from unauthorized writes, synthetic traffic, and the costs associated with bot-generated events.
+The API Firewall gives you control over which IP addresses can send requests to your MoEngage APIs. Even if an API key is compromised or stolen, the API Firewall rejects requests from any IP address that is not on your approved list. Each rule whitelists one or more API categories, so you can restrict access to specific parts of your API surface — such as Segmentation or Partner Integration — without affecting categories you haven't configured.
 
 <Info>
-The API Firewall currently applies to only [Data APIs](https://www.moengage.com/docs/api/data/data-overview).
+The API Firewall applies to the following API categories: **Data**, **Segmentation**, **Campaigns**, **Partner Integration**, and **Content**. Every rule must whitelist at least one category.
 </Info>
 
 ## How It Works
 
-The API Firewall applies workspace-specific allowlist logic:
+Each rule has two independent properties: the categories it whitelists, and its publish status.
 
-- **No rules published (Default):** The API Firewall is inactive. MoEngage accepts Data API requests from any IP address that presents valid credentials.
-- **One or more rules published:** The API Firewall is active. MoEngage accepts Data API requests only from IP addresses that match a published rule. All other addresses receive a `4xx` response.
+### Rule Status: Unpublished vs. Published
 
-To disable the API Firewall at any time, unpublish or delete all active rules. MoEngage immediately reverts to accepting Data API requests from all IP addresses.
+- **Unpublished:** The default status for new and edited rules. An unpublished rule is saved but not enforced — it has no effect on API traffic in any category.
+- **Published:** An explicit, separate action. Publishing a rule enforces it, so MoEngage starts accepting requests only from the IP addresses in that rule for every category it whitelists.
+
+Saving a rule never enforces it by itself. You must select **Publish** to start blocking traffic.
+
+### Enforcement Is Per Category
+
+Each of the five API categories is either:
+
+- **Enforced:** At least one published rule whitelists this category. MoEngage accepts requests to this category's APIs only from IP addresses that match a published rule covering it. All other addresses receive a `4xx` response.
+- **Not enforced:** No published rule whitelists this category. MoEngage accepts requests to this category's APIs from any IP address.
+
+Because enforcement is derived directly from rule coverage, there's no separate setting to turn a category on or off. A category becomes enforced the moment a published rule covers it, and reverts to not enforced the moment its last published rule is deleted or unpublished.
+
+## API Categories
+
+The API Firewall organizes API endpoints into five fixed categories:
+
+- **Data**
+- **Segmentation**
+- **Campaigns**
+- **Partner Integration**
+- **Content**
+
+You can't rename this list or add to it. When you create or edit a rule, select every category the rule should whitelist.
+
+<Note>
+If you're unsure which category covers a specific API endpoint you use, contact [MoEngage Support](https://support.moengage.com).
+</Note>
 
 ## Use Cases
 
-- **Protect workspaces with large teams:** Organizations with many API users can restrict Data API access to approved server IP addresses. Even if a team member leaves and takes an API key, requests from unauthorized IP addresses are rejected.
+- **Protect workspaces with large teams:** Organizations with many API users can restrict access to approved server IP addresses. Even if a team member leaves and takes an API key, requests from unauthorized IP addresses are rejected.
 - **Protect against exposed credentials:** When an API key is exposed in a public repository, the API Firewall rejects requests from IP addresses not on your allowlist, even when valid credentials are presented.
 - **Isolate non-production environments:** Create workspace-specific allowlist rules for internal automation networks or QA testing tools in staging workspaces, keeping test traffic separate from production data.
+- **Scope protection to specific categories:** Enforce IP restrictions on a single sensitive category, such as Partner Integration or Segmentation, while leaving other categories not enforced during a phased rollout or migration.
 
 ## Navigate to the API Firewall
 
 1. On the left navigation menu in the MoEngage dashboard, click **Settings** \> **Account** \> **Security**.
 2. On the **Security** page, select the **API firewall** tab.
-3. On the **API firewall** page, select **Enable API Firewall**. The [Add API Firewall Rule](#add-new-api-firewall-rule) dialog box opens. 
+3. On the **API firewall** page, select **Enable API Firewall**. The [Add API Firewall Rule](#add-new-api-firewall-rule) dialog box opens.
 
 ![Navigation to API Firewall](/images/navigation.gif)
 
 <Info>
   You must be an Admin for your MoEngage workspace to add API Firewall rules. For more information, refer to [Access Roles](/user-guide/settings/account/team-management/access-roles).
 </Info>
+
+## Enforcement Status Strip
+
+The API firewall page opens with an enforcement status strip across the top, showing the current protection status for every category.
+
+| Element | Description |
+| --- | --- |
+| **Category** | One of the five fixed categories: Data, Segmentation, Campaigns, Partner Integration, or Content. |
+| **Status** | **Enforced** if at least one published rule covers this category, or **Not enforced** if none does. |
+| **Rule count** | The number of rules — published and unpublished — that whitelist this category. |
+
+![Enforcement status strip showing each API category as Enforced or Not enforced with rule counts](/images/api-firewall-status-strip.png)
+
+Select a category in the status strip to filter the rules table below to only the rules that cover it.
 
 ## Create and Publish API Firewall Rules
 
@@ -46,6 +89,7 @@ To disable the API Firewall at any time, unpublish or delete all active rules. M
 
 1. In the **Add API firewall rule** dialog box, enter the following details:
    - **Rule name:** Enter a descriptive name (for example, "Internal Corporate Network" or "AWS Production Server").
+   - **Categories:** Select one or more API categories this rule whitelists — **Data**, **Segmentation**, **Campaigns**, **Partner Integration**, or **Content**. You must select at least one category.
    - **Condition:** Select the IP address type from the drop-down menu:
 
      | Condition | Description |
@@ -56,30 +100,39 @@ To disable the API Firewall at any time, unpublish or delete all active rules. M
      | **CIDR Range IPv6** | Allows a block of IPv6 addresses in CIDR notation. |
      | **IPv4 Range** | Allows a contiguous range of IPv4 addresses specified by a start and end address (for example, `192.168.1.0 - 192.168.1.255`). Use this when your IP block does not align to a CIDR boundary. |
    - **Value:** Enter the IP address, CIDR range, or start and end IP addresses in the format shown in the example.
+
+<Warning>
+  **First rule for this category**
+
+  "This will be the first rule for [category]. Publishing will immediately start blocking every other IP from these APIs. Make sure your current IP and all server IPs are in the rules list — otherwise you may lock yourself out."
+
+  This warning appears inline as soon as you select a category that has no other rules — published or unpublished — covering it. It updates live as you change your category selection, so you see the consequence before you save.
+</Warning>
+
 2. Select **Add rule**. After you save your first rule, MoEngage redirects you to the API firewall list page. To add more rules, select **+ Add New Rule** on the top right of the list page.
 
 ![Add New API Firewall Rule](/images/add-new-rule.gif)
 
 <Info>
-  **API Firewall Status: Inactive**
+  **Rule saved as Unpublished**
 
-  Your saved IP rules are recorded but not yet enforced. No traffic is currently restricted. Add all required server IPs before publishing to ensure uninterrupted access for your authorized systems. Once published, the MoEngage Data API accepts requests exclusively from approved IP addresses and returns a `4xx` error for all others.
+  Your saved rule is recorded but not yet enforced. No traffic is currently restricted for the categories it covers. Add all required server IPs before publishing to ensure uninterrupted access for your authorized systems. Once published, MoEngage accepts requests to the categories this rule covers exclusively from approved IP addresses and returns a `4xx` error for all others.
 </Info>
 
 ### Publish Rules
 
-Publishing a rule makes it active and enforces the IP restriction for your workspace. You can publish all rules at once or publish a subset of rules selectively.
+Publishing a rule makes it active and enforces the IP restriction for every category it covers. You can publish all rules at once or publish a subset of rules selectively.
 
 1. Select the checkbox next to each unpublished rule you want to activate.
 2. Select **Publish** at the bottom of the screen.
-3. In the confirmation dialog box, review the notice, and then select **Publish** to confirm.
+3. In the confirmation dialog box, review the notice — including any first rule for category warnings — and then select **Publish** to confirm.
 
-The rule status changes to **Published**. MoEngage now accepts Data API requests only from IP addresses that match a published rule. Requests from all other addresses receive a `4xx` response.
+The rule status changes to **Published**. MoEngage now accepts requests to every category this rule covers only from IP addresses that match a published rule. Requests from all other addresses receive a `4xx` response.
 
 ![Publish API Firewall Rules](/images/publish-rules.gif)
 
 <Note>
-  If you publish only some of your rules, the remaining unpublished rules are not enforced. Requests from IP addresses covered only by unpublished rules are rejected until you publish those rules.
+  If you publish only some of your rules, the categories covered exclusively by the remaining unpublished rules stay not enforced. Requests to those categories continue to be accepted from any IP address until you publish the rules that cover them.
 </Note>
 
 ### View Rule Details and Activity
@@ -89,6 +142,7 @@ The API firewall page displays the following information for each rule:
 | Column | Description |
 | --- | --- |
 | **Name** | The descriptive name assigned to the rule. |
+| **Categories** | The API categories this rule whitelists (for example, Data, or Segmentation and Campaigns). |
 | **Condition** | The IP address type applied to the rule (for example, Single IPv4 or CIDR Range IPv4). |
 | **Updated on** | Date and time when the rule was last updated. |
 | **Updated by** | Email address of the user who last edited or modified the rule. |
@@ -104,8 +158,23 @@ The API firewall page displays the following information for each rule:
 
 1. On the **API firewall** page, click the ellipsis icon on the rule you want to modify.
 2. Click **Edit**. The **Edit API Firewall Rule** dialog box opens.
-3. Update the **Rule name**, **Condition**, or **Value** as needed.
-4. Select **Save**.
+3. Update the **Rule name**, **Categories**, **Condition**, or **Value** as needed.
+
+<Warning>
+  **First rule for this category**
+
+  If you add a category that currently has no other rules covering it, the editor shows the same first rule warning described in [Add New API Firewall Rule](#add-new-api-firewall-rule).
+</Warning>
+
+<Warning>
+  **Last rule for this category**
+
+  "This will disable firewall protection for [category] after publishing."
+
+  This warning appears only when you're editing a rule that is currently **Published** and is the only published rule covering a category — for example, if your edit removes that category from the rule. It tells you that publishing the edited rule turns off protection for that category. This warning doesn't appear when you create a new rule, or when you edit a rule that is currently **Unpublished**.
+</Warning>
+
+4. Select **Save**. The edited rule is saved as **Unpublished** — select **Publish** to enforce your changes.
 
 ![Edit API Firewall Rule](/images/edit-api-firewall-rule.gif)
 
@@ -120,25 +189,35 @@ The API firewall page displays the following information for each rule:
 ![Delete API Firewall Rule](/images/delete-rules.png)
 
 <Warning>
-  Unpublishing or deleting all active rules deactivates the API Firewall. MoEngage immediately reverts to accepting Data API requests from all IP addresses.
+  **Deleting the last published rule for a category**
+
+  If the rule you're deleting is **Published** and is the only published rule covering one or more categories, a confirmation modal opens, listing the affected categories and explaining that deleting the rule turns off protection for them.
+
+  If you're responding to an incident and may need to restore the rule later, select **Unpublish instead** from the modal rather than deleting. Unpublishing keeps the rule's configuration saved so you can republish it later; deleting removes it permanently.
 </Warning>
+
+![Delete confirmation modal listing the categories that will lose protection](/images/delete-rule-confirmation-modal.png)
 
 ## FAQs
 
 <Accordion title="Why should I add all IP rules before publishing them?">
-  Publishing a rule activates the API Firewall immediately. If you have three server IPs and publish them one at a time, each server without an active rule receives `4xx` errors until its rule is published. Add all rules in **Unpublished** status first, then select all and publish them together to prevent service interruptions for your authorized systems.
+  Publishing a rule immediately enforces every category it covers. If you have three server IPs across two categories and publish them one at a time, each server without an active rule for its category receives `4xx` errors until its rule is published. Add all rules in **Unpublished** status first, then select all and publish them together to prevent service interruptions for your authorized systems.
+</Accordion>
+
+<Accordion title="Can one rule cover multiple categories?">
+  Yes. Select multiple categories in the **Categories** field when you create or edit a rule. The rule counts toward the **Enforced** status of every category it covers, and toward each of those categories' rule counts in the enforcement status strip.
 </Accordion>
 
 <Accordion title="Does the API Firewall affect mobile app or website SDK traffic?">
-  No. The API Firewall applies to Data APIs (server-to-server traffic) only. It does not affect end-user mobile or web SDK traffic.
+  No. The API Firewall applies to server-to-server API traffic across its supported categories. It does not affect end-user mobile or web SDK traffic.
 </Accordion>
 
 <Accordion title="How does a blocked system receive notification of the block?">
-  MoEngage does not send a dashboard notification when the firewall blocks a request. The blocked system receives a `4xx` error (specifically `4xx`) directly in the API response. The dashboard status column reflects the current published or unpublished state of each rule.
+  MoEngage does not send a dashboard notification when the firewall blocks a request. The blocked system receives a `4xx` error directly in the API response. The dashboard status column reflects the current published or unpublished state of each rule, and the enforcement status strip reflects the current state of each category.
 </Accordion>
 
 <Accordion title="What happens if I accidentally exclude my server's IP when publishing?">
-  The API Firewall rejects requests from any IP address not covered by an active rule, including your own servers. To prevent accidental lockouts, verify that all authorized server IPs are present in your rules before selecting **Publish**.
+  The API Firewall rejects requests from any IP address not covered by an active rule for the relevant category, including your own servers. To prevent accidental lockouts, verify that all authorized server IPs are present in your rules before selecting **Publish** — the first rule warning in the editor flags categories where this would be the first active rule.
 </Accordion>
 
 <Accordion title="Can I use wildcards or fully qualified domain names (FQDNs) in rules?">
