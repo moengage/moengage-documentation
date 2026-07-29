@@ -223,3 +223,50 @@ Some In-App features require a minimum MoEngage SDK version. Users must be on an
 <Note>
   Individual features may list more specific version requirements on their own pages. For per-feature version notes, refer to [Create an In-App Message Campaign](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign).
 </Note>
+
+## Delivery Flow Diagram
+
+The following diagram traces an In-App campaign from configuration in the dashboard through to the message rendering on a user's device. The runtime path shows the points at which a campaign can be dropped, which are the same points to check when a message does not display.
+
+```mermaid placement="top-right"
+%%{init: {'flowchart': {'defaultRenderer': 'elk'}}}%%
+flowchart LR
+    subgraph dashboard["Configuration (MoEngage dashboard)"]
+        direction TB
+        A["Create In-App campaign"] --> B["Set trigger criteria:<br/>session start, screen load,<br/>custom event, or push to In-app"]
+        B --> C{"Target audience"}
+        C -->|"All users"| F["Set control groups,<br/>priority, and<br/>delivery controls"]
+        C -->|"Filter users by"| D{"Segment data range"}
+        D -->|"Within last 30 days"| D1["Real-time segment:<br/>eligible list stays current"]
+        D -->|"Beyond 30 days"| D2["Precomputed segment:<br/>refreshes every 30 minutes<br/>to a few hours"]
+        D1 --> F
+        D2 --> F
+        F --> G["Publish campaign"]
+    end
+
+    subgraph device["Delivery (user's device)"]
+        direction TB
+        H["User opens the app"] --> I["SDK sends device ID and<br/>requests eligible campaigns"]
+        I --> J["MoEngage maps device ID to user ID,<br/>evaluates segment membership,<br/>and applies control groups"]
+        J --> K["Eligible campaigns cached<br/>for this session"]
+        K --> L{"User performs a<br/>trigger action?"}
+        L -->|"No"| X1(["No message displays"])
+        L -->|"Yes"| M["Filter cached campaigns by<br/>trigger action and screen"]
+        M --> N{"Delivery controls<br/>satisfied?"}
+        N -->|"Display cap reached or<br/>minimum delay active"| X2(["Campaign excluded"])
+        N -->|"Yes"| O{"More than one<br/>campaign eligible?"}
+        O -->|"Yes"| P["Select the highest priority;<br/>break ties by most<br/>recently published"]
+        O -->|"No"| Q
+        P --> Q["SDK fetches the template<br/>and personalization data"]
+        Q --> R{"Template and assets<br/>retrieved?"}
+        R -->|"No"| X3(["Message not rendered;<br/>error logged in the<br/>delivery funnel"])
+        R -->|"Yes"| S["In-App message displays"]
+        S --> T["SDK tracks shown, clicked,<br/>and dismissed events"]
+    end
+
+    dashboard --> device
+```
+
+<Note>
+  Campaigns with [Re-evaluate Campaign Eligibility](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#re-evaluate-campaign-eligibility) enabled add one more check between the trigger action and the template fetch: the SDK verifies segment membership against the backend and drops the cached campaign if the user no longer qualifies.
+</Note>
