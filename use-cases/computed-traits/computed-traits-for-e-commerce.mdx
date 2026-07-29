@@ -1,0 +1,127 @@
+---
+title: "Computed Traits for E-commerce"
+description: "A reference of computed traits for e-commerce: the computation method, data source, and business use case for each trait."
+keywords: "computed traits, e-commerce, LTV, cart abandonment, discount sensitivity, product affinity, user attributes"
+---
+
+E-commerce apps capture a rich stream of browse, add-to-cart, purchase, and return events. Computed traits turn that raw activity into live user attributes you can segment on, personalize with, and branch Flows on, without daily CSV uploads or engineering support.
+
+This page is a menu. Each row tells you what to build, which computation method to pick, what event data it needs, the business outcome, and how to use it.
+
+New to computed traits? [Computed Traits - Overview](/user-guide/data/computed-traits/computed-traits-overview) explains what they are and how each computation method works, and [Create a Computed Trait](/user-guide/data/computed-traits/create-a-computed-trait) walks through building one.
+
+## How Computed Traits Work
+
+Every trait on this page follows the same four-step model. Once you recognize it, the tables below read at a glance.
+
+<Steps>
+  <Step title="Start with an event" icon="database">
+    A user behavior you already track, such as Order Placed or Product Viewed.
+  </Step>
+  <Step title="Choose a method" icon="calculator">
+    [Count, Aggregation, First/Last Value, or SQL](/user-guide/data/computed-traits/computed-traits-overview#methods-of-computations).
+  </Step>
+  <Step title="Get a trait" icon="user-check">
+    A live attribute like Lifetime Order Value that updates automatically.
+  </Step>
+  <Step title="Activate it" icon="rocket">
+    Use it in segmentation, analytics, Jinja personalization, and Flows.
+  </Step>
+</Steps>
+
+Once a trait runs, it becomes a standard user attribute you can use anywhere in MoEngage: build [segments](/user-guide/segment/segment-operations/rule-based-filter-segments) from it, group and filter it in [analytics](/user-guide/analyze/moengage-analytics/overview), insert its value into message copy with [Jinja personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language), or branch a [Flow](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows) on it.
+
+<Tip>
+  **Most traits here are no-code.** The <Badge color="green">Count</Badge> <Badge color="green">Aggregation</Badge> and <Badge color="green">First/Last Value</Badge> methods need no SQL. Reach for <Badge color="purple">SQL</Badge> only for composite scores that combine multiple events, or for ratios such as redemption or completion rate. You can build every no-code trait on this page yourself.
+</Tip>
+
+## Start Here
+
+Build these three first. They give you the fastest return and the most reuse across campaigns.
+
+<CardGroup cols={3}>
+  <Card title="Lifetime Order Value" icon="coins">
+    **Aggregation** · Every downstream campaign benefits from it.
+  </Card>
+  <Card title="Favorite Product Category" icon="heart">
+    **Last Value** · Makes every email dynamic, no SQL needed.
+  </Card>
+  <Card title="Last Purchase Date" icon="clock">
+    **Last Value** · Powers every win-back Flow with date operators.
+  </Card>
+</CardGroup>
+
+## Browse Traits by Goal
+
+<Info>
+  The event and property names in these tables are examples. The exact names in your account depend on how your app tracks data, so you might not find an event named `Order Placed` as written here. Check your tracked events and properties under **Data** before you build a trait, and ask your development team to track any that are missing. For how tracking works, see [A Complete Guide to Event Tracking](/user-guide/data/event-data/a-complete-guide-to-event-tracking).
+</Info>
+
+### Value & Loyalty
+
+Measure customers by revenue, order frequency, and recency, so the right retention play reaches each stage of the lifecycle.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Lifetime Order Value (LTV) | Aggregation (Sum) | **Event:** `Order Placed`; **Property:** `order_amount` | A core loyalty metric that powers VIP tiers, ad-audience exclusion, and LTV-based bidding. | Segment high-LTV customers for VIP-only launches, and exclude them from discount-heavy sends. |
+| Total Orders Last 90 Days | Count | **Event:** `Order Placed` (last 90 days) | Identify frequent shoppers to reward, and spot customers who have lapsed. | Unlock free shipping at 5 orders, and run a win-back campaign for customers with zero orders in 90 days. |
+| Total Orders Lifetime | Count | **Event:** `Order Placed` | Long-term loyalty signal for tenure-based rewards. | Run loyalty-milestone campaigns at 10, 25, and 50 orders, and assign a VIP badge. |
+| Average Order Value (AOV) | Aggregation (Average) | **Event:** `Order Placed`; **Property:** `order_amount` | Personalize free-shipping thresholds and upsell messaging. | Use Jinja to show a cart message like "Add more to unlock free shipping," tuned to each shopper's average order value. |
+| Last Purchase Date | Last Value | **Event:** `Order Placed`; **Property:** `timestamp` | Recency signal for win-back, without waiting for a batch RFM refresh. | Build segments with date operators to trigger tiered win-back at 30, 60, and 90 days. |
+
+### Category Affinity
+
+Keep each shopper's category and brand preferences fresh, so product feeds, launches, and recommendations stay personal.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Favorite Product Category | Last Value | **Event:** `Product Purchased`; **Property:** `category` | The backbone of category-based personalization. | Swap email and in-app content blocks by category, and filter new-arrival alerts to each shopper's affinity. |
+| First Purchased Category | First Value | **Event:** `Order Placed`; **Property:** `category` | Reveal the entry-door category for cross-sell. | Run a cross-sell campaign for adjacent categories 14 days after the first purchase. |
+| Distinct Categories Purchased | Aggregation (Count Distinct) | **Event:** `Order Placed`; **Property:** `category` | Tell single-category loyalists apart from category explorers, who need different journeys. | Send loyalists deep-catalog emails, and give explorers horizontal recommendation cards. |
+| Last Purchased Brand | Last Value | **Event:** `Product Purchased`; **Property:** `brand` | Alert shoppers to new drops and restocks from the brand they bought most recently. | Send real-time price-drop and back-in-stock alerts, and run brand-partner co-marketing. |
+| Last Product Viewed | Last Value | **Event:** `Product Viewed`; **Property:** `product_id` | Retarget shoppers who looked but did not buy, with the exact item. | Run a browse-abandonment email personalized with the last product viewed, using Jinja. |
+
+### Cart & Intent
+
+Turn abandoned-cart and browse behavior into intent signals, so recovery targets real intent instead of habit.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Last Cart Value | Last Value | **Event:** `Product Added to Cart`; **Property:** `cart_total` | Recover high-value carts differently from low-value ones. | Segment carts by value band: send high-value carts personal outreach, and low-value carts an automated three-touch email. |
+| Wishlist Size | Count | **Event:** `Added to Wishlist` | Heavy wishlisters show high intent but tend to be discount-sensitive. | Send shoppers with more than 10 wishlisted items an occasional bundle discount, and monitor price drops on those items. |
+| Total Products Viewed (30 Days) | Count | **Event:** `Product Viewed` | Browse-intensity signal: research-heavy shoppers need content, not discounts. | Send high-view shoppers long-form guide emails, and low-view impulse buyers a direct offer. |
+| Cart Abandonment Rate | SQL Computation | `Carts Created` / `Orders Placed` | Ratio that separates habitual browsers from genuine intent. | Skip the abandonment sequence for chronic abandoners, and send them curated content instead. |
+
+### Discount Sensitivity
+
+Learn who needs a discount to convert and who pays full price, so promo spend protects margin.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Total Coupons Redeemed | Count | **Event:** `Coupon Applied` | Volume signal for coupon-hungry shoppers. | Reserve deep offers for high-volume redeemers, and skip percentage-off campaigns for anyone at zero. |
+| Average Discount % | Aggregation (Average) | **Event:** `Order Placed`; **Property:** `discount_percent` | Each shopper's expected discount, so you can target above or below it. | Use Jinja to personalize offer strength, and segment full-price shoppers (under 5% average) for premium campaigns. |
+| Total Savings Lifetime | Aggregation (Sum) | **Event:** `Order Placed`; **Property:** `discount_value` | Fuel for a "your savings so far" message that builds loyalty. | Send an annual wrap-up email with total saved, and reference savings in birthday messages. |
+| Discount Redemption Rate | SQL Computation | `Coupons Applied` / `Coupons Received` | Ratio that shows who actually responds to offers. | Put low-redemption shoppers on a full-price track, and send higher offers to strong redeemers. |
+
+### Cadence & Returns
+
+Read each shopper's natural rhythm to time messages, and protect margin from serial returners.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Most Frequent Shopping Day | Last Value | **Event:** `Order Placed`; **Property:** `day_of_week` | The best send-day per shopper (payday shoppers vs. weekenders). | Use it as a send-time fallback when Best Time Delivery confidence is low. |
+| Total Returns | Count | **Event:** `Order Returned` | Serial returners erode margin. | When returns pass 3, exclude the shopper from cash-on-delivery offers and reduce promo intensity. |
+| Return Rate | SQL Computation | `Orders Returned` / `Orders Placed` | Ratio that normalizes returns against order volume, so heavy shoppers are not unfairly penalized. | Route high-rate, high-volume shoppers into a special-handling Flow. |
+| Preferred Payment Method | Last Value | **Event:** `Order Placed`; **Property:** `payment_method` | Show the right payment option first at checkout to reduce friction. | Personalize checkout copy, and send dynamic payment reminders. |
+| Preferred Delivery Slot | Last Value | **Event:** `Order Placed`; **Property:** `delivery_slot` | Pre-select the right delivery window to reduce checkout friction. | Personalize the delivery-slot dropdown, and time delivery reminders. |
+
+## Related Documentation
+
+Computed traits are used across MoEngage. These guides cover the surfaces referenced in the tables above:
+
+- [Segments](/user-guide/segment/segment-operations/rule-based-filter-segments): build audiences from a computed trait's value.
+- [Analytics](/user-guide/analyze/moengage-analytics/overview): group and filter user behavior by a computed trait's value.
+- [Campaigns and channels](/user-guide/campaigns-and-channels/getting-started/introduction/moengage-channels): the channels you can reach users on.
+- [Flows](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows): branch users down different paths based on a trait.
+- [Message personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/overview): insert trait values into your content with Jinja.
+- [Data](/user-guide/data/key-concepts/overview-data): how MoEngage collects and manages the event data these traits build on.
