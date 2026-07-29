@@ -1,0 +1,225 @@
+---
+title: "Campaign Delivery Mechanism for In-App Messages"
+description: "Understand how In-App campaigns reach your users, from segmentation and trigger criteria to SDK fetch behavior, campaign priority, and delivery controls."
+keywords: "in-app delivery, campaign fetch, trigger action, showInApp, showNudge, delivery controls, campaign priority, RTSE"
+---
+
+This article explains how In-App campaign delivery works in MoEngage, so you can predict when a message displays and diagnose why one did not. It covers the campaign settings that affect delivery, the conditions a user and their device must meet, and the SDK integration the channel depends on.
+
+For On-Site Messaging (OSM) campaigns, refer to [Campaign Delivery: Mobile In-App and On-Site Messaging Campaigns](/user-guide/campaigns-and-channels/on-site-message/analyze/campaign-delivery-mobile-in-app-and-on-site-messaging-campaigns).
+
+## Overview
+
+Three components determine whether an In-App message reaches a user:
+
+<CardGroup cols={3}>
+  <Card title="Campaign Configuration" icon="sliders-horizontal" href="#campaign-configuration">
+    The trigger criteria, segment, control groups, priority, and delivery controls you set while creating the campaign.
+  </Card>
+  <Card title="User Eligibility" icon="user-check" href="#user-eligibility-and-device-configuration">
+    Whether the user is in the target segment, performs the trigger action, and has a device that can render the message.
+  </Card>
+  <Card title="SDK Integration" icon="code" href="#sdk-integration">
+    Whether your app calls the required display methods and tracks the events you use as triggers.
+  </Card>
+</CardGroup>
+
+## Campaign Configuration
+
+### Trigger Criteria
+
+The trigger criteria determine when a user sees the In-App message. In-App campaigns support **On session start**, **On screen load**, **On custom event**, and **Push to In-app**. For configuration steps, refer to [Trigger Criteria](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#trigger-criteria).
+
+When the trigger action occurs:
+
+- **Payload fetch**: The SDK fetches the campaign payload, including the template and any personalized properties.
+- **Real-time rendering**: The SDK renders the message immediately instead of waiting for the server to process the event.
+
+<Info>
+  - **Supported actions**: Only actions generated and tracked by the MoEngage SDK on the same device can be used as triggers.
+  - **Unsupported actions**: Events sent through Server-to-Server (S2S) integrations, and events MoEngage generates internally such as _App/Site Opened_, _Device Uninstall_, _Device Reinstall_, and _User Reinstall_, cannot trigger In-App messages.
+  - **Multiple campaigns on the same trigger**: The SDK selects only one campaign to display. For nudges, up to three can display for the same trigger, provided each is configured for a different screen position.
+</Info>
+
+#### Integration Requirements for Trigger Actions
+
+Trigger detection depends on your app calling the right methods:
+
+| Trigger criteria | What your app must do |
+| --- | --- |
+| **On session start** | Call `showInApp()` on the screens where the message should appear. |
+| **On screen load** (pop-up) | Call `showInApp()` on the target screens. |
+| **On screen load** (nudge) | Call `showNudge()` on the target screens. |
+| **On custom event** | Track the custom event through the SDK. No additional display call is required. |
+| **Push to In-app** | Handle the push click action as a deep link or screen navigation within your app, and call `showInApp()` on the destination screen. |
+
+<Warning>
+  Without these method calls, In-App messages do not display, because the SDK has no point at which to request and render the message. For integration details, refer to [Android](/developer-guide/android-sdk/in-app-messages/in-app-nativ) and [iOS](/developer-guide/ios-sdk/in-app-messages/in-app-nativ).
+</Warning>
+
+### Segmentation
+
+While creating an In-App campaign, you can target all users or apply filters to target a specific audience. For configuration steps, refer to [Select Target Audience](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#select-target-audience).
+
+![The Filter users by section of an In-App campaign, showing user attribute filter conditions.](/images/moengage_7e1d90.png)
+
+At the campaign's scheduled start time, MoEngage evaluates the filter conditions and runs a segmentation query to identify eligible users. MoEngage maintains this user list, so the campaign is ready to deliver when an eligible user next opens the app.
+
+Campaigns that use the **Push to In-app** trigger are an exception: the audience is locked to **All Users**, because the effective audience is the set of users who receive and click the linked push campaign.
+
+#### Real-Time and Precomputed Segments
+
+The filters and attributes you select determine how the segment is evaluated. MoEngage displays a banner during campaign creation that indicates which applies.
+
+- **Real-time segments**: Segments built on user attributes, events, event attributes, and event duration from the last 30 days are evaluated in real time. Users start seeing the message as soon as the campaign is published, and the eligible-user list stays current. Use these for time-sensitive promotions and announcements. For more information, refer to [Real-Time Segment Evaluation](/user-guide/segment/advanced-concepts/real-time-segment-evaluation).
+- **Precomputed segments**: Segments that rely on historical event data beyond 30 days are calculated ahead of time. Membership refreshes on a configurable interval, ranging from 30 minutes to a few hours, so newly qualifying users may not receive the campaign immediately. For more information, refer to [Segment Processing](/user-guide/segment/basics-of-segmentation/types-of-segments#segment-processing).
+
+<Note>
+  By default, segment membership is evaluated when the user opens the app, so attribute changes during a session are not reflected until the next app launch. To check eligibility again at the moment of display, enable [Re-evaluate Campaign Eligibility](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#re-evaluate-campaign-eligibility).
+</Note>
+
+#### In-Session Attributes
+
+In-session attributes group users based on their activity in the current session, such as user type, geolocation, or time of day. MoEngage checks the segmentation criteria first, followed by the in-session attributes.
+
+![The In-session attributes selector in an In-App campaign.](/images/moengage_e00742.png)
+
+- **Real-time evaluation**: In-session attributes are assessed during the user's session.
+- **No added delay**: These attributes do not introduce a start-time delay or depend on a refresh interval.
+- **Common uses**: Personalizing messages by the user's current location, or showing different offers to new and returning users.
+
+For the full list of supported attributes, refer to [In-session Attributes](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#in-session-attributes).
+
+### Control Groups
+
+Users in a control group do not see the campaign, which gives you a baseline for measuring campaign impact.
+
+![The Control group section with the Global control group and Campaign control group toggles.](/images/moengage_4f8241.png)
+
+- **Global control group**: A predefined set of users excluded from all marketing campaigns, used to measure the overall impact of your messaging.
+- **Campaign control group**: Users excluded from a specific campaign, used to measure that campaign's effectiveness.
+
+For more information, refer to [Control Groups](/user-guide/campaigns-and-channels/getting-started/introduction/control-groups) and [Global Control Group](/user-guide/settings/advanced-settings/global-control-group).
+
+### Campaign Priority
+
+When several campaigns qualify for the same trigger action, MoEngage uses priority to decide which one displays.
+
+![The Campaign priority selector for an In-App campaign.](/images/moengage_f3cba0.png)
+
+- **Priority level**: Set each campaign's priority to **Critical**, **High**, **Medium**, **Normal**, or **Low**. The campaign with the highest priority displays.
+- **Creation date**: If two campaigns share the same priority, the most recently created or published campaign displays.
+
+Assign priority levels deliberately so that the messages that matter most take precedence, and review them as your messaging goals change.
+
+<Note>
+  Campaigns that use the **Push to In-app** trigger are set to **Critical - Functional** automatically, which ranks above every other priority, including Critical. This priority cannot be changed, so the linked In-App message displays over all other eligible campaigns.
+</Note>
+
+### Delivery Controls
+
+Delivery controls manage how often and how long In-App messages display, so users are not shown messages repeatedly.
+
+![The Delivery controls section of an In-App campaign.](/images/moengage_3f19a3.png)
+
+- **Maximum number of times a user can see messages from this campaign**: Caps the total displays per user to reduce message fatigue.
+- **Minimum delay between two messages of this campaign**: Sets the interval between two displays of the same campaign, so the message does not reappear when a user repeats the trigger action in quick succession.
+- **Ignore global minimum delay**: Lets this campaign bypass the global delay that otherwise prevents users from seeing multiple In-App messages close together.
+- **Auto dismiss message after**: Closes the message automatically after a set duration.
+
+For the full set of options, including frequency capping, refer to [Delivery Controls](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#delivery-controls).
+
+<Info>
+  - Delivery controls apply per device, not per user. A user signed in on both an Android and an iOS device has separate counts on each. A campaign capped at two displays can therefore be seen twice on each device.
+  - Signing out or clearing the app cache resets delivery controls. The user is evaluated from the beginning in their next session, so account for this when planning frequency caps.
+  - For campaigns that use the **Push to In-app** trigger, MoEngage configures delivery controls automatically so the linked message always displays when the user clicks the push. Only **Auto dismiss message after** remains configurable.
+</Info>
+
+## User Eligibility and Device Configuration
+
+To receive an In-App campaign, a user must:
+
+- Belong to the campaign's target segment.
+- Perform the action that matches the campaign's trigger criteria.
+- Use an app build with the required SDK integration in place.
+
+Even when these conditions are met, a message may not display for the following reasons:
+
+<AccordionGroup>
+  <Accordion title="Incomplete SDK Integration">
+    - `showInApp()` or `showNudge()` is missing or incorrectly implemented on the screens where the message should appear.
+    - The custom event used as the trigger is not tracked through the SDK.
+  </Accordion>
+  <Accordion title="Delivery Control Restrictions">
+    - The user has reached the maximum number of displays for the campaign.
+    - A global or campaign-level minimum delay is still in effect.
+  </Accordion>
+  <Accordion title="Device Conditions">
+    - Network connectivity is poor, which can delay or fail the template and image fetch.
+    - Device settings restrict the app's network access.
+  </Accordion>
+</AccordionGroup>
+
+For the specific reason a campaign failed to display, refer to the error breakdown on the campaign's info page. For more information, refer to [Analyze In-App Campaigns](/user-guide/campaigns-and-channels/in-app-message/analyze/analyze-in-app-campaigns).
+
+## Campaign Fetch Behavior
+
+- **Fetch on app open**: When the app opens, the SDK calls MoEngage to fetch the campaigns the user is eligible for, sending the device ID that MoEngage maps to the user ID.
+- **Scope of a session**: If the user's segment changes mid-session, new campaigns are not fetched until the app is reopened. The user continues to see the campaigns fetched at the start of the session, unless the campaign has [Re-evaluate Campaign Eligibility](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#re-evaluate-campaign-eligibility) enabled.
+
+## Campaign Delivery Process
+
+<Steps>
+  <Step title="App Launch">
+    The user opens the app, and the SDK initiates a campaign fetch call to MoEngage.
+  </Step>
+  <Step title="User Identification">
+    The SDK sends the device ID, which MoEngage maps to the corresponding user ID. For a new or anonymous user, MoEngage creates a new user ID or an anonymous user ID.
+  </Step>
+  <Step title="Eligible Campaign Fetch">
+    MoEngage evaluates which campaigns the user qualifies for based on segmentation and returns the list to the SDK.
+  </Step>
+  <Step title="Trigger Action Detection">
+    The user performs an action that matches a campaign's trigger criteria, and the SDK detects it.
+  </Step>
+  <Step title="Template Fetch">
+    The SDK makes a real-time call to fetch the campaign template and personalization data, so the message reflects current content.
+  </Step>
+  <Step title="Message Display">
+    The SDK renders the In-App message using the fetched template.
+  </Step>
+  <Step title="Event Tracking">
+    The SDK records interactions such as message shown, clicked, and dismissed, and sends them to MoEngage against the user's profile for reporting.
+  </Step>
+</Steps>
+
+### How MoEngage Selects the Message to Display
+
+When multiple In-App messages qualify for the same trigger action or screen, the SDK narrows them down as follows:
+
+1. **Filtering**: The SDK keeps only the campaigns that match the current trigger action and screen name.
+2. **Delivery control checks**: It excludes campaigns that have reached their display cap or are within a minimum delay window.
+3. **Priority evaluation**: Among the remaining campaigns, it selects the one with the highest priority. If several share the highest priority, it selects the most recently published campaign.
+
+## SDK Integration
+
+In-App delivery depends on your app being integrated correctly for the channel.
+
+- **Integration steps**: Follow the steps for your platform, including [Android](/developer-guide/android-sdk/in-app-messages/in-app-nativ), [iOS](/developer-guide/ios-sdk/in-app-messages/in-app-nativ), [React Native](/developer-guide/react-native-sdk/in-app-messages/inapp-nativ), and [Flutter](/developer-guide/flutter-sdk/in-app-messages/inapp-nativ). For other platforms, refer to the [Developer Guide](/developer-guide/introduction).
+- **Deep links**: In-App messages can send users to a specific screen or URL. Implement deep link handling in your app to support actions that use deep links. For more information, refer to [Create Navigation, Deeplinks, and Rich Landing](/user-guide/campaigns-and-channels/in-app-message/create/create-navigation-deeplinks-and-rich-landing).
+
+## Supported Features and SDK Versions
+
+Some In-App features require a minimum MoEngage SDK version. Users must be on an app build that includes that SDK version for the feature to work on their device.
+
+| Feature | Android SDK Version | iOS SDK Version |
+| --- | --- | --- |
+| Delay In-App Messages | \> 7.0.0 | \> 4.15.0 |
+| Nudges | \> 7.0.0 | \> 4.15.0 |
+| Self-Handled In-App Messages | \> 7.0.0 | \> 4.15.0 |
+| Multiple Triggers | \> 7.0.0 | \> 4.15.0 |
+| Test Campaigns | \> 7.0.0 | \> 4.15.0 |
+
+<Note>
+  Individual features may list more specific version requirements on their own pages. For per-feature version notes, refer to [Create an In-App Message Campaign](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign).
+</Note>
