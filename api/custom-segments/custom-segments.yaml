@@ -160,8 +160,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
-                title: "Invalid Request"
-                description: "Mandatory field missing in the request: file_url"
+                title: "Invalid request"
+                description: "expiry_time - Field is required but value is None : None"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '409':
@@ -232,8 +232,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
-                title: "Invalid Request"
-                description: "Mandatory field missing in the request: file_url"
+                title: "Invalid request"
+                description: "expiry_time - Field is required but value is None : None"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -301,8 +301,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
-                title: "Invalid Request"
-                description: "Mandatory field missing in the request: file_url"
+                title: "Invalid request"
+                description: "expiry_time - Field is required but value is None : None"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -374,8 +374,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorV2'
               example:
-                title: "Invalid Request"
-                description: "Mandatory field missing in the request: file_url"
+                title: "Invalid request"
+                description: "expiry_time - Field is required but value is None : None"
         '401':
           $ref: '#/components/responses/401_FileSegmentError'
         '404':
@@ -599,8 +599,8 @@ paths:
           | `bool` | `is`, `exists` | — |
           | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`, `value1` for `between`, `extract_type` for date-part filters |
           | `geopoint` | (implicit `around` — no `operator`) | `value` (latitude), `value1` (longitude), `radius`; carries `negate` but no `operator` |
-          | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
-          | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
+          | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`) |
+          | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between` |
           | `object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
           | `array_object` | N/A | `filter_operator`, `filters[]` (recursive); no `operator`, `negate`, or `value` |
 
@@ -1643,8 +1643,8 @@ components:
         | `bool` | `is`, `exists` | — |
         | `datetime` | `on`, `between`, `before`, `after`, `inTheLast`, `inTheNext`, `today`, `is`, `in`, `exists` | `value_type`; `value1` for `between`; `extract_type` for date-part filters |
         | `geopoint` | (implicit `around` — no `operator` in payload) | `value` (latitude), `value1` (longitude), `radius`, `negate` |
-        | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`); removed when `negate: true` |
-        | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between`; removed when `negate: true` |
+        | `array_string` | `in`, `contains`, `startsWith`, `endsWith`, `is`, `exists` | `case_sensitive`, `array_filter_type` (`any_of` or `all_of`) |
+        | `array_double` | `in`, `lessThan`, `greaterThan`, `between`, `exists` | `array_filter_type` (`any_of` or `all_of`); `value1` for `between` |
         | `object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
         | `array_object` | N/A — uses `filter_operator` + `filters[]` | `filter_operator`, `filters` (no `operator`, `negate`, or `value`) |
 
@@ -1757,7 +1757,8 @@ components:
           description: |
             Applies to `array_string` and `array_double`. Determines whether the user's array attribute
             must match any (`any_of`) or all (`all_of`) of the specified values.
-            This field is removed when `negate: true`.
+            Segments built in the dashboard omit this field when `negate` is `true`; sending it alongside
+            `negate: true` is also accepted.
           enum: [any_of, all_of]
         filter_operator:
           type: string
@@ -3066,8 +3067,8 @@ components:
           schema:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
-            title: "Invalid Request"
-            description: "Mandatory field missing in the request: file_url"
+            title: "Invalid request"
+            description: "expiry_time - Field is required but value is None : None"
     '401_FileSegmentError':
       description: Unauthorized. Authentication or Authorization Failure.
       content:
@@ -3076,7 +3077,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Authentication required"
-            description: "Invalid Workspace ID or API key used in the Authorization header"
+            description: "APP_SECRET key mismatch. Please login to the dashboard to verify key"
     '404_FileSegmentNotFound':
       description: Entity Not Found. The segment name does not exist.
       content:
@@ -3085,7 +3086,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Entity Not Found"
-            description: "Segment not found with the given name: <custom_segment_unique_name>"
+            description: "Custom segment not found for the given name or cs_id: custom_segment_unique_name"
     '409_FileSegmentConflict':
       description: Conflict. File-segment creation attempt with duplicate name.
       content:
@@ -3094,7 +3095,7 @@ components:
             $ref: '#/components/schemas/ApiErrorV2'
           example:
             title: "Resource not created"
-            description: "Name already exists : <segment_name>"
+            description: "Name already exists: custom_segment_unique_name"
     '429_FileSegmentRateLimit':
       description: Too Many Requests. The number or rate of requests exceeds the allowed limit.
       content:
