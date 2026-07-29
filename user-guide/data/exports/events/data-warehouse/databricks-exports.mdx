@@ -1,7 +1,6 @@
 ---
 title: "Databricks Exports"
-description: "Export campaign interaction events from MoEngage to Databricks using a direct export or OpenShare zero-copy sharing. Configure either method for scalable event analytics."
-keywords: ["Databricks", "OpenShare", "zero-copy sharing", "Delta Sharing", "Unity Catalog", "data exports", "sharing identifier"]
+description: "Export campaign interaction events from MoEngage to your Databricks tables. Configure the integration for scalable event analytics and processing."
 ---
 
 # Introduction
@@ -12,166 +11,54 @@ keywords: ["Databricks", "OpenShare", "zero-copy sharing", "Delta Sharing", "Uni
 
 With this integration, you can export data from campaign interaction events to your Databricks tables.
 
-## Delivery Methods
-
-MoEngage delivers event data to Databricks in two ways. Both methods produce the same table schema and refresh hourly.
-
-**OpenShare (Zero-Copy Sharing) is the recommended method.** It needs no credentials and no IP allowlisting, and your workspace reads the data in place instead of receiving copies. Use a direct export when your workspace does not have Unity Catalog enabled, or when you need MoEngage to write events into a table you own.
-
-| | OpenShare (Zero-Copy Sharing) <br />**Recommended** | Direct Export |
-| --- | --- | --- |
-| **How data arrives** | Your workspace queries MoEngage-hosted data live through the Delta Sharing protocol. | MoEngage writes events into a table in your schema. |
-| **Credentials MoEngage needs** | None. You provide a sharing identifier, which is not a secret. | `WRITE` access to your Databricks catalog and schema. |
-| **IP allowlisting** | Not required. | Required if your system enforces it. |
-| **Where data is stored** | In a dedicated MoEngage-hosted catalog that you mount. | In your own catalog and schema. |
-| **Requires Unity Catalog** | Yes. | No. |
-| **Setup time** | Up to seven business days after you request enablement. | Self-serve on the App Marketplace. |
-
-<Note>
-  The two methods use separate storage layers. Records already delivered through a direct export do not appear in an OpenShare catalog, and vice versa. To move between methods, contact your MoEngage Customer Success Manager (CSM).
-</Note>
-
 # Integration
 
-## Prerequisites
+<Tip>
+  - Ensure you have a Databricks account with relevant permissions to create/edit Databricks instances, roles, and policies. It is optional to create a new user; you must have access to create a new user in your Databricks database.
+  - If your system requires IP whitelisting, you must whitelist MoEngage IPs. For more information, refer [here](/user-guide/settings/account/security/ip-whitelisting-in-moengage).
+  - Ensure you have a [Databricks Connection](https://partners.moengage.com/hc/en-us/articles/35576430608916-Databricks) on the App marketplace.
+  - Exports to Databricks are part of the Streams add-on. Contact your dedicated MoEngage CSM (customer success manager) to enable them for your account.
+</Tip>
 
-The prerequisites depend on the delivery method you choose. Click the tab for your method:
+If not done already, you need to set up a MoEngage `<>` Databricks integration for your account. For more information, refer to the [Databricks Integration](/user-guide/data/exports/events/data-warehouse/databricks-exports#moengage-<>-databricks) help doc.
 
-<Tabs>
-  <Tab title="OpenShare (Zero-Copy Sharing)">
-    - Ensure Unity Catalog is enabled on your Databricks workspace.
-    - Retrieve your sharing identifier, formatted as `<cloud>:<region>:<metastore-id>`. Step 1 explains where to find it.
-    - Know your primary storage region, which you provide along with the sharing identifier.
-  </Tab>
-  <Tab title="Direct Export">
-    - Ensure you have a Databricks account with relevant permissions to create/edit Databricks instances, roles, and policies. It is optional to create a new user; you must have access to create a new user in your Databricks database.
-    - If your system requires IP whitelisting, you must whitelist MoEngage IPs. For more information, refer [here](/user-guide/settings/account/security/ip-whitelisting-in-moengage).
-    - Ensure you have a [Databricks Connection](/partner-guide/data-and-analytics/data-warehouses/databricks) on the App marketplace.
-    - Exports to Databricks are part of the Streams add-on. Contact your dedicated MoEngage CSM (customer success manager) to enable them for your account.
-  </Tab>
-</Tabs>
+## Export Events from MoEngage to Databricks
 
-## Set Up Your Export
+### Step 1: Ensure Your User's Assigned Role Has Required Permissions
+
+MoEngage will need `WRITE` access to your Databricks database to store data. You have the option to grant these permissions to an existing database user or create a new dedicated database user specifically for MoEngage.
+
+Use the following code to configure write access for data storage in your Databricks database:
+
+```text wrap
+GRANT USE CATALOG ON CATALOG `<CATALOG_NAME>` TO `<EMAIL_ID_OF_THE_USER>`;
+GRANT USE SCHEMA, CREATE TABLE ON SCHEMA `<CATALOG_NAME>`.`<SCHEMA_NAME>` TO `<EMAIL_ID_OF_THE_USER>`;
+```
+
+Remember to change the following values:
+
+- `<CATALOG_NAME>` - The name of your catalog.
+- `<SCHEMA_NAME>` - The name of your database or schema.
+- `<EMAIL_ID_OF_THE_USER>` - The email ID of the user who created the token.
+
+## Step 2: Add a New Databricks Export on the MoEngage App Marketplace
 
 <Info>
-  - For the full list of events and attributes, refer to the [Data Export Glossary](/user-guide/data/exports/events/data-export-glossary).
-  - The event\_time of the exported events is always in UTC.
-  - MoEngage does not support exporting historical data. Data flows from the point you enable the export.
+  - For the full list of events and attributes, refer to the Data Exports Glossary.
+  - The event\_time of the exported events will always be in UTC.
+  - As of now, we do not support exporting Historical Data from MoEngage
 </Info>
-
-The setup steps differ by delivery method. Click the tab for the method you are using:
-
-<Tabs>
-  <Tab title="OpenShare (Zero-Copy Sharing)">
-    With OpenShare, your workspace queries MoEngage-hosted data directly through the Delta Sharing protocol instead of receiving file-based exports. You do not exchange credentials or write tokens, and your queries always read the current data.
-
-    The following diagram shows how data moves between MoEngage and your workspace:
-
-    ![Architecture diagram showing MoEngage provisioning an isolated catalog, share, and recipient, connected to your Databricks workspace over a secure Delta Share that you mount as a read-only catalog and query live](/images/databricks-openshare-architecture.png)
-
-    **Step 1: Request Enablement**
-
-    To request OpenShare, perform the following steps:
-
-    1. In your Databricks workspace sidebar, click **Catalog**.
-    2. Click **Share**, and then click **OpenSharing**.
-
-       ![Databricks Catalog page with the Share menu open, showing the OpenSharing option](/images/databricks-openshare-share-menu.png)
-
-    3. On the **OpenSharing** page, click **Sharing ID** to copy your sharing identifier.
-
-       ![Databricks OpenSharing page with the Sharing ID button highlighted](/images/databricks-openshare-sharing-id.png)
-
-    4. Send the sharing identifier and your primary storage region to your MoEngage CSM.
-
-    **Step 2: Accept the Share**
-
-    After MoEngage provisions the share, which usually takes up to seven business days, your MoEngage representative sends you the name of your data share. To accept the share, perform the following steps:
-
-    1. In your Databricks workspace, click **Catalog** \> **OpenSharing**, and then click the **Shared with me** tab.
-
-       ![Databricks OpenSharing page with the Shared with me tab highlighted, listing the available providers](/images/databricks-openshare-shared-with-me.png)
-
-    2. Click the MoEngage provider, identified by the name your CSM sent you.
-    3. Next to the share, click **Mount to catalog**.
-
-       ![Databricks provider page showing the MoEngage share with the Mount to catalog button highlighted](/images/databricks-openshare-mount-to-catalog.png)
-
-    4. When prompted for a catalog name, enter a name of your choice, for example, `moengage_shared_data`.
-    5. Confirm the catalog to create it.
-
-    **Step 3: Configure Your Export**
-
-    To configure the export in MoEngage, perform the following steps:
-
-    1. On the left navigation menu in the MoEngage dashboard, click **App marketplace**, search for **Databricks**, click the **Databricks** tile, and then click the **Integrate** tab.
-    2. Skip the connection setup. OpenShare provisions the connection for you, so MoEngage does not prompt you for service principal credentials or write access.
-    3. Create the export by following [Add a New Databricks Export on the MoEngage App Marketplace](/user-guide/data/exports/events/data-warehouse/databricks-exports#step-2-add-a-new-databricks-export-on-the-moengage-app-marketplace), below.
-    4. In **Export into schema**, select the shared catalog's schema. The dropdown shows the same value your CSM shared with you.
-
-    **Step 4: Query Your Data**
-
-    The first rows can take up to 30 minutes to appear in your shared catalog. To verify the data, perform the following steps:
-
-    1. Run the following query, replacing the placeholders with your catalog, schema, and table names:
-
-       ```sql
-       SELECT * FROM <your_catalog_name>.<schema>.<table_name>;
-       ```
-
-    2. Use **Catalog Explorer** to browse the new catalog and view the available tables.
-
-       ![Databricks Catalog Explorer showing the mounted moengage_shared_data catalog under Shares received, with its schemas and tables](/images/databricks-openshare-catalog-explorer.png)
-
-    3. Open the **Sample Data** view to preview records and attribute definitions.
-
-    If you want MoEngage to walk you through the schema, request a technical schema review from your CSM.
-
-    **Step 5: Manage Access Within Your Organization**
-
-    Because the shared catalog sits in your own infrastructure, you control access through Unity Catalog. Assign the `USE CATALOG` and `SELECT` privileges to the users or groups that need the data.
-
-    MoEngage has no write access to the catalog, and either party can end the connection at any time. Tell your CSM about any changes to your workspace setup or sharing identifier, because these changes can interrupt delivery.
-  </Tab>
-  <Tab title="Direct Export">
-    **Step 1: Grant Your User's Role the Required Permissions**
-
-    MoEngage needs `WRITE` access to your Databricks database to store data. You can grant these permissions to an existing database user or create a new database user for MoEngage.
-
-    Use the following code to configure write access for data storage in your Databricks database:
-
-    ```text wrap
-    GRANT USE CATALOG ON CATALOG `<CATALOG_NAME>` TO `<EMAIL_ID_OF_THE_USER>`;
-    GRANT USE SCHEMA, CREATE TABLE ON SCHEMA `<CATALOG_NAME>`.`<SCHEMA_NAME>` TO `<EMAIL_ID_OF_THE_USER>`;
-    ```
-
-    Change the following values:
-
-    - `<CATALOG_NAME>` - The name of your catalog.
-    - `<SCHEMA_NAME>` - The name of your database or schema.
-    - `<EMAIL_ID_OF_THE_USER>` - The email ID of the user who created the token.
-
-    **Step 2: Add the Export on the App Marketplace**
-
-    Continue with [Add a New Databricks Export on the MoEngage App Marketplace](/user-guide/data/exports/events/data-warehouse/databricks-exports#step-2-add-a-new-databricks-export-on-the-moengage-app-marketplace), below.
-  </Tab>
-</Tabs>
-
-### Add a New Databricks Export on the MoEngage App Marketplace {#step-2-add-a-new-databricks-export-on-the-moengage-app-marketplace}
-
-Both delivery methods use this step. With OpenShare the connection already exists, so you only choose the schema, events, and attributes.
 
 To add a new Databricks export, perform the following steps:
 
 1. On the left navigation menu in the MoEngage dashboard, click **App marketplace**.
-2. On the **App marketplace** page, search for **Databricks**.
-
-   ![MoEngage App Marketplace search results showing the Databricks tile](/images/databricks.png)
-
+2. On the App Marketplace page, search for **Databricks**.
+   <Frame>
+     ![Databricks](/images/databricks.png)
+   </Frame>
 3. Click the **Databricks** tile.
-4. On the **Databricks** page, click the **Integrate** tab, and then click **+ Add Export**.
+4. On the Databricks page, go to the **Integrate** tab and click **\+Add Export**.
 5. Enter the following details:
-
    | Field | Required | Description |
    | --- | --- | --- |
    | **Export name** | Yes | Type a name for the Databricks export. |
@@ -180,31 +67,29 @@ To add a new Databricks export, perform the following steps:
    | **User properties** | Optional | Select the user properties (user properties and device properties) you want to export with your events. |
    | **Select events** | Yes | Select the events you want to export to Databricks. You can choose to export all events, including existing and new ones coming into MoEngage, or manually select specific events to export. |
 
-   ![MoEngage Databricks export configuration form showing the export name, connection, schema, and event selection fields](/images/wxortimagebin.png)
+<Frame>
+  ![Wxortimagebin](/images/wxortimagebin.png)
+</Frame>
 
-6. Click **Save export**.
+5. Click **Save export**.
 
-After you save the export, data refreshes every hour. For a direct export, MoEngage appends events to a table in your schema. For OpenShare, MoEngage refreshes the shared datasets that your workspace queries.
+MoEngage starts dumping (appending) events to the newly created table every hour.
 
-## Export Process and Frequency
+### Export Process and Frequency
 
-Both delivery methods refresh hourly, and neither requires you to run manual sync jobs.
-
-For a direct export, MoEngage creates a destination table in your schema after you save the export, and then appends new event data at hourly intervals:
+After you save the export, MoEngage creates a destination table in your schema. New event data is then appended to the existing table at hourly intervals:
 
 - **Initial action**: MoEngage creates the table when the first export is triggered.
-- **Recurring action**: MoEngage appends data to the same table every hour.
+- **Recurring action**: MoEngage adds (appends) data to the same table every hour.
 
-For OpenShare, MoEngage refreshes the shared datasets every hour. Your queries read the current state of the data, so there is no table for MoEngage to write into on your side.
-
-## Sample Table Structure
+### Sample Table Structure
 
 MoEngage creates a single table in your schema using the following format:\
-`moe_events_<table_creation_timestamp>`.
+`moe_events_<table_creation_timestamp`.
 
-**Note**: This table is created per connection. All hourly exports and different event types configured under this connection are consolidated and appended to this specific table.
+**Note**: This table is created after per connection. All hourly exports and different event types configured under this connection are consolidated and appended to this specific table.
 
-The overall structure of the table remains fixed for all event types. Any new user property or event attribute that is exported is included in the user\_attributes or event\_attributes column, respectively. All events are consolidated in a single table containing necessary information, such as event names and event times, for easy analysis:
+The overall structure of the table remains fixed for all event types. Any new user property or event attribute that is exported will be included in the user\_attributes or event\_attributes column, respectively. All events are consolidated in a single table containing necessary information, such as event names and event times, for easy analysis:
 
 | Field | Type | NULL |
 | --- | --- | --- |
@@ -243,8 +128,6 @@ The overall structure of the table remains fixed for all event types. Any new us
 | user\_attributes | VARIANT | NULL |
 | device\_attributes | VARIANT | NULL |
 
-The schema is the same for both delivery methods. Custom column naming is not supported.
-
 # Frequently Asked Questions
 
 <Accordion title="How soon will I start getting the data?">
@@ -256,7 +139,7 @@ The schema is the same for both delivery methods. Custom column naming is not su
 </Accordion>
 
 <Accordion title="Can I export historical data using Automated Data Exports?">
-  As of now, you cannot export historical data using Automated Data Exports. Once configured, you will start seeing data for each event from the time you enabled your exports. This applies to both direct exports and OpenShare.
+  As of now, you cannot export historical data using Automated Data Exports. Once configured, you will start seeing data for each event from the time you enabled your exports.
 </Accordion>
 
 <Accordion title="Is there any pricing involved for Automated Data Exports?">
@@ -265,16 +148,4 @@ The schema is the same for both delivery methods. Custom column naming is not su
 
 <Accordion title="Does Data Exports guarantee the latest user attributes?">
   No, Data Exports is primarily built to export your Events in near real-time and user attributes in MoEngage are updated asynchronously so it is currently not possible to guarantee the latest values of user attributes in the exports.
-</Accordion>
-
-<Accordion title="Can I move from a direct export to OpenShare?">
-  Yes. Contact your MoEngage CSM to change delivery methods. The two methods use the same schema but separate storage layers, so records already delivered through your direct export do not appear in the OpenShare catalog.
-</Accordion>
-
-<Accordion title="Can I rename the columns or tables in the OpenShare catalog?">
-  No. The schema is standardized and custom naming is not supported. You choose which events and attributes to export during configuration, as described in Step 3 of the OpenShare setup.
-</Accordion>
-
-<Accordion title="Who do I contact after the OpenShare connection is live?">
-  Your MoEngage CSM is the primary contact for maintaining the connection, resolving technical questions, and adjusting your data requirements.
 </Accordion>
