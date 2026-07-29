@@ -12,23 +12,21 @@ The API Firewall applies to the following API categories: **Data**, **Segmentati
 
 ## How It Works
 
-Each rule has two independent properties: the categories it whitelists, and its publish status.
+Each rule has two independent properties: the categories it whitelists, and its publish status. Only published rules affect traffic — saving a rule never enforces it by itself.
 
-### Rule Status: Unpublished vs. Published
+| Rule status | Effect |
+| --- | --- |
+| **Unpublished** | Default status for new and edited rules. Saved, but has no effect on traffic for any category. |
+| **Published** | An explicit, separate action. MoEngage starts accepting requests only from the IP addresses in that rule, for every category it whitelists. |
 
-- **Unpublished:** The default status for new and edited rules. An unpublished rule is saved but not enforced — it has no effect on API traffic in any category.
-- **Published:** An explicit, separate action. Publishing a rule enforces it, so MoEngage starts accepting requests only from the IP addresses in that rule for every category it whitelists.
+Enforcement itself is tracked at the category level, not the rule level. Each of the five API categories is always in one of two states:
 
-Saving a rule never enforces it by itself. You must select **Publish** to start blocking traffic.
+| Category status | Meaning |
+| --- | --- |
+| **Enforced** | At least one published rule whitelists this category. MoEngage accepts requests to this category's APIs only from IP addresses that match a published rule covering it. All other addresses receive a `4xx` response. |
+| **Not enforced** | No published rule whitelists this category. MoEngage accepts requests to this category's APIs from any IP address. |
 
-### Enforcement Is Per Category
-
-Each of the five API categories is either:
-
-- **Enforced:** At least one published rule whitelists this category. MoEngage accepts requests to this category's APIs only from IP addresses that match a published rule covering it. All other addresses receive a `4xx` response.
-- **Not enforced:** No published rule whitelists this category. MoEngage accepts requests to this category's APIs from any IP address.
-
-Because enforcement is derived directly from rule coverage, there's no separate setting to turn a category on or off. A category becomes enforced the moment a published rule covers it, and reverts to not enforced the moment its last published rule is deleted or unpublished.
+There's no separate setting to turn a category on or off — its status is a direct readout of its rule coverage. A category becomes enforced the moment a published rule covers it, and reverts to not enforced the moment its last published rule is deleted or unpublished.
 
 ## API Categories
 
@@ -100,8 +98,8 @@ The API Firewall organizes API endpoints into five fixed categories. You can't r
 ## Use Cases
 
 - **Protect workspaces with large teams:** Organizations with many API users can restrict access to approved server IP addresses. Even if a team member leaves and takes an API key, requests from unauthorized IP addresses are rejected.
-- **Protect against exposed credentials:** When an API key is exposed in a public repository, the API Firewall rejects requests from IP addresses not on your allowlist, even when valid credentials are presented.
-- **Isolate non-production environments:** Create workspace-specific allowlist rules for internal automation networks or QA testing tools in staging workspaces, keeping test traffic separate from production data.
+- **Protect against exposed credentials:** When an API key is exposed in a public repository, the API Firewall rejects requests from IP addresses not on your whitelist, even when valid credentials are presented.
+- **Isolate non-production environments:** Create workspace-specific whitelist rules for internal automation networks or QA testing tools in staging workspaces, keeping test traffic separate from production data.
 - **Scope protection to specific categories:** Enforce IP restrictions on a single sensitive category, such as Partner Integration or Segmentation, while leaving other categories not enforced during a phased rollout or migration.
 
 ## Navigate to the API Firewall
@@ -251,6 +249,8 @@ The API firewall page displays the following information for each rule:
 
 ## FAQs
 
+<AccordionGroup>
+
 <Accordion title="Why should I add all IP rules before publishing them?">
   Publishing a rule immediately enforces every category it covers. If you have three server IPs across two categories and publish them one at a time, each server without an active rule for its category receives `4xx` errors until its rule is published. Add all rules in **Unpublished** status first, then select all and publish them together to prevent service interruptions for your authorized systems.
 </Accordion>
@@ -278,6 +278,8 @@ The API firewall page displays the following information for each rule:
 <Accordion title="What happens if the API Firewall experiences an internal failure?">
   The API Firewall is designed to fail open. If an internal failure occurs, the system allows API traffic through rather than blocking legitimate requests, preserving data collection continuity.
 </Accordion>
+
+</AccordionGroup>
 
 ## Next Steps
 
