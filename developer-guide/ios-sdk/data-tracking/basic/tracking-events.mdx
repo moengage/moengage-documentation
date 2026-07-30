@@ -72,6 +72,12 @@ MoEngageGeoLocation* pickupLocation = [[MoEngageGeoLocation alloc] initWithLatit
 
 </CodeGroup>
 
+<Note>
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026):
+  - `MoEngageProperties(withAttributes:)` and `addAttribute(_:withName:)` require values to conform to `Sendable` for Swift concurrency safety (`Any` → `any Sendable`). The literal values used above (strings, numbers, booleans, dictionaries of these) already conform to `Sendable`, so this example compiles unchanged. Under the Swift 6 language mode or strict concurrency, non-`Sendable` values need to be updated.
+  - `trackEvent(_:withProperties:)` returns a typed task object (`MoEngageTrackEventTask`) instead of `Void`, so you can observe per-call success or failure through `.onSuccess` / `.onFailure` or the async `result()` method. Direct calls like the one above compile unchanged.
+</Note>
+
 <Info>
   **Non-Interactive Events**
 
@@ -136,7 +142,8 @@ If you are upgrading to a newer version of the iOS SDK and your app passes attri
 ```swift Swift wrap
 // Helper to check if a value is a supported event attribute type.
   // Call this before passing any dynamically-typed value to addAttribute(_:withName:).
-  func isSupportedEventAttributeValue(_ value: Any) -> Bool {
+  // Starting with iOS SDK 11.0.0, addAttribute(_:withName:) requires `any Sendable` instead of `Any`.
+  func isSupportedEventAttributeValue(_ value: any Sendable) -> Bool {
       switch value {
       case let d as Double: return !d.isNaN && !d.isInfinite
       case let f as Float:  return !f.isNaN && !f.isInfinite

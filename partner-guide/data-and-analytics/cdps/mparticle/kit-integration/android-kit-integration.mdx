@@ -1,0 +1,215 @@
+---
+title: "Android Kit Integration"
+---
+
+Integrate the mParticle Android SDK before starting with MoEngage Kit Integration. Refer to the [developer documentation](https://docs.mparticle.com/developers/sdk/android/initialization) and [Kit integration documentation](https://docs.mparticle.com/developers/client-sdks/android/kits/) for more information. Skip this step if mParticle Android SDK is already integrated into the application.
+
+# MoEngage Kit Integration
+
+## SDK Installation
+
+### Installing using Catalog
+
+Integrating MoEngage SDK using a Version Catalog is the recommended way of integration, refer to the [Configure Version Catalog](https://developers.moengage.com/hc/en-us/articles/4407395989268-Installing-Version-Catalog) document to configure a catalog if not done already. Once you have configured the catalog add the dependency in the **_app/build.gradle_** file as shown below
+
+```groovy build.gradle
+dependencies {
+    ...
+    implementation("com.moengage:mparticle-android-integration-moengage:$sdkVersion")
+    implementation("com.mparticle:android-kit-base:5.58.3")
+}
+```
+
+replace \$**sdkVersion** with latest kit version
+
+### Dependencies Installation
+
+MoEngage SDK depends on the following Jetpack libraries provided by Google for its functioning, make sure you add them if it isn't already present in the application.
+
+```groovy build.gradle
+implementation("androidx.core:core:1.13.1")
+implementation("androidx.appcompat:appcompat:1.6.1")
+implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+```
+
+Refer to the [Android SDK Configuration](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/advanced-or-optional/sdk-configuration) documentation to know more about the build config and other libraries used by the SDK.
+
+## Configure MoEngage SDK
+
+Get Workspace ID (earlier App ID) from the Settings Page Dashboard --\> Settings --\> Account --\> General and configure the MoEngage SDK in the _Application_ class's _onCreate()_ before initializing the mParticle Kit.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+val moEngageBuilder = MoEngage.Builder(this, "WORKSPACE_ID", [YOUR_DATA_CENTER])
+MoEngage.configureForDefaultInstance(moEngageBuilder, IntegrationPartner.M_PARTICLE)
+```
+
+```java Java wrap
+MoEngage.Builder moEngageBuilder = new MoEngage.Builder(this, "WORKSPACE_ID", [YOUR_DATA_CENTER]);
+MoEngage.configureForDefaultInstance(moEngageBuilder, IntegrationPartner.M_PARTICLE);
+```
+
+</CodeGroup>
+
+## Add MoEngage SDK to mParticle SDK
+
+MoEngage Kit needs to be added as a kit during initializing the mParticle SDK.
+
+<CodeGroup>
+
+```kotlin Kotlin
+// 1167 is Unique ID for the MoEngage Kit
+val options = MParticleOptions.builder(this)
+    .credentials("YOU MPARTICLE API KEY", "YOUR MPARTICLE API SECRET")
+    .configuration(KitOptions().addKit(1167, MoEngageKit::class.java))
+    .build()  
+MParticle.start(options)
+```
+
+```java Java
+// 1167 is Unique ID for the MoEngage Kit
+MParticleOptions options = MParticleOptions.builder(this)
+    .credentials(M_PARTICLE_API_KEY, M_PARTICLE_API_SECRET)
+    .configuration(new KitOptions().addKit(1167, MoEngageKit.class))
+    .build();
+MParticle.start(options);
+```
+
+</CodeGroup>
+
+# Exclude MoEngage Storage File from Auto-Backup
+
+The auto backup service of Andriod periodically backs up the Shared Preference file, Database files, and so on.
+
+For more information, refer to [Auto Backup](https://developer.android.com/guide/topics/data/autobackup).
+
+The backup results in MoEngage SDK identifiers to be backed up and restored after re-install. The restoration of the identifier results in your data being corrupted and the user not being reachable using push notifications.
+
+To ensure data is not corrupted after a backup is restored, opt out of MoEngage SDK storage files.
+
+Refer to the [Exclude MoEngage Storage File from Auto-Backup](https://www.moengage.com/docs/developer-guide/android-sdk/sdk-integration/basic-integration/exclude-mo-engage-storage-file-from-auto-backup) document to configure this.
+
+# Handling Push Notifications
+
+Copy the Server Key from the FCM console and add it to the MoEngage Dashboard (Not sure where to find the Server Key refer to [Getting FCM Server Key](https://www.moengage.com/docs/developer-guide/partner-integrations/firebase/getting-fcm-server-key). To upload it, navigate to MoEngage Dashboard --\> Settings --\> Channel --\> Push --\> Mobile Push --\> Android and add the Server Key and package name.
+
+<Warning>
+  Ensure you add the keys both in the Test and Live environment.
+</Warning>
+
+## Adding metadata for push notification
+
+Metadata regarding the notification is required to show push notifications where the small icon and large icon drawable are mandatory.
+
+Use the _configureNotificationMetaData()_ to transfer the configuration to the SDK.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+val moEngageBuilder = MoEngage.Builder(this, "WORKSPACE_ID", [YOUR_DATA_CENTER])
+     .configureNotificationMetaData(NotificationConfig(R.drawable.small_icon, R.drawable.large_icon)) 
+MoEngage.configureForDefaultInstance(moEngageBuilder, IntegrationPartner.M_PARTICLE)
+```
+
+```java Java wrap
+MoEngage.Builder moEngageBuilder = new MoEngage.Builder(this, "WORKSPACE_ID", [YOUR_DATA_CENTER])
+    .configureNotificationMetaData(new NotificationConfig(R.drawable.small_icon, R.drawable.large_icon));
+MoEngage.configureForDefaultInstance(moEngageBuilder, IntegrationPartner.M_PARTICLE);
+```
+
+</CodeGroup>
+
+Ensure that the SDK is configured with the metadata in the _onCreate()_ of the Application class for push notifications to work.
+
+<Info>
+  Notification small icon should be flat, pictured face on, and must be white on a transparent background.
+</Info>
+
+## Configuring Firebase Cloud Messaging
+
+### Configuring with mParticle SDK
+
+mParticle SDK provides a way to handle the registration of push token and receive push notifications at the mParticle SDK. Refer [Push integration doc](https://docs.mparticle.com/developers/client-sdks/android/push-notifications/) for the configuration option.
+
+### Configuring with MoEngage SDK or with Application
+
+Check the[ MoEngage Push integration doc](https://www.moengage.com/docs/developer-guide/android-sdk/push/basic/push-configuration) to configure the FCM with MoEngage SDK or if you want to handle it independently.
+
+For more information on features provided in MoEngage Android SDK refer to the following links:
+
+- [Push Notifications](https://www.moengage.com/docs/developer-guide/android-sdk/push/basic/push-configuration)
+- [Geofence](https://www.moengage.com/docs/developer-guide/android-sdk/push/optional/location-triggered)
+- [In-App messaging](https://www.moengage.com/docs/developer-guide/android-sdk/in-app-messages/in-app-nativ)
+- [Notification Center](https://developers.moengage.com/hc/en-us/articles/4403893700756-Notification-Center-for-MoEngage-SDK-version-11-1-00-)
+- [Advanced Configuration](https://www.moengage.com/docs/developer-guide/android-sdk/push/advanced/callbacks-and-customisation)
+- [API Reference](https://moengage.github.io/android-api-reference/index.html)
+- [Compliance](https://www.moengage.com/docs/developer-guide/android-sdk/compliance/prepare-for-google-plays-data-disclosure-requirements)
+- [Release Notes](/release-notes/sdks/android#14th-december-2023)
+
+# mParticle SDK Usage
+
+Refer to the [developer documentation](https://docs.mparticle.com/developers/client-sdks/android/initialization/) for detailed usage.
+
+## User Management
+
+User identity is managed through a combination of mParticle's IDSync framework and MoEngage's user profiles.
+
+Check [IDSync](https://docs.mparticle.com/developers/client-sdks/android/idsync/) documentation from the mParticle developer integration document to manage the user state in the application.
+
+By default, our integration automatically maps the following core mParticle identifiers to MoEngage user attributes without any extra code:
+
+- customerId
+- email
+- mobileNumber
+
+### Mapping Additional Identifiers
+
+To synchronise other identifiers (e.g., social media IDs, internal aliases), you must explicitly map them using the **_setMappingForIdentity(),_** method. This ensures that when an identifier is added or updated through an mParticle **_userIdentity_** API call, the change is reflected in the corresponding MoEngage user attribute.
+
+#### When to Call
+
+This setup must be performed at a specific point in your app's startup sequence:
+
+1. **After** you initialize the MoEngage SDK.
+2. **Before** you call mParticle's **_userIdentity_** API for the first time.
+
+The best place for this logic is in your **Application's _onCreate()_ method**.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+// In your Application class's onCreate() method
+// 1. Define the mappings
+val identitiesMapping: Map&lt;mparticle.identitytype, String&gt; = mapOf()
+/**
+ * 2. Set the Identity mapping for mParticle and MoEngage
+ * Example Usage: setMappingForIdentity(mapOf(MParticle.IdentityType.Facebook to "u_fb"))
+ */   
+MoEMParticleHelper.setMappingForIdentity(identitiesMapping)
+```
+
+```java Java wrap
+// In your Application class's onCreate() method
+// 1. Define the mappings
+Map&lt;MParticle.IdentityType, String&gt; identitiesMapping = Map.of();  
+/** 
+ * 2. Set the Identity mapping for mParticle and MoEngage
+ * Example Usage: setMappingForIdentity(mapOf(MParticle.IdentityType.Facebook to "u_fb"))
+ */
+MoEMParticleHelper.INSTANCE.setMappingForIdentity(identitiesMapping);
+```
+
+</CodeGroup>
+
+## Event Tracking
+
+Use [logEvent](https://docs.mparticle.com/developers/client-sdks/android/event-tracking/) to track the custom and commerce events from mParticle SDK. mParticle SDK will send the event to MoEngage Kit (if configured from mParticle Dashboard) with associated profiles.
+
+## User Attribute Tracking
+
+mParticle SDK provides [setUserAttributeList](https://docs.mparticle.com/developers/client-sdks/android/users/) to set the user attributes. Either you can set the mParticle standard attributes or custom attributes both are passed to MoEngage Kit and mapped accordingly at MoEngage SDK.
+
+# Sample Implementation
+
+Refer to [this](https://github.com/moengage/mparticle-android-integration-moengage) GitHub repository for a sample implementation
