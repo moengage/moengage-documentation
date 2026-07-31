@@ -1,0 +1,55 @@
+{/* Manifest-file concept, shared across Overview, DW Setup, and File Import Setup.
+Manual Uploads and Auxiliary Data do NOT use manifests — do not reference this
+snippet from those pages. */}
+
+A manifest file contains the mappings between each source column and a MoEngage attribute, along with the data type of the column. The file must be in JSON format. Instead of mapping columns one by one on the dashboard, you can upload a manifest file to automate the mapping.
+
+<Tabs>
+  <Tab title="CSV Files">
+    ```json
+    {
+      "mapping": [
+        { "column": "ID", "moe_attr": "uid", "type": "string", "is_skipped": false },
+        { "column": "First Name", "moe_attr": "u_fn", "type": "string", "is_skipped": false },
+        { "column": "First Seen", "moe_attr": "cr_t", "type": "datetime", "datetime_format": "YYYY-MM-DD hh:mm:ss", "is_skipped": false },
+        { "column": "LTV", "moe_attr": "t_rev", "type": "double", "is_skipped": false },
+        { "column": "Install Status", "moe_attr": "installed", "type": "bool", "is_skipped": false }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="JSON Files">
+    ```json
+    {
+      "mapping": [
+        { "column": "customer_id", "moe_attr": "uid", "type": "string", "is_skipped": false },
+        { "column": "user.first_name", "moe_attr": "u_fn", "type": "string", "is_skipped": false },
+        { "column": "user.first_seen", "moe_attr": "cr_t", "type": "datetime", "datetime_format": "YYYY-MM-DD hh:mm:ss", "is_skipped": false },
+        { "column": "attribution.lifetime_value", "moe_attr": "t_rev", "type": "double", "is_skipped": false },
+        { "column": "attribution.device_installed", "moe_attr": "installed", "type": "bool", "is_skipped": false }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+For each column, provide the following fields:
+
+1. **`column`** _(required)_: The column name from the source file. For Level 2 keys in a JSON file, use dot notation (`key1.key2`).
+2. **`moe_attr`** _(required)_: The MoEngage attribute to map the column to. Ensure each column maps to a unique `moe_attr`.
+3. **`type`** _(optional)_: The data type of the column. See the supported types below.
+4. **`datetime_format`** _(optional)_: The date-time format. Mandatory for DateTime fields only.
+5. **`is_skipped`** _(optional)_: A boolean field. Any column marked `true` is skipped during import.
+
+### Supported Attribute Types
+
+| **Type** | **Description** | **Value in Manifest** |
+| --- | --- | --- |
+| String | Any string value. For example, `ABC`, `ABC XYZ`, `ABC123`. | `"type": "string"` |
+| Double | Any decimal value. For example, `3.14159`, `241.23`, `-123.1`. | `"type": "double"` |
+| Boolean | For example, `true`, `false`. | `"type": "bool"` |
+| Date Time | Any date-time value. For example, `2019/02/22 17:54:14.933`. | `"type": "datetime"` |
+
+<Info>
+  MoEngage does not support the `|` (pipe) character in non-array type columns. Ensure your String, Numeric, and Boolean columns do not contain this character.
+</Info>
