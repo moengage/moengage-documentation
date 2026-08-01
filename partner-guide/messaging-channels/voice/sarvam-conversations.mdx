@@ -1,14 +1,12 @@
 ---
-title: "Sarvam Conversations - Outbound Voice Call"
+title: "Sarvam - AI Outbound Voice Call"
 description: "Trigger AI-driven, multilingual outbound voice calls from MoEngage campaigns using Sarvam's fully managed voice agent platform."
 keywords: ["sarvam", "sarvam conversations", "outbound voice call", "voice agent", "connected apps", "make outbound call", "indic languages"]
 ---
 
-[Sarvam AI](https://www.sarvam.ai/) is an Indian full-stack AI company. Its conversational platform, Sarvam Conversations, provides AI voice agents that speak, listen, and reason in English and Indic languages. The MoEngage and Sarvam integration enables you to trigger AI-driven outbound phone calls directly from MoEngage campaigns, either from real-time user events such as an abandoned cart or a failed payment, or from scheduled sends such as an upcoming EMI reminder. Each trigger leads to a two-way voice conversation with your customer in their preferred language.
+[Sarvam AI](https://www.sarvam.ai/) is an Indian full-stack AI company. Its conversational platform, Sarvam Conversations, provides AI voice agents that speak, listen, and reason in English and Indic languages.
 
-With Sarvam Outbound Voice Call, you can initiate automated phone conversations via MoEngage. When specific user actions occur, MoEngage sends a request to Sarvam's Instant Outbound API. Sarvam then places the call through its integrated telephony providers, and its voice agent conducts the dialogue: greeting the customer by name, referencing the campaign context you passed (cart value, order ID, or amount due), handling questions and objections, and capturing the outcome of the conversation.
-
-Unlike custom-server voice integrations, Sarvam hosts and operates the entire voice stack, including telephony, speech recognition, the conversational agent, and text-to-speech. You do not need to build, deploy, or maintain server infrastructure to use this integration.
+The MoEngage and Sarvam integration enables you to trigger AI-driven outbound phone calls directly from MoEngage campaigns, either from real-time user events such as an abandoned cart, or from scheduled sends such as an upcoming EMI reminder. MoEngage sends a request to Sarvam's Instant Outbound API, and Sarvam places the call and conducts a two-way conversation with your customer in their preferred language.
 
 ## Outbound Voice Call × MoEngage
 
@@ -32,34 +30,6 @@ By integrating Sarvam with MoEngage, you can address the following use cases:
 - **Delivery confirmation and order resolution**: Trigger a call to confirm a delivery slot, inform the customer of a delay, or resolve order issues interactively.
 - **Win-back outreach**: Trigger a conversational call to lapsed customers in their preferred language with a personalized offer.
 
-## Supported Campaign Types
-
-The Sarvam connector supports all three Connected App campaign delivery types. In every case, MoEngage sends one request per user to Sarvam's Instant Outbound API, and each request results in one immediate call attempt.
-
-| Campaign type | How calls are triggered |
-| --- | --- |
-| **Event Triggered** | A call is placed for a user the moment the qualifying event fires (for example, cart abandonment), after any configured delay and delivery controls. |
-| **One Time** | At the scheduled send time, MoEngage resolves the target segment and sends one request per user in the segment. Each request places a call immediately. |
-| **Periodic** | Behaves like a One Time send at every occurrence of the schedule (for example, every Monday at 11:00 AM), against the segment as resolved at that occurrence. |
-
-Keep the following in mind for segment-based sends:
-
-- **Schedule within calling hours.** Sarvam places each call as soon as the request arrives, so the send time is the calling time. Schedule sends within acceptable calling windows for your customers' regions and apply MoEngage DND settings.
-- **Align volumes for large segments.** Segment sends deliver requests in rapid succession, and each request becomes a live call. For large audiences, align expected volumes with your Sarvam team in advance so that telephony capacity on your connection matches the send size.
-- **One dial attempt per user.** Each request produces a single call attempt. An unanswered call is reported back as `no_answer` rather than retried automatically. To retry, use the journey-based pattern described in [Call Outcomes and Journey Orchestration](#call-outcomes-and-journey-orchestration).
-
-## Architecture and Connectivity
-
-The following table describes the integration architecture and components:
-
-| Component | Description |
-| --- | --- |
-| **MoEngage campaign** | Triggers the Connected App action with per-user personalization resolved, either when a specified user event fires (Event Triggered) or for each user in the target segment when a scheduled send runs (One Time and Periodic). |
-| **Sarvam Instant Outbound API** | The API request sent from MoEngage to Sarvam to initiate the outbound call for one user (`POST /api/outbounds/v1/orgs/{org_id}/workspaces/{workspace_id}/outbounds`, authenticated with an `X-API-Key` header). |
-| **Sarvam voice agent** | The published conversational agent, identified by App ID and version, that conducts the call. Sarvam hosts and operates the agent. |
-| **Sarvam telephony connection** | The telephony provider integration and outbound caller number, configured in the Sarvam workspace, through which the call is placed. |
-| **Outcome webhook** | After the call completes, Sarvam sends a POST to the configured Callback URL containing the call status, duration, captured variables, and transcript reference. |
-
 ## Prerequisites
 
 <Info>
@@ -71,10 +41,6 @@ The following table describes the integration architecture and components:
   - **Telephony connection**: A telephony provider connection configured in your Sarvam workspace, with a compliant outbound caller number. Note the Connection ID and Agent Phone Number.
   - **User phone numbers in MoEngage**: A user attribute that holds the mobile number in E.164 format (for example, `+919876543210`).
 </Info>
-
-<Note>
-  Sarvam hosts, runs, and operates the entire voice agent, including telephony and conversational AI. This integration does not require a customer-hosted server.
-</Note>
 
 ## Step 1: Set Up Your Sarvam Workspace and Voice Agent
 
@@ -111,9 +77,6 @@ To connect Sarvam in the App Marketplace, perform the following steps:
 1. On the left navigation menu in the MoEngage UI, click **App Marketplace**.
 2. On the **App Marketplace** page, search for **Sarvam**.
 3. Click the **Sarvam** tile.
-
-   ![App Marketplace search results showing the Sarvam connected app tile](/images/sarvam-app-marketplace.png)
-
 4. On the **Sarvam** page, click the **Integrate** tab.
 5. Click **\+ Add integration**.
 6. Under **Connection details**, enter the following details. The form groups these fields under **Authentication** and **Connection Configuration**:
@@ -192,77 +155,18 @@ The outcome payload includes the call status (`connected`, `no_answer`, `busy`, 
 
 ## Call Outcomes and Journey Orchestration
 
-Every completed call produces an outcome that can drive downstream engagement. The webhook payload identifies whether the call connected, how long it lasted, why it failed if it did not connect (for example, a number registered under a do-not-disturb registry), and the data that the agent captured during the conversation. When these outcomes are ingested into MoEngage as events, you can branch journeys on them, suppress a discount SMS when the call connected with positive purchase intent, fall back to WhatsApp when the call was unanswered, and attribute conversions to the voice touchpoint.
+Every completed call produces an outcome that identifies whether the call connected, how long it lasted, why it failed, and the data that the agent captured. When you ingest these outcomes into MoEngage as events, you can branch journeys on them. For example, you can suppress a discount SMS when the call connected with positive purchase intent, or fall back to WhatsApp when the call was unanswered.
 
-Because each request produces a single dial attempt, retries are orchestrated on the MoEngage side, where you control the policy. Build a Flow that branches on the outcome event: if `voice_call_outcome` has `status` set to `no_answer` or `busy`, wait an interval such as 45 minutes, check that quiet hours still permit calling, and trigger the call action again. Use frequency capping or a flow exit condition to bound the number of attempts, for example a maximum of three per day. This keeps retry logic visible and adjustable in the same place as the rest of the journey.
-
-## Reference: The Request MoEngage Sends
-
-For each qualifying user, MoEngage constructs and sends the following request to Sarvam's Instant Outbound API. The connector assembles the request automatically from your connection details and campaign configuration. This reference is provided for validation and debugging.
-
-```http Instant Outbound Request
-POST https://apps.sarvam.ai/api/outbounds/v1/orgs/{org_id}/workspaces/{workspace_id}/outbounds
-X-API-Key: <your API key>
-Content-Type: application/json
-```
-
-```json Request Body
-{
-  "app_config": {
-    "app_id": "CartRecover-fb7d1564-bef6",
-    "app_version": 3,
-    "app_type": "agent",
-    "connection_config": {
-      "connection_id": "Moengage-ex-156baeff",
-      "agent_phone_number": "+918045695073"
-    },
-    "agent_variables": {
-      "customer_name": "Priya",
-      "cart_value": "3400",
-      "discount_code": "COUP10",
-      "preferred_language": "hi-IN"
-    },
-    "app_overrides": {
-      "initial_bot_message": "Hello Priya, welcome to Digital Fortress"
-    }
-  },
-  "user_config": {
-    "user_phone_number": "+918660342891"
-  },
-  "webhook_config": {
-    "url": "https://<outcome-endpoint>",
-    "metadata": {
-      "customer_id": "<moengage user id>",
-      "moe_campaign_id": "<campaign id>"
-    }
-  }
-}
-```
-
-The following table describes where each part of the request comes from:
-
-| Request field | Source |
-| --- | --- |
-| `app_id`, `app_version`, `connection_id`, `agent_phone_number` | Connection details entered in Step 2. |
-| `agent_variables` | The Agent Variables configured in the campaign, with personalization resolved per user. |
-| `app_overrides.initial_bot_message` | The Initial Bot Message and Initial Language configured in the campaign. |
-| `user_config.user_phone_number` | The User Phone Number configured in the campaign. |
-| `webhook_config.url` | The Callback URL configured in the campaign. |
-| `webhook_config.metadata` | The Callback Details configured in the campaign, which Sarvam echoes back in the outcome payload. |
-
-A successful request returns HTTP 200 with the identifier of the call attempt:
-
-```json Success Response
-{ "attempt_id": "att_8f3a2c…" }
-```
-
-<Note>
-  HTTP 200 means that the call was accepted and is being placed. It is not confirmation that the customer answered. The conversation result arrives asynchronously through the outcome webhook, typically within minutes.
-</Note>
+Each request produces a single dial attempt, so retries are orchestrated in MoEngage. Build a Flow that branches on the outcome event: if `voice_call_outcome` has `status` set to `no_answer` or `busy`, wait an interval, and then trigger the call action again. Use frequency capping or a flow exit condition to bound the number of attempts.
 
 ## Reference: The Outcome Webhook Sarvam Sends
 
 After the call completes, Sarvam sends a single POST to the Callback URL configured in the campaign. For the authoritative schema, see the Webhook Payload page in the [Sarvam API reference](https://docs.sarvam.ai/).
+
+You can choose where this outcome is delivered:
+
+- **To MoEngage**: To receive the outcome in MoEngage, contact MoEngage Support for a dedicated endpoint, which is powered by Connected Sources. Enter that endpoint as the Callback URL in the campaign.
+- **To your own endpoint**: To process the outcome in your own systems, enter your HTTPS endpoint as the Callback URL in the campaign.
 
 ```json Outcome Webhook Payload
 {
