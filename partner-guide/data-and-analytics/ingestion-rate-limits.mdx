@@ -1,14 +1,22 @@
 ---
 title: "Partner Data Ingestion Rate Limits"
 description: "Ingestion rate limits and payload caps for data imported into MoEngage from CDPs, cohort syncs, connected sources, files, and data warehouses."
-keywords: ["partner ingestion limits", "CDP rate limit", "cohort sync limit", "file import limit", "data warehouse import limit", "payload size", "RPS", "RPM", "HTTP 429"]
+keywords: ["partner ingestion limits", "CDP rate limit", "cohort sync limit", "Cohort API", "file import limit", "data warehouse import limit", "payload size", "RPS", "RPM", "HTTP 429"]
 ---
 
 MoEngage applies an ingestion rate limit and a payload cap to the data that a partner sends into your workspace. This page groups the limits by import type, because a partner that sends users and events has a different limit from the same partner syncing cohorts.
 
-<Note>
-  These limits are valid unless a different value is explicitly called out in the documentation for a specific partner. Check the partner's own integration guide for any override.
-</Note>
+## How MoEngage Assigns These Limits
+
+The limit that applies to a partner depends on the API the integration is built on, not on the partner's category. The following table describes the API that governs each entity:
+
+| API | Entities | Ingestion rate limit | Applies to |
+| --- | --- | --- | --- |
+| Data API | Users, Events | Varies by endpoint. Refer to the [Data API](/api/data/data-overview) reference. | Partners built on the standard MoEngage Data API, such as Hightouch. |
+| Partner integration API | Users, Events | 500 RPS | Partners with a dedicated MoEngage integration, such as mParticle, Amplitude, and Zeotap. |
+| Cohort API | Cohorts, Segments | 300 RPM | Partners that sync segments directly into MoEngage. |
+
+If a partner's integration guide states that your segments are available in MoEngage without creating them again, that partner uses the Cohort API, and the 300 RPM limit applies. Partners that sync audiences without using the Cohort API, such as Twilio Segment and Adobe Real-Time CDP, use 500 RPS instead.
 
 ## CDP Import Limits
 
@@ -21,16 +29,18 @@ These limits apply to users and events that a Customer Data Platform forwards to
 
 ## Cohort Sync Import Limits
 
-These limits apply to cohorts and audiences that a partner syncs into MoEngage. The rate limit depends on the partner. The following table describes the limit for each partner:
+These limits apply to cohorts and audiences that a partner syncs into MoEngage. The rate limit depends on whether the partner uses the Cohort API. The following table describes the limit for each partner:
 
 | Partners | Entity | Ingestion rate limit | Payload size | On breach |
 | --- | --- | --- | --- | --- |
-| mParticle, Amplitude, Hightouch | Cohort | 300 RPM | 128 KB | MoEngage returns a `429 (Too Many Requests)` error. Partners are expected to handle retries automatically. |
+| mParticle, Amplitude, Hightouch, Zeotap, AppsFlyer | Cohort | 300 RPM | 128 KB | MoEngage returns a `429 (Too Many Requests)` error. Partners are expected to handle retries automatically. |
 | Twilio Segment, Adobe Real-Time CDP | Cohort | 500 RPS | 128 KB | MoEngage returns a `429 (Too Many Requests)` error. Partners are expected to handle retries automatically. |
+
+The 300 RPM limit covers cohorts only. For partners in the first row, users and events follow the limit of the API that the partner's user and event integration is built on, as described in [How MoEngage Assigns These Limits](#how-moengage-assigns-these-limits).
 
 ## Other Partner Import Limits
 
-These limits apply to connected sources and other partner integrations, such as Ventrata, RevenueCat, Zoho CRM, and HubSpot CRM. The following table describes the limit for each entity:
+These limits apply to connected sources and other partner integrations, such as Ventrata, RevenueCat, Zoho CRM, HubSpot CRM, and Olo. The following table describes the limit for each entity:
 
 | Entity | Ingestion rate limit | Payload size | On breach |
 | --- | --- | --- | --- |
@@ -51,7 +61,7 @@ These limits apply to imports from Snowflake, Databricks, and BigQuery. Users an
 
 | Entity | Hourly limit | Daily limit | On breach |
 | --- | --- | --- | --- |
-| Users and Events | 10M | 50M | MoEngage processes the import on a best-effort basis. |
+| Users and Events | 15M | 50M | MoEngage processes the import on a best-effort basis. |
 
 <Note>
   If your ingestion volume regularly approaches any of these limits, contact your MoEngage Customer Success Manager (CSM) to discuss your requirements.
@@ -65,3 +75,7 @@ To set up a specific partner, refer to the following integration guides:
 - [mParticle](/partner-guide/data-and-analytics/cdps/mparticle/getting-started/overview)
 - [Twilio Segment](/partner-guide/data-and-analytics/cdps/twillio-segment/getting-started/moengage-source)
 - [Data Imports](/user-guide/data/imports/overview/overview-imports)
+
+<Note>
+  If a limit on this page differs from the limit stated in a partner's own integration guide, the partner's guide is the final source of truth.
+</Note>
