@@ -5,9 +5,25 @@ description: "Learn how MoEngage's Fair Usage Policy (FUP) for Event-Triggered F
 
 ## Overview
 
-MoEngage applies a Fair Usage Policy (FUP) to Flow entries to maintain platform stability and ensure consistent performance across all workspaces. The FUP sets a limit on the number of users who can successfully enter flows within a rolling 60-minute window.
+MoEngage Flows run on shared infrastructure — every workspace on a cluster draws from the same underlying processing capacity. Until now, there was no enforced ceiling on how much of that capacity any one workspace could draw on: a sustained spike from one workspace could degrade performance for every other workspace sharing the same cluster, including yours, even when your own usage was well within normal patterns.
 
-When your workspace approaches or exceeds its limit, MoEngage sends alerts so you can review your flow configuration and take action before entries are dropped.
+The Fair Usage Policy (FUP) is what fixes this. It gives every workspace a guaranteed, predictable share of that infrastructure, sized to its contracted Monthly Active Users (MAU) — so another workspace's spike can't degrade your performance, and yours can't degrade theirs. The result is more consistent, more reliable flow processing for your workspace, regardless of what else is happening on the cluster.
+
+<Info>
+Fewer than 3% of workspaces currently exceed their FUP limit. For the large majority of workspaces, this policy has no practical impact on day-to-day usage.
+</Info>
+
+MoEngage already governs usage in two other ways — rate limits at the Data API layer, and billing based on Monthly Active Users (MAU). Neither is designed to catch this specific pattern:
+
+| Existing control | What it measures | What it doesn't cover |
+|---|---|---|
+| Data API rate limits | Individual request rates to the MoEngage API | Sustained high-frequency event triggers firing across multiple flows at once |
+| MAU billing | The size of your tracked audience | How intensively those users trigger flow entries within a given hour |
+| **Flow Entry FUP** | Rate of users successfully entering flows in a rolling 60-minute window | — this is the gap it closes |
+
+What makes flow entry volume expensive isn't just the number of successful entries — it's everything evaluated behind the scenes. For roughly every 1 successful entry, about 11 trigger events are processed (the other ~10 fail eligibility checks but still consume system resources). Once a user is in a flow, the system runs an average of 20 decision checks — branching logic, wait conditions, message eligibility — before their journey ends. A single high-frequency trigger like App Opened or Product Viewed, configured across multiple flows, can generate far more processing load than its entry count alone suggests.
+
+The FUP sets a limit on the number of users who can successfully enter flows within a rolling 60-minute window, per workspace.
 
 <Info>
 The FUP currently applies to **Event-Triggered Flows** only. Each workspace has its own independent limit — multiple workspaces under the same account do not share a limit.
@@ -17,16 +33,16 @@ The FUP currently applies to **Event-Triggered Flows** only. Each workspace has 
 
 Your FUP limit is based on your workspace's contracted Monthly Active Users (MAU). The limit recalculates automatically each month when your MAU is updated — no manual action is required.
 
-| MAU Bracket | Base Limit / hr | Hard Stop / hr |
-|---|---|---|
-| 0–10M MAU | 250,000 | 375,000 |
-| 10–20M MAU | 750,000 | 1,125,000 |
-| 20–30M MAU | 1,250,000 | 1,875,000 |
-| 30M+ MAU | 1,750,000 | 2,625,000 |
+| MAU Bracket | Limit / hr |
+|---|---|
+| 0–10M MAU | 250,000 |
+| 10–20M MAU | 750,000 |
+| 20–30M MAU | 1,250,000 |
+| 30M+ MAU | 1,750,000 |
 
 If your MAU crosses into a higher bracket, your limit increases automatically. If it drops to a lower bracket, your limit decreases. Limit changes take effect at the start of each billing month.
 
-If you have purchased a limit extension (see [Increasing Your FUP Limit](#increasing-your-fup-limit)), your total effective limit is: MAU base limit + purchased extension. Extensions are unaffected by monthly bracket changes.
+If you have purchased a limit extension (see [Increasing Your FUP Limit](#increasing-your-fup-limit)), your total effective limit is: MAU-based limit + purchased extension. Extensions are unaffected by monthly bracket changes.
 
 ## How the Limit Is Tracked
 
@@ -46,20 +62,13 @@ Each successful entry counts individually, including repeat entries by the same 
 
 ## Enforcement
 
-The FUP uses two thresholds:
+Once your workspace reaches its FUP limit within the rolling 60-minute window, new flow entries are blocked immediately. There is no queue, no retry, and no automatic recovery. Queuing entries to the next hour isn't used, because time-sensitive triggers such as abandoned-cart flows are only valuable within 5–10 minutes of the event.
 
-| Threshold | Behavior |
-|---|---|
-| **100% of base limit** | MoEngage sends an immediate email alert. No entries are dropped at this point — MoEngage continues to process entries up to 150% of the base limit. |
-| **150% of base limit** | Entries beyond this threshold are dropped immediately. There is no queue, no retry, and no automatic recovery. |
-
-<Note>
-The 150% buffer above the base limit is a time-bound transition provision. During this period, MoEngage absorbs the extra load to give you time to review and adjust your flow architecture. After the transition period ends, the base limit (100%) becomes the unconditional hard stop. MoEngage communicates the end of the transition period in advance through the Limit Reached alert email.
-</Note>
+To get ahead of this, set up a [Threshold Alert](#threshold-alert) so your team has advance notice and time to review flow architecture before entries start getting blocked.
 
 ### Dropped Entries
 
-Entries dropped at the 150% threshold cannot be recovered. A dropped user will only enter the flow again if they re-qualify and re-trigger the entry condition — subject to the flow's re-entry settings.
+Entries dropped once the limit is reached cannot be recovered. A dropped user will only enter the flow again if they re-qualify and re-trigger the entry condition — subject to the flow's re-entry settings.
 
 ## Alerts
 
@@ -67,6 +76,8 @@ All FUP alerts are managed in **Settings > Alert Management**. This page has two
 
 - **System Alerts** — FUP system alerts are auto-added here by default.
 - **All Alerts** — A combined view of system alerts and custom alerts in your workspace.
+
+For a general overview of how Alert Management works, including alert types, subscriptions, and managing alerts, refer to [Overview of Alert Management](/user-guide/settings/reports-and-alerts/alert-management/getting-started/overview-alert-management).
 
 ### Threshold Alert
 
@@ -90,15 +101,9 @@ Each alert email includes:
 
 ### Limit Reached Alert (100%)
 
-This system alert is automatically added to your workspace — no setup required. It fires the moment your workspace reaches 100% of its FUP limit.
+This system alert is automatically added to your workspace — no setup required. It fires the moment your workspace reaches 100% of its FUP limit and confirms that new flow entries are now being blocked.
 
-The email notifies you that MoEngage is extending your limit by 50% during the transition period and prompts you to review your flow architecture before the 150% ceiling is reached.
-
-### Blocking Alert (150%)
-
-This system alert fires when your workspace crosses 150% of its limit and entries are being actively dropped. It is a temporary pilot-phase notification and will be retired when the transition period ends.
-
-Both the Limit Reached and Blocking alerts appear as a single entry in **Settings > Alert Management > System Alerts**.
+This alert does not include flow-level diagnostic detail. Use the Threshold Alert or the FUP Status Hub for per-flow detail.
 
 | Role | Can View | Can Edit | Subscribe Yourself | Subscribe Others |
 |---|---|---|---|---|
@@ -129,9 +134,9 @@ To request an increase, contact your Customer Success Manager and specify:
 - The start date.
 - The intended duration, or indicate that you need a permanent increase.
 
-Your limit is updated in the system before the agreed start date. The 150% hard stop adjusts automatically in proportion to your new total limit.
+Your limit is updated in the system before the agreed start date.
 
-Purchased extensions are additive — your total effective limit is always: MAU base limit + purchased extension. If your MAU moves to a different bracket while an extension is active, the base limit updates to the new bracket and the extension remains unchanged.
+Purchased extensions are additive — your total effective limit is always: MAU-based limit + purchased extension. If your MAU moves to a different bracket while an extension is active, the base limit updates to the new bracket and the extension remains unchanged.
 
 ## FAQ
 
@@ -155,6 +160,10 @@ No. Dropped entries cannot be recovered automatically. A user will only enter th
 
 <Accordion title="What happens to my FUP limit when my MAU changes?">
 Your FUP base limit recalculates automatically at the start of each billing month based on your updated MAU. If your MAU crosses into a higher bracket, your limit increases. If it drops to a lower bracket, your limit decreases. If you have a purchased extension, it is unaffected by bracket changes — your total limit is always the base limit plus the extension.
+</Accordion>
+
+<Accordion title="What happens to the FUP limit during a MoEngage-side incident?">
+If a MoEngage-side infrastructure issue or delay causes a backlog of queued requests, the FUP is temporarily paused during the catch-up window, so that clearing the backlog doesn't count against your limit.
 </Accordion>
 
 </AccordionGroup>
