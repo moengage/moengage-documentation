@@ -1,0 +1,136 @@
+---
+title: "Rate Limits"
+description: "Per-endpoint API rate limits and payload size caps for the MoEngage REST APIs, plus how to monitor usage and what happens when a limit is exceeded."
+keywords: ["rate limit", "API limits", "429", "RPM", "payload size", "throttling"]
+---
+
+MoEngage enforces rate limits on its REST APIs to keep the shared platform fast and reliable for every customer. Limits apply **per workspace** unless a specific endpoint states otherwise, and a request that exceeds its limit is rejected with an `HTTP 429 Too Many Requests` response.
+
+Most limits below are the defaults. Several can be raised for your workspace based on genuine need — contact your MoEngage Customer Success Manager (CSM) or the Support team to discuss an increase.
+
+<Note>
+  Rate limits and payload caps are two separate controls. A request can be within the rate limit but still be rejected for exceeding the [payload size](#payload-size-limits), or vice versa.
+</Note>
+
+## Rate limits by endpoint
+
+Endpoints are grouped by product area. Where several endpoints share a single limit, the limit is applied across all of them combined.
+
+### Data and users
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /customer/{app_id}` (Track User) | 10,000 user updates per minute |
+| `POST /customer/merge` (Merge Users) | 1,000 user updates per minute; up to 50 users per call |
+| `POST /v1/integrations/cohortsync` (Cohort sync) | 300 requests per minute |
+
+### Segmentation
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /v3/custom-segments`, `GET /v3/custom-segments/{id}` (filter segments) | 50 requests per minute, 200 per hour, 1,000 per day |
+| `/v2/custom-segments/file-segment` (create), `/add-users`, `/remove-users`, `/replace` | 10 operations per hour, 100 per day (combined); up to 2 million users per day |
+| Total active segments per workspace | 1,000 (file, filter, and custom combined) |
+
+### Campaigns, Flows, and messaging
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /campaigns` / `POST /v5/campaigns` (create campaign) | 5 per second, 25 per minute, 100 per hour, per client |
+| `POST /transaction/sendpush`, `POST /v2.1/transaction/sendpush` (Push API) | 10,000 requests per minute |
+| `/v5/flows/*` (Flows: search, read, versions, status) | 10 per second, 100 per minute, 6,000 per hour |
+| `POST /business_event` (create business event) | Up to 50 business events per workspace |
+| `POST /business_event/trigger` (trigger for campaigns) | 50 per hour, 200 per day |
+| `POST /live-activity/broadcast/start` | 5 per minute per workspace |
+| `POST /live-activity/broadcast/update`, `/end` | 500 per minute per workspace; 5 per minute per live-activity ID |
+| `POST /alerts/send` (Inform) | 10,000 requests per minute |
+| `GET /archival/view` (Message Archival) | 1,000 requests per minute |
+
+### Templates and content
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `/email-templates`, `/bulk/email-templates` | 1,000 requests per minute per workspace |
+| `/custom-templates/email` | 100 requests per minute; up to 10,000 templates per channel |
+| `/custom-templates/push` (Push templates) | 100 requests per minute |
+| `/custom-templates/sms` (SMS templates) | 100 requests per minute; up to 100 templates per channel |
+| `/custom-templates/osm` (On-Site Messaging templates) | 100 requests per minute; up to 100 templates per minute |
+
+<Note>
+  The In-App template (`/custom-templates/inapp`) and Content Block (`/content-blocks`) endpoints are also rate-limited and return `HTTP 429` on breach. Refer to each endpoint's reference page for its current limit.
+</Note>
+
+### Catalog, recommendations, and coupons
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `/catalog`, `/catalog/{catalog_id}/attributes`, `/catalog/{catalog_id}/items` | 100 requests per minute OR 1,000 per hour |
+| `/recommendations/{recommendations_id}`, `/items` | 1,000 recommendations per minute (up to 10,000 per minute on select endpoints) |
+| `POST /coupon-list` (create coupon list) | 100 coupon lists per day |
+| `GET /coupon-list` (fetch coupon lists) | 10,000 coupon lists per day |
+
+### Personalize and Offer Decisioning
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /experiences/fetch` (Personalize Fetch) | 10,000 requests per minute (configurable on request); up to 25 experience keys per request |
+| `/v5/offers`, `/v5/offers/{offer_id}` (Offerings) | 150 per minute, 500 per hour, 1,000 per day, per consumer (some endpoints: 100 per minute, 300 per hour, 600 per day) |
+
+### Analytics and subscriptions
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `GET /core-services/v1/campaign-stats` (Campaign Stats) | 100 requests per minute per workspace |
+| `POST /emails/v1.0/bulk-resubscribe` (bulk resubscribe) | 10 requests per minute; 14,400 per day; up to 100 recipient addresses per request |
+| `/v1.0/opt-in-management/user-preferences` (email opt-in management) | 1,000 requests per minute; 360,000 per day |
+| `/category-subscription/user-preferences` (subscription categories) | 100 requests per minute; 360,000 per day |
+
+<Note>
+  Analytics **query** usage (Behavior, Funnels, Retention, Custom Dashboards) is governed by a separate data-scan Fair Usage Policy, not the request rate limits above. See [How to Optimize Your Analytics Queries](/user-guide/analyze/analytics-how-to/how-to-optimize-your-analytics-queries).
+</Note>
+
+## Payload size limits
+
+Payload caps are enforced independently of rate limits. A request larger than the cap is rejected — typically with `HTTP 413` (payload too large) or `HTTP 400`, depending on the endpoint.
+
+| API / endpoint | Maximum payload |
+| --- | --- |
+| Custom Segments — File | 150 MB per file |
+| Catalog API | 5 MB per request |
+| Recommendations API | 1 MB per request |
+| Track User (`/customer/{app_id}`) | 128 KB per request |
+| Merge Users (`/customer/merge`) | 128 KB per request |
+| Cohort sync (`/v1/integrations/cohortsync`) | 128 KB per request |
+| GDPR / CCPA (`/opengdpr_requests/{appId}`) | 128 KB per request; 100 KB per user record |
+| Live Activities (`/live-activity/broadcast/*`) | 5,120 bytes per request (iOS) |
+| Email bulk resubscribe (`/emails/v1.0/bulk-resubscribe`) | 100 recipient addresses per request |
+
+## Monitor your usage
+
+Rate-limited endpoints return the following headers on every response, so your integration can track remaining capacity in real time rather than waiting for a `429`:
+
+```http
+x-ratelimit-limit: 100
+x-ratelimit-remaining: 95
+x-ratelimit-reset: 1699574400
+```
+
+| Header | Description |
+| --- | --- |
+| `x-ratelimit-limit` | The maximum number of requests allowed in the current window. |
+| `x-ratelimit-remaining` | Requests remaining in the current window. |
+| `x-ratelimit-reset` | Time at which the current window resets, in UTC epoch seconds. |
+
+<Note>
+  A few high-throughput endpoints (such as the Push API) signal throttling with an `x-envoy-ratelimited: true` header instead. Check the specific endpoint's reference page for the headers it returns.
+</Note>
+
+## When you hit a limit
+
+When a request is rejected with `HTTP 429`:
+
+1. Stop sending further requests to that endpoint until the window resets (`x-ratelimit-reset`).
+2. Retry with exponential backoff rather than retrying immediately.
+3. Batch where the endpoint supports it — for example, send multiple user updates in a single Track User request instead of one call per user.
+
+If your integration consistently approaches a limit through legitimate, well-batched usage, contact your CSM or the Support team to request an increase.
