@@ -94,10 +94,18 @@ Rate limits count the **campaign and flow triggers** that a business event start
 
 | What the business event runs | Limit |
 | --- | --- |
-| Campaigns | 50 triggers per hour |
+| Campaigns | 10 triggers per 5 minutes, and 50 triggers per hour |
 | Flows | 3 triggers per hour, and 10 triggers per day |
 
 MoEngage measures these limits over a **sliding window**, not a fixed clock period. The window always looks back from the current moment across the preceding five minutes, hour, or day, depending on the limit. Capacity therefore returns gradually as older triggers age out of the window. An hourly limit does not reset at the top of the hour.
+
+### What Happens When You Exceed a Limit
+
+A trigger that exceeds a limit still returns a `200` response. The campaign it would have run is created on the dashboard in a stopped state instead of being sent, so check the campaign list when you expect a message that did not go out.
+
+<Note>
+  MoEngage is changing this response behavior. After the change, a trigger that exceeds a limit will no longer return `200`.
+</Note>
 
 ### Example: One Business Event Attached to Campaigns and a Flow
 
@@ -106,7 +114,11 @@ Suppose a `BackInStock` business event is attached to two campaigns and one flow
 - Two campaign triggers, one for each campaign.
 - One flow trigger.
 
-If you trigger `BackInStock` 25 times within an hour, the campaigns accumulate 50 triggers, which reaches the campaign limit for that window. The flow accumulates 25 triggers, so it passes its limit of 3 per hour after the third trigger. Triggers beyond a limit do not run. Because the window slides, capacity frees up as the earliest triggers fall outside it rather than at a fixed reset time.
+If you trigger `BackInStock` 25 times within an hour, the campaigns accumulate 50 triggers, which reaches the campaign limit for that window. The flow accumulates 25 triggers, so it passes its limit of 3 per hour after the third trigger. Because the window slides, capacity frees up as the earliest triggers fall outside it rather than at a fixed reset time.
+
+## Delivery Timing for Business Event-Triggered Campaigns
+
+A business event-triggered campaign follows the same delivery SLA as a one-time campaign.
 
 ## Entry Timing for Business Event-Triggered Flows
 
