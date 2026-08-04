@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: MoEngage Recommendation API
   description: |
-    This API lets you fetch/retrieve the metadata associated with a recommendation using the recommendation ID. The metadata can include the recommendation name, model type, status, creation and update time, and so on.
+    This API lets you list the recommendations in your workspace and fetch/retrieve the metadata associated with a recommendation using the recommendation ID. The metadata can include the recommendation name, model type, status, creation and update time, and so on.
     
     Authentication is via Basic Auth.
   version: '1.0'
@@ -16,6 +16,103 @@ tags:
   - name: Recommendations
     description: Operations related to fetching recommendation configurations and results.
 paths:
+  /recommendations:
+    get:
+      tags:
+        - Recommendations
+      summary: Fetch All Recommendations
+      operationId: fetchAllRecommendations
+      description: |
+        This API retrieves the list of recommendations configured in your workspace, along with the metadata of each recommendation. The results are sorted by the last updated time, with the most recently updated recommendation first.
+
+        Use this API to look up the `recommendations_id` of a recommendation, which you need for the [Fetch Recommendation Details](/api/recommendations/fetch-recommendation-details) and [Fetch Recommendation Results](/api/recommendations/fetch-recommendation-results) APIs.
+      parameters:
+        - $ref: '#/components/parameters/AppKeyHeader'
+        - name: size
+          in: query
+          required: false
+          description: |
+            This parameter indicates the number of recommendations to return in a single page. Pass it along with `batch_num` to paginate the results.
+          schema:
+            type: integer
+            minimum: 1
+          example: 10
+        - name: batch_num
+          in: query
+          required: false
+          description: |
+            This parameter indicates the page number to return. The first page is `1`. Pass it along with `size`. For example, `size=10` and `batch_num=2` return the 11th to the 20th recommendations.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: status
+          in: query
+          required: false
+          description: |
+            This parameter filters the results by the recommendation's status. The supported values are `Active`, `Processing`, `Archived`, and `Failed`. These values are case-sensitive.
+
+            To filter by more than one status, pass the values as a comma-separated list. For example, `status=Active,Processing`.
+          schema:
+            type: string
+          examples:
+            single_status:
+              summary: Single Status
+              value: "Active"
+            multiple_statuses:
+              summary: Multiple Statuses
+              value: "Active,Processing"
+      responses:
+        '200':
+          description: Indicates that the request is successful and the list of recommendations is fetched.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    description: This array contains the metadata of each recommendation in your workspace.
+                    items:
+                      $ref: '#/components/schemas/RecommendationMetadata'
+        '400':
+          description: Bad request. Possible issues include an unsupported status value or an invalid pagination parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_status_value:
+                  summary: Invalid Status Value
+                  value:
+                    error-code: "invalid-status-value"
+                    message: "Invalid status value(s) provided: 'INVALID'. Valid status values are: Active, Archived, Failed, Processing (case-sensitive)."
+                invalid_pagination_param:
+                  summary: Invalid Pagination Parameter
+                  value:
+                    error-code: "invalid-pagination-param"
+                    message: "Invalid value 'abc' for parameter 'size'. Please provide a valid integer value."
+        '401':
+          description: Unauthenticated. Your request is unauthorized. Verify your credentials and try again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error-code: "request-unauthenticated"
+                message: "Your request is unauthorized. Please verify your credentials and try again."
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error-code: "unexpected-error"
+                message: "Something went wrong with your request. Please contact the MoEngage team for further assistance."
   /recommendations/{recommendations_id}:
     get:
       tags:
@@ -265,7 +362,10 @@ components:
         name: { type: string, description: "This field represents the name of the recommendation for which you want to fetch the details." }
         description: { type: string, nullable: true, description: "This field describes the recommendation given at the time of its creation." }
         catalog: { type: string, description: "This is the unique identifier of the catalog assigned to the requested recommendation." }
-        status: { type: string, description: "The recommendation's status indicates whether it is active or archived." }
+        status:
+          type: string
+          description: |
+            This field shows the current status of the recommendation. The possible values are `Active`, `Processing`, `Archived`, and `Failed`.
         created_time: { type: string, format: date-time, description: "This field shows the timestamp when a recommendation was created." }
         updated_time: { type: string, format: date-time, description: "This field shows the timestamp when a recommendation setting was last modified." }
         all_user_actions:
