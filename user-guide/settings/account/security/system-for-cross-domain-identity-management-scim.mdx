@@ -26,10 +26,11 @@ The following are the advantages of providing SCIM:
 
 # Identity Providers (IdPs)
 
-MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage supports SCIM provisioning (based on the SAML 2.0 standard) for the following platforms:
+MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage supports SCIM provisioning based on the SCIM 2.0 standard, so it works with any identity provider that supports the protocol. This guide provides detailed configuration steps for the following platforms:
 
 - Okta
 - Azure (Microsoft Entra ID)
+- JumpCloud
 
 <Tip>
   **Prerequisites**
@@ -408,6 +409,131 @@ MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage
        <Frame>
          ![Userinvitation2 1](/images/userinvitation2-1.png)
        </Frame>
+  </Tab>
+  <Tab title="JumpCloud">
+    # Configure SCIM in JumpCloud
+
+    ## Step 1: Locate and Verify the SSO Application
+
+    To verify the SSO configuration, perform the following steps:
+
+    1. Navigate to the **JumpCloud Admin Portal**.
+    2. On the left navigation menu, click **Access** \> **SSO Applications**.
+    3. On the **SSO Applications** page, find your application in the list or use the search box to find it.
+    4. Click the application name from your list that you want to configure SCIM for.
+    5. Verify that the SAML settings on the application's SSO tab match the metadata from your MoEngage workspace.\
+       **Note**: If you have not yet set up SSO with JumpCloud, refer to [Single Sign-On (SSO)](/user-guide/settings/account/security/single-sign-on-sso) before you continue.
+
+    ## Step 2: Configure SCIM in MoEngage and Generate Token
+
+    To configure SCIM on MoEngage and generate a token, perform the following steps:
+
+    1. In the left navigation menu on the MoEngage workspace, click **Settings** \> **Account** \> **Security**.
+    2. On the **Security** page, click the **Login** tab.
+    3. Click **Single Sign On (SSO) only**.
+    4. Scroll to the **Automate user provisioning** section.
+    5. Turn the **Automate user provisioning** toggle on.
+       <Frame>
+         ![Step3ist](/images/step3ist.png)
+       </Frame>
+       \
+       The **Configure provisioning method** dialog box appears.
+    6. Click **SCIM configuration** as your configuration type.
+       <Frame>
+         ![Step32ndimage](/images/step32ndimage.png)
+       </Frame>
+    7. Copy the **Base Connector URL** and save it (to use in [Step 3](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-3-configure-scim-provisioning-in-jumpcloud)).
+    8. In the **Default role** list, select the required role (Default or Custom role).
+    9. In the **Expiry Date** field, select the expiry date for the SCIM access token.\
+       **Note**: MoEngage recommends setting an **Expiry date** period of one year.
+    10. Click **Save**.\
+        The **Save your configuration** dialog box appears, prompting you to confirm your configuration.
+    11. Click **Confirm**.\
+        The **Successfully generated SCIM token** message and the **Generate access token** dialog box appear. **Note**: Copy the token immediately; it is only shown once.
+    12. Click **Okay**.
+        <Frame>
+          ![Step3image3rdimage](/images/step3image3rdimage.png)
+        </Frame>
+
+    ## Step 3: Configure SCIM Provisioning in JumpCloud
+
+    To configure SCIM provisioning in JumpCloud, perform the following steps:
+
+    1. Return to your JumpCloud application, and click the **Provisioning** tab.
+    2. In the **Base URL** box, paste the **Base Connector URL** copied from MoEngage in [Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token).
+    3. In the **Token Key** box, paste the SCIM access token generated in [Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token).
+    4. In the **Test User Email** box, type the email address of a test user that does not already exist in MoEngage.
+    5. Click **Test Connection** to verify that JumpCloud can connect to the MoEngage SCIM API.\
+       **Note**: A successful connection test updates the SCIM status in your MoEngage workspace from _Inactive_ to _Active_.
+    6. Turn the **Enable management of User Groups and Group Membership in this application** toggle on if you plan to assign roles based on JumpCloud groups.
+    7. Click **Activate**.\
+       JumpCloud runs provisioning tests for the Create, Get, Update, and Delete user operations against the MoEngage SCIM API.
+    8. Resolve any errors listed above the **Activate** button, and click **Activate** again.
+    9. Click **Save**.
+
+    <Info>
+      If you do not turn on group management, JumpCloud provisions users individually, and you must set the role directly on each user's profile in [Step 4](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-map-the-role-attribute).
+    </Info>
+
+    ## Step 4: Map the Role Attribute
+
+    Grant JumpCloud a way to pass the MoEngage role to each user during provisioning. You can assign the role at the individual user level or based on JumpCloud group membership.
+
+    <Info>
+      **Information**
+
+      MoEngage prioritizes attributes passed via the external namespace. If multiple role attributes are configured, MoEngage resolves them in the following order:
+
+      - **extension.role (urn:ietf:params:scim:schemas:extension:moengage:2.0:User.role):** Attributes defined with the 2.0 namespace (Highest Priority).
+      - **standard role.role**: Attributes defined under the role namespace. (This parameter will be deprecated in a future release.)
+      - **Default Role**: If no roles are passed via SCIM, the system uses the default role configured in the MoEngage workspace ([Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token)).
+    </Info>
+
+    ### Step 4.1: Create the Role Attribute
+
+    **For individual role assignment**, perform the following steps:
+
+    1. On the left navigation menu in the JumpCloud Admin Portal, click **Identity Management** \> **Users**.
+    2. Select the user you want to assign a role to.
+    3. On the **Details** tab, scroll to **Custom Attributes**, and click **add new custom attribute**.
+    4. In the **Attribute Name** box, type role.
+    5. In the **Attribute Value** box, type the exact role name configured in your MoEngage workspace.\
+       **Note**: This value is case-sensitive and must already exist as a role in your MoEngage workspace.
+    6. Click **Save User**.
+
+    **For group-based role assignment**, perform the following steps:
+
+    1. On the left navigation menu, click **User Groups**.
+    2. Click **\+** to create a new group, and in the **Name** box, type a name for the group.
+    3. Click the **Users** tab, and add the users you want to assign this role to.
+    4. Click the **Applications** tab, and select the check box for your MoEngage SAML application.
+    5. Click **Save**.
+    6. Open the group, and copy the **Group ID** from the browser's URL (you need this ID for the mapping expression in [Step 4.2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-2-map-the-attribute-in-export-attribute-mapping)).
+
+    ### Step 4.2: Map the Attribute in Export Attribute Mapping
+
+    1. On your JumpCloud application, click the **Provisioning** tab.
+    2. Expand **Export Attribute Mapping**, and click **Edit**.
+    3. Scroll to the bottom of the **Optional Mappings** table, and click **\+Add Attribute**.
+    4. Configure the mapping based on your role assignment method:
+       - **Individual role assignment**: In **Mapping Type**, click **Direct Mapping (JSON Path)**. In **Source**, click **Custom User Attribute**, and type role (the exact attribute name from [Step 4.1](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-1-create-the-role-attribute)).
+       - **Group-based role assignment**: In **Mapping Type**, click **Expression**. In the expression box, enter a group-membership expression, for example, isMemberOfAny("group\_id") ? "Admin" : "User", replacing group\_id with the **Group ID** copied in [Step 4.1](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-1-create-the-role-attribute) and Admin/User with the role names from your MoEngage workspace.
+    5. In the destination attribute box, type urn:ietf:params:scim:schemas:extension:moengage:2.0:User:role.
+    6. Click **Save and Sync** to apply the mapping and push the updated attribute to existing users.
+
+    ## Step 5: Validation
+
+    Verify the following in the MoEngage workspace (**Settings** \> **Account** \> **Team Management**):
+
+    - **User Invitation**: Confirm the user is successfully invited and the status is Joined.
+      <Frame>
+        ![Userinvitation1](/images/userinvitation1.png)
+      </Frame>
+    - **Default Role Update**: Confirm that if no specific role was passed from JumpCloud, the system correctly assigned the Default Role configured in [Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token).
+    - **Role Accuracy**: Confirm that the specific role sent from JumpCloud (based on the attribute or group mapping) matches the assigned role in the workspace.
+      <Frame>
+        ![Userinvitation2](/images/userinvitation2.png)
+      </Frame>
   </Tab>
 </Tabs>
 
