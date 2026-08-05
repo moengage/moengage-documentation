@@ -116,7 +116,17 @@ paths:
                     platforms:
                       - platform: "iOS"
                         active: "true"
-
+              Unsetting Attributes:
+                summary: Clear Attributes
+                value:
+                  type: "customer"
+                  customer_id: "user123"
+                  unset_attributes:
+                    - type: "equals"
+                      attr: "first_name"
+                      case_sensitive: false
+                    - type: "prefix"
+                      attr: "temp_"
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -403,7 +413,9 @@ paths:
       summary: Get User
       x-mint:
         content: |
-          
+          <Note>
+          Get User is a **single-lookup** API, you pass one or more identifiers and get back the matching user profile(s), up to the payload limit below. It does not support a "retrieve all users" mode; there's no parameter on this endpoint to export your entire user base. If you need to export all users, use a separate bulk/file export flow instead.
+          </Note>
           #### Rate Limit
           The rate limit is 20 users per payload and 1000 users per minute.
          
@@ -3783,6 +3795,23 @@ components:
            ```json
            "Array_attributeName":["abc","123"]
            ```
+        **Updating Array Attributes**
+          To mutate an existing array attribute rather than overwrite it, use `addValueToArrayField` and `removeValueFromArrayField` inside the `attributes` object of a Track User call:
+           ```json
+           {
+             "customer_id": "user123",
+             "attributes": {
+               "addValueToArrayField": { "favorite_categories": ["shoes", "bags"] },
+               "removeValueFromArrayField": { "favorite_categories": ["hats"] }
+             }
+           }
+           ```
+          * `addValueToArrayField` appends the given value(s) to an existing array attribute.
+          * `removeValueFromArrayField` removes the given value(s) from an existing array attribute.
+          * You can't add and remove the same attribute in one call.
+          * You can't directly set an attribute and add/remove it in the same call.
+          * Reserved MoEngage attributes (e.g. `platforms`) can't be used with these operators.
+
       properties:
         u_n:
           type: string
@@ -3918,6 +3947,40 @@ components:
           description: "List of dictionaries with the associated platforms out of ANDROID, iOS, and web and their status."
           items:
             $ref: '#/components/schemas/PlatformObject'
+        unset_attributes:
+          type: array
+          description: |
+            Use this field to clear one or more existing user attributes, matched either by exact name or by pattern. Attributes matched by any rule in the array are removed from the user profile.
+
+            ```json
+             {
+               "customer_id": "user123",
+               "unset_attributes": [
+                 { "type": "equals", "attr": "first_name", "case_sensitive": false },
+                 { "type": "prefix", "attr": "temp_" }
+               ]
+             }
+            ```
+            * System/reserved attributes are protected and can't be unset this way.
+          items:
+            $ref: '#/components/schemas/UnsetAttributeRule'
+    UnsetAttributeRule:
+      type: object
+      required:
+        - type
+        - attr
+      properties:
+        type:
+          type: string
+          enum: [equals, prefix, suffix, contains]
+          description: 'This field specifies how `attr` is matched against existing user attribute names.'
+        attr:
+          type: string
+          description: 'This field specifies the attribute name (for `equals`) or the pattern (for `prefix`, `suffix`, `contains`) to match against.'
+        case_sensitive:
+          type: boolean
+          default: true
+          description: 'This field specifies whether the match is case-sensitive. Optional, defaults to true.'
 
     IdentifierObject:
       type: object
