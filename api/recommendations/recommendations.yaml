@@ -25,17 +25,24 @@ paths:
       description: |
         This API retrieves the list of recommendations configured in your workspace, along with the metadata of each recommendation. The results are sorted by the last updated time, with the most recently updated recommendation first.
 
-        Use this API to look up the `recommendations_id` of a recommendation, which you need for the [Fetch Recommendation Details](/api/recommendations/fetch-recommendation-details) and [Fetch Recommendation Results](/api/recommendations/fetch-recommendation-results) APIs.
+        Use this API to look up the `recommendation_id` of a recommendation, which you need for the [Fetch Recommendation Details](/api/recommendations/fetch-recommendation-details) and [Fetch Recommendation Results](/api/recommendations/fetch-recommendation-results) APIs.
+
+        The response does not include a total count of recommendations. You have reached the last page when the `items` array contains fewer recommendations than the `size` you requested, or when it is empty.
+      x-mint:
+        content: |
+          #### Rate Limit
+          You can make 100 requests per minute and 10,000 requests per day.
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
         - name: size
           in: query
           required: false
           description: |
-            This parameter indicates the number of recommendations to return in a single page. Pass it along with `batch_num` to paginate the results.
+            This parameter indicates the number of recommendations to return in a single page. The maximum value is 100. Pass it along with `batch_num` to paginate the results.
           schema:
             type: integer
             minimum: 1
+            maximum: 100
           example: 10
         - name: batch_num
           in: query
@@ -88,12 +95,12 @@ paths:
                 invalid_status_value:
                   summary: Invalid Status Value
                   value:
-                    error-code: "invalid-status-value"
+                    code: "invalid-status-value"
                     message: "Invalid status value(s) provided: 'INVALID'. Valid status values are: Active, Archived, Failed, Processing (case-sensitive)."
                 invalid_pagination_param:
                   summary: Invalid Pagination Parameter
                   value:
-                    error-code: "invalid-pagination-param"
+                    code: "invalid-pagination-param"
                     message: "Invalid value 'abc' for parameter 'size'. Please provide a valid integer value."
         '401':
           description: Unauthenticated. Your request is unauthorized. Verify your credentials and try again.
@@ -102,7 +109,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "request-unauthenticated"
+                code: "request-unauthenticated"
                 message: "Your request is unauthorized. Please verify your credentials and try again."
         '429':
           $ref: '#/components/responses/TooManyRequests'
@@ -113,9 +120,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "unexpected-error"
+                code: "unexpected-error"
                 message: "Something went wrong with your request. Please contact the MoEngage team for further assistance."
-  /recommendations/{recommendations_id}:
+  /recommendations/{recommendation_id}:
     get:
       tags:
         - Recommendations
@@ -138,7 +145,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecommendationMetadata'
         '400':
-          description: Bad request. Possible issues include a recommendation, the user does not exist, or the wrong format provided.
+          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid.
           content:
             application/json:
               schema:
@@ -147,12 +154,12 @@ paths:
                 recommendation_not_found:
                   summary: Recommendation Not Found
                   value:
-                    error-code: "recommendation does not exist"
+                    code: "recommendation does not exist"
                     message: "Recommendation does not exist or archived. Please check recommendation_id."
                 invalid_format:
                   summary: Invalid Format
                   value:
-                    error-code: "invalid-request-format"
+                    code: "invalid-request-format"
                     message: "Invalid format provided for recommendation_id."
         '401':
           description: Unauthenticated. Your request is unauthorized. Verify your credentials and try again.
@@ -161,7 +168,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "request-unauthenticated"
+                code: "request-unauthenticated"
                 message: "Your request is unauthorized. Please verify your credentials and try again."
         '413':
           description: Request entity too large. The request body can be large in terms of size (bytes) or length of items.
@@ -170,7 +177,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "payload-size-exceeded"
+                code: "payload-size-exceeded"
                 message: "Your payload size exceeds the 1MB limit. Please reduce the payload size and try again."
         '429':
           $ref: '#/components/responses/TooManyRequests'
@@ -181,9 +188,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "unexpected-error"
+                code: "unexpected-error"
                 message: "Something went wrong with your request. Please contact the MoEngage team for further assistance."
-  /recommendations/{recommendations_id}/items:
+  /recommendations/{recommendation_id}/items:
     post:
       tags:
         - Recommendations
@@ -236,13 +243,13 @@ paths:
                     items:
                       $ref: '#/components/schemas/RecommendationResultItem'
         '400':
-          description: Bad request. Possible issues include a recommendation, the user does not exist, or the wrong format provided.
+          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "recommendation does not exist"
+                code: "recommendation does not exist"
                 message: "Recommendation does not exist or archived. Please check recommendation_id."
         '401':
           description: Unauthenticated. Your request is unauthorized. Verify your credentials and try again.
@@ -251,7 +258,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "request-unauthenticated"
+                code: "request-unauthenticated"
                 message: "Your request is unauthorized. Please verify your credentials and try again."
         '413':
           description: Request entity too large. The request body can be large in terms of size (bytes) or length of items.
@@ -260,7 +267,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "payload-size-exceeded"
+                code: "payload-size-exceeded"
                 message: "Your payload size exceeds the 1MB limit. Please reduce the payload size and try again."
         '429':
           $ref: '#/components/responses/TooManyRequests'
@@ -271,7 +278,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error-code: "unexpected-error"
+                code: "unexpected-error"
                 message: "Something went wrong with your request. Please contact the MoEngage team for further assistance."
 
 components:
@@ -296,7 +303,7 @@ components:
       schema:
         type: string
     RecommendationIdPath:
-      name: recommendations_id
+      name: recommendation_id
       in: path
       required: true
       description: |
@@ -370,6 +377,14 @@ components:
             This field shows the current status of the recommendation. The possible values are `Active`, `Processing`, `Archived`, and `Failed`.
         created_time: { type: string, format: date-time, description: "This field shows the timestamp when a recommendation was created." }
         updated_time: { type: string, format: date-time, description: "This field shows the timestamp when a recommendation setting was last modified." }
+        recom_execution_id:
+          type: string
+          description: "This field references the recommendation execution record that tracks the last run."
+        next_run_time:
+          type: string
+          format: date-time
+          description: "This field shows the scheduled time of the next recommendation execution."
+          nullable: true
         all_user_actions:
           type: boolean
           description: |
@@ -394,13 +409,30 @@ components:
             This key defines the sorting logic based on which recommendation results will be ordered. This object's value provides the attributes' details and sorting order.
             
             **Note**: This key is available with the `user_action` and `item_attribute` recommendation types.
-        trends:
+        trend:
           $ref: '#/components/schemas/TrendSettings'
           nullable: true
           description: |
             This key defines the trend type for `trending_item` recommendations and the duration of trend computation.
-            
+
             **Note**: This key is available with the `trending_item` recommendation type.
+        catalog_watch_setting:
+          type: object
+          nullable: true
+          description: |
+            This key holds the configuration settings for catalog watch and catalog alert recommendations.
+        trigger_event:
+          type: boolean
+          default: false
+          description: |
+            When this field is `true`, MoEngage automatically triggers a business event for catalog alert recommendations. MoEngage creates a business event named `Catalog_Alerts_{recommendation_name}`, which you can use to trigger campaigns or flows when the catalog alert conditions are met.
+
+            **Note**: This key applies only when `recommendation_type` is `catalog_alert`.
+        business_event:
+          type: string
+          nullable: true
+          default: null
+          description: "This field shows the identifier of the business event that triggers this recommendation."
     FetchResultsRequest:
       type: object
       required:
@@ -439,14 +471,14 @@ components:
         title: { type: string, description: "This field shows the title of the item." }
         link: { type: string, format: uri, description: "This field shows a link to the item." }
         image_link: { type: string, format: uri, description: "This field shows a link to the image." }
-        catalog_id: { type: string }
-        feed_id: { type: string }
-        description: { type: string }
-        price_currency: { type: string }
-        creation_date: { type: string, format: date-time }
-        last_updated: { type: string, format: date-time }
-        price: { type: number, format: double }
-        date: { type: string, format: date }
+        catalog_id: { type: string, description: "This field shows the unique identifier of the catalog that the item belongs to." }
+        feed_id: { type: string, description: "This field shows the unique identifier of the feed that the item was imported from." }
+        description: { type: string, description: "This field shows the description of the item as stored in the catalog." }
+        price_currency: { type: string, description: "This field shows the currency of the item's price, such as `USD`." }
+        creation_date: { type: string, format: date-time, description: "This field shows the timestamp when the item was added to the catalog." }
+        last_updated: { type: string, format: date-time, description: "This field shows the timestamp when the item was last modified in the catalog." }
+        price: { type: number, format: double, description: "This field shows the price of the item." }
+        date: { type: string, format: date, description: "This field shows the date attribute associated with the item in the catalog." }
       additionalProperties: true
       example:
         item_id: "prod_xyz"
@@ -457,7 +489,7 @@ components:
     ErrorResponse:
       type: object
       properties:
-        error-code:
+        code:
           type: string
           description: Each error code is unique and serves as a shorthand representation for the type of error.
         message:
