@@ -145,7 +145,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecommendationMetadata'
         '400':
-          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid.
+          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid. An archived recommendation and a recommendation that was never created both return 400, not 404. Check the `recommendation_id` and the recommendation's status.
           content:
             application/json:
               schema:
@@ -243,7 +243,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/RecommendationResultItem'
         '400':
-          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid.
+          description: Bad request. Either the recommendation or the user does not exist, or the request format is invalid. An archived recommendation and a recommendation that was never created both return 400, not 404. Check the `recommendation_id` and the recommendation's status.
           content:
             application/json:
               schema:
@@ -346,8 +346,14 @@ components:
         direction: { type: string, enum: ["1", "-1"], description: "1 for ascending, -1 for descending" }
     TrendSettings:
       type: object
-      description: "Defines the trend type and duration (Specific fields depend on implementation)."
-      properties: {}
+      description: "Defines the trend type and the duration over which the trend is computed."
+      properties:
+        trend_type:
+          type: string
+          example: "most_viewed"
+        duration_days:
+          type: integer
+          example: 7
       example: { trend_type: "most_viewed", duration_days: 7 }
     CustomSettings:
       type: object
@@ -461,12 +467,15 @@ components:
           description: |
             You can define the attributes of items you require from the catalog in the recommendation response. For example, `title`, `price`, `link`, `image_link`, and so on.
 
-            If the attributes above are not defined, all item attributes in the catalog will be included in the response. The response size may increase depending on the number of attributes in the catalog. Therefore, it is recommended that only the necessary attributes be specified.
+            If you don't define any attributes, the response includes every item attribute in the catalog. This increases the response size in proportion to the number of attributes in your catalog. Specify only the attributes you need.
           nullable: true
           example: ["title", "price", "image_link"]
     RecommendationResultItem:
       type: object
-      description: The items JSON object contains the key-value pairs of all the requested attributes.
+      description: |
+        The items JSON object contains the key-value pairs of all the requested attributes.
+
+        The fields below are the standard catalog attributes. The response also returns any other attribute you request in `include_fields`, using the same attribute name and data type as the attribute has in your catalog.
       properties:
         item_id: { type: string, description: "This field shows the ID of the item." }
         title: { type: string, description: "This field shows the title of the item." }
