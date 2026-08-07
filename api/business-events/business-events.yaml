@@ -669,6 +669,146 @@ paths:
                   details: []
                 response_id: resp_abc127
 
+  /v5/business-events/search:
+    post:
+      tags:
+        - Business Events
+      summary: Search Business Events (V5)
+      description: |
+        Returns all business events in the workspace, or the subset matching a filter. Provide either `names` or `ids` inside `filters` (not both). Omit the body (or `filters`) to list everything (paginated). Uses `POST` so multi-valued filters travel as JSON arrays — a name may contain any character (e.g. a comma), which a comma-delimited query string could not represent unambiguously.
+      operationId: searchBusinessEventsV5
+      servers:
+        - url: 'https://api-{dc}.moengage.com'
+          description: MoEngage API Server
+          variables:
+            dc:
+              default: '01'
+              description: 'The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+      security:
+        - basicAuth: []
+      requestBody:
+        description: Search criteria. Omit the body, or send an empty object, to list all business events.
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessEventSearchRequestV5'
+            example:
+              filters:
+                names:
+                  - price_drop
+                  - cart_abandoned
+                ids:
+                  - <mongo-object-id>
+                  - <mongo-object-id>
+              limit: 20
+              cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - response_id
+                  - type
+                  - data
+                  - pagination
+                properties:
+                  response_id:
+                    type: string
+                    description: Unique identifier for this response.
+                  type:
+                    type: string
+                    enum:
+                      - business-events
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BusinessEventV5'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationV5'
+              example:
+                response_id: resp_abc123
+                type: business-events
+                data:
+                  - id: <mongo-object-id>
+                    name: price_drop
+                    attributes:
+                      - name: product_id
+                        data_type: string
+                      - name: new_price
+                        data_type: number
+                    campaign_count: 50000
+                    trigger_count: 12840
+                    created_by: amol.aggarwal@moengage.com
+                    last_triggered_at: '2026-07-19T14:03:22Z'
+                    created_at: '2026-05-01T09:12:00Z'
+                pagination:
+                  has_more: true
+                  next_cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+        '400':
+          description: Bad request. Returned when both `names` and `ids` are supplied inside `filters`, or when a parameter fails validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Provide either names or ids inside filters, not both.
+                  target: filters
+                  details:
+                    - code: INVALID_VALUE
+                      target: filters
+                      message: Only one of filters.names or filters.ids may be supplied.
+                response_id: resp_abc128
+        '401':
+          description: Missing or invalid authentication.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Authentication required.
+                  target: Authorization
+                  details:
+                    - code: MISSING_VALUE
+                      target: Authorization
+                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
+                response_id: resp_abc129
+        '403':
+          description: Missing required scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: You do not have the required permission for this operation.
+                  target: permission
+                  details:
+                    - code: FORBIDDEN
+                      target: permission
+                      message: 'Required permission: business_events:view'
+                response_id: resp_abc130
+        '429':
+          description: Rate limited.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace.
+                  details: []
+                response_id: resp_abc131
+
 components:
   securitySchemes:
     basicAuth:
@@ -800,7 +940,7 @@ components:
               example: 64a54cf9633fda13b668132f
     BusinessEventAttributeV5:
       type: object
-      description: Definition of an attribute for a business event, as returned by the V5 Get Business Event API.
+      description: Definition of an attribute for a business event, as returned by the V5 business events endpoints.
       properties:
         name:
           type: string
@@ -812,7 +952,7 @@ components:
           example: string
     BusinessEventV5:
       type: object
-      description: A business event, as returned by the V5 Get Business Event API.
+      description: A business event, as returned by the V5 business events endpoints.
       properties:
         id:
           type: string
@@ -852,7 +992,7 @@ components:
           example: '2026-05-01T09:12:00Z'
     PaginationV5:
       type: object
-      description: Pagination metadata for the V5 Get Business Event API.
+      description: Pagination metadata for the V5 business events endpoints.
       properties:
         has_more:
           type: boolean
@@ -861,8 +1001,40 @@ components:
         next_cursor:
           type: string
           nullable: true
-          description: Opaque pagination cursor. Pass this as the `cursor` query parameter to fetch the next page. `null` when there are no more pages.
+          description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
           example: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+    BusinessEventSearchRequestV5:
+      type: object
+      description: Request body for `POST /v5/business-events/search`. All fields are optional — an empty body (or an empty `filters` object) lists every business event in the workspace.
+      properties:
+        filters:
+          type: object
+          description: Provide either `names` or `ids`, not both.
+          properties:
+            names:
+              type: array
+              description: Exact business event names to match. Use either `names` or `ids`, not both.
+              items:
+                type: string
+              example:
+                - price_drop
+                - cart_abandoned
+            ids:
+              type: array
+              description: Business event IDs to match. Use either `names` or `ids`, not both.
+              items:
+                type: string
+              example:
+                - <mongo-object-id>
+                - <mongo-object-id>
+        limit:
+          type: integer
+          default: 20
+          maximum: 20
+          description: Page size. Max 20 per page.
+        cursor:
+          type: string
+          description: Opaque pagination cursor from a previous response.
     ErrorResponseV5:
       type: object
       required:
