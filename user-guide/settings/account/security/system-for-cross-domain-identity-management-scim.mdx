@@ -472,12 +472,12 @@ MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage
     9. Click **Save**.
 
     <Info>
-      MoEngage does not require JumpCloud to provision group objects. JumpCloud provisions users individually, and role assignment — whether based on an individual user or on JumpCloud group membership — is handled separately in [Step 4](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-map-the-role-attribute).
+      MoEngage does not require JumpCloud to provision group objects. JumpCloud provisions users individually, and role assignment is handled using a custom attribute, as described in [Step 4](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-map-the-role-attribute).
     </Info>
 
     ## Step 4: Map the Role Attribute
 
-    Grant JumpCloud a way to pass the MoEngage role to each user during provisioning. You can assign the role at the individual user level or based on JumpCloud group membership.
+    Grant JumpCloud a way to pass the MoEngage role to each user during provisioning by adding a custom attribute to the user and mapping it to MoEngage's role extension.
 
     <Info>
       **Information**
@@ -489,34 +489,33 @@ MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage
       - **Default Role**: If no roles are passed via SCIM, the system uses the default role configured in the MoEngage workspace ([Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token)).
     </Info>
 
-    ### Step 4.1: Create the Role Attribute
+    ### Step 4.1: Add a Custom Attribute to the User
 
-    **For individual role assignment**, perform the following steps:
+    Add this custom attribute when you invite a new user, or to an existing user. To add it to an existing user, perform the following steps:
 
     1. On the left navigation menu in the JumpCloud Admin Portal, click **Identity Management** \> **Users**.
     2. Select the user you want to assign a role to.
     3. On the **Details** tab, scroll to **Custom Attributes**, and click **add new custom attribute**.
+       <Frame>
+         ![User custom attribute](/images/usercustomattribute.gif)
+       </Frame>
     4. In the **Attribute Name** box, type role.
     5. In the **Attribute Value** box, type the exact role name configured in your MoEngage workspace.\
        **Note**: This value is case-sensitive and must already exist as a role in your MoEngage workspace.
     6. Click **Save User**.
-
-    **For group-based role assignment**, perform the following steps:
-
-    1. If you have not already created a user group and assigned it to your MoEngage application, refer to [Step 2](/user-guide/settings/account/security/single-sign-on-sso#step-2-create-a-user-group) and [Step 6](/user-guide/settings/account/security/single-sign-on-sso#step-6-assign-the-user-group-to-the-application) of the SSO setup.
-    2. On the left navigation menu in the JumpCloud Admin Portal, click **Identity Management** \> **User Groups**, and open the group.
-    3. Copy the **Group ID** from the browser's URL (you need this ID for the mapping expression in [Step 4.2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-2-map-the-attribute-in-export-attribute-mapping)).
 
     ### Step 4.2: Map the Attribute in Export Attribute Mapping
 
     1. On your JumpCloud application, click the **Provisioning** tab.
     2. Expand **Export Attribute Mapping**, and click **Edit**.
     3. Scroll to the bottom of the **Optional Mappings** table, and click **\+Add Attribute**.
-    4. Configure the mapping based on your role assignment method:
-       - **Individual role assignment**: In **Mapping Type**, click **Direct Mapping (JSON Path)**. In **Source**, click **Custom User Attribute**, and type role (the exact attribute name from [Step 4.1](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-1-create-the-role-attribute)).
-       - **Group-based role assignment**: In **Mapping Type**, click **Expression**. In the expression box, enter a group-membership expression, for example, isMemberOfAny("group\_id") ? "Admin" : "User", replacing group\_id with the **Group ID** copied in [Step 4.1](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-1-create-the-role-attribute) and Admin/User with the role names from your MoEngage workspace.
-    5. In the destination attribute box, type urn:ietf:params:scim:schemas:extension:moengage:2.0:User:role.
-    6. Click **Save and Sync** to apply the mapping and push the updated attribute to existing users.
+       <Frame>
+         ![Attribute mapping](/images/attributemapping.gif)
+       </Frame>
+    4. In **Mapping Type**, click **Direct Mapping (JSON Path)**. In **Source**, click **Custom User Attribute**, and replace the default value with the exact attribute name you used in [Step 4.1](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-4-1-add-a-custom-attribute-to-the-user), for example, role.
+    5. In the destination attribute box, type urn:ietf:params:scim:schemas:extension:moengage:2.0:User.role.\
+       **Note**: Use a period before `role`, not a colon. JumpCloud reads `role` as a property of the `moengage:2.0:User` extension, rather than as a flat attribute name — unlike the syntax used for other IdPs.
+    6. Click **Update** to apply the mapping and push the updated attribute to existing users.
 
     ## Step 5: Validation
 
@@ -527,7 +526,7 @@ MoEngage utilizes Identity Providers to simplify and centralize logins. MoEngage
         ![Userinvitation1](/images/userinvitation1.png)
       </Frame>
     - **Default Role Update**: Confirm that if no specific role was passed from JumpCloud, the system correctly assigned the Default Role configured in [Step 2](/user-guide/settings/account/security/system-for-cross-domain-identity-management-scim#step-2-configure-scim-in-moengage-and-generate-token).
-    - **Role Accuracy**: Confirm that the specific role sent from JumpCloud (based on the attribute or group mapping) matches the assigned role in the workspace.
+    - **Role Accuracy**: Confirm that the specific role sent from JumpCloud (based on the custom attribute mapping) matches the assigned role in the workspace.
       <Frame>
         ![Userinvitation2](/images/userinvitation2.png)
       </Frame>
