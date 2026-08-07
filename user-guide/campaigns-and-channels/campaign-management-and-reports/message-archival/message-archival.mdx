@@ -142,8 +142,10 @@ You can view the copy of an archived message (Email, Push, SMS, or RCS) sent to 
 </Tabs>
 
 <Info>
-  Message Archival is not supported in MoEngage when PII Tokenized Sending is enabled. PII Tokenized Sending allows you to engage with your customers without storing their PII within the MoEngage platform. For more information, refer to [PII Tokenized Sending](/user-guide/data/privacy/personal-data-or-personally-identifiable-information-pii/pii-tokenized-sending).
+  - Message Archival is not supported in MoEngage when PII Tokenized Sending is enabled. PII Tokenized Sending allows you to engage with your customers without storing their PII within the MoEngage platform. For more information, refer to [PII Tokenized Sending](/user-guide/data/privacy/personal-data-or-personally-identifiable-information-pii/pii-tokenized-sending).
+  - Once PGP encryption is enabled for your account, the *View sent message* option is not available for any archived message, including messages archived before PGP encryption was enabled. Refer to [Message Encryption](/user-guide/campaigns-and-channels/campaign-management-and-reports/message-archival/message-archival#message-encryption) for more information.
 </Info>
+
 
 # Store Your Files
 
@@ -253,6 +255,45 @@ Even if you have an S3 bucket already, we still recommend creating a new bucket 
    }
    ```
    </CodeGroup>
+
+# Message Encryption
+
+MoEngage supports two ways to encrypt the customer messages you archive: **KMS encryption** and **PGP encryption**. You choose the encryption type when you set up Message Archival for your account.
+
+<Info>
+   To change how your archived messages are encrypted, contact your CSM or the MoEngage Support team.
+</Info>
+
+## Encryption Support by Storage Location
+
+| Storage location | KMS encryption | PGP encryption |
+| ----------------- | -------------- | --------------- |
+| Your own S3 bucket | Supported | Supported |
+| MoEngage-owned S3 bucket | Supported | Not supported |
+| Your SFTP server | Not supported | Supported |
+
+* **KMS encryption** is the existing encryption type and works only for messages archived to an S3 bucket (yours or MoEngage's). MoEngage does not support KMS encryption for files archived to an SFTP server.
+* **PGP encryption** is a new encryption type. It's supported for both S3 and SFTP, but for S3 it's supported only when messages are archived to your own bucket. If you archive messages to a MoEngage-owned S3 bucket, KMS is the only supported encryption type.
+
+## Set Up PGP Encryption
+
+To use PGP encryption, share a PGP public key with MoEngage. MoEngage uses this key to encrypt every message before archiving it to your S3 bucket or SFTP server.
+
+Keep the following in mind:
+
+* **File extension**: Once PGP encryption is enabled, newly archived message files carry the PGP file extension.
+* **File path and naming convention**: Enabling PGP encryption does not change your existing file path or file naming convention.
+* **Viewing messages on the dashboard**: Once PGP encryption is turned on for your account, the **View sent message** option is no longer available for any archived message, including messages that were archived before you switched to PGP encryption. This is because MoEngage can no longer decrypt the message content to display it on the dashboard. Refer to [View a Message Copy on the Dashboard](/user-guide/campaigns-and-channels/campaign-management-and-reports/message-archival/message-archival#view-a-message-copy-on-the-dashboard) for more information.
+
+## Key Expiry and Retry Behavior
+
+Your PGP key has an expiry date. To avoid any disruption to your message archival, share an updated key with MoEngage before your current key expires.
+
+If your key expires before you share a new one, or if the connection to your S3 bucket or SFTP server breaks for any other reason:
+
+1. MoEngage stops writing archived messages to your S3 bucket or SFTP server.
+2. MoEngage instead writes these messages to an internal retry queue, where they are held for up to 30 days.
+3. Once you share a valid, updated key (or the connection is restored), MoEngage pushes all the messages held in the retry queue out to your S3 bucket or SFTP server.
 
 # Frequently Asked Questions
 
