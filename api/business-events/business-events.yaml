@@ -517,6 +517,158 @@ paths:
                 title: Internal Server Error
                 message: An unexpected error was encountered while processing this request. Please contact MoEngage Team
 
+  /v5/business-events:
+    get:
+      tags:
+        - Business Events
+      summary: Get Business Event
+      description: |
+        Returns all business events in the workspace, or a single business event when you supply `name` or `id`. Use either `name` or `id`, not both. Omit both parameters to list every business event in the workspace (paginated).
+      operationId: getBusinessEvents
+      servers:
+        - url: 'https://api-{dc}.moengage.com'
+          description: MoEngage API Server
+          variables:
+            dc:
+              default: '01'
+              description: 'The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+      security:
+        - basicAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Exact business event name. Use either `name` or `id`, not both.
+          example: price_drop
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Business event ID. Use either `name` or `id`, not both.
+          example: <mongo-object-id>
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 20
+          description: Page size. Max 20 per page.
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination cursor from a previous response.
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - response_id
+                  - type
+                  - data
+                  - pagination
+                properties:
+                  response_id:
+                    type: string
+                    description: Unique identifier for this response.
+                  type:
+                    type: string
+                    enum:
+                      - business-events
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BusinessEventV5'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationV5'
+              example:
+                response_id: resp_abc123
+                type: business-events
+                data:
+                  - id: <mongo-object-id>
+                    name: price_drop
+                    attributes:
+                      - name: product_id
+                        data_type: string
+                      - name: new_price
+                        data_type: number
+                    campaign_count: 50000
+                    trigger_count: 12840
+                    created_by: amol.aggarwal@moengage.com
+                    last_triggered_at: '2026-07-19T14:03:22Z'
+                    created_at: '2026-05-01T09:12:00Z'
+                pagination:
+                  has_more: true
+                  next_cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+        '400':
+          description: This response is returned when the request is invalid, for example when both `name` and `id` are supplied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Use either name or id, not both.
+                  target: name
+                  details:
+                    - code: INVALID_VALUE
+                      target: name
+                      message: Only one of name or id may be supplied.
+                response_id: resp_abc124
+        '401':
+          description: This response is returned when the authorization parameters are missing or incorrect in the HTTP Auth Header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Authentication required.
+                  target: Authorization
+                  details:
+                    - code: MISSING_VALUE
+                      target: Authorization
+                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
+                response_id: resp_abc125
+        '403':
+          description: This response is returned when the credentials are valid but lack permission to access business events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: You do not have the required permission for this operation.
+                  target: permission
+                  details:
+                    - code: FORBIDDEN
+                      target: permission
+                      message: 'Required permission: business_events:view'
+                response_id: resp_abc126
+        '429':
+          description: This response is returned when the number of requests has exceeded the rate limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseV5'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace.
+                  details: []
+                response_id: resp_abc127
+
 components:
   securitySchemes:
     basicAuth:
@@ -646,3 +798,106 @@ components:
               type: string
               description: This field contains the request ID of the failed request.
               example: 64a54cf9633fda13b668132f
+    BusinessEventAttributeV5:
+      type: object
+      description: Definition of an attribute for a business event, as returned by the V5 Get Business Event API.
+      properties:
+        name:
+          type: string
+          description: The name of the attribute.
+          example: product_id
+        data_type:
+          type: string
+          description: The data type of the attribute.
+          example: string
+    BusinessEventV5:
+      type: object
+      description: A business event, as returned by the V5 Get Business Event API.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the business event.
+          example: <mongo-object-id>
+        name:
+          type: string
+          description: Name of the business event.
+          example: price_drop
+        attributes:
+          type: array
+          description: The attributes defined for the business event.
+          items:
+            $ref: '#/components/schemas/BusinessEventAttributeV5'
+        campaign_count:
+          type: integer
+          description: Number of campaigns configured to trigger on this business event.
+          example: 50000
+        trigger_count:
+          type: integer
+          description: Number of times the business event has been triggered.
+          example: 12840
+        created_by:
+          type: string
+          format: email
+          description: Email address of the business event's creator.
+          example: amol.aggarwal@moengage.com
+        last_triggered_at:
+          type: string
+          format: date-time
+          description: Timestamp of when the business event was last triggered.
+          example: '2026-07-19T14:03:22Z'
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp of when the business event was created.
+          example: '2026-05-01T09:12:00Z'
+    PaginationV5:
+      type: object
+      description: Pagination metadata for the V5 Get Business Event API.
+      properties:
+        has_more:
+          type: boolean
+          description: Whether additional pages of results exist.
+          example: true
+        next_cursor:
+          type: string
+          nullable: true
+          description: Opaque pagination cursor. Pass this as the `cursor` query parameter to fetch the next page. `null` when there are no more pages.
+          example: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+    ErrorResponseV5:
+      type: object
+      required:
+        - response_id
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+            message:
+              type: string
+              description: Human-readable error message.
+            target:
+              type: string
+              description: The field or resource that caused the error.
+            details:
+              type: array
+              description: Per-field error entries.
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: Machine-readable, field-level error code.
+                  target:
+                    type: string
+                    description: The field that caused the error.
+                  message:
+                    type: string
+                    description: Human-readable description of the field-level error.
+        response_id:
+          type: string
+          description: Unique identifier for this response.
