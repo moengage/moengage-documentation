@@ -7,11 +7,45 @@ description: "Maintain your email suppression list in MoEngage by importing boun
 
 _Suppression Updates_ helps maintain your global email subscription list. You can use this feature to ensure that users who should not be contacted are restricted from receiving emails. This is essential for maintaining compliance and protecting your sender reputation.
 
-Suppression applies only to **non-transactional** sends (marketing, promotional). Transactional emails and Inform alerts continue to be delivered even if a user is Unsubscribed or has Complained — the only exception is **Bounce**, which blocks all sends, transactional included, since the address itself is undeliverable.
+Suppression blocks promotional and marketing campaigns only. Transactional campaigns — sent from delivery channels or via Inform — still reach suppressed users. Bounce is the one exception: it blocks all campaign types, including transactional.
 
 <Info>
   If you use MoEngage Managed Email, reachability updates are automatically propagated to SendGrid. However, if you integrate your own SendGrid account, this automatic sync is not supported; you must manage suppression updates directly within your SendGrid dashboard.
 </Info>
+
+# Unsubscribe vs. Suppression
+
+Unsubscribe and suppression are related but distinct concepts. Confusing the two can lead to incorrect suppression management and compliance risk.
+
+**Unsubscribe** is a user action. When a user unsubscribes, MoEngage sets the standard unsubscription attribute on their profile to `True`. This is one of several reasons a user can end up suppressed.
+
+**Suppression** is a platform-side outcome. MoEngage suppresses a user, that is, stops sending them non-transactional campaigns. when any of the following is true for their profile:
+
+- Any of the BUC attributes (Bounce, Unsubscribe, or Complaint) is set to `True`
+- Frequency Capping (FC) limits are reached
+- Do Not Disturb (DND) settings apply
+- The user has opted out of a Subscription Category
+- Double Opt-In (DOI) is unconfirmed
+
+| Aspect | Unsubscribe | Suppression |
+|---|---|---|
+| **Trigger** | User action — the user clicks unsubscribe, setting the Unsubscribe attribute (one of the three BUC attributes) to `True` on their profile | Platform action — occurs when any BUC attribute, FC, DND, Subscription Category, or DOI condition is met |
+| **Scope** | Sets an attribute on the user profile | Blocks promotional/marketing campaigns only. Transactional campaigns (sent from the point channel or via Inform) still reach the user. Bounce is the one exception — it blocks all campaign types, including transactional |
+| **Reversibility** | Reversible — the attribute can be reset via resubscribe flows | Reversible depending on the trigger, but removing the suppression condition does not restore explicit consent (see compliance note below) |
+| **Who controls it** | The end user, directly | MoEngage based on profile attributes. Brands can influence these attributes using the methods below |
+
+## How Brands Manage Suppression
+
+There is no single "suppression list" in MoEngage email. Suppression is determined by attributes on the user's profile, which brands can update in two ways:
+
+1. **Data ecosystem updates** — User Import or the Server-to-Server (S2S) Data API. These overwrite the relevant standard attributes directly but do not generate events. (Exception: updates made through the user's profile page in the dashboard go through email APIs and do generate events.)
+2. **Email-based updates** — the Suppression Management section in email settings, or the Resubscribe API, Subscription Category API, or Double Opt-In API. These update the corresponding standard attributes and generate events against the user's profile, giving you a traceable record of the consent change.
+
+If you need an audit trail of consent changes, use the email-based methods.
+
+<Note>
+  Suppression is not the same as a suppression list. MoEngage email doesn't maintain a suppression list natively. The one exception is for senders/connectors configured with SendGrid Unsubscribe Management. In that setup, any user whose email triggers a feedback-loop event (unsubscribe, bounce, or spam complaint) is added to a suppression list on SendGrid's side. Subsequent send calls from MoEngage to SendGrid for that email address are dropped there.
+</Note>
 
 # Use Cases
 
@@ -19,19 +53,6 @@ Suppression applies only to **non-transactional** sends (marketing, promotional)
 - **Automate SendGrid sync:** Automatically propagate suppression updates to SendGrid to keep your non-transactional senders compliant without manual work. This applies only if you select [**SendGrid Tracking**](https://partners.moengage.com/hc/en-us/articles/4422510567700-Sendgrid#h_01J1VJTR9DT27WCVRCYBDPZ8R2) in **Unsubscribe Settings** while configuring an email sender in MoEngage.
 - \*\*Protect critical emails: \*\*Maintain a global suppression list for marketing campaigns without blocking essential transactional alerts, such as one-time passwords (OTPs) or password resets.
 - **Manage suppression requests independently**: Unsubscribe or resubscribe users in [self-service](/user-guide/campaigns-and-channels/email/getting-started-with-email/self-service-for-email-onboarding) enabled workspaces, eliminating the need to raise support tickets for individual status updates.
-
-# Unsubscribe vs. Suppression
-
-Unsubscribe and Suppression are often used interchangeably but are not the same mechanism.
-
-| | Unsubscribe | Suppression |
-|---|---|---|
-| **Trigger** | User clicks an unsubscribe/list-unsubscribe link, or updates preferences | Bounce, Unsubscribe, or Spam Complaint event (Unsubscribe is one of three suppression signals) |
-| **Scope** | Applies only to the specific unsubscribe type triggered (Global, List, or Category) | Global — blocks all non-transactional sends once any one of Bounce/Unsubscribe/Complaint is true |
-| **Reversibility** | Reversible; user can resubscribe or update preferences anytime | Reversible via CSV upload or API, but requires explicit action — does not reset automatically |
-| **Who controls it** | End user (via email link or preference center) | Brand/admin (via Suppression Updates upload, API, or ESP sync) |
-
-An unsubscribe is one of the three inputs that can put a user on the suppression list; the suppression list is the actual block enforced against sends.
 
 # Bulk Import of Users
 
@@ -100,6 +121,10 @@ To ensure your subscription list is imported correctly, your CSV file must follo
     </tr>
   </tbody>
 </table>
+
+<Warning>
+  Removing a suppression condition (for example, re-adding a previously unsubscribed user through Bulk Import) does not restore that user's consent. Suppression and consent are tracked separately — clearing the suppression flag only makes the user eligible for sends again; it doesn't mean they've re-opted in. Confirm you have valid consent before resuming sends to a previously suppressed or unsubscribed user.
+</Warning>
 
 ## Upload the Subscription Update File
 
