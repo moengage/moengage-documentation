@@ -1,30 +1,43 @@
 ---
-title: "Android"
+title: "Android Build Configuration"
 description: "Configure Android build settings and add required dependencies for the MoEngage React Native SDK."
+keywords: ["Android", "AndroidX", "React Native", "build.gradle", "package.json", "feature modules"]
 ---
 
-# Configuring Build Settings
+## Prerequisites
 
-## Add Androidx Libraries
+Before you continue, make sure you have:
+
+- Installed the [`react-native-moengage`](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-installation/framework-dependency) package in your project.
+- React Native `0.60` or later. Older versions do not support autolinking and require manual native linking.
+- Android `compileSdkVersion` `34` or later in `android/build.gradle`.
+
+## Configuring Build Settings
+
+<Warning>
+  The MoEngage SDK depends on the `lifecycle-process` library, which in turn depends on `androidx.startup:startup-runtime`. To keep SDK features working:
+
+  - Do not remove the `InitializationProvider` component from your `AndroidManifest.xml`.
+  - If you add other initializers that use `startup-runtime`, also add the initializer for `lifecycle-process`.
+  - See the [Lifecycle 2.4.0 release notes](https://developer.android.com/jetpack/androidx/releases/lifecycle#2.4.0) for instructions on adding the initializer.
+</Warning>
+
+## Add AndroidX Libraries
+
+The SDK depends on a few AndroidX libraries for its functioning. Choose one of the following approaches to add them — either enable the flag in `package.json` (recommended) or add the dependencies directly to your `build.gradle` file.
+
+### Configure in the package.json File
 
 <Info>
-  The MoEngage SDK depends on the lifecycle-process library for a few key features to work, and the latest version of lifecycle-process depends on the androidx.startup:startup-runtime library. Hence, do not remove the InitializationProvider component from the manifest. When adding other Initializers using the startup-runtime, make sure the Initializer for the lifecycle-process library is also added. Refer to the [documentation](https://developer.android.com/jetpack/androidx/releases/lifecycle#2.4.0) to know how to add the Initializer
+  - Setting `includeAndroidXRequiredLibraries` to `true` automatically adds the AndroidX libraries that the SDK uses as dependencies.
+  - **Required AndroidX libraries:** The MoEngage SDK requires the following core AndroidX dependencies:
+    - `androidx.core:core`
+    - `androidx.appcompat:appcompat`
+    - `androidx.lifecycle:lifecycle-process`
+  - Before enabling this flag, check whether your application's native Android project (`build.gradle`) already includes compatible versions of these libraries. If it does, you may not need to pull them in again, which helps prevent version conflicts or duplicate dependency errors during the build process.
 </Info>
 
-The SDK also depends on a few Androidx libraries for its functioning. Add the below Androidx libraries in your application's **_build.gradle_** file or enable the required flag in the Package JSON file.
-
-### Configure in the Package JSON file
-
-<Info>
-  - Setting the includeAndroidXRequiredLibraries to `true` automatically adds the AndroidX libraries that are used by the SDK as a dependency.
-  - **Required AndroidX Libraries:** The MoEngage SDK requires the following core AndroidX dependencies:
-    - `androidx.core:core` 
-    - `androidx.appcompat:appcompat` 
-    - `androidx.lifecycle:lifecycle-process` 
-  -  Before enabling this flag, validate if your application's native Android project (`build.gradle`) already has compatible versions of these libraries installed. If your app already includes them, you may not need to pull them in again, which helps prevent version conflicts or duplicate dependency errors during the build process.
-</Info>
-
-File - **_package.json_**
+File — `package.json`
 
 <CodeGroup>
 
@@ -38,37 +51,59 @@ File - **_package.json_**
 
 </CodeGroup>
 
-### Configure in the Gradle file
+### Configure in the Gradle File
 
-Skip this step if **_includeAndroidXRequiredLibraries_**flag is enabled in previous step.
+Skip this section if you set `includeAndroidXRequiredLibraries: true` in `package.json` above.
 
-Path - **_android/app/build.gradle(.kts)_**
+Path — `android/app/build.gradle` (use `build.gradle` for Groovy or `build.gradle.kts` for Kotlin build scripts).
 
 <CodeGroup>
 
-```Groovy Groovy
-
-    dependencies {
+```groovy Groovy
+dependencies {
     ...
-      implementation("androidx.core:core:1.9.0")
-      implementation("androidx.appcompat:appcompat:1.4.2")
-      implementation("androidx.lifecycle:lifecycle-process:2.7.0")
-    }
+    implementation("androidx.core:core:1.9.0")
+    implementation("androidx.appcompat:appcompat:1.4.2")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+}
+```
+
+```kotlin Kotlin
+dependencies {
+    ...
+    implementation("androidx.core:core:1.9.0")
+    implementation("androidx.appcompat:appcompat:1.4.2")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+}
 ```
 
 </CodeGroup>
 
-## Feature Modules (optional)
+<Note>
+  Use the versions shown or higher. Check [Google Maven](https://maven.google.com) for the latest stable releases.
+</Note>
 
-To include optional modules from the MoEngage SDK based on your feature requirements, you can use the provided flags. By default, these modules are not included in your project.
+## Verify the Build
 
-You can configure this by adding a new "moengage" key to the root level of your project's package.json file.
+After adding the dependencies, run the following command from your project root to confirm that the MoEngage and AndroidX dependencies are resolved correctly:
 
-Inside this object, you can pass specific feature flags:
-- true: Instructs the build system to download and link the required native dependencies for that specific module.
-- false (or omitting the key): Excludes the module from your project. By default, all optional modules are excluded to help keep your overall app size optimized.
+<CodeGroup>
 
-File - **_package.json_**
+```bash Bash
+cd android && ./gradlew :app:dependencies | grep moengage
+```
+
+</CodeGroup>
+
+If the command returns one or more MoEngage entries, the dependencies are linked.
+
+## Feature Modules (Optional)
+
+To include optional modules from the MoEngage SDK based on your feature requirements, use the provided flags. By default, these modules are not included in your project.
+
+Configure feature modules by adding a `moengage` key to the root of your project's `package.json` file. Set a flag to `true` to download and link the native dependencies for that module; omit it or set it to `false` to exclude the module.
+
+File — `package.json`
 
 <CodeGroup>
 
@@ -76,29 +111,34 @@ File - **_package.json_**
 {
     "moengage": {
         "richNotification": true,
-        //Required for Push Templates
-       
         "encryption": true,
-       //Required for Add-On-Security
-      
         "pushAmp": true,
-        //Required for Push Amplification
-      
         "hmsPushkit": true,
-        //Required for HMS PushKit
-      
         "deviceTrigger": true
-       //Required for Device Triggered
     }
 }
 ```
 
 </CodeGroup>
 
-### Documentation For Optional Feature Flag
+The following table describes each flag:
+
+| Flag | Enables |
+| --- | --- |
+| `richNotification` | Push Templates |
+| `encryption` | Add-On Security |
+| `pushAmp` | Push Amplification |
+| `hmsPushkit` | HMS PushKit |
+| `deviceTrigger` | Device Triggered campaigns |
+
+### Documentation for Optional Feature Flags
+
+<Note>
+  The following links cover the Android native SDK. The behavior is equivalent in the React Native SDK.
+</Note>
 
 - [Push Templates](/developer-guide/android-sdk/push/optional/push-templates)
-- [Add-On-Security](/developer-guide/android-sdk/sdk-integration/advanced-or-optional/add-on-security)
+- [Add-On Security](/developer-guide/android-sdk/sdk-integration/advanced-or-optional/add-on-security)
 - [Push Amplification](/developer-guide/android-sdk/push/optional/push-amplification)
 - [HMS PushKit](/developer-guide/android-sdk/push/optional/push-amp-plus/configuring-hms-push-kit)
 - [Device Triggered](/developer-guide/android-sdk/push/optional/device-triggered)
