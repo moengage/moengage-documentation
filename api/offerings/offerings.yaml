@@ -4,84 +4,9 @@ info:
   title: Offer Decisioning Public API - v5
   version: 5.0.0
   description: |
-    `/v5/*` routes serve Public (S2S) and MCP agent consumers only.
-
-    ## Consumer Types
-
-
-    | Consumer | Gateway | Auth |
-    |---|---|---|
-    | **Public (S2S)** | APISIX | Basic Auth (`Authorization: Basic base64(appId:apiKey)`) |
-    | **MCP agents** | SGK | OIDC JWT via MCP Server |
-
-    The gateway (APISIX or SGK) validates credentials and injects trusted headers before
-    the request reaches this service. The service reads `X-MOE-Consumer-Type`,
-    `X-MOE-Tenant-ID`, and `X-MOE-Scopes` — it never re-validates credentials.
-
-    ## Scope Enforcement
-
-    Endpoint-level scope enforcement is performed by the gateway (§4.4 API Guidelines).
-    A request that reaches this service has already passed the scope check for the
-    route + method. `X-MOE-Scopes` is available for data-level authorization only
-    (field filtering, row scoping).
-
-    ## Idempotency
-
-    POST and PATCH operations require an `Idempotency-Key` header (UUID v4 format).
-    The key is validated for presence and format before the handler runs. Submitting
-    the same key within 24 hours returns the original response without re-executing
-    the operation. See §7.2 API Guidelines.
-
-    ## Tracing
-
-    Every response includes a `response_id` field. This value is `resp_` prefixed to
-    the `X-MOE-Request-Id` trace ID supplied by the gateway (or auto-generated if not
-    supplied). Use `response_id` / `X-MOE-Request-Id` to correlate requests across
-    logs, client-side retries, and support tickets.
-
-    ## Rate Limits
-
-    | Endpoint | Method | Public (APISIX) | MCP (SGK) |
-    |---|---|---|---|
-    | `/v5/offers` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
-    | `/v5/offers/templates` | GET | 150/min, 500/hour, 1000/day | 150/min, 500/hour, 1000/day |
-    | `/v5/offers` | POST | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
-    | `/v5/offers/{offer_id}` | PATCH | 100/min, 300/hour, 600/day | 100/min, 300/hour, 600/day |
-
-    Limits are keyed by `tenant_id + client_id` for Public and `tenant_id + agent_id` for MCP.
-    Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`)
-    are injected by the gateway (APISIX or SGK) — not by this service — on every response.
-
-    ## MCP Agent Notes
-
-    **Authentication**: MCP agents must use `bearerAuth` (JWT via SGK), not `basicAuth`.
-    `basicAuth` is for S2S public consumers only. The MCP server handles token injection
-    automatically — do not manually set the `Authorization` header.
-
-    **Tenant context**: `X-MOE-Tenant-ID` is injected by SGK from the authenticated session.
-    Do NOT include this header explicitly — the gateway always provides it.
-
-    **Tag discovery**: Tags must pre-exist before you attach them to an offering. Create and
-    manage tags in the MoEngage dashboard — unknown tag IDs return 400 INVALID_TAG_ID.
-
-    **Template discovery**: Before creating `template`-type content, list templates from
-    `GET /v1/offers/templates` (v1 internal endpoint) to get valid `templateId` values.
-
-    ## Security Headers
-
-    Every response from `/v5/*` endpoints includes the following headers set by the
-    service's `SecurityHeadersFilter`:
-
-    | Header | Value |
-    |---|---|
-    | `Cache-Control` | `no-store` |
-    | `Content-Security-Policy` | `frame-ancestors 'none'` |
-    | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
-    | `X-Content-Type-Options` | `nosniff` |
-    | `X-Frame-Options` | `DENY` |
-    | `Referrer-Policy` | `no-referrer` |
-    | `X-MOE-Request-Id` | Echoed trace ID from the gateway header |
-
+    The Offerings API lets you create, update, and list offerings for Offer Decisioning, and
+    list the personalization templates available for offering content. For lifecycle, rate limits,
+    idempotency, and error details, see the [Offerings Overview](/api/offerings/offerings-overview).
 
 servers:
   - url: https://api-{dc}.moengage.com
@@ -101,6 +26,10 @@ paths:
         Fetch all offerings in the workspace. Returns a summary of each offering — ID, name,
         status, tags, and creation metadata.
 
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 150 requests per minute, 500 requests per hour, and 1000 requests per day per consumer.
       x-moe-mcp:
         expose:
           external: true
@@ -260,7 +189,7 @@ paths:
               schema:
                 type: integer
                 example: 150
-              description: "Maximum requests allowed in the current window. Limits per consumer (Public and MCP): 150/min, 500/hour, 1000/day."
+              description: Maximum requests allowed in the current window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -338,9 +267,8 @@ paths:
           $ref: '#/components/responses/GatewayAuthError'
         '429':
           description: |
-            Rate limit exceeded. Limits per consumer (Public and MCP): 150 requests/min,
-            500 requests/hour, 1000 requests/day. Wait for the number of seconds in
-            Retry-After before retrying.
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
           headers:
             Retry-After:
               schema:
@@ -359,6 +287,10 @@ paths:
       description: |
         Create a new Offering in the workspace.
 
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 100 requests per minute, 300 requests per hour, and 600 requests per day per consumer.
       x-moe-mcp:
         expose:
           external: true
@@ -626,7 +558,7 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day."
+              description: Maximum requests allowed in the current window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -722,9 +654,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: |
-            Rate limit exceeded. Limits per consumer (public and MCP): 100 requests/min,
-            300 requests/hour, 600 requests/day. Wait for the number of seconds in
-            Retry-After before retrying.
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
           headers:
             Retry-After:
               schema:
@@ -736,7 +667,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
-  /v5/offers/offer_{id}:
+  /v5/offers/{offer_id}:
     patch:
       operationId: updatePublicOffering
       summary: Update Offering
@@ -744,6 +675,10 @@ paths:
         Modify an existing offering. Only the fields you include in the request body are
         changed.
 
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 100 requests per minute, 300 requests per hour, and 600 requests per day per consumer.
       x-moe-mcp:
         expose:
           external: true
@@ -786,7 +721,7 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - name: id
+        - name: offer_id
           in: path
           required: true
           schema:
@@ -855,7 +790,7 @@ paths:
               schema:
                 type: integer
                 example: 100
-              description: "Maximum requests allowed in the current window. Thresholds: 100/min, 300/hour, 600/day."
+              description: Maximum requests allowed in the current window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -988,9 +923,8 @@ paths:
                     response_id: resp_<trace-id>
         '429':
           description: |
-            Rate limit exceeded. Limits per consumer (public and MCP): 100 requests/min,
-            300 requests/hour, 600 requests/day. Wait for the number of seconds in
-            Retry-After before retrying.
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
           headers:
             Retry-After:
               schema:
@@ -1010,6 +944,10 @@ paths:
       description: |
         Fetch the personalization templates available in the workspace.
 
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 150 requests per minute, 500 requests per hour, and 1000 requests per day per consumer.
       x-moe-mcp:
         expose:
           external: true
@@ -1049,12 +987,12 @@ paths:
           required: false
           schema:
             type: string
-          description: >
+          description: |
             An opaque pagination token used to retrieve the next page of results.
 
-              * **Initial Request:** Omit this parameter entirely on the first call to fetch the beginning of the list.
-              * **Subsequent Pages:** Pass the exact string received from the `next_cursor` field of the immediate previous response.
-              * **Handling:** Pass this token completely verbatim. Do not decode, alter, or modify the string in any way.
+            * **Initial Request:** Omit this parameter entirely on the first call to fetch the beginning of the list.
+            * **Subsequent Pages:** Pass the exact string received from the `next_cursor` field of the immediate previous response.
+            * **Handling:** Pass this token completely verbatim. Do not decode, alter, or modify the string in any way.
         - name: limit
           in: query
           required: false
@@ -1085,7 +1023,7 @@ paths:
               schema:
                 type: integer
                 example: 150
-              description: "Maximum requests allowed in the current window. Limits per consumer (Public and MCP): 150/min, 500/hour, 1000/day."
+              description: Maximum requests allowed in the current window.
             X-RateLimit-Remaining:
               schema:
                 type: integer
@@ -1154,9 +1092,8 @@ paths:
           $ref: '#/components/responses/GatewayAuthError'
         '429':
           description: |
-            Rate limit exceeded. Limits per consumer (Public and MCP): 150 requests/min,
-            500 requests/hour, 1000 requests/day. Wait for the number of seconds in
-            Retry-After before retrying.
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
           headers:
             Retry-After:
               schema:
@@ -1342,12 +1279,6 @@ components:
 
         Required fields: `name`, `priority`, `delivery`, `created_by`, `scheduling`,
         `segment_info`, `offer_content`, `variation_meta`.
-
-        variation_meta can be edited later via PATCH, subject to status-based rules:
-        while the offering is "scheduled" the whole object is editable; once "active",
-        only the distribution split and control-group percentages can change. The A/B
-        type and variant key names cannot be updated.
-  
       type: object
       required: [name, priority, delivery, created_by, scheduling, segment_info, offer_content, variation_meta]
       properties:
@@ -1438,29 +1369,7 @@ components:
       description: |
         Request body for partially updating an existing offering via the public API (`PATCH /v5/offers/{offer_id}`). Only the fields explicitly provided in the request body will be modified.
 
-        ### Lifecycle & Mutation Rules
-
-        Certain fields are status-gated based on the offering's current lifecycle phase. Attempting to modify a locked field will return a `400 IMMUTABLE_FIELD` error.
-
-        #### 1. Variation Metadata (`variation_meta`)
-
-        Field mutability depends on both the offering status and the variation type configuration:
-
-        | Offering Status | Variation Type | Editable Fields | Locked Fields |
-        | :--- | :--- | :--- | :--- |
-        | **`scheduled`** | Any | Entire object (`type`, `variantsPerLocale`, `smv_distribution`, `control_group`) | None |
-        | **`active`** | **SMV** | `smv_distribution.split` percentages, `control_group.percentage` | `type`, Variant key names |
-        | **`active`** | **DMV** | `control_group.percentage` | `type`, `variantsPerLocale`, `smv_distribution` |
-        | **`expired`** | Any | None | All fields are locked |
-
-        #### 2. Status-Gated Fields
-
-        * **`conversion`**: Can only be updated when the offering status is `scheduled`. Attempting to update it on an `active` or `expired` offering returns a `400 IMMUTABLE_FIELD` error.
-
-        #### 3. Scheduling Constraints
-
-        * **`scheduling.start_datetime`**: Can only be changed when the offering status is `scheduled`. 
-        * **`scheduling.expiry_datetime`**: Can only be changed when the offering status is `active` or `scheduled`. 
+        Some fields are status-gated based on the offering's current lifecycle phase — see the field-level descriptions for `variation_meta`, `conversion`, and `scheduling` for the exact rules. Modifying a locked field returns a `400 IMMUTABLE_FIELD` error.
       type: object
       required: [updated_by]
       properties:
@@ -1473,8 +1382,8 @@ components:
         name:
           type: string
           description: >
-            * Updated display name for the offering. Must remain unique within the workspace.
-            * Allowed characters: alphanumeric characters and underscores (_) only.
+            Updated display name for the offering. Must remain unique within the workspace.
+            **Allowed characters:** alphanumeric characters and underscores (_) only.
           minLength: 5
           maxLength: 100
         description:
@@ -1489,9 +1398,9 @@ components:
         tags:
           type: array
           description: >
-            * The entire existing tag list is overwritten with this value.
-            * To add a single tag, send the complete current tag list plus the new tag.
-            * To remove all tags, send an empty array.
+            **Full replacement, not additive** — the entire existing tag list is overwritten with this value.
+            To add a single tag, send the complete current tag list plus the new tag.
+            To remove all tags, send an empty array.
           items:
             type: string
             maxLength: 50
@@ -1634,9 +1543,7 @@ components:
       description: |
         The core content payload delivered to the end-user. This object supports two mutually exclusive structures depending on whether your offering uses content variations or experimentation.
 
-        <Warning>
         **Mutually Exclusive:** Do not provide both `content_1` and `locales` in the same request payload. Doing so will result in a validation error.
-        </Warning>
 
         ### 1. Flat Format (No Content Variations)
 
@@ -1740,11 +1647,20 @@ components:
       description: |
         Configuration for A/B testing content variations.
 
-        EDITABLE WITH STATUS RULES — while the offering status is `scheduled` the whole object can be changed via `PATCH /v5/offers`. Once `active`, only percentage fields `smv_distribution.split` and `control_group.percentage` can be updated.
-
         * `SMV`: Fixed percentage splits across up to 5 variations.
         * `DMV`: The system automatically learns which variant performs best over time and shifts traffic toward the winner.
         * `Offer Control Group`: A configurable percentage of eligible users to be held out as a pure control group.
+
+        #### Lifecycle & Mutation Rules
+
+        `variation_meta` can be edited later via `PATCH /v5/offers/{offer_id}`, subject to status-based rules. Field mutability depends on both the offering status and the variation type. Attempting to modify a locked field returns a `400 IMMUTABLE_FIELD` error.
+
+        | Offering Status | Variation Type | Editable Fields | Locked Fields |
+        | :--- | :--- | :--- | :--- |
+        | **`scheduled`** | Any | Entire object (`type`, `variantsPerLocale`, `smv_distribution`, `control_group`) | None |
+        | **`active`** | **SMV** | `smv_distribution.split` percentages, `control_group.percentage` | `type`, Variant key names |
+        | **`active`** | **DMV** | `control_group.percentage` | `type`, `variantsPerLocale`, `smv_distribution` |
+        | **`expired`** | Any | None | All fields are locked |
       type: object
       required: [type]
       properties:
@@ -1863,6 +1779,8 @@ components:
     ConversionDto:
       description: |
         List of conversion goals to track.
+
+        **Status constraint:** `conversion` can only be set or updated while the offering status is `scheduled`. Attempting to update it on an `active` or `expired` offering returns a `400 IMMUTABLE_FIELD` error.
       type: object
       properties:
         primary:
