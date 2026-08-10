@@ -13,7 +13,7 @@ When you enable catalog sync, MoEngage fetches your Shopify product data and mak
 
 ## Catalog Sync Operation
 
-MoEngage syncs your Shopify product catalog by fetching data from your store on a scheduled basis. Once synced, your catalog serves as a data source for product recommendation blocks, dynamic content in messages, and segmentation filters.
+MoEngage syncs your Shopify product catalog by fetching data from your store in real time. Once synced, your catalog serves as a data source for product recommendation blocks, dynamic content in messages, and segmentation filters.
 
 Catalog sync is not enabled by default. To activate it, navigate to your Shopify integration settings in MoEngage and turn the **Catalog Sync** toggle on. Note that the toggle requires a one-time setup step on the MoEngage side before it takes effect.
 
@@ -53,6 +53,8 @@ The **Shopify source** list contains native product fields such as Product title
 
 Every catalog needs one attribute that identifies each item uniquely. Select the **Mark unique** checkbox on that attribute's row. You can mark **Variation ID**, **SKU**, or a custom attribute as the unique identifier.
 
+You cannot change the unique identifier after the first sync completes, so choose an attribute whose value is different for every item. If two or more items share the same value, MoEngage treats them as the same item and keeps only the most recent values it receives for that identifier, which means the earlier item is overwritten in your catalog.
+
 ### Configuration You Cannot Change After the First Sync
 
 MoEngage fixes part of your schema once the first sync completes successfully, so review your mapping before you request the sync.
@@ -70,7 +72,7 @@ After the first successful sync, you cannot rename or delete the attributes alre
 After the first sync completes, MoEngage keeps your catalog up to date in real time. When a product changes in Shopify, that change reflects in your MoEngage catalog without waiting for a scheduled refresh, so campaigns that rely on catalog attributes such as product price, image, or availability use current values.
 
 <Note>
-  Real-time catalog sync is in early access. The rest of catalog sync is generally available.
+  Real-time catalog sync is in early access.
 </Note>
 
 MoEngage syncs only the products whose Shopify status is **Active**. If a product's status changes from **Active** to any other value, MoEngage removes it from the catalog.
@@ -79,21 +81,18 @@ MoEngage syncs only the products whose Shopify status is **Active**. If a produc
 
 MoEngage prefills the mapping table with the following product attributes. Before the first sync, you can change the data type or Shopify source of any of them, remove the ones you do not need, and add your own.
 
-**Status** is the only attribute in this list that MoEngage does not map by default. Map it yourself if you need it in your catalog.
-
 | Attribute | Description | Shopify Source Field |
 | --- | --- | --- |
 | **Variation ID** | The unique identifier for each product variant (size, color, and so on). This serves as the primary key for each item in your catalog. | Variant ID |
 | **Product ID** | The unique identifier for the parent product. Multiple variation IDs can have the same product IDs. | Product ID |
-| **Link** | The URL to access the item on your storefront. | Product URL handle |
-| **Image Link** | The URL of the primary product image associated with the variation ID. | Primary image URL |
+| **Product URL** | The URL to access the item on your storefront. | Product URL |
+| **Primary Image URL** | The URL of the primary product image associated with the variation ID. | Primary Image URL |
 | **Vendor Name** | The name of the product vendor, brand, or supplier. | Vendor / Brand |
 | **SKU (Stock Keeping Unit)** | This is your internal product code for this variant. | SKU |
-| **Variation Title** | The name of the specific variant (for example: Blue / XL). | Variant name |
+| **Variant Name** | The name of the specific variant (for example: Blue / XL). | Variant Name |
 | **Currency** | The currency in which you list the product price. This matches the selection you make while you enable the sync. | Store currency |
 | **Price** | The listed price for this variant. | Variant price |
 | **Quantity** | The available inventory for this variant present in your store. | Inventory quantity |
-| **Status** | The current product state: <ul><li>**Active**: The product is ready to sell and is available to customers.</li><li>**Archived**: The product is no longer sold and is unavailable to customers.</li><li>**Draft**: The product is not ready to sell. Duplicated and unarchived products are set to draft by default.</li></ul> | Product status |
 | **Description** | The product description text (with HTML stripped). | Product body HTML |
 | **Created At** | The date you created the product in Shopify (ISO 8601 format). | Product creation date |
 | **Updated At** | The date you last modified the product in Shopify (ISO 8601 format). | Last modified date |
@@ -114,7 +113,7 @@ To use your catalog data effectively, review the following information:
   </Accordion>
 
   <Accordion title="Data Consistency Requirements">
-    Field values must be consistent in type across your catalog for products to import correctly. For example, if the **Variation Title** field contains text strings for most products but numeric values for others, MoEngage skips the products with numeric values. You can review your Shopify data for inconsistent formats in the **SKU**, **Price**, and **Variation Title** fields before you sync.
+    Field values must be consistent in type across your catalog for products to import correctly. For example, if the **Variant Name** field contains text strings for most products but numeric values for others, MoEngage skips the products with numeric values. You can review your Shopify data for inconsistent formats in the **SKU**, **Price**, and **Variant Name** fields before you sync.
   </Accordion>
 </AccordionGroup>
 
@@ -122,9 +121,9 @@ To use your catalog data effectively, review the following information:
 
 To confirm the sync completes correctly, perform the following steps:
 
-1. In your MoEngage account, navigate to the **Catalog** section and check the total product count.
+1. In your MoEngage dashboard, navigate to **Content** > [**Catalog**](/user-guide/content/recommendations/prerequisites/catalogs) and check the total product count.
 2. Compare this count to your active product count in Shopify (Shopify admin \> **Products**, filtering for active, non-draft items).
-3. If the count is lower than expected, check your Shopify product data for fields with inconsistent values, particularly **Variation Title**.
+3. If the count is lower than expected, check your Shopify product data for fields with inconsistent values, particularly **Variant Name**.
 4. If products are still missing despite consistent data, contact support with your workspace ID and the approximate number of missing products.
 
 ## Troubleshoot
@@ -134,10 +133,9 @@ To troubleshoot catalog issues, review the following table:
 | Symptom | What to check |
 | --- | --- |
 | Products do not appear after you enable catalog sync. | Catalog sync requires a one time activation. Confirm with your Customer Success Manager or raise a support ticket to verify activation for your workspace. |
-| MoEngage excludes some products after the sync completes. | Check for fields with inconsistent data types (for example, text vs. numeric) in your Shopify product feed. Products with non-conforming field types do not import. |
+| MoEngage excludes some products after the sync completes. | Check the following: <ul><li>Products whose Shopify status is not **Active** do not sync.</li><li>Fields with inconsistent data types across products, for example text for some and numeric for others, do not import.</li><li>If the attribute you marked as unique holds the same value for more than one item, MoEngage treats those items as one and keeps only the most recent values, so the earlier item does not appear.</li></ul> |
 | The catalog does not include metafield values. | Map the metafield to an attribute in the **Sync product catalog** tab. Your metafields appear in the **Shopify source** list, marked as **Meta field**. Map them before the first sync, because you cannot change an attribute's source afterward. |
 | The SKU does not serve as the unique product identifier. | Select the **Mark unique** checkbox on the **SKU** row before the first sync. MoEngage marks **Variation ID** as unique by default, and you cannot change the mapping after the first sync completes. |
-| A product is missing from the catalog. | MoEngage syncs only the products whose Shopify status is **Active**. Check the product's status in Shopify. |
 
 <Info>
   **Information**
