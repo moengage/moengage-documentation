@@ -38,7 +38,7 @@ MoEngage uses Identity Providers (IdPs) to simplify and centralize user login. T
 - Onelogin
 - Azure (Microsoft Entra ID)
 - Google Admin
-- Other (you can configure other IdPs, provided they are SAML 2.0 compliant)
+- Other (you can configure other IdPs, provided they are SAML 2.0 compliant, including JumpCloud)
 
 To enable SSO in the MoEngage dashboard, perform the following steps:
 
@@ -182,6 +182,89 @@ To enable SSO in the MoEngage dashboard, perform the following steps:
     17. Select the **Send email to the users of this workspace** check box to notify all users about your workspace's Single Sign-On (SSO) enablement.
     18. Click **Done**. <img src="/images/moengage_3c648e.png" /> The SSO configuration is now successfully completed. You can see Google SSO on the **Login** tab. <img src="/images/moengage_251775.png" />
   </Tab>
+  <Tab title="Configure JumpCloud SSO">
+    JumpCloud does not appear as a named option in the **Identity Provider** list on the MoEngage dashboard. Configure it using the **Other** option instead.
+
+    JumpCloud grants application access by user group, so create your user and a user group before you configure SSO.
+
+    ### Step 1: Create a User
+
+    1. Navigate to the **JumpCloud Admin Portal**.
+    2. On the left navigation menu, click **Identity Management** \> **Users**.
+    3. Click **\+ Users**, and create your users individually, or use the import option to add users from a CSV file.
+    4. Enter the user's details, and click **Save User**.
+
+    <Frame>
+      ![Create a user in JumpCloud](/images/createuser.gif)
+    </Frame>
+
+    ### Step 2: Create a User Group
+
+    1. On the left navigation menu, click **Identity Management** \> **User Groups**.
+    2. Click **\+ User Group**.
+    3. In the **Name** box, type a name for the group.
+    4. Click the **Users** tab, and add the user you created in [Step 1](/user-guide/settings/account/security/single-sign-on-sso#step-1-create-a-user).
+    5. Click **Save Group**.
+
+    <Frame>
+      ![Create a user group in JumpCloud](/images/createusergroup.gif)
+    </Frame>
+
+    ### Step 3: Create the SSO Application in JumpCloud
+
+    1. On the left navigation menu, click **Access** \> **SSO Applications**.
+    2. On the **Configured Applications** page, click **\+ Add New Application**.
+    3. In the search box, type SAML 2.0, and select it.
+    4. Proceed through the setup options with the default selections until you reach the **Enter General Info** step.
+    5. Enter a **Display Label**, **Description**, and (optionally) a logo for your application, and click **Save Application**.
+    6. Click **Configure Application**.
+
+    <Frame>
+      ![Create the SSO application in JumpCloud](/images/createnewapplicationintegration1.gif)
+    </Frame>
+
+    ### Step 4: Configure the SAML Settings
+
+    On the **Configure SSO** dialog box in the MoEngage dashboard, in the **Identity Provider** list, you must select **Other**, since JumpCloud does not appear as a named option in the list.
+
+    <Frame>
+      ![Select Other as the identity provider in the MoEngage dashboard](/images/configure2.gif)
+    </Frame>
+
+    Then, on the **SSO** tab of your JumpCloud application, enter the following details:
+
+    1. In the **SP Entity ID** box, paste the **Issuer** value copied from the **Configure SSO** dialog box in the MoEngage dashboard.
+    2. Under **ACS URLs**, in the **Default URL** box, paste the **Assertion Consumer Service** URL copied from the MoEngage dashboard.
+       <Frame>
+         ![Configure the SP Entity ID and ACS URLs in JumpCloud](/images/configuresaml1.gif)
+       </Frame>
+    3. In the **SAMLSubject NameID** list, select email.
+    4. In the **SAMLSubject NameID Format** list, select `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`, which corresponds to the **Email Address** format shown on the MoEngage dashboard.
+    5. In the **Login URL** box, enter your MoEngage dashboard URL.
+    6. Select the **Declare Redirect Endpoint** and **Send failure response to the Service Provider** checkboxes.
+    7. Click **Save**.
+
+    <Warning>
+      Select both the **Declare Redirect Endpoint** and **Send failure response to the Service Provider** checkboxes. If you leave either checkbox cleared, uploading the SAML metadata XML file in [Step 5](/user-guide/settings/account/security/single-sign-on-sso#step-5-exchange-metadata) returns an error.
+    </Warning>
+
+    ### Step 5: Exchange Metadata
+
+    1. On the **SSO** tab of your JumpCloud application, scroll to **Configuration Settings** \> **JumpCloud Metadata**, and click **Export Metadata** to download the SAML metadata XML file.
+    2. On the **Configure SSO** dialog box in the MoEngage dashboard, click **Upload** to upload the downloaded XML file.
+    3. By default, the **Update the same config for Test Environment** check box is selected. When it is selected, the configuration is applied to both the test and live environments. Clear the check box if you want the configuration to be applied only to the live environment.
+    4. Click **Configure**. The Alert pop-up window will appear, prompting you to review the instructions properly.
+       <Frame>
+         ![Upload the JumpCloud metadata file and configure SSO in the MoEngage dashboard](/images/exportmetadta.gif)
+       </Frame>
+    5. Select the **Send email to the users of this workspace** check box to notify all users about your workspace's Single Sign-On (SSO) enablement.
+    6. Click **Done**. The SSO configuration is now successfully completed. You can see the JumpCloud SSO on the **Login** tab.
+
+    ### Step 6: Assign the User Group to the Application
+
+    1. On your JumpCloud application, click the **User Groups** tab.
+    2. Select the user group you created in [Step 2](/user-guide/settings/account/security/single-sign-on-sso#step-2-create-a-user-group) so its members can access MoEngage through this application.
+  </Tab>
   <Tab title="Configure Other SSO">
     <Info>
       If you are using an IDP that is not listed above, you can select the _Other_ option from the **Identity Provider** list.
@@ -200,6 +283,8 @@ To enable SSO in the MoEngage dashboard, perform the following steps:
   </Tab>
 </Tabs>
 
+If you see an error while logging in via SSO, check the FAQ section below for common issues and fixes, or contact the MoEngage Support team for help.
+
 # FAQs
 
 <Accordion title="Facing an issue while logging in?">
@@ -212,6 +297,14 @@ To enable SSO in the MoEngage dashboard, perform the following steps:
   **_Persistent Error_**
 
   MoEngage supports the admin login using an email id - password combination. The Admin can go back to the Single Sign On screen (Go to settings \> Security Settings) and disable SSO.
+</Accordion>
+
+<Accordion title="What if the user is not able to log in via SSO?">
+  MoEngage allows you to log in to your last-used workspace by default. If it is not accessible for any reason, you can access other workspaces using the [Login to a different workspace](/user-guide/getting-started/initial-setup/log-in-to-moengage#log-into-a-different-workspace) flow.
+</Accordion>
+
+<Accordion title="Does the email address need to match between the IdP and MoEngage?">
+  Yes. Use the same email address in your organization's Identity Provider (IdP) and in MoEngage. SSO login fails if the addresses do not match.
 </Accordion>
 
 <Accordion title="Facing an issue while uploading the config file?">
@@ -281,4 +374,8 @@ To enable SSO in the MoEngage dashboard, perform the following steps:
 
 <Accordion title="Does two-factor authentication remain enabled even after enabling SSO authentication?">
   Yes, two-factor authentication remains enabled even after you enable SSO for a workspace.
+</Accordion>
+
+<Accordion title="Contact Support">
+  If the FAQs above don't resolve your issue, contact the MoEngage Support team. For more information, refer to [Raise a Support Ticket Through MoEngage Dashboard](/user-guide/contact-support/raise-a-support-ticket-through-moengage-dashboard).
 </Accordion>

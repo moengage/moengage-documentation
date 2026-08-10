@@ -1,0 +1,98 @@
+---
+title: "Stripe"
+description: "Forward checkout, invoice, and subscription lifecycle events from Stripe to MoEngage via webhooks to build unified profiles and drive real-time engagement."
+keywords: ["Stripe", "payments", "subscriptions", "webhooks", "MoEngage integration"]
+---
+
+[Stripe](https://stripe.com/) is a payments infrastructure platform that enables businesses to accept payments, manage subscriptions, and handle billing online. It provides webhook notifications for checkout, invoice, and subscription lifecycle events, so you can react to payment activity in real time.
+
+# MoEngage × Stripe
+
+The MoEngage and Stripe integration uses real-time payment and subscription data to build unified user profiles and drive personalized engagement. By forwarding payment lifecycle events from Stripe to MoEngage, you can improve segmentation and maintain data consistency across your marketing stack.
+
+## Use Cases
+
+Integrating Stripe with MoEngage helps you address the following use cases:
+
+- **Recover lost sales**: Automatically trigger personalized notifications (push, email, or SMS) when a payment fails or a checkout session expires, guiding users back to complete their purchase.
+- **Subscription lifecycle journeys**: Trigger onboarding flows on `customer.subscription.created`, re-engagement campaigns when a subscription is paused, and win-back sequences on `customer.subscription.deleted`.
+- **Smarter segmentation**: Use real-time subscription status and plan data to build dynamic segments for relevant post-purchase offers.
+
+## Key Features
+
+The Stripe integration delivers the following capabilities within MoEngage:
+
+- **Real-time data sync**: Instantly sync checkout, invoice, and subscription events from Stripe to MoEngage to trigger timely, data-driven campaigns.
+- **Customer profile enrichment**: Automatically update user profiles with contact information (email, name, and phone) and Stripe customer IDs to keep your data current and identity-resolved across events.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  Ensure you have admin access to your Stripe Dashboard.
+</Info>
+
+## Step 1: Generate Authentication Credentials
+
+To generate the authentication credentials that Stripe uses to send data to MoEngage, perform the following steps:
+
+1. On the MoEngage UI, navigate to **Settings** \> **Account** \> **APIs**.
+2. Copy the ID under **Workspace ID (earlier App ID)**.
+3. In the **API keys** section, copy the API key on the **Data** tile.
+4. Build your webhook URL by inserting your Workspace ID and Data API Key into the MoEngage endpoint, and replace `0X` with your data center number (for example, `api-01` for DC-01). Use the following format:
+   ```text wrap
+   https://<YOUR_WORKSPACE_ID>:<YOUR_DATA_API_KEY>@api-0X.moengage.com/v1/partner/stripe/events/?configName=<config_name>
+   ```
+
+![MoEngage APIs settings page showing the Workspace ID and Data API Key fields](/images/moengage-api-credentials.png)
+
+<Info>
+  Before you contact MoEngage Support for your unique ingestion endpoint, decide which customer identifier (email or Stripe Customer ID) you will use as the primary identity. Make sure it aligns with your current MoEngage identity configuration to avoid creating duplicate profiles during the data sync.
+</Info>
+
+## Step 2: Configure Webhooks in Stripe
+
+After you have your endpoint URL and credentials, configure the webhook in your Stripe Dashboard. To configure the webhook, perform the following steps:
+
+1. Log in to your Stripe Dashboard and navigate to **Developers** \> **Webhooks**.
+2. On the **Event destinations** page, click **Add destination**.
+
+   ![Stripe Event destinations page with the Add destination button highlighted](/images/stripe-add-destination.png)
+
+3. On the **Select events** step, keep the default **API version**, and then under **Events**, add the following events:
+
+   | Event Group | Supported Events |
+   | --- | --- |
+   | Checkout | `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` |
+   | Invoice | `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed` |
+   | Subscriptions | `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.paused`, `customer.subscription.resumed`, `customer.subscription.deleted` |
+
+   ![Stripe Create an event destination screen with checkout events in the event search](/images/stripe-select-events.png)
+
+4. Click **Continue**.
+5. On the **Choose destination type** step, select **Webhook endpoint**, and then click **Continue**.
+
+   ![Stripe Choose destination type step with Webhook endpoint selected and Continue highlighted](/images/stripe-destination-type.png)
+
+6. On the **Configure your destination** step, in the **Endpoint URL** box, paste the MoEngage endpoint URL you built in the [Generate Authentication Credentials](/partner-guide/data-and-analytics/payments-and-subscriptions/stripe#step-1-generate-authentication-credentials) section, and then enter a descriptive name in the **Destination name** box.
+
+   ![Stripe Configure your destination screen showing the Endpoint URL and Destination name fields](/images/stripe-configure-destination.png)
+
+7. Click **Save destination**.
+
+<Info>
+  MoEngage profiles are created or updated during checkout and invoice events, which use email as the identity. Subscription events use the Stripe Customer ID for profile updates. Ensure that multi-ID resolution is active in your workspace to successfully ingest subscription data.
+</Info>
+
+## Step 3: Verify Events in MoEngage
+
+To verify that events appear in MoEngage in real time, perform the following steps:
+
+1. On the left navigation menu of the MoEngage UI, go to **Segment** \> **Search Users**.
+2. In the **Search Users** box, search for your test user by **Customer ID** (email for checkout and invoice events; Stripe Customer ID for subscription events).
+3. Open the user profile and check the event history for the Stripe event names, along with attributes such as payment amount, currency, and subscription status.
+
+You can also verify delivery on the Stripe side. On the destination's **Event deliveries** tab, a successful delivery shows a `200 OK` status and a response body that includes the `request_id`, `"name": "stripe"`, and `"description": "Successfully submitted for processing"`.
+
+![Stripe Event deliveries tab showing a 200 OK delivery and the MoEngage response body](/images/stripe-verify-event.png)
