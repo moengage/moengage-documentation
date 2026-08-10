@@ -459,7 +459,7 @@ paths:
                     total_trigger: 0
                     users_in_segment: 0
                     usage_count: 0
-                    created_by: john.doe@moengage.com
+                    created_by: john.doe@example.com
                     last_received_time: '2023-05-30T06:28:06.498000'
                     _id: 64a54500633fda13b6681163
         '400':
@@ -590,7 +590,7 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/PaginationV5'
               example:
-                response_id: resp_abc123
+                response_id: resp_<trace-id>
                 type: business-events
                 data:
                   - id: <mongo-object-id>
@@ -602,12 +602,12 @@ paths:
                         data_type: number
                     campaign_count: 50000
                     trigger_count: 12840
-                    created_by: amol.aggarwal@moengage.com
+                    created_by: john.doe@example.com
                     last_triggered_at: '2026-07-19T14:03:22Z'
                     created_at: '2026-05-01T09:12:00Z'
                 pagination:
                   has_more: true
-                  next_cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+                  next_cursor: <opaque-cursor>
         '400':
           description: This response is returned when the request is invalid, for example when both `name` and `id` are supplied.
           content:
@@ -623,7 +623,7 @@ paths:
                     - code: INVALID_VALUE
                       target: name
                       message: Only one of name or id may be supplied.
-                response_id: resp_abc124
+                response_id: resp_<trace-id>
         '401':
           description: This response is returned when the authorization parameters are missing or incorrect in the HTTP Auth Header.
           content:
@@ -639,7 +639,7 @@ paths:
                     - code: MISSING_VALUE
                       target: Authorization
                       message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_abc125
+                response_id: resp_<trace-id>
         '403':
           description: This response is returned when the credentials are valid but lack permission to access business events.
           content:
@@ -655,7 +655,7 @@ paths:
                     - code: FORBIDDEN
                       target: permission
                       message: 'Required permission: business_events:view'
-                response_id: resp_abc126
+                response_id: resp_<trace-id>
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -667,7 +667,7 @@ paths:
                   code: RATE_LIMITED
                   message: Rate limit exceeded for this workspace.
                   details: []
-                response_id: resp_abc127
+                response_id: resp_<trace-id>
 
   /v5/business-events/search:
     post:
@@ -692,7 +692,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BusinessEventSearchRequestV5'
+              $ref: '#/components/schemas/BusinessEventSearchRequest'
             example:
               filters:
                 names:
@@ -702,7 +702,7 @@ paths:
                   - <mongo-object-id>
                   - <mongo-object-id>
               limit: 20
-              cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+              cursor: <opaque-cursor>
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -730,7 +730,7 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/PaginationV5'
               example:
-                response_id: resp_abc123
+                response_id: resp_<trace-id>
                 type: business-events
                 data:
                   - id: <mongo-object-id>
@@ -742,12 +742,12 @@ paths:
                         data_type: number
                     campaign_count: 50000
                     trigger_count: 12840
-                    created_by: amol.aggarwal@moengage.com
+                    created_by: john.doe@example.com
                     last_triggered_at: '2026-07-19T14:03:22Z'
                     created_at: '2026-05-01T09:12:00Z'
                 pagination:
                   has_more: true
-                  next_cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+                  next_cursor: <opaque-cursor>
         '400':
           description: Bad request. Returned when both `names` and `ids` are supplied inside `filters`, or when a parameter fails validation.
           content:
@@ -763,7 +763,7 @@ paths:
                     - code: INVALID_VALUE
                       target: filters
                       message: Only one of filters.names or filters.ids may be supplied.
-                response_id: resp_abc128
+                response_id: resp_<trace-id>
         '401':
           description: Missing or invalid authentication.
           content:
@@ -779,7 +779,7 @@ paths:
                     - code: MISSING_VALUE
                       target: Authorization
                       message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_abc129
+                response_id: resp_<trace-id>
         '403':
           description: Missing required scope.
           content:
@@ -795,7 +795,7 @@ paths:
                     - code: FORBIDDEN
                       target: permission
                       message: 'Required permission: business_events:view'
-                response_id: resp_abc130
+                response_id: resp_<trace-id>
         '429':
           description: Rate limited.
           content:
@@ -807,7 +807,7 @@ paths:
                   code: RATE_LIMITED
                   message: Rate limit exceeded for this workspace.
                   details: []
-                response_id: resp_abc131
+                response_id: resp_<trace-id>
 
 components:
   securitySchemes:
@@ -889,7 +889,7 @@ components:
           type: string
           format: email
           description: Email of the event creator.
-          example: john.doe@moengage.com
+          example: john.doe@example.com
         last_received_time:
           type: string
           format: date-time
@@ -938,57 +938,59 @@ components:
               type: string
               description: This field contains the request ID of the failed request.
               example: 64a54cf9633fda13b668132f
-    BusinessEventAttributeV5:
-      type: object
-      description: Definition of an attribute for a business event, as returned by the V5 business events endpoints.
-      properties:
-        name:
-          type: string
-          description: The name of the attribute.
-          example: product_id
-        data_type:
-          type: string
-          description: The data type of the attribute.
-          example: string
     BusinessEventV5:
       type: object
       description: A business event, as returned by the V5 business events endpoints.
+      required:
+        - id
+        - name
       properties:
         id:
           type: string
-          description: Unique identifier for the business event.
+          description: Business event ID.
           example: <mongo-object-id>
         name:
           type: string
-          description: Name of the business event.
+          description: Business event name.
           example: price_drop
         attributes:
           type: array
-          description: The attributes defined for the business event.
+          description: Declared event attributes.
           items:
-            $ref: '#/components/schemas/BusinessEventAttributeV5'
+            type: object
+            properties:
+              name:
+                type: string
+                description: Attribute name.
+              data_type:
+                type: string
+                description: Attribute type (string, number, boolean, datetime).
+          example:
+            - name: product_id
+              data_type: string
+            - name: new_price
+              data_type: number
         campaign_count:
           type: integer
-          description: Number of campaigns configured to trigger on this business event.
+          description: Cumulative number of child campaigns this event has triggered across all firings.
           example: 50000
         trigger_count:
           type: integer
-          description: Number of times the business event has been triggered.
+          description: Total times this event has been triggered.
           example: 12840
         created_by:
           type: string
-          format: email
-          description: Email address of the business event's creator.
-          example: amol.aggarwal@moengage.com
+          description: Creator identifier.
+          example: john.doe@example.com
         last_triggered_at:
           type: string
           format: date-time
-          description: Timestamp of when the business event was last triggered.
+          description: Last time this event was triggered.
           example: '2026-07-19T14:03:22Z'
         created_at:
           type: string
           format: date-time
-          description: Timestamp of when the business event was created.
+          description: Time this event was created.
           example: '2026-05-01T09:12:00Z'
     PaginationV5:
       type: object
@@ -1002,18 +1004,18 @@ components:
           type: string
           nullable: true
           description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
-          example: eyJpZCI6ImNhcGlfZGVmNDU2In0=
-    BusinessEventSearchRequestV5:
+          example: <opaque-cursor>
+    BusinessEventSearchRequest:
       type: object
-      description: Request body for `POST /v5/business-events/search`. All fields are optional — an empty body (or an empty `filters` object) lists every business event in the workspace.
+      description: Filter and pagination for the search. Provide either names or ids inside filters (not both); omit filters to return everything (paginated).
       properties:
         filters:
           type: object
-          description: Provide either `names` or `ids`, not both.
+          description: Filter criteria. Provide either names or ids, not both.
           properties:
             names:
               type: array
-              description: Exact business event names to match. Use either `names` or `ids`, not both.
+              description: Filter by exact business event names. Use either names or ids, not both.
               items:
                 type: string
               example:
@@ -1021,7 +1023,7 @@ components:
                 - cart_abandoned
             ids:
               type: array
-              description: Business event IDs to match. Use either `names` or `ids`, not both.
+              description: Filter by business event IDs. Use either names or ids, not both.
               items:
                 type: string
               example:

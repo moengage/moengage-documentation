@@ -18,6 +18,56 @@ The Content APIs are a collection of the following endpoints:
 
 ## Personalization Tokens
 
-A content API configuration can include personalization tokens (`{{...}}`) in its URL, parameters, headers, or body. When you test a configuration, supply sample values for these tokens in the `dynamic_values` object of the request body. MoEngage resolves them before calling the upstream endpoint.
+A content API configuration can include Jinja tokens in its URL, parameters, headers, or body. Tokens are grouped by namespace — for example, `{{UserAttribute['city']}}` or `{{EventAttribute['name']}}`.
+
+When you test a configuration, supply sample values for these tokens in the `dynamic_values` object of the request body, keyed by namespace. A token like `{{UserAttribute['city']}}` resolves from `dynamic_values.UserAttribute.city`. MoEngage resolves every token before calling the upstream endpoint.
 
 Omit the request body if the configuration has no tokens.
+
+## Pagination
+
+Both list responses return at most 20 items per page. When `pagination.has_more` is `true`, pass `pagination.next_cursor` back as the `cursor` query parameter to fetch the next page. Treat the cursor as opaque — do not decode or modify it.
+
+## FAQs
+
+### Manage Content APIs
+
+<AccordionGroup>
+  <Accordion title="Can I create or edit a content API with these endpoints?">
+    No. These endpoints are read-only, apart from the test call. Create and edit content APIs from the MoEngage dashboard. For more information, see [Add a Content API](/user-guide/settings/advanced-settings/add-a-content-api).
+  </Accordion>
+  <Accordion title="How do I fetch a single content API?">
+    Pass either `name` or `id` to [List Content APIs](/api/content-apis/list-content-apis). Supplying both returns a `400` error. Omit both to list every content API in the workspace.
+  </Accordion>
+  <Accordion title="Why is the request_body field empty for my content API?">
+    A request body applies only to `POST` and `PUT` content APIs. For `GET` configurations, `request_body` is empty and `request_body_type` does not affect the call.
+  </Accordion>
+  <Accordion title="What does the verified field mean?">
+    `verified` becomes `true` once the content API has returned a successful test response. `last_tested_at` records when that test ran.
+  </Accordion>
+</AccordionGroup>
+
+### Test Content APIs
+
+<AccordionGroup>
+  <Accordion title="Do I always need to send a request body when testing?">
+    No. The request body is optional. Send it only when the saved configuration contains Jinja tokens that need sample values. Omit it entirely otherwise.
+  </Accordion>
+  <Accordion title="The test returned 200, but the data looks wrong. What should I check?">
+    A `200` means MoEngage reached the upstream endpoint — it does not mean the upstream call succeeded. Check `data.api_response_code` for the status code the upstream endpoint returned, and `data.api_response_body` for its response.
+  </Accordion>
+  <Accordion title="Why did my test return a 400 error?">
+    Either the request body failed validation, or the saved configuration's URL resolves to an internal or private IP range. MoEngage validates the URL against server-side request forgery (SSRF) and rejects those addresses.
+  </Accordion>
+  <Accordion title="How do I stop sensitive fields from appearing in responses?">
+    List them in the content API's `pii_fields_in_response` configuration. Fields marked this way are treated as personally identifiable information (PII).
+  </Accordion>
+</AccordionGroup>
+
+## Postman Collection
+
+Test these endpoints using our pre-configured Postman collection: `<POSTMAN_COLLECTION_URL>`.
+
+<Info>
+Replace `<POSTMAN_COLLECTION_URL>` with the published collection link before this page goes live.
+</Info>

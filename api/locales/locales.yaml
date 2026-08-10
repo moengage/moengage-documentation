@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: MoEngage Locales API
+  version: '5.0'
+  description: >
+    A locale is a named audience definition — built from user-property filters — that you use to localize campaign messages for a language, culture, or region. For example, a locale named `es-MX` might target users whose last known country is Mexico.
+
+
+    Use this endpoint to list the locales configured in your workspace and look up a single locale by name or ID. To create or edit a locale, use the MoEngage dashboard. For more information, see [Locales](/user-guide/settings/advanced-settings/locales).
+tags:
+  - name: Locales
+    description: List and look up workspace locales for multilingual campaigns.
+servers:
+  - url: 'https://api-{dc}.moengage.com'
+    description: MoEngage Locales API Server
+    variables:
+      dc:
+        default: '01'
+        description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+security:
+  - basicAuth: []
+
+paths:
+  /v5/locales:
+    get:
+      tags:
+        - Locales
+      summary: List Locales
+      description: |
+        Returns all locales in the workspace, or a single locale when you supply `name` or `id`. Use either `name` or `id`, not both. Omit both parameters to list every locale in the workspace (paginated).
+      operationId: listLocales
+      security:
+        - basicAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Exact locale name. Use either `name` or `id`, not both.
+          example: es-MX
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Locale ID. Use either `name` or `id`, not both.
+          example: <mongo-object-id>
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 20
+          description: Page size. Max 20 per page.
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination cursor from a previous response.
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - response_id
+                  - type
+                  - data
+                  - pagination
+                properties:
+                  response_id:
+                    type: string
+                    description: Unique identifier for this response.
+                  type:
+                    type: string
+                    enum:
+                      - locales
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Locale'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                response_id: resp_<trace-id>
+                type: locales
+                data:
+                  - id: <mongo-object-id>
+                    name: es-MX
+                    custom_segment_id: seg_<object-id>
+                    campaign_count: 12
+                    created_at: '2026-05-01T09:12:00Z'
+                    updated_at: '2026-07-10T11:45:30Z'
+                pagination:
+                  has_more: true
+                  next_cursor: <opaque-cursor>
+        '400':
+          description: Bad request. Returned when both `name` and `id` are supplied, or when a parameter fails validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Use either name or id, not both.
+                  target: name
+                  details:
+                    - code: INVALID_VALUE
+                      target: name
+                      message: Only one of name or id may be supplied.
+                response_id: resp_<trace-id>
+        '401':
+          description: Missing or invalid authentication.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Authentication required.
+                  target: Authorization
+                  details:
+                    - code: MISSING_VALUE
+                      target: Authorization
+                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
+                response_id: resp_<trace-id>
+        '403':
+          description: Missing required scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: You do not have the required permission for this operation.
+                  target: permission
+                  details:
+                    - code: FORBIDDEN
+                      target: permission
+                      message: 'Required permission: locales:view'
+                response_id: resp_<trace-id>
+        '429':
+          description: Rate limited.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace.
+                  details: []
+                response_id: resp_<trace-id>
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format 'username:password'.
+
+        - **Username**: Use your MoEngage workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
+        - **Password**: On your MoEngage workspace, navigate to **Settings** > **Account** > **API keys** and click **Create new key**.
+
+        For more information on authentication and getting your credentials, refer to [Getting your credentials](/api/introduction#getting-your-credentials).
+
+        Send the value in the `Authorization` header as `Basic` followed by Base64-encoding of `appkey:apisecret` (workspace ID and API key).
+
+  schemas:
+    Locale:
+      type: object
+      description: A locale configured in the workspace.
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Locale ID.
+          example: <mongo-object-id>
+        name:
+          type: string
+          description: Locale name (unique per workspace).
+          example: es-MX
+        custom_segment_id:
+          type: string
+          description: Custom segment backing this locale, if any.
+          example: seg_<object-id>
+        campaign_count:
+          type: integer
+          description: Number of campaigns using this locale.
+          example: 12
+        created_at:
+          type: string
+          format: date-time
+          description: Time this locale was created.
+          example: '2026-05-01T09:12:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Time this locale was last updated.
+          example: '2026-07-10T11:45:30Z'
+
+    Pagination:
+      type: object
+      description: Pagination metadata for list responses.
+      properties:
+        has_more:
+          type: boolean
+          description: Whether additional pages of results exist.
+          example: true
+        next_cursor:
+          type: string
+          nullable: true
+          description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
+          example: <opaque-cursor>
+
+    ErrorResponse:
+      type: object
+      required:
+        - response_id
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+            message:
+              type: string
+              description: Human-readable error message.
+            target:
+              type: string
+              description: The field or resource that caused the error.
+            details:
+              type: array
+              description: Per-field error entries.
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: Machine-readable, field-level error code.
+                  target:
+                    type: string
+                    description: The field that caused the error.
+                  message:
+                    type: string
+                    description: Human-readable description of the field-level error.
+        response_id:
+          type: string
+          description: Unique identifier for this response.

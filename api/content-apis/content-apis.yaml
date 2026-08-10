@@ -87,16 +87,16 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/Pagination'
               example:
-                response_id: resp_abc123
+                response_id: resp_<trace-id>
                 type: content-apis
                 data:
                   - id: <mongo-object-id>
                     name: WeatherAPI
-                    url: http://api.openweathermap.org/data/2.5/weather
+                    url: https://api.example.com/v1/weather
                     method: GET
                     params:
                       q: Delhi
-                      appid: 3b8876d3314188ef75ac5bcbad82cd72
+                      appid: <your-api-key>
                     headers: {}
                     request_body_type: JSON
                     request_body: {}
@@ -112,7 +112,7 @@ paths:
                     updated_at: '2026-07-10T11:45:30Z'
                 pagination:
                   has_more: true
-                  next_cursor: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+                  next_cursor: <opaque-cursor>
         '400':
           description: Bad request. Returned when both `name` and `id` are supplied, or when a parameter fails validation.
           content:
@@ -128,7 +128,7 @@ paths:
                     - code: INVALID_VALUE
                       target: name
                       message: Only one of name or id may be supplied.
-                response_id: resp_abc124
+                response_id: resp_<trace-id>
         '401':
           description: Missing or invalid authentication.
           content:
@@ -144,7 +144,7 @@ paths:
                     - code: MISSING_VALUE
                       target: Authorization
                       message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_abc125
+                response_id: resp_<trace-id>
         '403':
           description: Missing required scope.
           content:
@@ -160,7 +160,7 @@ paths:
                     - code: FORBIDDEN
                       target: permission
                       message: 'Required permission: content_apis:view'
-                response_id: resp_abc126
+                response_id: resp_<trace-id>
         '429':
           description: Rate limited.
           content:
@@ -172,7 +172,7 @@ paths:
                   code: RATE_LIMITED
                   message: Rate limit exceeded for this workspace.
                   details: []
-                response_id: resp_abc127
+                response_id: resp_<trace-id>
 
   /v5/content-apis/{id}/test:
     post:
@@ -182,7 +182,7 @@ paths:
       description: |
         Loads the saved content API identified by `id`, calls its upstream endpoint, and returns the response. The full definition — URL, method, parameters, headers, body, and authentication — comes from the saved configuration.
 
-        Use the optional request body to supply sample values for the personalization tokens (`{{...}}`) in that configuration. MoEngage resolves these before making the call. Omit the body if the configuration has no tokens.
+        Use the optional request body to supply sample values for the Jinja tokens (`{{UserAttribute['city']}}`) in that configuration. MoEngage resolves these before making the call. Omit the body if the configuration has no tokens.
 
         The URL is validated against server-side request forgery (SSRF): requests to internal or private IP ranges are rejected with `400`.
       operationId: testContentApi
@@ -197,14 +197,14 @@ paths:
           description: Content API ID of the saved configuration to test.
           example: <mongo-object-id>
       requestBody:
-        description: Sample values for the personalization tokens in the saved configuration. Omit this body if the configuration has no tokens.
+        description: Sample values for the personalization tokens in the saved Content API. Omit the body entirely if the config has no tokens.
         required: false
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TestContentApiRequest'
+              $ref: '#/components/schemas/ContentApiTestRequest'
             example:
-              request_id: req_abc123
+              request_id: <client-request-id>
               dynamic_values:
                 UserAttribute:
                   city: Delhi
@@ -234,7 +234,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/ContentApiTestResult'
               example:
-                response_id: resp_abc123
+                response_id: resp_<trace-id>
                 type: content-apis
                 data:
                   api_response_code: 200
@@ -262,7 +262,7 @@ paths:
                     - code: INVALID_VALUE
                       target: url
                       message: Requests to internal or private IP ranges are not allowed.
-                response_id: resp_abc128
+                response_id: resp_<trace-id>
         '401':
           description: Missing or invalid authentication.
           content:
@@ -278,7 +278,7 @@ paths:
                     - code: MISSING_VALUE
                       target: Authorization
                       message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_abc129
+                response_id: resp_<trace-id>
         '403':
           description: Missing required scope.
           content:
@@ -294,7 +294,7 @@ paths:
                     - code: FORBIDDEN
                       target: permission
                       message: 'Required permission: content_apis:test'
-                response_id: resp_abc130
+                response_id: resp_<trace-id>
         '429':
           description: Rate limited.
           content:
@@ -306,7 +306,7 @@ paths:
                   code: RATE_LIMITED
                   message: Rate limit exceeded for this workspace.
                   details: []
-                response_id: resp_abc131
+                response_id: resp_<trace-id>
 
 components:
   securitySchemes:
@@ -327,63 +327,79 @@ components:
     ContentApi:
       type: object
       description: A content API configured in the workspace.
+      required:
+        - id
+        - name
+        - url
+        - method
       properties:
         id:
           type: string
-          description: Unique identifier for the content API.
+          description: Content API ID.
           example: <mongo-object-id>
         name:
           type: string
-          description: Name of the content API.
+          description: Content API name (unique per workspace).
           example: WeatherAPI
         url:
           type: string
-          description: The URL that MoEngage calls when the content API runs.
-          example: http://api.openweathermap.org/data/2.5/weather
+          description: Endpoint URL invoked at send time. May contain Jinja tokens.
+          example: https://api.example.com/v1/weather
         method:
           type: string
-          description: HTTP method used for the request. Content APIs support `GET`, `POST`, and `PUT`.
+          description: HTTP method used when invoking the API.
+          enum:
+            - GET
+            - POST
+            - PUT
           example: GET
         params:
           type: object
-          description: URL parameters sent with the request, as key-value pairs.
+          description: Query parameters sent with the request.
           additionalProperties: true
           example:
             q: Delhi
-            appid: 3b8876d3314188ef75ac5bcbad82cd72
+            appid: <your-api-key>
         headers:
           type: object
-          description: Headers sent with the request, as key-value pairs.
-          additionalProperties: true
+          description: Request headers sent with the request.
+          additionalProperties:
+            type: string
           example: {}
         request_body_type:
           type: string
-          description: Format of the request body.
+          description: Encoding of the request body for POST/PUT APIs.
+          enum:
+            - JSON
+            - FORM
+            - RAW
           example: JSON
         request_body:
           type: object
-          description: Request body sent with the request. Applies to methods that send a body.
+          description: Body sent with POST/PUT requests. May contain Jinja tokens.
           additionalProperties: true
           example: {}
         oauth_enabled:
           type: boolean
-          description: Whether the content API uses OAuth 2.0 authentication. For more information, see [Authorization Configuration with OAuth 2.0](/user-guide/settings/advanced-settings/authorization-configuration-with-oauth-20).
+          description: Whether an OAuth token is attached as the Authorization header at send time. For more information, see [Authorization Configuration with OAuth 2.0](/user-guide/settings/advanced-settings/authorization-configuration-with-oauth-20).
           example: false
         oauth_prefix_for_header:
           type: string
-          description: Prefix used with the OAuth token in the authorization header.
+          description: Token prefix used on the Authorization header when `oauth_enabled`.
           example: Bearer
         caching_enabled:
           type: boolean
-          description: Whether MoEngage caches the response from this content API.
+          description: Whether responses are cached at send time.
           example: true
         caching_ttl_in_minutes:
           type: integer
-          description: How long a cached response is retained, in minutes. Applies when `caching_enabled` is `true`.
+          minimum: 5
+          maximum: 60
+          description: Cache TTL in minutes (5–60) when caching is enabled.
           example: 15
         pii_fields_in_response:
           type: array
-          description: Fields in the response that are marked as personally identifiable information (PII).
+          description: Response fields marked as PII.
           items:
             type: string
           example:
@@ -391,44 +407,41 @@ components:
             - phone
         verified:
           type: boolean
-          description: Whether the content API is marked as verified.
+          description: True once the API has returned a successful test response.
           example: true
         last_tested_at:
           type: string
           format: date-time
-          description: Timestamp of when the content API was last tested.
+          description: Time this API was last tested.
           example: '2026-07-10T11:45:30Z'
         updated_at:
           type: string
           format: date-time
-          description: Timestamp of when the content API was last updated.
+          description: Time this API was last updated.
           example: '2026-07-10T11:45:30Z'
 
-    TestContentApiRequest:
+    ContentApiTestRequest:
       type: object
-      description: Request body for `POST /v5/content-apis/{id}/test`. All fields are optional — omit the body entirely if the saved configuration has no personalization tokens.
+      description: Sample values for the personalization tokens in the saved Content API. Omit the body entirely if the config has no tokens.
       properties:
         request_id:
           type: string
-          description: Client-supplied identifier for this request. Echoed back in `response_id`.
+          description: Client-generated ID for tracing.
         dynamic_values:
           type: object
-          description: Sample values for the personalization tokens in the saved configuration. MoEngage resolves these before calling the upstream endpoint.
-          properties:
+          description: |
+            Sample values for the personalization tokens in the saved config, grouped by token namespace (for example, `UserAttribute` or `EventAttribute`). A token like `{{UserAttribute['city']}}` resolves from `dynamic_values.UserAttribute.city`. Tokens may appear in the saved `url`, `params`, `headers`, or `request_body`; each is resolved before the upstream call.
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+          example:
             UserAttribute:
-              type: object
-              description: Sample values for user attribute tokens, as key-value pairs.
-              additionalProperties: true
-              example:
-                city: Delhi
-                units: metric
+              city: Delhi
+              units: metric
             EventAttribute:
-              type: object
-              description: Sample values for event attribute tokens, as key-value pairs.
-              additionalProperties: true
-              example:
-                name: added_to_cart
-                id: id-123
+              name: added_to_cart
+              id: id-123
 
     ContentApiTestResult:
       type: object
@@ -455,7 +468,7 @@ components:
           type: string
           nullable: true
           description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
-          example: eyJpZCI6ImNhcGlfZGVmNDU2In0=
+          example: <opaque-cursor>
 
     ErrorResponse:
       type: object
