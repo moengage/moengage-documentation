@@ -220,7 +220,7 @@ components:
         params:
           type: object
           additionalProperties: true
-          description: Query parameters sent with the request.
+          description: Query parameters sent with the request, as free-form key-value pairs. Keys and values are whatever the upstream endpoint expects, and values may contain Jinja tokens.
           example:
             q: Delhi
             appid: <your-api-key>
@@ -241,7 +241,7 @@ components:
         request_body:
           type: object
           additionalProperties: true
-          description: Body sent with POST/PUT requests. May contain Jinja tokens.
+          description: Body sent with POST/PUT requests, as free-form key-value pairs matching whatever the upstream endpoint expects. Values may contain Jinja tokens. Empty for GET content APIs.
           example: {}
         oauth_enabled:
           type: boolean
@@ -274,10 +274,12 @@ components:
         last_tested_at:
           type: string
           format: date-time
+          description: ISO 8601 UTC timestamp of the most recent test call. Absent if the content API has never been tested.
           example: '2026-07-10T11:45:30Z'
         updated_at:
           type: string
           format: date-time
+          description: ISO 8601 UTC timestamp of when this configuration was last edited.
           example: '2026-07-10T11:45:30Z'
 
     ContentApiTestRequest:
@@ -318,13 +320,16 @@ components:
       properties:
         response_id:
           type: string
+          description: Unique identifier for this response. Echoes the `request_id` you sent, if any. Quote it when contacting MoEngage Support.
           example: resp_<trace-id>
         type:
           type: string
+          description: The resource type contained in `data`. Always `content-apis` for this endpoint.
           enum:
             - content-apis
         data:
           type: object
+          description: The outcome of the call MoEngage made to the upstream endpoint.
           required:
             - api_response_code
             - api_response_body
@@ -355,17 +360,22 @@ components:
       properties:
         response_id:
           type: string
+          description: Unique identifier for this response. Echoes the `request_id` you sent, if any. Quote it when contacting MoEngage Support.
           example: resp_<trace-id>
         type:
           type: string
+          description: The resource type contained in `data`. Always `content-apis` for this endpoint.
           enum:
             - content-apis
         data:
           type: array
+          description: The content APIs matching your filters, up to `limit` per page.
           items:
             $ref: '#/components/schemas/ContentApi'
         pagination:
-          $ref: '#/components/schemas/Pagination'
+          description: Cursor pagination state for this page of results.
+          allOf:
+            - $ref: '#/components/schemas/Pagination'
 
     Pagination:
       type: object
@@ -374,6 +384,7 @@ components:
       properties:
         has_more:
           type: boolean
+          description: Whether more pages exist. When `true`, pass `next_cursor` back as `cursor` on the next request.
           example: true
         next_cursor:
           type: string
