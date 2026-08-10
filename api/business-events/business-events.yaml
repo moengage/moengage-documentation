@@ -521,74 +521,41 @@ paths:
     get:
       tags:
         - Business Events
-      summary: Get Business Event
+      summary: List Business Events
       description: |
-        Returns all business events in the workspace, or a single business event when you supply `name` or `id`. Use either `name` or `id`, not both. Omit both parameters to list every business event in the workspace (paginated).
-      operationId: getBusinessEvents
+        Returns all business events in the workspace, or a single one when you supply `name` or `id`. Use either `name` or `id`, not both. Omit both parameters to list everything (paginated).
+      operationId: listBusinessEvents
       servers:
         - url: 'https://api-{dc}.moengage.com'
           description: MoEngage API Server
           variables:
             dc:
               default: '01'
-              description: 'The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+              description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
       security:
         - basicAuth: []
       parameters:
         - name: name
           in: query
-          required: false
           schema:
             type: string
           description: Exact business event name. Use either `name` or `id`, not both.
           example: price_drop
         - name: id
           in: query
-          required: false
           schema:
             type: string
           description: Business event ID. Use either `name` or `id`, not both.
           example: <mongo-object-id>
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 20
-            maximum: 20
-          description: Page size. Max 20 per page.
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Opaque pagination cursor from a previous response.
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: This response is returned when the request is processed successfully.
+          description: Business event list
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - response_id
-                  - type
-                  - data
-                  - pagination
-                properties:
-                  response_id:
-                    type: string
-                    description: Unique identifier for this response.
-                  type:
-                    type: string
-                    enum:
-                      - business-events
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/BusinessEventV5'
-                  pagination:
-                    $ref: '#/components/schemas/PaginationV5'
+                $ref: '#/components/schemas/BusinessEventListResponse'
               example:
                 response_id: resp_<trace-id>
                 type: business-events
@@ -609,65 +576,13 @@ paths:
                   has_more: true
                   next_cursor: <opaque-cursor>
         '400':
-          description: This response is returned when the request is invalid, for example when both `name` and `id` are supplied.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: INVALID_REQUEST
-                  message: Use either name or id, not both.
-                  target: name
-                  details:
-                    - code: INVALID_VALUE
-                      target: name
-                      message: Only one of name or id may be supplied.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/BadRequestV5'
         '401':
-          description: This response is returned when the authorization parameters are missing or incorrect in the HTTP Auth Header.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Authentication required.
-                  target: Authorization
-                  details:
-                    - code: MISSING_VALUE
-                      target: Authorization
-                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/UnauthorizedV5'
         '403':
-          description: This response is returned when the credentials are valid but lack permission to access business events.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: FORBIDDEN
-                  message: You do not have the required permission for this operation.
-                  target: permission
-                  details:
-                    - code: FORBIDDEN
-                      target: permission
-                      message: 'Required permission: business_events:view'
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/ForbiddenV5'
         '429':
-          description: This response is returned when the number of requests has exceeded the rate limit.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: RATE_LIMITED
-                  message: Rate limit exceeded for this workspace.
-                  details: []
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/RateLimitedV5'
 
   /v5/business-events/search:
     post:
@@ -675,7 +590,9 @@ paths:
         - Business Events
       summary: Search Business Events (V5)
       description: |
-        Returns all business events in the workspace, or the subset matching a filter. Provide either `names` or `ids` inside `filters` (not both). Omit the body (or `filters`) to list everything (paginated). Uses `POST` so multi-valued filters travel as JSON arrays — a name may contain any character (e.g. a comma), which a comma-delimited query string could not represent unambiguously.
+        Returns all business events in the workspace, or the subset matching a filter. Provide either `names` or `ids` inside `filters` (not both). Omit the body (or `filters`) to list everything (paginated).
+
+        This endpoint uses `POST` so that multi-valued filters travel as JSON arrays — a name may contain any character (for example, a comma), which a comma-delimited query string could not represent unambiguously.
       operationId: searchBusinessEventsV5
       servers:
         - url: 'https://api-{dc}.moengage.com'
@@ -683,11 +600,10 @@ paths:
           variables:
             dc:
               default: '01'
-              description: 'The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+              description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
       security:
         - basicAuth: []
       requestBody:
-        description: Search criteria. Omit the body, or send an empty object, to list all business events.
         required: false
         content:
           application/json:
@@ -698,37 +614,14 @@ paths:
                 names:
                   - price_drop
                   - cart_abandoned
-                ids:
-                  - <mongo-object-id>
-                  - <mongo-object-id>
               limit: 20
-              cursor: <opaque-cursor>
       responses:
         '200':
-          description: This response is returned when the request is processed successfully.
+          description: Business event list
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - response_id
-                  - type
-                  - data
-                  - pagination
-                properties:
-                  response_id:
-                    type: string
-                    description: Unique identifier for this response.
-                  type:
-                    type: string
-                    enum:
-                      - business-events
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/BusinessEventV5'
-                  pagination:
-                    $ref: '#/components/schemas/PaginationV5'
+                $ref: '#/components/schemas/BusinessEventListResponse'
               example:
                 response_id: resp_<trace-id>
                 type: business-events
@@ -749,67 +642,30 @@ paths:
                   has_more: true
                   next_cursor: <opaque-cursor>
         '400':
-          description: Bad request. Returned when both `names` and `ids` are supplied inside `filters`, or when a parameter fails validation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: INVALID_REQUEST
-                  message: Provide either names or ids inside filters, not both.
-                  target: filters
-                  details:
-                    - code: INVALID_VALUE
-                      target: filters
-                      message: Only one of filters.names or filters.ids may be supplied.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/BadRequestV5'
         '401':
-          description: Missing or invalid authentication.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Authentication required.
-                  target: Authorization
-                  details:
-                    - code: MISSING_VALUE
-                      target: Authorization
-                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/UnauthorizedV5'
         '403':
-          description: Missing required scope.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: FORBIDDEN
-                  message: You do not have the required permission for this operation.
-                  target: permission
-                  details:
-                    - code: FORBIDDEN
-                      target: permission
-                      message: 'Required permission: business_events:view'
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/ForbiddenV5'
         '429':
-          description: Rate limited.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseV5'
-              example:
-                error:
-                  code: RATE_LIMITED
-                  message: Rate limit exceeded for this workspace.
-                  details: []
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/RateLimitedV5'
 
 components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 20
+      description: Page size. Max 20 per page.
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Opaque pagination cursor from a previous response.
   securitySchemes:
     basicAuth:
       type: http
@@ -992,18 +848,39 @@ components:
           format: date-time
           description: Time this event was created.
           example: '2026-05-01T09:12:00Z'
+    BusinessEventListResponse:
+      type: object
+      required:
+        - response_id
+        - type
+        - data
+        - pagination
+      properties:
+        response_id:
+          type: string
+          example: resp_<trace-id>
+        type:
+          type: string
+          enum:
+            - business-events
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessEventV5'
+        pagination:
+          $ref: '#/components/schemas/PaginationV5'
     PaginationV5:
       type: object
       description: Pagination metadata for the V5 business events endpoints.
+      required:
+        - has_more
       properties:
         has_more:
           type: boolean
-          description: Whether additional pages of results exist.
           example: true
         next_cursor:
           type: string
-          nullable: true
-          description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
+          description: Present only when `has_more` is `true`.
           example: <opaque-cursor>
     BusinessEventSearchRequest:
       type: object
@@ -1039,8 +916,6 @@ components:
           description: Opaque pagination cursor from a previous response.
     ErrorResponseV5:
       type: object
-      required:
-        - response_id
       properties:
         error:
           type: object
@@ -1050,28 +925,92 @@ components:
           properties:
             code:
               type: string
-              description: Machine-readable error code.
+              description: Machine-readable UPPER_SNAKE_CASE code.
             message:
               type: string
-              description: Human-readable error message.
             target:
               type: string
-              description: The field or resource that caused the error.
             details:
               type: array
-              description: Per-field error entries.
               items:
                 type: object
                 properties:
                   code:
                     type: string
-                    description: Machine-readable, field-level error code.
                   target:
                     type: string
-                    description: The field that caused the error.
                   message:
                     type: string
-                    description: Human-readable description of the field-level error.
         response_id:
           type: string
-          description: Unique identifier for this response.
+
+  responses:
+    BadRequestV5:
+      description: Bad request / validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV5'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    UnauthorizedV5:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV5'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    ForbiddenV5:
+      description: Missing required scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV5'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    RateLimitedV5:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV5'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>

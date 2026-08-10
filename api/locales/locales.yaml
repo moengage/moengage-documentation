@@ -34,58 +34,25 @@ paths:
       parameters:
         - name: name
           in: query
-          required: false
           schema:
             type: string
           description: Exact locale name. Use either `name` or `id`, not both.
           example: es-MX
         - name: id
           in: query
-          required: false
           schema:
             type: string
           description: Locale ID. Use either `name` or `id`, not both.
           example: <mongo-object-id>
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 20
-            maximum: 20
-          description: Page size. Max 20 per page.
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Opaque pagination cursor from a previous response.
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: This response is returned when the request is processed successfully.
+          description: Locale list
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - response_id
-                  - type
-                  - data
-                  - pagination
-                properties:
-                  response_id:
-                    type: string
-                    description: Unique identifier for this response.
-                  type:
-                    type: string
-                    enum:
-                      - locales
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Locale'
-                  pagination:
-                    $ref: '#/components/schemas/Pagination'
+                $ref: '#/components/schemas/LocaleListResponse'
               example:
                 response_id: resp_<trace-id>
                 type: locales
@@ -100,65 +67,13 @@ paths:
                   has_more: true
                   next_cursor: <opaque-cursor>
         '400':
-          description: Bad request. Returned when both `name` and `id` are supplied, or when a parameter fails validation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: INVALID_REQUEST
-                  message: Use either name or id, not both.
-                  target: name
-                  details:
-                    - code: INVALID_VALUE
-                      target: name
-                      message: Only one of name or id may be supplied.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Missing or invalid authentication.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Authentication required.
-                  target: Authorization
-                  details:
-                    - code: MISSING_VALUE
-                      target: Authorization
-                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Missing required scope.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: FORBIDDEN
-                  message: You do not have the required permission for this operation.
-                  target: permission
-                  details:
-                    - code: FORBIDDEN
-                      target: permission
-                      message: 'Required permission: locales:view'
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Forbidden'
         '429':
-          description: Rate limited.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: RATE_LIMITED
-                  message: Rate limit exceeded for this workspace.
-                  details: []
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/RateLimited'
 
 components:
   securitySchemes:
@@ -174,6 +89,22 @@ components:
         For more information on authentication and getting your credentials, refer to [Getting your credentials](/api/introduction#getting-your-credentials).
 
         Send the value in the `Authorization` header as `Basic` followed by Base64-encoding of `appkey:apisecret` (workspace ID and API key).
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 20
+      description: Page size. Max 20 per page.
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Opaque pagination cursor from a previous response.
 
   schemas:
     Locale:
@@ -202,32 +133,49 @@ components:
         created_at:
           type: string
           format: date-time
-          description: Time this locale was created.
           example: '2026-05-01T09:12:00Z'
         updated_at:
           type: string
           format: date-time
-          description: Time this locale was last updated.
           example: '2026-07-10T11:45:30Z'
+
+    LocaleListResponse:
+      type: object
+      required:
+        - response_id
+        - type
+        - data
+        - pagination
+      properties:
+        response_id:
+          type: string
+          example: resp_<trace-id>
+        type:
+          type: string
+          enum:
+            - locales
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Locale'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     Pagination:
       type: object
-      description: Pagination metadata for list responses.
+      required:
+        - has_more
       properties:
         has_more:
           type: boolean
-          description: Whether additional pages of results exist.
           example: true
         next_cursor:
           type: string
-          nullable: true
-          description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
+          description: Present only when `has_more` is `true`.
           example: <opaque-cursor>
 
     ErrorResponse:
       type: object
-      required:
-        - response_id
       properties:
         error:
           type: object
@@ -237,28 +185,92 @@ components:
           properties:
             code:
               type: string
-              description: Machine-readable error code.
+              description: Machine-readable UPPER_SNAKE_CASE code.
             message:
               type: string
-              description: Human-readable error message.
             target:
               type: string
-              description: The field or resource that caused the error.
             details:
               type: array
-              description: Per-field error entries.
               items:
                 type: object
                 properties:
                   code:
                     type: string
-                    description: Machine-readable, field-level error code.
                   target:
                     type: string
-                    description: The field that caused the error.
                   message:
                     type: string
-                    description: Human-readable description of the field-level error.
         response_id:
           type: string
-          description: Unique identifier for this response.
+
+  responses:
+    BadRequest:
+      description: Bad request / validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    Forbidden:
+      description: Missing required scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>

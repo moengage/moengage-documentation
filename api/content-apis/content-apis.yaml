@@ -9,7 +9,7 @@ info:
     Use these endpoints to list the content APIs configured in your workspace and to test a saved configuration against its upstream endpoint. To create or edit a content API, use the MoEngage dashboard. For more information, see [Add a Content API](/user-guide/settings/advanced-settings/add-a-content-api).
 tags:
   - name: Content APIs
-    description: Use these operations to list the content APIs in your workspace and test a saved configuration.
+    description: List, look up, and test workspace Content API configurations.
 servers:
   - url: 'https://api-{dc}.moengage.com'
     description: MoEngage Content APIs Server
@@ -34,58 +34,25 @@ paths:
       parameters:
         - name: name
           in: query
-          required: false
           schema:
             type: string
           description: Exact content API name. Use either `name` or `id`, not both.
           example: WeatherAPI
         - name: id
           in: query
-          required: false
           schema:
             type: string
           description: Content API ID. Use either `name` or `id`, not both.
           example: <mongo-object-id>
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 20
-            maximum: 20
-          description: Page size. Max 20 per page.
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Opaque pagination cursor from a previous response.
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: This response is returned when the request is processed successfully.
+          description: Content API list
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - response_id
-                  - type
-                  - data
-                  - pagination
-                properties:
-                  response_id:
-                    type: string
-                    description: Unique identifier for this response.
-                  type:
-                    type: string
-                    enum:
-                      - content-apis
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ContentApi'
-                  pagination:
-                    $ref: '#/components/schemas/Pagination'
+                $ref: '#/components/schemas/ContentApiListResponse'
               example:
                 response_id: resp_<trace-id>
                 type: content-apis
@@ -114,65 +81,13 @@ paths:
                   has_more: true
                   next_cursor: <opaque-cursor>
         '400':
-          description: Bad request. Returned when both `name` and `id` are supplied, or when a parameter fails validation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: INVALID_REQUEST
-                  message: Use either name or id, not both.
-                  target: name
-                  details:
-                    - code: INVALID_VALUE
-                      target: name
-                      message: Only one of name or id may be supplied.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Missing or invalid authentication.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Authentication required.
-                  target: Authorization
-                  details:
-                    - code: MISSING_VALUE
-                      target: Authorization
-                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Missing required scope.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: FORBIDDEN
-                  message: You do not have the required permission for this operation.
-                  target: permission
-                  details:
-                    - code: FORBIDDEN
-                      target: permission
-                      message: 'Required permission: content_apis:view'
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Forbidden'
         '429':
-          description: Rate limited.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: RATE_LIMITED
-                  message: Rate limit exceeded for this workspace.
-                  details: []
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/RateLimited'
 
   /v5/content-apis/{id}/test:
     post:
@@ -180,11 +95,11 @@ paths:
         - Content APIs
       summary: Test Content API
       description: |
-        Loads the saved content API identified by `id`, calls its upstream endpoint, and returns the response. The full definition — URL, method, parameters, headers, body, and authentication — comes from the saved configuration.
+        Loads the saved content API identified by `id` and executes it against the upstream endpoint, returning the response. The full definition — URL, method, parameters, headers, body, and authentication — comes from the saved configuration.
 
-        Use the optional request body to supply sample values for the Jinja tokens (`{{UserAttribute['city']}}`) in that configuration. MoEngage resolves these before making the call. Omit the body if the configuration has no tokens.
+        The optional request body supplies sample values for the personalization tokens (`{{UserAttribute['city']}}`) in that configuration, which are resolved before the call. Omit the body if the configuration has no tokens.
 
-        The URL is validated against server-side request forgery (SSRF): requests to internal or private IP ranges are rejected with `400`.
+        The URL is validated against server-side request forgery (SSRF): internal and private ranges are rejected with `400`.
       operationId: testContentApi
       security:
         - basicAuth: []
@@ -194,10 +109,9 @@ paths:
           required: true
           schema:
             type: string
-          description: Content API ID of the saved configuration to test.
+          description: Content API ID of the saved config to test.
           example: <mongo-object-id>
       requestBody:
-        description: Sample values for the personalization tokens in the saved Content API. Omit the body entirely if the config has no tokens.
         required: false
         content:
           application/json:
@@ -214,25 +128,11 @@ paths:
                   id: id-123
       responses:
         '200':
-          description: This response is returned when MoEngage successfully calls the upstream endpoint. The upstream endpoint's own status code is returned in `data.api_response_code`.
+          description: Test execution result (returned for both passing and failing upstream calls)
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - response_id
-                  - type
-                  - data
-                properties:
-                  response_id:
-                    type: string
-                    description: Unique identifier for this response.
-                  type:
-                    type: string
-                    enum:
-                      - content-apis
-                  data:
-                    $ref: '#/components/schemas/ContentApiTestResult'
+                $ref: '#/components/schemas/ContentApiTestResponse'
               example:
                 response_id: resp_<trace-id>
                 type: content-apis
@@ -248,65 +148,13 @@ paths:
                     name: Delhi
                     cod: 200
         '400':
-          description: Bad request. Returned when the request body fails validation, or when the saved configuration's URL resolves to an internal or private IP range.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: INVALID_REQUEST
-                  message: The content API URL resolves to a private or internal address.
-                  target: url
-                  details:
-                    - code: INVALID_VALUE
-                      target: url
-                      message: Requests to internal or private IP ranges are not allowed.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Missing or invalid authentication.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Authentication required.
-                  target: Authorization
-                  details:
-                    - code: MISSING_VALUE
-                      target: Authorization
-                      message: APP_ID and APP_SECRET_KEY is missing in Authorization Header.
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Missing required scope.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: FORBIDDEN
-                  message: You do not have the required permission for this operation.
-                  target: permission
-                  details:
-                    - code: FORBIDDEN
-                      target: permission
-                      message: 'Required permission: content_apis:test'
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/Forbidden'
         '429':
-          description: Rate limited.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: RATE_LIMITED
-                  message: Rate limit exceeded for this workspace.
-                  details: []
-                response_id: resp_<trace-id>
+          $ref: '#/components/responses/RateLimited'
 
 components:
   securitySchemes:
@@ -322,6 +170,22 @@ components:
         For more information on authentication and getting your credentials, refer to [Getting your credentials](/api/introduction#getting-your-credentials).
 
         Send the value in the `Authorization` header as `Basic` followed by Base64-encoding of `appkey:apisecret` (workspace ID and API key).
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 20
+      description: Page size. Max 20 per page.
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Opaque pagination cursor from a previous response.
 
   schemas:
     ContentApi:
@@ -347,37 +211,37 @@ components:
           example: https://api.example.com/v1/weather
         method:
           type: string
-          description: HTTP method used when invoking the API.
           enum:
             - GET
             - POST
             - PUT
+          description: HTTP method used when invoking the API.
           example: GET
         params:
           type: object
-          description: Query parameters sent with the request.
           additionalProperties: true
+          description: Query parameters sent with the request.
           example:
             q: Delhi
             appid: <your-api-key>
         headers:
           type: object
-          description: Request headers sent with the request.
           additionalProperties:
             type: string
+          description: Request headers sent with the request.
           example: {}
         request_body_type:
           type: string
-          description: Encoding of the request body for POST/PUT APIs.
           enum:
             - JSON
             - FORM
             - RAW
+          description: Encoding of the request body for POST/PUT APIs.
           example: JSON
         request_body:
           type: object
-          description: Body sent with POST/PUT requests. May contain Jinja tokens.
           additionalProperties: true
+          description: Body sent with POST/PUT requests. May contain Jinja tokens.
           example: {}
         oauth_enabled:
           type: boolean
@@ -393,15 +257,13 @@ components:
           example: true
         caching_ttl_in_minutes:
           type: integer
-          minimum: 5
-          maximum: 60
           description: Cache TTL in minutes (5–60) when caching is enabled.
           example: 15
         pii_fields_in_response:
           type: array
-          description: Response fields marked as PII.
           items:
             type: string
+          description: Response fields marked as PII.
           example:
             - email
             - phone
@@ -412,29 +274,33 @@ components:
         last_tested_at:
           type: string
           format: date-time
-          description: Time this API was last tested.
           example: '2026-07-10T11:45:30Z'
         updated_at:
           type: string
           format: date-time
-          description: Time this API was last updated.
           example: '2026-07-10T11:45:30Z'
 
     ContentApiTestRequest:
       type: object
-      description: Sample values for the personalization tokens in the saved Content API. Omit the body entirely if the config has no tokens.
+      description: >
+        Sample values for the personalization tokens in the saved Content API. Omit the
+        body entirely if the config has no tokens.
       properties:
         request_id:
           type: string
           description: Client-generated ID for tracing.
         dynamic_values:
           type: object
-          description: |
-            Sample values for the personalization tokens in the saved config, grouped by token namespace (for example, `UserAttribute` or `EventAttribute`). A token like `{{UserAttribute['city']}}` resolves from `dynamic_values.UserAttribute.city`. Tokens may appear in the saved `url`, `params`, `headers`, or `request_body`; each is resolved before the upstream call.
           additionalProperties:
             type: object
             additionalProperties:
               type: string
+          description: >
+            Sample values for the personalization tokens in the saved config, grouped by
+            token namespace (for example, `UserAttribute` or `EventAttribute`). A token like
+            `{{UserAttribute['city']}}` resolves from `dynamic_values.UserAttribute.city`.
+            Tokens may appear in the saved url, params, headers, or body; each is resolved
+            before the upstream call.
           example:
             UserAttribute:
               city: Delhi
@@ -443,37 +309,79 @@ components:
               name: added_to_cart
               id: id-123
 
-    ContentApiTestResult:
+    ContentApiTestResponse:
       type: object
-      description: The result of calling the saved content API's upstream endpoint.
+      required:
+        - response_id
+        - type
+        - data
       properties:
-        api_response_code:
-          type: integer
-          description: HTTP status code returned by the upstream endpoint.
-          example: 200
-        api_response_body:
+        response_id:
+          type: string
+          example: resp_<trace-id>
+        type:
+          type: string
+          enum:
+            - content-apis
+        data:
           type: object
-          description: Response body returned by the upstream endpoint, passed through unchanged.
-          additionalProperties: true
+          required:
+            - api_response_code
+            - api_response_body
+          properties:
+            api_response_code:
+              type: integer
+              description: HTTP status code returned by the upstream Content API.
+              example: 200
+            api_response_body:
+              description: Response body returned by the upstream Content API (arbitrary JSON or string).
+              example:
+                weather:
+                  - main: Clouds
+                    description: overcast clouds
+                main:
+                  temp: 307.22
+                  humidity: 50
+                name: Delhi
+                cod: 200
+
+    ContentApiListResponse:
+      type: object
+      required:
+        - response_id
+        - type
+        - data
+        - pagination
+      properties:
+        response_id:
+          type: string
+          example: resp_<trace-id>
+        type:
+          type: string
+          enum:
+            - content-apis
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentApi'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     Pagination:
       type: object
-      description: Pagination metadata for list responses.
+      required:
+        - has_more
       properties:
         has_more:
           type: boolean
-          description: Whether additional pages of results exist.
           example: true
         next_cursor:
           type: string
-          nullable: true
-          description: Opaque pagination cursor. Pass this back as `cursor` to fetch the next page. `null` when there are no more pages.
+          description: Present only when `has_more` is `true`.
           example: <opaque-cursor>
 
     ErrorResponse:
       type: object
-      required:
-        - response_id
       properties:
         error:
           type: object
@@ -483,28 +391,92 @@ components:
           properties:
             code:
               type: string
-              description: Machine-readable error code.
+              description: Machine-readable UPPER_SNAKE_CASE code.
             message:
               type: string
-              description: Human-readable error message.
             target:
               type: string
-              description: The field or resource that caused the error.
             details:
               type: array
-              description: Per-field error entries.
               items:
                 type: object
                 properties:
                   code:
                     type: string
-                    description: Machine-readable, field-level error code.
                   target:
                     type: string
-                    description: The field that caused the error.
                   message:
                     type: string
-                    description: Human-readable description of the field-level error.
         response_id:
           type: string
-          description: Unique identifier for this response.
+
+  responses:
+    BadRequest:
+      description: Bad request / validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    Forbidden:
+      description: Missing required scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: <ERROR_CODE>
+              message: <error-message>
+              target: <field>
+              details:
+                - code: <ERROR_CODE>
+                  target: <field>
+                  message: <error-message>
+            response_id: resp_<trace-id>
