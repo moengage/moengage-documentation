@@ -73,15 +73,8 @@ paths:
       operationId: searchFlows
       summary: Search Flows
       description: |
-        This API returns a paginated list of flows matching your filters. Send filters in the
-        request body — all are optional and combine with AND. Multi-valued filters (`status`,
-        `delivery_type`, `tags`) match ANY of the supplied values, and archived flows are excluded
-        unless `include_archived` is `true`.
-
-        Each response includes a `next_cursor`. To get the next page, send that value as the
-        `cursor` in your next request. Sorting is not supported in this version; results are
-        returned most recent first. Your API key must have the `campaigns:view` permission (see
-        [Authentication](/api/flows/flows-overview#authentication)).
+        This API returns a paginated list of the flows in your workspace, filtered by the criteria
+        you send in the request body. Requires the `campaigns:view` permission.
       x-mint:
         content: |
           #### Rate Limits
@@ -92,7 +85,6 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - $ref: '#/components/parameters/XMoeTenantId'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
       requestBody:
         required: true
@@ -133,7 +125,7 @@ paths:
                   cursor: eyJpZCI6ICI2OWYxZGU4NGY5ZTQwMWEyZDdkOWE5MzEifQ==
       responses:
         '200':
-          description: Flows matching the filters.
+          description: Flows matching the filters, most recently updated first. Sorting is not supported in this version.
           headers:
             X-MOE-Request-Id:
               $ref: '#/components/headers/XMoeRequestId'
@@ -175,12 +167,8 @@ paths:
       operationId: getFlow
       summary: Get a Single Flow
       description: |
-        This API returns everything about one flow — its settings, targeting, conversion
-        goal, and full stage-by-stage structure — typically after you find its `flow_id` with Search
-        Flows. Use the optional `version_no` query parameter to view a specific version; by default,
-        you get the last published version, or the draft if the flow was never published. Your API
-        key must have the `campaigns:view` permission (see the
-        [Authentication](/api/flows/flows-overview#authentication) section).
+        This API returns the full details of one flow, including its settings, targeting, conversion
+        goal, and stage-by-stage structure. Requires the `campaigns:view` permission.
       x-mint:
         content: |
           #### Rate Limits
@@ -203,7 +191,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-        - $ref: '#/components/parameters/XMoeTenantId'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
       responses:
         '200':
@@ -303,12 +290,8 @@ paths:
       operationId: getFlowVersion
       summary: Get a Specific Version of a Flow
       description: |
-        This API returns a flow exactly as it was in a past version — for example,
-        to audit what was live before a recent change. If you already have the version number
-        rather than its ID, use `version_no` on Get a Single Flow instead. The `version_id` must
-        belong to `flow_id`, otherwise the API returns `404`. Your API key must have the
-        `campaigns:view` permission (see the
-        [Authentication](/api/flows/flows-overview#authentication) section).
+        This API returns a flow exactly as it was in a past version, addressed by its version ID.
+        Use it to audit what was live before a change. Requires the `campaigns:view` permission.
       x-mint:
         content: |
           #### Rate Limits
@@ -328,7 +311,6 @@ paths:
           schema:
             type: string
             pattern: '^[a-f0-9]{24}$'
-        - $ref: '#/components/parameters/XMoeTenantId'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
       responses:
         '200':
@@ -424,9 +406,7 @@ paths:
       operationId: updateFlowStatus
       summary: Update Flow Status
       description: |
-        This API changes a flow's lifecycle state. It validates the requested transition against the flow's
-        current state before applying it; an invalid transition returns `409`. Your API key must have the
-        `campaigns:create_manage` permission (see the [Authentication](/api/flows/flows-overview#authentication) section).
+        This API changes a flow's lifecycle state. Requires the `campaigns:create_manage` permission.
       x-mint:
         content: |
           Lifecycle actions (`pause`, `resume`, `stop`, `retire`) accept an optional `version_no` and act on that
@@ -457,7 +437,6 @@ paths:
           schema:
             type: string
             format: uuid
-        - $ref: '#/components/parameters/XMoeTenantId'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
       requestBody:
         required: true
@@ -527,7 +506,7 @@ components:
         Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format 'username:password'.
 
         - **Username**: Use your MoEngage workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
-        - **Password**: On your MoEngage workspace, navigate to **Settings** → **Account** → **API keys** and click **Create new key**. The tab lists every API surface (Data, Segmentation, Push, Email, Campaigns, Templates, and more) and exposes per-resource actions. Flows reuse the Campaigns permissions — ensure the **View** checkbox (for the read endpoints) and the **Create & Manage** checkbox (for Update Flow Status) are selected.
+        - **Password**: On your MoEngage workspace, navigate to **Settings** → **Account** → **API keys** and click **Create new key**. Grant the key access to the APIs it needs, such as Data, Segmentation, Push, Email, Campaigns, or Templates, and set its permissions for each one. Flows reuse the Campaigns permissions, so select **View** for the read endpoints and **Create & Manage** for Update Flow Status.
 
         For more information on authentication and getting your credentials, refer to [Getting your credentials](/api/introduction#getting-your-credentials).
 
@@ -567,25 +546,6 @@ components:
       schema:
         type: string
 
-    XMoeTenantId:
-      name: X-MOE-Tenant-ID
-      in: header
-      required: false
-      description: >
-        Identifies the tenant/workspace making the request. Optional — when omitted, the
-        workspace is resolved from the Basic Auth credentials in the `Authorization` header.
-      schema:
-        type: string
-
-    XMoeRequestIdRequired:
-      name: X-MOE-Request-Id
-      in: header
-      required: true
-      description: >
-        Request ID that you supply. It is echoed in the `X-MOE-Request-Id` response header and in
-        `response_id`.
-      schema:
-        type: string
 
     VersionName:
       name: version_name
@@ -694,7 +654,6 @@ components:
     FlowSummary:
       type: object
       description: One flow as it appears in a search or list result.
-      required: [flow_id]
       properties:
         flow_id:
           type: string
@@ -741,17 +700,16 @@ components:
 
     FlowSearchResponse:
       type: object
-      required: [response_id, type, data]
       properties:
         response_id:
           type: string
-          description: Echo of the `request_id` that you supplied, or a generated ID when absent.
+          description: Echo of the `X-MOE-Request-Id` that you supplied. When you omit it, MoEngage returns the first 12 characters of a system-generated UUID.
         type:
           type: string
+          description: The type of resource the response describes.
           enum: [flow]
         data:
           type: object
-          required: [flows, has_more]
           properties:
             flows:
               type: array
@@ -787,7 +745,6 @@ components:
     FlowNode:
       type: object
       description: One stage of the flow, such as a trigger, an action, a wait, a condition, or a split.
-      required: [stage_id]
       properties:
         stage_id:
           type: string
@@ -994,12 +951,13 @@ components:
 
     FlowDetailResponse:
       type: object
-      required: [response_id, type, data]
       properties:
         response_id:
           type: string
+          description: Echo of the `X-MOE-Request-Id` that you supplied. When you omit it, MoEngage returns the first 12 characters of a system-generated UUID.
         type:
           type: string
+          description: The type of resource the response describes.
           enum: [flow]
         data:
           $ref: '#/components/schemas/FlowDetailData'
@@ -1028,16 +986,16 @@ components:
 
     FlowStatusResponse:
       type: object
-      required: [response_id, type, data]
       properties:
         response_id:
           type: string
+          description: Echo of the `X-MOE-Request-Id` that you supplied. When you omit it, MoEngage returns the first 12 characters of a system-generated UUID.
         type:
           type: string
+          description: The type of resource the response describes.
           enum: [flow]
         data:
           type: object
-          required: [flow_id, status]
           properties:
             flow_id:
               type: string
@@ -1051,12 +1009,15 @@ components:
       properties:
         response_id:
           type: string
+          description: Echo of the `X-MOE-Request-Id` that you supplied. When you omit it, MoEngage returns the first 12 characters of a system-generated UUID.
         error:
           type: object
+          description: The details of the failure.
           required: [code, message]
           properties:
             code:
               type: string
+              description: A machine-readable code that identifies the type of failure.
               enum:
                 - VALIDATION_FAILED
                 - BAD_REQUEST
@@ -1067,6 +1028,7 @@ components:
                 - INTERNAL_ERROR
             message:
               type: string
+              description: A human-readable explanation of the failure.
             target:
               type: string
               description: The component or field the error relates to.
@@ -1078,8 +1040,10 @@ components:
                 properties:
                   target:
                     type: string
+                    description: The field that failed the check.
                   message:
                     type: string
+                    description: An explanation of why the field failed the check.
 
   responses:
     BadRequest:
