@@ -154,6 +154,40 @@ The following status codes and associated error messages are returned when the r
 | 429        | Rate Limit Exceeded           | Rate Limits for User / Event exceeded                                              | You have exceeded the rate limits (number of users or events per minute) defined for your MoEngage account.                                                  |
 | 5xx        | Server Error                  | Any other exception                                                                | This response is returned when the system runs into an unexpected error. We recommend that you retry every 2 seconds for a maximum of 5 times in such cases. |
 
+## Monitor your usage
+
+Rate-limited endpoints return the following headers on every response, so your integration can track remaining capacity in real time rather than waiting for a `429`:
+
+```http
+x-ratelimit-limit: 100
+x-ratelimit-remaining: 95
+x-ratelimit-reset: 1699574400
+```
+<img alt="monitor_your_usage.png"  src="/images/monitor_your_usage.png" width="50%" />
+
+| Header | Description |
+| --- | --- |
+| `x-ratelimit-limit` | The maximum number of requests allowed in the current window. |
+| `x-ratelimit-remaining` | Requests remaining in the current window. |
+| `x-ratelimit-reset` | Time at which the current window resets, in UTC epoch seconds. |
+
+<Note>
+  A few high-throughput endpoints (such as the Push API) signal throttling with an `x-envoy-ratelimited: true` header instead. Check the specific endpoint's reference page for the headers it returns.
+</Note>
+
+### When You Hit a Limit
+
+When a request is rejected with `HTTP 429`:
+
+1. Stop sending further requests to that endpoint until the window resets (`x-ratelimit-reset`).
+2. Retry with exponential backoff rather than retrying immediately.
+3. Batch where the endpoint supports it — for example, send multiple user updates in a single Track User request instead of one call per user.
+
+If your integration consistently approaches a limit through legitimate, well-batched usage, contact your CSM or the Support team to request an increase.
+
+
+
+
 ## User Attributes
 
 | Key name                | Display name                          | Fetch through Get User API | Update through Track User API | Create through Track User API |
