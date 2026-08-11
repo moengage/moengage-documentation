@@ -588,7 +588,7 @@ paths:
           | `negate` | boolean | `true` inverts the filter; omitted for `object` and `array_object` |
           | `value` | varies | Shape depends on operator; absent for `exists` and `today` |
 
-          User Property filters do not take `project_name`. User attributes are stored per user rather than per project, so project scoping applies only to User Behavior filters.
+          In portfolio (multi-project) workspaces, User Property filters also accept `project_name`. See Portfolio Workspaces under the User Behavior filter for the values it takes.
 
           #### Supported Data Types
 
@@ -675,7 +675,7 @@ paths:
           |---|---|---|
           | `filter_type` | string | Always `"actions"` |
           | `action_name` | string | The internal event name |
-          | `project_name` | string | Optional; portfolio (multi-project) workspaces only. See below. |
+          | `project_name` | string | Optional; portfolio (multi-project) workspaces only. See Portfolio Workspaces below. |
           | `executed` | boolean | `true` = has performed; `false` = has NOT performed |
           | `execution` | object | Frequency condition |
           | `primary_time_range` | object | Time window for the event |
@@ -747,8 +747,10 @@ paths:
           Use the `attributes` block to narrow which event occurrences count — for example, a `purchase` event where `product_category` is `"electronics"`.
 
           Inner filters follow the same shape as User Property filters, with two differences:
-          - They carry no `filter_type` key.
+          - `filter_type` is `"action_attributes"` instead of `"user_attributes"`.
           - `category` is `"default"`.
+
+          The API omits `filter_type` when it echoes these filters back in a response, so send it on the request even though a `GET` on the segment will not show it.
 
           Inner filters start directly from `filter_operator` and `filters` — do not add `included_filters` or `excluded_filters` inside the `attributes` block.
 
@@ -760,6 +762,7 @@ paths:
                 "name": "currency",
                 "data_type": "string",
                 "category": "default",
+                "filter_type": "action_attributes",
                 "operator": "is",
                 "negate": false,
                 "case_sensitive": false,
@@ -830,9 +833,9 @@ paths:
 
           #### Portfolio (Multi-Project) Workspaces
 
-          In workspaces with more than one project, add `project_name` to the event filter to scope the event to a specific project. Omit it in single-project workspaces.
+          In workspaces with more than one project, add `project_name` to scope a filter to a specific project. Both User Behavior and User Property filters accept the key. Omit it in single-project workspaces.
 
-          To target all projects, set `project_name` to `"moe_portfolio"`.
+          Set `project_name` to the name of the project you want to scope to. `"moe_portfolio"` is one of the available values and targets all projects.
 
           ---
 
@@ -840,7 +843,35 @@ paths:
 
           Targets users based on behavioral affinity over an event. `primary_time_range` and `psychographic_attributes` are required.
 
-          Psychographic attribute filters support only the `string` and `double` data types. The `primary_time_range` object also uses a different shape from User Behavior filters: relative windows use `days` (and `days1`) instead of `value`/`value1`, and absolute windows use `from` and `to` ISO 8601 dates, along with `type` and `value_type`.
+          Psychographic attribute filters support only the `string` and `double` data types, use `category` values such as `"Event Attributes"`, and carry no `filter_type` key. The `primary_time_range` object also uses a different shape from User Behavior filters: relative windows use `days` (and `days1`) instead of `value`/`value1`, and absolute windows use `from` and `to` ISO 8601 dates, along with `type` and `value_type`.
+
+          #### Time-Based Affinity Filters
+
+          Four affinity filters target the time at which the event happens rather than an event attribute. Each uses the attribute name `moe_user_datetime`, `category` `"Time Attributes"`, `data_type` `"double"`, and an `extract_type`:
+
+          | `extract_type` | Meaning | Value range |
+          |---|---|---|
+          | `time_of_the_day` | Hour of the day | 0–23 |
+          | `day_of_the_week` | Day of the week | 0–6 |
+          | `day_of_the_month` | Day of the month | 1–31 |
+          | `month_of_the_year` | Month of the year | 1–12 |
+
+          `value` follows the operator: a scalar for `is`, an array for `in`, and `value` plus `value1` for `between`.
+
+          ```json
+          "psychographic_attributes": {
+            "filter_operator": "and",
+            "filters": [
+              { "name": "moe_user_datetime", "data_type": "double", "category": "Time Attributes",
+                "operator": "is", "negate": false, "value": 9, "extract_type": "time_of_the_day" },
+              { "name": "moe_user_datetime", "data_type": "double", "category": "Time Attributes",
+                "operator": "in", "negate": false, "value": [0, 6], "extract_type": "day_of_the_week" },
+              { "name": "moe_user_datetime", "data_type": "double", "category": "Time Attributes",
+                "operator": "between", "negate": false, "value": 1, "value1": 31,
+                "extract_type": "day_of_the_month" }
+            ]
+          }
+          ```
 
           | `operator_type` | Extra field | Meaning |
           |---|---|---|
@@ -1017,7 +1048,8 @@ paths:
                         data_type: "object"
                         filter_operator: "and"
                         filters:
-                          - name: "city"
+                          - filter_type: "user_attributes"
+                            name: "city"
                             data_type: "string"
                             category: "Location"
                             operator: "in"
@@ -1036,14 +1068,16 @@ paths:
                         data_type: "array_object"
                         filter_operator: "and"
                         filters:
-                          - name: "product_category"
+                          - filter_type: "user_attributes"
+                            name: "product_category"
                             data_type: "string"
                             category: "default"
                             operator: "in"
                             negate: false
                             case_sensitive: false
                             value: ["electronics", "computers"]
-                          - name: "amount"
+                          - filter_type: "user_attributes"
+                            name: "amount"
                             data_type: "double"
                             category: "default"
                             operator: "greaterThan"
@@ -1061,18 +1095,21 @@ paths:
                         data_type: "object"
                         filter_operator: "and"
                         filters:
-                          - name: "billing_address"
+                          - filter_type: "user_attributes"
+                            name: "billing_address"
                             data_type: "object"
                             filter_operator: "and"
                             filters:
-                              - name: "city"
+                              - filter_type: "user_attributes"
+                                name: "city"
                                 data_type: "string"
                                 category: "Location"
                                 operator: "in"
                                 negate: false
                                 case_sensitive: false
                                 value: ["New York"]
-                              - name: "postal_code"
+                              - filter_type: "user_attributes"
+                                name: "postal_code"
                                 data_type: "string"
                                 category: "Location"
                                 operator: "in"
@@ -1145,6 +1182,7 @@ paths:
                             - name: "product_category"
                               data_type: "string"
                               category: "default"
+                              filter_type: "action_attributes"
                               operator: "is"
                               negate: false
                               case_sensitive: false
@@ -1241,7 +1279,7 @@ paths:
                           filters:
                             - name: "product_category"
                               data_type: "string"
-                              category: "event_property"
+                              category: "Event Attributes"
                               operator: "is"
                               negate: false
                               case_sensitive: false
@@ -1273,7 +1311,7 @@ paths:
                           filters:
                             - name: "product_category"
                               data_type: "string"
-                              category: "event_property"
+                              category: "Event Attributes"
                               operator: "exists"
                               negate: false
                               case_sensitive: false
@@ -1659,9 +1697,9 @@ components:
         filter_type:
           type: string
           description: |
-            Must be `user_attributes` for a User Property filter. Omit this key for filters
-            inside an event's `attributes` block.
-          enum: [user_attributes]
+            Set to `user_attributes` for a User Property filter, or `action_attributes` for a filter
+            inside an event's `attributes` block. Omit this key inside `psychographic_attributes`.
+          enum: [user_attributes, action_attributes]
         name:
           type: string
           description: The internal name of the user attribute (for example, `last_purchase_date`).
@@ -1808,8 +1846,9 @@ components:
         filters:
           type: array
           description: |
-            Attribute filters scoped to the event's properties. Each omits `filter_type`
-            and sets `category` to `default`.
+            Attribute filters scoped to the event's properties. Each sets `filter_type` to
+            `action_attributes` and `category` to `default`. The API omits `filter_type` when it
+            echoes these filters back in a response.
           items:
             $ref: '#/components/schemas/AttributeFilterV3'
       required:
@@ -1924,8 +1963,9 @@ components:
         project_name:
           type: string
           description: |
-            Optional. Portfolio (multi-project) workspaces only. Scopes the event to a specific project.
-            Set to `moe_portfolio` to target all projects. Omit this key in single-project workspaces.
+            Optional. Portfolio (multi-project) workspaces only. Scopes the filter to a specific project,
+            using that project's name. `moe_portfolio` is one of the available values and targets all
+            projects. Omit this key in single-project workspaces.
         executed:
           type: boolean
           description: Set to `true` to match users who performed the event; `false` to match users who did not.
@@ -2146,6 +2186,11 @@ components:
 
         Psychographic attribute filters support a smaller surface than User Property filters:
         only the `string` and `double` data types are allowed, and only the operators listed below.
+        They carry no `filter_type` key.
+
+        Four time-based affinity filters are a special case: they use the attribute name
+        `moe_user_datetime`, `category` `Time Attributes`, `data_type` `double`, and an `extract_type`
+        of `time_of_the_day`, `day_of_the_week`, `day_of_the_month`, or `month_of_the_year`.
       properties:
         name:
           type: string
@@ -2192,6 +2237,16 @@ components:
           type: boolean
           description: Applies to `string`. Set to `true` for case-sensitive matching.
           default: false
+        extract_type:
+          type: string
+          description: |
+            Applies to the four time-based affinity filters only, where `name` is `moe_user_datetime`
+            and `category` is `Time Attributes`. Selects which part of the event timestamp to match on.
+          enum:
+            - time_of_the_day
+            - day_of_the_week
+            - day_of_the_month
+            - month_of_the_year
       required:
         - name
         - data_type
@@ -2327,14 +2382,13 @@ components:
       title: User Property Filter
       type: object
       description: |-
-        A stored user profile attribute filter (`filter_type: "user_attributes"`), or an event attribute filter inside an event's `attributes` block, which omits `filter_type` and uses `category: "default"`.
+        A stored user profile attribute filter (`filter_type: "user_attributes"`), or an event attribute filter inside an event's `attributes` block. The API omits `filter_type` on event attribute filters when it echoes them back.
 
         Fields mirror what was supplied when the segment was created or updated. See the Create Filter Segment request reference for the full field rules.
       properties:
         filter_type:
           type: string
-          description: Must be `user_attributes` for a User Property filter. Omit this key for filters inside
-            an event's `attributes` block.
+          description: Present as `user_attributes` on user property filters. Omitted on event attribute filters.
           enum:
           - user_attributes
         name:
@@ -2778,6 +2832,15 @@ components:
           type: boolean
           description: Applies to `string`.
           default: false
+        extract_type:
+          type: string
+          description: Applies to the four time-based affinity filters only, where `name` is `moe_user_datetime` and
+            `category` is `Time Attributes`.
+          enum:
+          - time_of_the_day
+          - day_of_the_week
+          - day_of_the_month
+          - month_of_the_year
     CustomSegmentFilterResponseV3:
       title: Custom Segment Filter
       type: object
