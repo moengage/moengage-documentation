@@ -457,14 +457,6 @@ components:
             Structured JSON representation of the content block's content, as used by the drag-and-drop builder on the MoEngage dashboard.
 
             <Note>This field is optional and currently populated by the MoEngage dashboard for content blocks built visually. It is not required when creating a content block via this API using `raw_content`.</Note>
-        custom_jinja_mapping:
-          type: object
-          additionalProperties:
-            type: string
-          description: >
-            A mapping of custom variable names to their corresponding Jinja expressions, used to personalize the content block.
-
-            <Note>This field is optional and is primarily populated and consumed by the MoEngage dashboard. It is currently for internal/dashboard use and is not a required part of the public API contract.</Note>
     UpdateContentBlockRequest:
       title: Update Content Block Attribute Mapping
       type: object
@@ -485,6 +477,13 @@ components:
           type: string
           enum: [ACTIVE, DRAFT]
           description: Status of the content block - DRAFT/ACTIVE
+        content_type:
+          type: string
+          enum: [HTML, TEXT]
+          description: >
+            Type of the content block, set at creation time.
+
+            <Note>`content_type` cannot be changed via this API. Including a different value in an update request fails with a `400` error: "Changing content type is not supported in update api".</Note>
         raw_content:
           type: string
           description: >
@@ -543,14 +542,6 @@ components:
             Structured JSON representation of the content block's content, as used by the drag-and-drop builder on the MoEngage dashboard.
 
             <Note>This field is optional and currently populated by the MoEngage dashboard for content blocks built visually. It is not required when creating a content block via this API using `raw_content`.</Note>
-        custom_jinja_mapping:
-          type: object
-          additionalProperties:
-            type: string
-          description: >
-            A mapping of custom variable names to their corresponding Jinja expressions, used to personalize the content block.
-
-            <Note>This field is optional and is primarily populated and consumed by the MoEngage dashboard. It is currently for internal/dashboard use and is not a required part of the public API contract.</Note>
     GetByIdsRequest:
       type: object
       required:
@@ -601,8 +592,11 @@ components:
               type: array
               items:
                 type: string
-                enum: [ACTIVE, ARCHIVED]
-              description: Status of the content block
+                enum: [DRAFT, ACTIVE, DELETING, DELETED]
+              description: >
+                Status of the content block.
+
+                <Note>`ARCHIVED` is not a valid status value; filtering by it returns an empty result set. Valid values are `DRAFT`, `ACTIVE`, `DELETING`, and `DELETED`.</Note>
             updated_by:
               type: array
               items:
@@ -686,7 +680,8 @@ components:
           description: Email id of the user who created the content block
         status:
           type: string
-          description: Shows the status of the content block
+          enum: [DRAFT, ACTIVE, DELETING, DELETED]
+          description: Shows the current status of the content block.
         created_at:
           type: string
           description: Date Time of the content block creation
