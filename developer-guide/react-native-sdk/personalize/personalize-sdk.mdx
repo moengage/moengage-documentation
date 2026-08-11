@@ -15,14 +15,10 @@ The MoEngage Personalize SDK provides a secure framework for delivering personal
 
 # How It All Fits Together
 
-Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
-
-1. **Dashboard Configuration:** A marketer creates an Experience Campaign in the MoEngage dashboard and assigns it a unique `experienceKey` (e.g., `home_banner`). They configure the specific JSON payload to be returned for different user segments.
-2. **The Meta Call :** Your application calls `fetchExperiencesMeta` to discover which experience keys are active and available for the current user.
-3. **The Fetch Call :** Your application calls `fetchExperience` or `fetchExperiences` with a specific key to retrieve the actual payload. The SDK uses the metadata gathered in Step 2 to accurately resolve and return this request.
+<snippet file="/snippets/personalize-workflow-overview.mdx" />
 
 <Info>
-  The SDK returns **raw** JSON only. As the developer, you are responsible for parsing this payload and building the corresponding UI in your application.
+  The SDK returns a **map data structure** representing the payload. As the developer, you are responsible for parsing this data and building the corresponding UI in your application.
 </Info>
 
 # Integrate MoEngage Personalization
@@ -62,7 +58,9 @@ personalize.fetchExperiencesMeta(status)
 
 The returned object is a Promise that holds the [`ExperienceCampaignsMetadata` ](/developer-guide/react-native-sdk/personalize/personalize-data-payload)object, containing all necessary metadata for campaign execution. The rejection contains the [`FailureReason`](/developer-guide/react-native-sdk/personalize/personalize-data-payload) and an optional message to identify the specific reason for the request's failure.
 
-
+<Note>
+  You can call `fetchExperience` and `fetchExperiences` with or without calling `fetchExperiencesMeta` first. The metadata call helps optimize the experience fetch by identifying which experience keys are available for the current user.
+</Note>
 
 ## 2. Fetch Personalized Content
 
@@ -103,6 +101,8 @@ personalize.fetchExperience(<experience_key>, attributes)
 
 - **Bulk Experiences**: Retrieve multiple experiences by passing an array of experience keys.
 
+<snippet file="/snippets/personalize-experience-fetch-limit.mdx" />
+
 <CodeGroup>
 
 ```javascript React Native wrap
@@ -118,17 +118,37 @@ The returned object is a Promise that holds the [`ExperienceCampaignsResult`](/d
 
 Use Cases:
 
-**Contextual Targeting**: Pass an object of attributes (e.g., `{"current_page": "home", "cart_value": "500"}`) during the fetch. This enables real-time, state-dependent content delivery (e.g., showing a "Free Shipping" banner if the cart value meets a threshold).
+<snippet file="/snippets/personalize-contextual-targeting.mdx" />
+
+<snippet file="/snippets/personalize-pii-warning.mdx" />
 
 ## 3. Notify SDK on Showing the Experience (Track Impressions)
 
-An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
-
-To accurately track campaign performance, you must invoke the following methods the moment your application displays the personalized content on the screen.
+<snippet file="/snippets/personalize-impression-definition.mdx" />
 
 ### 3a. Notify SDK for Experience Campaigns
 
-Call the `experiencesShown()` method when the UI element containing the experience renders.
+Call the `experienceShown()` or `experiencesShown()` method when the UI element containing the experience renders.
+
+**Track a single experience:**
+
+<CodeGroup>
+
+```javascript React Native wrap
+import ReactMoEngagePersonalize, { ExperienceCampaign } from "react-native-moengage-personalize";
+
+const personalize = new ReactMoEngagePersonalize("YOUR_WORKSPACE_ID");
+
+// campaign is an ExperienceCampaign object received from fetchExperiences
+// Pass the exact object or payload previously received from the fetchExperiences() method.
+const campaign: ExperienceCampaign = {/* campaign object */};
+
+personalize.experienceShown(campaign);
+```
+
+</CodeGroup>
+
+**Track multiple experiences:**
 
 <CodeGroup>
 
@@ -148,13 +168,25 @@ personalize.experiencesShown(campaigns);
 
 ### 3b. Notify SDK for Offering Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
+<snippet file="/snippets/personalize-offerings-definition.mdx" />
 
-- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
-- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
-- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
+```json Sample ExperienceCampaign
+{
+  "experienceKey": "home_banner",
+  "payload": {
+    "<your_offering_key>": {
+      "value": "[ { \"offering_content\": { ... }, \"offering_context\": { ... }, \"...\": \"...\" }, ... ]",
+      "data_type": "string"
+    }
+  },
+  "experienceContext": { ... },
+  "source": "network"
+}
+```
 
-Once the offering UI is built and successfully rendered to the user, the SDK provides dedicated tracking functions that accept offering-specific attributes.
+<snippet file="/snippets/personalize-offerings-payload-structure.mdx" />
+
+Once you have parsed one or more offering objects out of `campaign.payload`, pass them back to the SDK when the corresponding UI renders:
 
 <CodeGroup>
 
@@ -177,12 +209,6 @@ personalize.offeringShown(offeringPayloads);
 
 ### 4a. Track Clicks for Experience Campaigns
 
-[Offerings](https://www.moengage.com/docs/user-guide/decisioning/offer-decisioning/offerings) are a distinct subtype of personalized content configured by marketers on the MoEngage dashboard (such as dynamic product recommendations, catalogs, or unique coupon codes). Before tracking, it is important to understand how to handle offering payloads within your application:
-
-- Fetching an Offering: You retrieve an offering payload by calling the `fetchExperience()` or `fetchExperiences()` methods. The SDK processes the metadata and returns the payload within the `ExperienceCampaignsResult` object.
-- Identifying an Offering: You can identify an offering by inspecting the structure of the returned JSON. An offering payload consists of structured data nested under a specific custom offering key.
-- Building the Offering UI: The SDK only returns this offering data as raw JSON. As the developer, you must write the logic to parse this JSON payload and build the corresponding visual UI components on the screen.
-
 Use these methods to log "Clicks" when the user interacts with the UI element.
 
 <CodeGroup>
@@ -203,7 +229,7 @@ personalize.experienceClicked(campaign);
 
 ### 4b. Track Clicks for Offering Campaigns
 
-For interactions with specific items (such as a product recommendation or a coupon) contained within an offering campaign:
+Use `offeringClicked` to log a click on a specific offering item, such as a product recommendation or a coupon code, within an offering campaign. Pass both the parent `campaign` and the specific offering object extracted from `campaign.payload`. For the payload shape, refer to [section 3b](#3b-notify-sdk-for-offering-campaigns).
 
 <CodeGroup>
 
@@ -233,9 +259,7 @@ personalize.offeringClicked(campaign, offeringPayloads);
 }
 ```
 
-<Info>
-  You can use these Offering-specific functions only if the campaign contains an offering payload (e.g., structured JSON data containing dynamic product recommendations, catalogs, or unique coupon codes nested under a specific offering key). For all other experience data, use the standard experience shown/clicked functions.
-</Info>
+<snippet file="/snippets/personalize-offering-functions-restriction.mdx" />
 
 # FAQs
 
