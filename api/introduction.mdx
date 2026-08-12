@@ -114,95 +114,54 @@ Replace `{dc}` with your data center number (e.g., `01`, `02`, `03`). You can id
 
 ## Authentication
 
-MoEngage REST APIs use HTTP Basic Authentication. Send your **Workspace ID** as the username and an **API key** as the password, Base64-encoded in the `Authorization` header of every request.
+All MoEngage API requests require Basic Authentication. To authenticate, you must include a Base64-encoded string of your credentials in the Authorization header of every request. Basic Authentication sends a Base64-encoded string containing your username and password with every API request. It encodes a 'username:password' string in Base64 and appends the encoded string with 'Basic '. This string is included in the authorization header as shown below:
+
+`{"Authorization: Basic Base64_ENCODED_WORKSPACEID_APIKEY=="}`
 
 ### Required Headers
 
 ```http
 Authorization: Basic {base64_encoded_credentials}
+MOE-APPKEY: {your_workspace_id}
 Content-Type: application/json
 ```
+<Note>
+The `MOE-APPKEY` header (set to your Workspace ID) is required only for File Import APIs and the Test Connection API. It is not required for core Data APIs such as Track User, Get User, Track Event, Merge User, Delete User, and Track Device.
+</Note>
 
-The `Authorization` header value is the Base64 encoding of `workspace_id:api_key`:
+### Generating Credentials
 
-```bash Encoding Credentials
+The `Authorization` header value is a Base64 encoding of `workspace_id:api_key`.
+
+```bash
+# Example: Encoding credentials
 echo -n "YOUR_WORKSPACE_ID:YOUR_API_KEY" | base64
 ```
 
-<Note>
-  Some endpoints also require a `MOE-APPKEY` header set to your Workspace ID. For Data APIs, this header is required only for File Import APIs and the Test Connection API. It is not required for core Data APIs such as Track User, Get User, Track Event, Merge User, Delete User, and Track Device. Check the reference page for the endpoint you are calling.
-</Note>
-
 ### Getting Your Credentials
 
-MoEngage has two API key experiences. Which one your workspace uses determines where you get your credentials:
+1. Log in to the [MoEngage dashboard](https://dashboard.moengage.com).
+2. Navigate to **Settings** \> **Account** \> **APIs**.
 
-- **API key dashboard** (**Settings** \> **Account** \> **API keys**) — create multiple keys, each scoped to the APIs you select.
-- **APIs page** (**Settings** \> **Account** \> **APIs**) — one key per feature, with no scoping and no second active key.
+![api-dashboard](/images/api-dashboard.png)
 
-Both use the same Workspace ID, and both produce a key you send as the Basic Auth password.
+3. Copy your **Workspace ID** and the relevant **API Key**.
 
-#### Using the API Key Dashboard
+You can perform authentication using a client like Postman as follows:
 
-<Note>
-  The API key dashboard is an Early Access feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
-</Note>
+![Authorization](/images/authorization.png)
 
-Each key is scoped to the APIs you select, so you can issue separate keys for different integrations or teams.
+### API Keys by Feature
 
-<Steps>
-  <Step title="Open the API key dashboard">
-    In the [MoEngage dashboard](https://dashboard.moengage.com), go to **Settings** \> **Account** \> **API keys**. Copy the **Workspace ID** shown on this page — it is the same for every key in the workspace.
-  </Step>
+Different APIs require different API keys from your dashboard:
 
-  <Step title="Create a key">
-    Click **\+ Create new key**, enter a **Key name** that identifies where the key is used, and select the APIs the key can call under **Select APIs for access**. Click **Save**.
-
-    ![The Create new key page with a Key name field and the Select APIs for access checkbox list](/images/moengage_685ea1.png)
-
-    The key is listed under **Active API keys** with an **API Access** value of **Full** if it covers every listed API, or **Partial** if it covers a subset.
-  </Step>
-
-  <Step title="Copy the key value">
-    Click <Icon icon="ellipsis-stroke-vertical" /> for the key and select **View key details** to copy the key. Store it in your secret manager and treat it like a password.
-  </Step>
-</Steps>
-
-A key works only for the APIs selected on it. A request sent with a key that does not cover the API you are calling fails with `401` or `403`. To change what a key covers, open **View key details** and select **Edit key details**.
-
-To rotate a key without downtime:
-
-1. Create a second key with the same access.
-2. Move your integrations to the new key.
-3. Archive the old key. Archiving is permanent — a key cannot be unarchived.
-
-Regenerating a key instead of rotating it invalidates the old value immediately, so every caller using it starts failing.
-
-For key details, regeneration, archiving, legacy keys, and the audit log of key actions, refer to [API Key Dashboard](/user-guide/settings/account/api-and-api-keys/api-key-dashboard).
-
-#### Using the APIs Page
-
-Go to **Settings** \> **Account** \> **APIs**, copy your **Workspace ID**, and copy the key for the feature you are calling:
-
-| API | API key |
+| API | API Key Location (Settings → Account → APIs) |
 | --- | --- |
 | Data | Data |
 | Push | Push |
 | Inform | Inform |
 | Campaigns and Catalog | Campaign report/Business events/Custom templates/Catalog API/Inform Report |
 | Personalize | Personalize |
-
-![The APIs page in the MoEngage dashboard showing the Workspace ID and the per-feature API key tiles](/images/api-dashboard.png)
-
-Regenerating a key on this page invalidates the old key immediately, and there is no second active key to fall back on. Update every caller before you regenerate.
-
-#### Authenticating From a Client
-
-You can authenticate from a client such as Postman by entering the Workspace ID as the username and the API key as the password under Basic Auth:
-
-![Postman Basic Auth configuration with the Workspace ID as the username and the API key as the password](/images/authorization.png)
-
----
 
 ## Rate Limits
 
