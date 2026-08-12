@@ -33,17 +33,17 @@ In order to see the verbose level logs, kindly add verbose log config in the ini
 
 val moEngage = MoEngage.Builder(
         application = this,
-        appId = "YOUR_APP_ID",
+        appId = "YOUR_WORKSPACE_ID",
         dataCenter = DataCenter.DATA_CENTER_X
     )
-    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuilds = true))
+    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuild = true))
     .build()
 ```
 
 
 ```Java Java
 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_X)
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
               .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
               .build();
 ```
@@ -51,14 +51,14 @@ MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CE
 
 ```Java ReactNative
 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_X)
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
               .configureLogs(LogConfig(LogLevel.VERBOSE, true))
 ```
 
 
 ```Java Flutter
 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_APP_ID", DataCenter.DATA_CENTER_X)
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
               .configureLogs(LogConfig(LogLevel.VERBOSE, true))
 ```
 
@@ -217,6 +217,22 @@ The following components need the flag export=true, otherwise, it will affect th
 - Receives the result callback of registration, set an alias, subscribe, and other interfaces;
 - Added permission protection, intent encryption protection, forged intents cannot penetrate the decryption link, and there is no security problem.
 
+## What is MoEDebuggerActivity?
+
+`MoEDebuggerActivity` powers on-device debugging for the MoEngage SDK. It lets anyone with access to your MoEngage dashboard capture live SDK logs from a specific device without shipping a new build — useful for validating a new integration or diagnosing an issue with push, in-app messages, data tracking, or initialization. Opening a debug link for that device, generated from the MoEngage dashboard, launches this activity to enable, extend, or stop a logging session.
+
+**Can it be disabled remotely?** No. Since the component is compiled into the app, it cannot be turned off for users who have already downloaded that version.
+
+**To exclude it from future builds:** If this doesn't fit your organization's security or compliance policies, exclude the `sdk-debugger` module in your app's `build.gradle`:
+
+```kotlin
+implementation(platform("com.moengage:android-bom:<bomVersion>")) {
+    exclude(group = "com.moengage", module = "sdk-debugger")
+}
+```
+
+This removes the `sdk-debugger` module from your app going forward, along with the ability to use this debugging capability for that app.
+
 ## Will initializing the SDK on the main thread affect my application start-up time?
 
 No, the initialization API is The initialization approximately around 10-15 milliseconds on average. Refer to the [SDK Performance](https://www.moengage.com/docs/developer-guide/android-sdk/performance/sdk-performance) document for more details.
@@ -250,21 +266,21 @@ configureJavascriptUsage(new JavaScriptConfig(isJavaScriptEnabled));
 
 ## Why SDK initialization should be done on the main thread inside the onCreate() of the Application class?
 
-In general, any SDK should be initialized before any API/method of the SDK is called. MoEngage SDK is no different, before calling any API of the MoEngage SDK it is important that the SDK is initialized. If the SDK is not initialized Any data passed is the called API would be rejected by the SDK or if any API is expected to return data it would return **_null_** or default values(like false or -1). 
+In general, any SDK should be initialized before any API/method of the SDK is called. MoEngage SDK is no different, before calling any API of the MoEngage SDK it is important that the SDK is initialized. If the SDK is not initialized Any data passed is the called API would be rejected by the SDK or if any API is expected to return data it would return `null` or default values(like false or -1). 
 
-For ease of implementation, we recommend the application initializes the MoEngage SDK in the **_onCreate()_** of the Application class. When we say in the onCreate() on the main thread we suggest synchronously not inside any callback etc. By initializing the SDK this way you can always ensure the SDK is initialized and ready for use anywhere in the application irrespective of the previous state. The Android system invokes \*\*\*onCreate()\*\*\*as one of the first few things on process creation. Hence initializing it in the \*\*\*onCreate()\*\*\*ensures SDK is always initialized and ready to process any events or campaigns.
+For ease of implementation, we recommend the application initializes the MoEngage SDK in the `onCreate()` of the Application class. When we say in the onCreate() on the main thread we suggest synchronously not inside any callback etc. By initializing the SDK this way you can always ensure the SDK is initialized and ready for use anywhere in the application irrespective of the previous state. The Android system invokes `onCreate()` as one of the first few things on process creation. Hence initializing it in the `onCreate()` ensures SDK is always initialized and ready to process any events or campaigns.
 
-This is especially important for cases when the application is in the killed state and a Push Campaign is sent to the user(the battery optimizations done by the OS and OEMs apps are killed within an hour or so of non-usage).
+This is especially important for cases when the application is in the killed state and a Push Campaign is sent to the user (the battery optimizations done by the OS and OEMs apps are killed within an hour or so of non-usage).
 
 We understand that application start-up time is very important and if the SDK takes time to initialize it could affect the application experience. The initialization time of the SDK is minimum, refer to the [performance matrix](https://www.moengage.com/docs/developer-guide/android-sdk/performance/sdk-performance) to know more. We are continuously working on improving this further.
 
 #### Alternatively,
 
-Given any constraints, you cannot initialize the SDK in the \*\*\*onCreate()\*\*\*please ensure the SDK is initialized before any SDK API is called example, \*\*\*passPushPayload(), trackEvent(), etc.
+Given any constraints, you cannot initialize the SDK in the `onCreate()` — please ensure the SDK is initialized before any SDK API is called, for example, `passPushPayload()`, `trackEvent()`, etc.
 
 If the SDK is not initialised method call would not be processed resulting in data being discarded or lower campaign delivery. SDK provides an API [isSdkInitialised()](https://moengage.github.io/android-api-reference/core/com.moengage.core/is-sdk-initialised.html) to check whether the SDK is initialized or not, use the API to check if the initialization is done and initialize if required.
 
-If you are not initializing the SDK in the \*\*\*onCreate()\*\*\*of the Application class please ensure implementing the [IntentPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core.listeners/-intent-pre-processing-listener/index.html) and registering this listener using the [registerPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core/-mo-e-core-helper/register-pre-processing-listener.html) in the **_onCreate()_** and initialize the SDK in the **_onIntentRecieved()_** of the interface. This is important to process notification clicks when the application is in the killed state.
+If you are not initializing the SDK in the `onCreate()` of the Application class please ensure implementing the [IntentPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core.listeners/-intent-pre-processing-listener/index.html) and registering this listener using the [registerPreProcessingListener](https://moengage.github.io/android-api-reference/core/com.moengage.core/-mo-e-core-helper/register-pre-processing-listener.html) in the `onCreate()` and initialize the SDK in the `onIntentRecieved()` of the interface. This is important to process notification clicks when the application is in the killed state.
 
 ## How can I stack the notifications?
 

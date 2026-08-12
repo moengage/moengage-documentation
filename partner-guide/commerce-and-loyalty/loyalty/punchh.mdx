@@ -1,0 +1,158 @@
+---
+title: "Punchh"
+---
+
+# Introduction
+
+[Punchh](https://punchh.com/) is a loyalty and engagement platform that empowers brands to deliver omnichannel customer loyalty programs both in-store and online.
+
+# MoEngage × Punchh
+
+Using MoEngage and Punchh together, you can sync data between the two platforms to empower your loyalty and coupon workflows. With this integration, you can:
+
+- Forward loyalty data from Punchh to MoEngage in real-time
+- Capture new users inside MoEngage and send them to Punchh to create personalized loyalty programs for them
+- Display dynamic coupon codes generated on Punchh inside MoEngage Campaigns
+
+# Integration
+
+<Info>
+  - Access to your Punchh Dashboard.
+  - Access to your Punchh APIs and Webhooks Manager. Contact your Punchh representative if you do not have access to Punchh Webhook Manager.
+  - Access to your MoEngage Dashboard.
+</Info>
+
+# A. Forward events from Punchh to MoEngage
+
+## Step 1: Add external\_source\_id to Punchh users
+
+Before you begin the integration, ensure you have set the `external_source_id` field when you create new users inside Punchh. This will act as the common identifier between the two platforms and will be synced to the ID field of MoEngage user profiles.
+
+Punchh offers several endpoints for updating your users' `external_source_id`s. The [Punchh help docs](https://developers.partech.com/) explain how to set them up for new and existing users.
+
+## Step 2: Get your MoEngage endpoint
+
+To get a dedicated endpoint for your integration, please contact the MoEngage Support team. In your request, you must specify the common identifier used to link user profiles between MoEngage and the partner platform.
+
+## Step 3: Set up your endpoint as a webhook in Punchh
+
+If you already have access to the [Webhooks Manager](https://developers.partech.com/docs/dev-portal-webhooks-manager),
+
+1. On your Punchh Dashboard's _Left Navigation_ \>\> **_Webhook Manager_**.\\
+   ![](/images/partner_32138600315668.png)
+2. In the Webhooks section, an admin needs to click the **_Base URL_** button to set up the base URL and name. This base URL will be displayed while setting up the webhook. Your Base URL will depend on your MoEngage Data Center:
+
+| **Data Center Region** | **Base URL** |
+| --- | --- |
+| DC-01 | [https://api-01.moengage.com](https://api-01.moengage.com) |
+| DC-02 | [https://api-02.moengage.com](https://api-02.moengage.com) |
+| DC-03 | [https://api-03.moengage.com](https://api-03.moengage.com) |
+| DC-04 | [https://api-04.moengage.com](https://api-04.moengage.com) |
+
+3. In the Webhooks section, create a new webhook by clicking the **_Create Webhook_** button:
+
+| Field | Description |
+| --- | --- |
+| Name and Description | Enter an identifiable name and description for this Webhook, example, "MoEngage". |
+| Base URL | Select the MoEngage Base URL you created above. |
+| Webhook Endpoint | Enter the rest of the MoEngage Endpoint provided to you by your Customer Success Manager. Example: `/v1/partner/punchh/events/?configName=xxxx` |
+| Authentication | Select "Basic" as the authentication method. |
+| Username | Enter the the Workspace ID of your MoEngage Workspace. It is available at **Settings -\> Account -\> APIs -\> Workspace ID**. The Data API ID and the Workspace ID of your MoEngage account are the same. |
+| Password | Enter the Secret Key of your MoEngage Workspace. Secret key is the Data API key of your MoEngage account, which is available at **Settings -\> Account -\> APIs -\> API keys -\> Data API settings**. |
+| Events Selection | Select the events you want to forward to MoEngage. |
+
+4. Click the **_Submit_** button to save it. In case of any issue, it will display an error message.
+5. If verification is completed during creation, the webhook will be ready to receive the subscribed events with “Active” status. If verification is not successful, the status will remain “Inactive” and no data will be pushed to that webhook.
+6. From the webhooks list, you can select another operation via the ellipsis button in the Actions column to test with some dummy event samples. You can also edit or delete webhooks from here and see logs specific to the selected webhook.
+
+## Events available to export to MoEngage
+
+1. Users
+2. Loyalty check-ins
+3. Gift check-ins
+4. Redemptions
+5. Rewards
+6. Redeemables
+7. Marketing notifications
+8. Transactional notifications
+9. Coupons
+
+An updated list of events that can be exported is found [here](https://developers.partech.com/docs/dev-portal-webhooks-manager/b0c0e04de5b63-events-framework-overview-of-webhooks-manager#events-available-with-the-current-release).
+
+## Step 4: Find your events in MoEngage
+
+Below is the meta data that is added to each of the events coming from Punchh:
+
+| **MoEngage Event Attribute** | **Punchh Value** | **Description** |
+| --- | --- | --- |
+| Event name | `event_name` | Name of the event such as user, check-ins, redemption, etc. |
+| `event_type` | `event_type` | Type of the event (e.g., gift or loyalty for check-ins, etc.) |
+| Event time | `timestamp` | UTC epoch (in milliseconds) when the message is created |
+| `business_id` | `business_id` | Business identification at the Punchh platform |
+| `business_uuid` | `business_uuid` | UUID of the business configured in the Punchh platform. This code is used for POS integration. |
+| `business_slug` | `business_slug` | Unique identifier or label for a business in the URL set up for iFrame on the Punchh side. The slug is configured in the Punchh platform. Contact your Punchh representative to update this Punchh platform configuration. |
+| `action` | `action` | Operation associated with the event (e.g., create/update/delete for user, POS/console/online for check-ins, etc.) |
+| `user` | `user` | The user properties associated with the Punchh user who performed this action. |
+
+Once the events are in MoEngage, you can create segments using MoEngage's powerful Segmentation capabilities and perform Analytics to gain even deeper actional insights.
+
+# B. Create users in Punchh from MoEngage
+
+## Create MoEngage campaign to connect to Punchh Create users API
+
+To create a connector campaign on MoEngage:
+
+1. Navigate to **Create Campaign \> Connectors \> Custom** and choose the delivery type most suitable to your needs
+
+![](/images/partner_25285771888020.png)
+
+2. On step 2 of the campaign, connect to the [Punchh Create Users API](https://developers.partech.com/docs/dev-portal-online-ordering/58f18dfdd2a3d-create-new-user). First, you need an OAuth App setup in the Punchh Dashboard. Refer to the [detailed Punchh document](https://support.punchh.com/s/article/How-do-I-create-a-Client-ID-and-Secret-in-a-Punchh-environment).
+
+- Method: POST
+- URL: [https://server\_name\_goes\_here.punchh.com/api/auth/customers.json](https://server_name_goes_here.punchh.com/api/auth/customers.json)
+- Headers:
+
+| **Key** | **Description** | **Default value** |
+| --- | --- | --- |
+| Accept | Advertises which content types the client is able to understand | application/json |
+| Content-Type | Set this header to application/json. | application/json |
+| User-Agent | For details, see [User Agent](https://developers.partech.com/docs/dev-portal-online-ordering/ZG9jOjQ0OTU0NzY3-user-agent). | Punchh/OnlineOrder/1.0/Web/BrowserVersion/OS\_Type |
+| x-pch-digest | The [signature](https://developers.partech.com/docs/dev-portal-online-ordering/ZG9jOjUwMjg0OTYx-generating-x-pch-digest-header-for-online-ordering-ap-is) for the API call | -- |
+
+- Body:
+
+```json
+{  
+  "user": {  
+    "email": "{{UserAttribute['email']}}",  
+    "first_name": "{{UserAttribute['First Name']}}",  
+    "last_name": "{{UserAttribute['Last Name']}}",  
+    "password": "{{UserAttribute['Password']}}",  
+    "birthday": "{{UserAttribute['Birthday']}}",  
+    "anniversary": "{{UserAttribute['Anniversary']}}",  
+    "phone": "{{UserAttribute['Mobile']}}",  
+    "terms_and_conditions": true,  
+    "send_compliance_sms": true,  
+    "external_source": "{{UserAttribute['external_source']}}",  
+    "external_source_id": "{{UserAttribute['customer_id']}}",  
+    "signup_channel": "WebEmail",  
+    "age_verified_status": true  
+  },  
+  "client": "CLIENT_GOES_HERE"  
+}
+```
+
+<Note>
+  - Here, `external_source` and `external_source_id` are optional fields.
+  - In the above example, `customer_id` is a unique identifier in MoEngage and hence being passed against `external_source_id`. If there is any other unique user identifier that you are already using, you can pass that instead of `customer_id`.
+</Note>
+
+### Preview your request
+
+At this point, your campaign should be ready to test and send. You can also test your connector configuration using the Test functionality available in Step 2 of Create Connector Campaign.
+
+<Frame>
+  ![Screen Shot 2022 02 22 At 11 12 42 AM](/images/Screen-Shot-2022-02-22-at-11.12.42-AM.png)
+</Frame>
+
+You can go ahead and Publish the campaign.

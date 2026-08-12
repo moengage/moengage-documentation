@@ -42,37 +42,53 @@ The Manifest file can be found in the **Assets--\> Plugins --\> Android** folde
 
 # SDK Initialization
 
-Get the Workspace**ID** from the **Settings Page\*\*\*\*Dashboard --\> Settings --\> Workspace --\> General** on the MoEngage dashboard and initialize the MoEngage SDK in the **Application class's onCreate()** method.
+Get the Workspace ID from **Dashboard → Settings → Workspace → General** on the MoEngage dashboard and initialize the MoEngage SDK in the **Application class's onCreate()** method.
 
 <Info>
-  It is recommended that you initialize the SDK on the main thread inside **onCreate()** and not create a worker thread and initialize the SDK on that thread.
+  It is recommended that you initialize the SDK on the main thread inside **onCreate()** and not create a worker thread and initialize the SDK on that thread.
 </Info>
 
 <CodeGroup>
 
-```Kotlin kotlin
+```kotlin Kotlin
 import com.moengage.unity.wrapper.MoEInitializer
-import com.moengage.core.MoEngageimport com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.DataCenter
 
-// this is the instance of the application class and "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
-val moEngage = MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-  
-MoEInitializer.initialize(getApplicationContext(), moEngage)
-```
-
-
-```Java Java
-import com.moengage.unity.wrapper.MoEInitializer;
-import com.moengage.core.MoEngage;import com.moengage.core.DataCenter;
-
-// this is the instance of the application class and "YOUR_Workspace_ID" is the Workspace ID from the dashboard.
-MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID",[YOUR_DATA_CENTER]);
+// "YOUR_WORKSPACE_ID" is the Workspace ID from the dashboard.
+val moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
 
 MoEInitializer.initialiseDefaultInstance(applicationContext, moEngage)
 ```
 
+```java Java
+import com.moengage.unity.wrapper.MoEInitializer;
+import com.moengage.core.MoEngage;
+import com.moengage.core.DataCenter;
+
+// "YOUR_WORKSPACE_ID" is the Workspace ID from the dashboard.
+MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X);
+
+MoEInitializer.INSTANCE.initialiseDefaultInstance(applicationContext, moEngage);
+```
+
 </CodeGroup>
 
+## File-Based Initialization
+
+As an alternative to programmatic initialization, you can initialize the SDK using a configuration file. Create `moengage_init_config.xml` in your Android library plugin at `Assets/Plugins/Android/<YOUR_ANDROID_LIBRARY_PLUGIN>.androidlib/res/values/moengage_init_config.xml` and specify your workspace ID and data center:
+
+```xml moengage_init_config.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="moengage_workspace_id">YOUR_WORKSPACE_ID</string>
+    <string name="moengage_data_center">DATA_CENTER_X</string>
+</resources>
+```
+
+For more information on creating an Android library plugin, refer to the [Unity documentation](https://docs.unity3d.com/6000.4/Documentation/Manual/android-library-plugin-create.html).
+
+You must also call `MoEInitializer.initialiseDefaultInstance(application)` in your Application class alongside the file-based config. When this file is present, the SDK reads configuration from it at startup. Programmatic initialization takes precedence if both are provided.
 Following details of the different data centers you need to set based on the dashboard hosts
 
 | Data Center              | Dashboard host            |
@@ -83,7 +99,7 @@ Following details of the different data centers you need to set based on the das
 | DataCenter.DATA_CENTER_4 | dashboard-04.moengage.com |
 | DataCenter.DATA_CENTER_5 | dashboard-05.moengage.com |
 
-For more information about the detailed list of possible configurations, refer to the [API reference](%20https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/index.html).
+For more information about the detailed list of possible configurations, refer to the [API reference](https://moengage.github.io/android-api-reference/core/com.moengage.core/[android-jvm]-mo-engage/-builder/index.html).
 
 <Info>
   All the configurations are added to the builder before initialization. If you are calling initialize at multiple places, ensure that all the required flags and configurations are set each time you initialize to maintain consistency in behavior.
@@ -93,4 +109,4 @@ For more information about the detailed list of possible configurations, refer t
 
 This is a mandatory integration step and is very essential to prevent your data from getting corrupted. Android's auto back-up service periodically backs up Shared Preference files, Database files, etc, more details [here](https://developer.android.com/guide/topics/data/autobackup). This backup results in MoEngage SDK's identifiers being backed up and restored after re-install.This restoration of the identifier results in your data being corrupted and users not being reachable via push notifications.
 
-To ensure data is not corrupted after a backup is restored, opt out of MoEngage SDK's storage files. Refer to [Exclude MoEngage Storage File from the Auto-Backup](/developer-guide/android-sdk/sdk-integration/basic-integration/exclude-moengage-storage-file-from-auto-backup) section of the documentation to learn more about which files to exclude.
+To ensure data is not corrupted after a backup is restored, opt out of MoEngage SDK's storage files. Refer to [Exclude MoEngage Storage File from the Auto-Backup](/developer-guide/android-sdk/sdk-integration/basic-integration/exclude-mo-engage-storage-file-from-auto-backup) section of the documentation to learn more about which files to exclude.

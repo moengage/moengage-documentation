@@ -154,6 +154,40 @@ The following status codes and associated error messages are returned when the r
 | 429        | Rate Limit Exceeded           | Rate Limits for User / Event exceeded                                              | You have exceeded the rate limits (number of users or events per minute) defined for your MoEngage account.                                                  |
 | 5xx        | Server Error                  | Any other exception                                                                | This response is returned when the system runs into an unexpected error. We recommend that you retry every 2 seconds for a maximum of 5 times in such cases. |
 
+## Monitor Your Usage
+
+Rate-limited endpoints return the following headers on every response, so your integration can track remaining capacity in real time rather than waiting for a `429`:
+
+```http
+x-ratelimit-limit: 100
+x-ratelimit-remaining: 95
+x-ratelimit-reset: 1699574400
+```
+<img alt="monitor_your_usage.png"  src="/images/monitor_your_usage.png" width="50%" />
+
+| Header | Description |
+| --- | --- |
+| `x-ratelimit-limit` | The maximum number of requests allowed in the current window. |
+| `x-ratelimit-remaining` | Requests remaining in the current window. |
+| `x-ratelimit-reset` | Time at which the current window resets, in UTC epoch seconds. |
+
+<Note>
+  A few high-throughput endpoints (such as the Push API) signal throttling with an `x-envoy-ratelimited: true` header instead. Check the specific endpoint's reference page for the headers it returns.
+</Note>
+
+### When You Hit a Limit
+
+When a request is rejected with `HTTP 429`:
+
+1. Stop sending further requests to that endpoint until the window resets (`x-ratelimit-reset`).
+2. Retry with exponential backoff rather than retrying immediately.
+3. Batch where the endpoint supports it — for example, send multiple user updates in a single Track User request instead of one call per user.
+
+If your integration consistently approaches a limit through legitimate, well-batched usage, contact your CSM or the Support team to request an increase.
+
+
+
+
 ## User Attributes
 
 | Key name                | Display name                          | Fetch through Get User API | Update through Track User API | Create through Track User API |
@@ -207,11 +241,37 @@ The following status codes and associated error messages are returned when the r
 | moe_ds_bts_sms_hour     | Best time to send SMS                 | yes                        | no                            | no                            |
 | moe_ds_mpc_best_channel | Most Preferred Channel                | yes                        | no                            | no                            |
 
-## Dashboard User Profile
+## Reserved Keywords for User Attributes
+
+Below is the list of keys that should not be used when tracking user attributes.
+
+* USER_ATTRIBUTE_UNIQUE_ID
+* USER_ATTRIBUTE_USER_EMAIL
+* USER_ATTRIBUTE_USER_MOBILE
+* USER_ATTRIBUTE_USER_NAME
+* USER_ATTRIBUTE_USER_GENDER
+* USER_ATTRIBUTE_USER_FIRST_NAME
+* USER_ATTRIBUTE_USER_LAST_NAME
+* USER_ATTRIBUTE_USER_BDAY
+* USER_ATTRIBUTE_NOTIFICATION_PREF
+* USER_ATTRIBUTE_OLD_ID
+* MOE_TIME_FORMAT
+* MOE_TIME_TIMEZONE
+* USER_ATTRIBUTE_DND_START_TIME
+* USER_ATTRIBUTE_DND_END_TIME
+* MOE_GAID
+* INSTALL
+* UPDATE
+* MOE_ISLAT
+* status
+* user_id
+* source
+
+## User Profile Dashboard
 
 On sending data through the data API, it will be populated in the user profile as shown below:
 
-![Newuserprofile](/images/newuserprofile.png)
+![Newuserprofile](/images/user_profile_new.png)
 
 ## Limits
 
@@ -239,7 +299,7 @@ The Data API is designed to handle high volumes of data across our customer base
     Please use the [Get User API](/api/user/get-user) to export the users.
   </Accordion>
   <Accordion title="Can I use this API to delete users from MoEngage?">
-    Please use the [Delete User API](/api/user/delete-users-in-bulk) to delete existing users in MoEngage.
+    Please use the [Delete User API](/api/user/delete-users) to delete existing users in MoEngage.
   </Accordion>
 </AccordionGroup>
 

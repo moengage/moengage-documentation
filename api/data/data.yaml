@@ -43,7 +43,8 @@ paths:
       x-mint:
         content: |
           <Note>
-          If you have [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled for your workspace, you must pass `project_code` in the API endpoint. This identifies which project a user or event belongs to. For more information, refer to [Portfolio: Data Ingestion and Management](/user-guide/data/key-concepts/portfolio-data-ingestion-and-management).
+          - For more information about trackable user attributes, reserved keys, and general data information, refer to the [Data Overview](https://www.moengage.com/docs/api/data/data-overview).
+          - If you have [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled for your workspace, you must pass `project_code` in the API endpoint. This identifies which project a user or event belongs to. For more information, refer to [Portfolio: Data Ingestion and Management](/user-guide/data/key-concepts/portfolio-data-ingestion-and-management).
           </Note>
 
           #### Rate Limit
@@ -115,7 +116,6 @@ paths:
                     platforms:
                       - platform: "iOS"
                         active: "true"
-
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -402,7 +402,9 @@ paths:
       summary: Get User
       x-mint:
         content: |
-          
+          <Note>
+          Get User is a **single-lookup** API, you pass one or more identifiers and get back the matching user profile(s), up to the payload limit below. It does not support a "retrieve all users" mode; there's no parameter on this endpoint to export your entire user base. If you need to export all users, use a separate bulk/file export flow instead.
+          </Note>
           #### Rate Limit
           The rate limit is 20 users per payload and 1000 users per minute.
          
@@ -439,10 +441,10 @@ paths:
                         identifier: "6416d1a318r98264512c0f89"
                       - identifier_type: id
                         identifier: "62e79fb15ada55x123g987bu"
-                  user_fields_to_export:
-                    - last_name
-                    - customer_id
-                    - name
+                    user_fields_to_export:
+                      - last_name
+                      - customer_id
+                      - name
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -823,7 +825,7 @@ paths:
            * The Merge User API is not functional in workspaces where the [Identity Resolution](/user-guide/data/user-data/unified-identity-identity-resolution) feature is enabled.
            * If you are updating the [Unique Identifier](/developer-guide/unity-sdk/data-tracking/tracking-user-attributes) for a user, use the Merge User API at least 2 hours after you have updated the Unique Identifier.
            * Ensure that the data passed to the API is accurate. We recommend you test the merging starting with a small batch of users, such as 1, 5, 10, 20, 50, etc. Verify the merged data and users before proceeding with a bulk update.
-           * Set of 100 users can be merged in a single call.
+           * A maximum of 50 users can be merged in a single call.
            * Payload size should not exceed 128 KB.
           </Warning>
 
@@ -1874,8 +1876,8 @@ paths:
         content: |
         
           #### Rate Limit
-          A single API request contains one or more device updates. Maintain a rate limit of 10,000 device updates per minute.. 
-         
+          A single API request contains one or more device updates. Maintain a rate limit of 10,000 device updates per minute.
+  
       description: This API adds or updates devices and device properties in MoEngage. You can create a new device for an existing user, create new device properties for an existing user, or update the device properties of the existing user.
       parameters:
         - name: app_id
@@ -3386,7 +3388,7 @@ paths:
           * Create a user or track events of a user when identifiers other than ID (for example, email ID or phone number) are known.
 
           #### Rate Limit
-          A single bulk import API contains users, devices, and events together. Send a maximum of 10,000 users and 30,000 events per minute across all API requests.
+          A single bulk import API contains users, devices, and events together. Send a maximum of 60,000 users and 60,000 events per minute across all API requests.
           
       parameters:
         - name: Workspace_ID
@@ -3782,6 +3784,23 @@ components:
            ```json
            "Array_attributeName":["abc","123"]
            ```
+        **Update Array Attributes**
+          To update an existing array attribute rather than overwrite it, use `addValueToArrayField` and `removeValueFromArrayField` inside the `attributes` object of a Track User call:
+           ```json
+           {
+             "customer_id": "user123",
+             "attributes": {
+               "addValueToArrayField": { "favorite_categories": ["shoes", "bags"] },
+               "removeValueFromArrayField": { "favorite_categories": ["hats"] }
+             }
+           }
+           ```
+          * `addValueToArrayField` appends the given value(s) to an existing array attribute.
+          * `removeValueFromArrayField` removes the given value(s) from an existing array attribute.
+          * You can't add and remove the same attribute in one call.
+          * You can't directly set an attribute and add/remove it in the same call.
+          * Reserved MoEngage attributes (e.g. `platforms`) can't be used with these operators.
+
       properties:
         u_n:
           type: string
@@ -3917,7 +3936,6 @@ components:
           description: "List of dictionaries with the associated platforms out of ANDROID, iOS, and web and their status."
           items:
             $ref: '#/components/schemas/PlatformObject'
-
     IdentifierObject:
       type: object
       properties:
@@ -3967,12 +3985,12 @@ components:
                   
               items:
                 $ref: '#/components/schemas/IdentifierObject'
-        user_fields_to_export:
-          type: array
-          items:
-            type: string
-          description: This field is used to specify the fields that need to be fetched for the user specified in Identifiers. Tracked standard user attributes and custom attributes can be fetched using this API. For the list of tracked standard attributes in MoEngage, refer to [User Attributes](#user-attributes).
-          example: ["last_name", "customer_id", "name"]
+            user_fields_to_export:
+              type: array
+              items:
+                type: string
+              description: This field is used to specify the fields that need to be fetched for the user specified in Identifiers. Tracked standard user attributes and custom attributes can be fetched using this API. For the list of tracked standard attributes in MoEngage, refer to [User Attributes](#user-attributes).
+              example: ["last_name", "customer_id", "name"]
                            
     GetUserResponse:
       type: object
@@ -4221,7 +4239,7 @@ components:
           description: This field denotes the platforms where the device is supported. Using unsupported values may result in an API response of 400.
         push_id:
           type: string
-          description: This field denotes the Push token of the device.
+          description: This field denotes the Push token of the device. When you pass a push token using this API, reachability is only updated if the device is currently marked as _Installed_. If a device is marked as _Uninstalled_, updating the `push_id` or `moe_push_opted` using Track Device API will not affect its reachability (it will remain Unreachable). To change a device's status back to _Installed_, the MoEngage SDK must actively track the device.
         moe_push_opted:
           type: string
           enum: ["True", "False"]

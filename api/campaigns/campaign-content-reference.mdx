@@ -1,0 +1,1405 @@
+---
+title: "Campaign content reference"
+description: "Reference for basic_details and campaign_content per channel, platform, and template type. Used by the Create Campaign and Update Campaign endpoints."
+keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale"]
+icon: "layout-template"
+---
+
+Use this reference to configure the request-body components that define campaign content for Push and Email campaigns. It covers `basic_details`, which carries identifying metadata, platform targeting, and platform-specific delivery flags, and `campaign_content`, which defines the message payload per channel, platform, and template type, including multi-locale and A/B variation support. Both components are used by [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) and [Update Campaign](/api/update-campaigns/update-campaign-v5).
+
+For audience targeting, scheduling, and delivery controls, see [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference).
+
+<Note>
+The OpenAPI spec at `/api/campaigns/campaign-draft.yaml` is the authoritative source for field types, enums, and required markers. This page adds runnable variants and conditional rules not expressible in inline schema descriptions.
+</Note>
+
+## Quick start
+
+The minimum content payload is a single channel-platform-template combination under `campaign_content.content.push` (Push) or an `html_content` or `custom_template_id` value under `campaign_content.content.email` (Email).
+
+<CodeGroup>
+
+```json Push (Android BASIC)
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "notification_channel": "general",
+            "title": "Your order has shipped",
+            "message": "Tap to track it.",
+            "default_click_action": "DEEPLINKING",
+            "default_click_action_value": "https://example.com/orders"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```json Email (html_content)
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order has shipped",
+        "sender_name": "Example Team",
+        "from_address": "noreply@example.com",
+        "html_content": "<p>Hello {{UserAttribute['First Name']}}</p>"
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+Everything below this section is reference material covering every supported channel, platform, template type, and variation shape.
+
+## Page contents
+
+| Section | Location in request body |
+| :--- | :--- |
+| [Push campaign metadata](#push-campaign-metadata) | `basic_details` on a Push request |
+| [Email campaign metadata](#email-campaign-metadata) | `basic_details` on an Email request |
+| [Content payload structure](#content-payload-structure) | `campaign_content.content` |
+| [Android push content](#android-push-content) | `campaign_content.content.push.android` |
+| [iOS push content](#ios-push-content) | `campaign_content.content.push.ios` |
+| [Web push content](#web-push-content) | `campaign_content.content.push.web` |
+| [Email content](#email-content) | `campaign_content.content.email` |
+| [A/B test variations](#a%2Fb-test-variations) | `campaign_content.variation_details` |
+| [Email delivery connector](#email-delivery-connector) | `connector` (Email requests only) |
+| [Validation rules](#validation-rules) | Cross-cutting rules enforced at validate or publish |
+| [Updating an existing campaign](#updating-an-existing-campaign) | Per-state restrictions for `PATCH /v5/campaigns/{campaign_id}` |
+
+## Push campaign metadata
+
+The `basic_details` object on a Push campaign carries identifying metadata, platform targeting, and platform-specific delivery flags. All fields are optional at creation. A subset becomes required based on `campaign_delivery_type`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `name` | string | The campaign name shown in the dashboard. |
+| `business_event` | string | The business event mapped to the campaign. **Required** when `campaign_delivery_type` is `BUSINESS_EVENT_TRIGGERED`. |
+| `tags` | array of string | Free-form context tags. |
+| `team` | string | The team collaborating on the campaign. See [Teams in MoEngage](https://help.moengage.com/hc/en-us/articles/360028586211-Teams-in-MoEngage). |
+| `platforms` | array of string | Target platforms. Enum: `ANDROID`, `IOS`, `WEB`. |
+| `broadcast_live_activity_id` | string | The broadcast Live Activity ID for iOS Live Activities. `BROADCAST_LIVE_ACTIVITY` is not supported through draft creation. Refer to [Validation rules](#validation-rules). |
+| `geofences` | object | **Required** when `campaign_delivery_type` is `LOCATION_TRIGGERED`. The full schema is at [Geofence targeting](/api/campaigns/audience-scheduling-delivery-reference#geofence-targeting). |
+| `send_to_triggered_platform_only` | boolean | Applicable to event-triggered campaigns. When `true`, the campaign sends only to the platform that fired the trigger. |
+| `platform_specific_details` | object | Platform-level delivery flags. See [Platform-specific delivery flags](#platform-specific-delivery-flags). |
+
+### Platform-specific delivery flags
+
+The `platform_specific_details` object carries per-platform delivery flags for Push campaigns.
+
+<Tabs>
+<Tab title="Android">
+
+A single Push Amp+ flag is defined for Android.
+
+| Field | Type | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `push_amp_plus_enabled` | boolean | `false` | Whether Push Amp+ is enabled for the campaign. |
+
+```json
+{
+  "basic_details": {
+    "platforms": ["ANDROID"],
+    "platform_specific_details": {
+      "android": {
+        "push_amp_plus_enabled": false
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="iOS">
+
+<Warning>
+For iOS, exactly one of the three audience flags must be `true`. Passing none or more than one fails validation.
+</Warning>
+
+The three audience flags are mutually exclusive. Use the tab below to view each configuration.
+
+<CodeGroup>
+
+```json All eligible devices
+{
+  "basic_details": {
+    "platforms": ["IOS"],
+    "platform_specific_details": {
+      "ios": {
+        "send_to_all_eligible_device": true,
+        "exclude_provisional_push_devices": false,
+        "send_to_only_provisional_push_enabled_devices": false
+      }
+    }
+  }
+}
+```
+
+```json Exclude provisional
+{
+  "basic_details": {
+    "platforms": ["IOS"],
+    "platform_specific_details": {
+      "ios": {
+        "send_to_all_eligible_device": false,
+        "exclude_provisional_push_devices": true,
+        "send_to_only_provisional_push_enabled_devices": false
+      }
+    }
+  }
+}
+```
+
+```json Provisional only
+{
+  "basic_details": {
+    "platforms": ["IOS"],
+    "platform_specific_details": {
+      "ios": {
+        "send_to_all_eligible_device": false,
+        "exclude_provisional_push_devices": false,
+        "send_to_only_provisional_push_enabled_devices": true
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+</Tab>
+</Tabs>
+
+## Email campaign metadata
+
+The `basic_details` object on an Email campaign carries identifying metadata, subscription category, and the recipient-email attribute.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `name` | string | The campaign name. |
+| `business_event` | string | The business event mapped to the campaign. **Required** when `campaign_delivery_type` is `BUSINESS_EVENT_TRIGGERED`. |
+| `content_type` | string | The type of content. Enum: `PROMOTIONAL`, `TRANSACTIONAL`. |
+| `subscription_category` | string | The subscription category for promotional emails. **Required** when `content_type` is `PROMOTIONAL`. |
+| `tags` | array of string | Free-form context tags. |
+| `team` | string | The team collaborating on the campaign. |
+| `user_attribute_identifier` | string | The user attribute that stores the recipient email address. Default: `Email (Standard)`. The internal identifier `MOE_EMAIL_ID` is also accepted. |
+
+```json
+{
+  "basic_details": {
+    "name": "Summer Sale Email",
+    "content_type": "PROMOTIONAL",
+    "subscription_category": "music",
+    "tags": ["activation", "summer_sale"],
+    "team": "marketing_team",
+    "user_attribute_identifier": "Email (Standard)"
+  }
+}
+```
+
+## Content payload structure
+
+The `campaign_content.content` object accepts two shapes. The shape depends on whether locales or A/B test variations are configured on the campaign.
+
+### Flat shape (no locales, no variations)
+
+A flat object directly under `content`: `push` for Push campaigns, `email` for Email campaigns.
+
+<CodeGroup>
+
+```json Push
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "Your order has shipped",
+            "message": "Tap to track it.",
+            "notification_channel": "general",
+            "default_click_action": "DEEPLINKING",
+            "default_click_action_value": "https://example.com"
+          }
+        },
+        "ios": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "Your order has shipped",
+            "message": "Tap to track it.",
+            "default_click_action": "DEEPLINKING",
+            "default_click_action_value": "https://example.com"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```json Email
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order has shipped",
+        "sender_name": "Example Team",
+        "preview_text": "Track your delivery",
+        "from_address": "noreply@example.com",
+        "reply_to_address": "support@example.com",
+        "html_content": "<p>Hello {{UserAttribute['First Name']}}</p>"
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+### Locale-keyed and variation-keyed shape
+
+When locales or A/B test variations are configured, `content` is keyed first by locale name and then by variation name. The shape is `content[locale_name][variation_name] = { push: { ... } }` for Push, and `content[locale_name][variation_name] = { email: { ... } }` for Email.
+
+- The `"default"` locale key is always required. It serves as the fallback for users not matched to a named locale.
+- Additional locale keys must each match a value listed in `campaign_content.locales` (for example, `"en-US"`, `"es-ES"`). The `"default"` locale is implicitly present and must not be listed in `campaign_content.locales`.
+- The variation key (for example, `"variation_1"`) corresponds to the count in `variation_details.no_of_variations`. When no A/B test is configured, `"variation_1"` is used as the only key.
+
+<CodeGroup>
+
+```json Component only
+{
+  "campaign_content": {
+    "locales": ["es-ES"],
+    "variation_details": {
+      "distribution_type": "MANUAL",
+      "no_of_variations": 2,
+      "manual_distribution_percentage": {
+        "variation_1": 50,
+        "variation_2": 50
+      }
+    },
+    "content": {
+      "default": {
+        "variation_1": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Summer Sale", "message": "Shop now" } } } },
+        "variation_2": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Big Discounts", "message": "Save more" } } } }
+      },
+      "es-ES": {
+        "variation_1": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Oferta de Verano", "message": "Compra ahora" } } } },
+        "variation_2": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Grandes Descuentos", "message": "Ahorra más" } } } }
+      }
+    }
+  }
+}
+```
+
+```json Create request body (ONE_TIME, multi-locale A/B)
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "ONE_TIME",
+  "created_by": "{{user_email}}",
+  "basic_details": {
+    "name": "{{campaign_name}}",
+    "platforms": ["ANDROID"]
+  },
+  "campaign_content": {
+    "locales": ["es-ES"],
+    "variation_details": {
+      "distribution_type": "MANUAL",
+      "no_of_variations": 2,
+      "manual_distribution_percentage": {
+        "variation_1": 50,
+        "variation_2": 50
+      }
+    },
+    "content": {
+      "default": {
+        "variation_1": {
+          "push": {
+            "android": {
+              "template_type": "BASIC",
+              "basic_details": {
+                "title": "{{title_default_v1}}",
+                "message": "{{message_default_v1}}",
+                "default_click_action": "DEEPLINKING",
+                "default_click_action_value": "{{url}}"
+              }
+            }
+          }
+        },
+        "variation_2": {
+          "push": {
+            "android": {
+              "template_type": "BASIC",
+              "basic_details": {
+                "title": "{{title_default_v2}}",
+                "message": "{{message_default_v2}}",
+                "default_click_action": "DEEPLINKING",
+                "default_click_action_value": "{{url}}"
+              }
+            }
+          }
+        }
+      },
+      "es-ES": {
+        "variation_1": {
+          "push": {
+            "android": {
+              "template_type": "BASIC",
+              "basic_details": {
+                "title": "{{title_es_v1}}",
+                "message": "{{message_es_v1}}",
+                "default_click_action": "DEEPLINKING",
+                "default_click_action_value": "{{url}}"
+              }
+            }
+          }
+        },
+        "variation_2": {
+          "push": {
+            "android": {
+              "template_type": "BASIC",
+              "basic_details": {
+                "title": "{{title_es_v2}}",
+                "message": "{{message_es_v2}}",
+                "default_click_action": "DEEPLINKING",
+                "default_click_action_value": "{{url}}"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "scheduling_details": { "delivery_type": "ASAP" }
+}
+```
+
+</CodeGroup>
+
+## Android push content
+
+`campaign_content.content.push.android` (flat shape) or `content[locale][variation].push.android` (locale/variation shape). Accepted `template_type` values for Android:
+
+`BASIC`, `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`, `TIMER`, `TIMER_WITH_PROGRESS_BAR`, `Custom`.
+
+<Warning>
+`Custom` is mixed case (not `CUSTOM`). Submitting `CUSTOM` fails validation.
+</Warning>
+
+| Sub-object | Schema | When used |
+| :--- | :--- | :--- |
+| `basic_details` | [Android basic details fields](#android-basic-details-fields) | Always. Title, message, image, click action, and template-specific fields. |
+| `timer` | [Android timer fields](#android-timer-fields) | **Required** for `TIMER` and `TIMER_WITH_PROGRESS_BAR`. |
+| `buttons` | array of [Android button fields](#android-button-fields) | Optional. Action buttons. |
+| `advanced` | [Android advanced fields](#android-advanced-fields) | Optional. TTL, sticky/dismiss behavior, group key. |
+| `template_backup` | [Android template backup fields](#android-template-backup-fields) | **Required** for `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`, `TIMER`, `TIMER_WITH_PROGRESS_BAR`. |
+| `custom_template_id` | string | **Required** when `template_type` is `Custom`. |
+| `custom_template_version` | integer | Optional. The custom template version. |
+
+### Android template variants
+
+<Tabs>
+<Tab title="BASIC">
+
+The default template. Carries title, message, and an optional image or GIF.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "notification_channel": "general",
+            "title": "Limited Time Offer!",
+            "message": "Get 50% off on all items. Shop now!",
+            "default_click_action": "DEEPLINKING",
+            "default_click_action_value": "https://example.com/sale"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`input_gif_url` is supported on `BASIC` to render a GIF in place of a static image.
+
+</Tab>
+<Tab title="STYLIZED_BASIC">
+
+Same shape as `BASIC` with an added colored background, app-name color, and notification-control color.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "STYLIZED_BASIC",
+          "basic_details": {
+            "title": "Limited Time Offer!",
+            "message": "Get 50% off on all items.",
+            "background_color_code": "#FFFFFF",
+            "app_name_color_code": "#dea1a1",
+            "notification_control_color": "LIGHT",
+            "image_url": "https://example.com/images/promo.jpg"
+          },
+          "template_backup": {
+            "title": "Limited Time Offer!",
+            "message": "Get 50% off on all items."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Supported `basic_details` fields specific to this template: `background_color_code`, `app_name_color_code`, `notification_control_color` (`LIGHT` or `DARK`), `apply_background_color_in_text_editor`. `template_backup` is required.
+
+</Tab>
+<Tab title="SIMPLE_IMAGE_CAROUSEL">
+
+A scrollable image carousel. The slide list is carried in `carousel_content`.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "SIMPLE_IMAGE_CAROUSEL",
+          "basic_details": {
+            "title": "New Collection",
+            "message": "Tap to browse.",
+            "image_scaling": "FIT_INSIDE_IMAGE_CONTAINER",
+            "carousel_content": {
+              "slider_transition": "manual",
+              "slide_data": [
+                {
+                  "image_url": "https://example.com/slide1.jpg",
+                  "image_click_action": "DEEPLINKING",
+                  "image_click_action_value": "https://example.com/product/1"
+                },
+                {
+                  "image_url": "https://example.com/slide2.jpg",
+                  "image_click_action": "DEEPLINKING",
+                  "image_click_action_value": "https://example.com/product/2"
+                }
+              ]
+            }
+          },
+          "template_backup": {
+            "title": "New Collection",
+            "message": "Tap to browse."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+For Android, `carousel_content.slider_transition` is lowercase (`manual` or `automatic`). For iOS, the same field is uppercase (`MANUAL` or `AUTOMATIC`). Refer to [iOS push content](#ios-push-content). `image_scaling` accepts `FIT_INSIDE_IMAGE_CONTAINER` or `FILL_IMAGE_CONTAINER`. `template_backup` is required.
+
+</Tab>
+<Tab title="IMAGE_BANNER_WITH_TEXT">
+
+A banner image with the title and message rendered on top.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "IMAGE_BANNER_WITH_TEXT",
+          "basic_details": {
+            "title": "Flash Sale",
+            "message": "Today only — up to 70% off.",
+            "banner_image_url": "https://example.com/banner.jpg",
+            "include_title_and_message": true,
+            "include_app_name_and_time": false,
+            "collapsed_push_notification": "SAME_AS_TEMPLATE_BACKUP"
+          },
+          "template_backup": {
+            "title": "Flash Sale",
+            "message": "Today only — up to 70% off."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`banner_image_url` is required. `include_title_and_message` controls whether the title and message text is overlaid on the banner. `template_backup` is required.
+
+</Tab>
+<Tab title="TIMER">
+
+A live countdown notification. `timer` is required.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "TIMER",
+          "basic_details": {
+            "title": "Offer ends soon",
+            "message": "Hurry — limited time left."
+          },
+          "timer": {
+            "timer_ends_at": "DURATION",
+            "personalized_value": false,
+            "duration_hour": "2",
+            "duration_minute": "0"
+          },
+          "template_backup": {
+            "title": "Offer ends soon",
+            "message": "Limited time only."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+The full `timer` schema is at [Android timer fields](#android-timer-fields). `template_backup` is required.
+
+</Tab>
+<Tab title="TIMER_WITH_PROGRESS_BAR">
+
+Same as `TIMER` with an added progress bar that visually depletes as time elapses.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "TIMER_WITH_PROGRESS_BAR",
+          "basic_details": {
+            "title": "Order arriving",
+            "message": "Your delivery is on the way."
+          },
+          "timer": {
+            "timer_ends_at": "DURATION",
+            "personalized_value": false,
+            "duration_hour": "1",
+            "duration_minute": "30"
+          },
+          "template_backup": {
+            "title": "Order arriving",
+            "message": "Your delivery is on the way."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`timer` is required. `template_backup` is required.
+
+</Tab>
+<Tab title="Custom">
+
+References a Push template created in the MoEngage dashboard's Custom Template library.
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "Custom",
+          "custom_template_id": "tmpl_abc123",
+          "custom_template_version": 1
+        }
+      }
+    }
+  }
+}
+```
+
+`custom_template_id` is required. `custom_template_version` is optional. When omitted, the latest published version is used.
+
+</Tab>
+</Tabs>
+
+### Android basic details fields
+
+`AndroidBasicDetails` collects template-specific styling and click-action fields. Several fields apply only to specific templates.
+
+| Field | Type | Supported templates |
+| :--- | :--- | :--- |
+| `notification_channel` | string | All. The Android notification channel where the push is delivered. |
+| `title` | string | All. The notification title. |
+| `message` | string | All. The body. HTML formatting is allowed. |
+| `summary` | string | All. Summary text below the body. |
+| `image_url` | URI | All (where supported by the template). |
+| `input_gif_url` | URI | `BASIC`. A GIF rendered in the notification body. |
+| `default_click_action` | enum | All. `DEEPLINKING`, `NAVIGATE_TO_A_SCREEN`, or `RICH_LANDING`. |
+| `default_click_action_value` | string | All. The URL or deep link target for the click action. |
+| `key_value_pairs` | array of `{ key, value }` | All. Custom payload keys forwarded to the SDK. |
+| `background_color_code` | hex string | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`. |
+| `app_name_color_code` | hex string | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`. |
+| `notification_control_color` | enum | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`. `LIGHT` or `DARK`. |
+| `apply_background_color_in_text_editor` | boolean | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`. |
+| `include_app_name_and_time` | boolean | `IMAGE_BANNER_WITH_TEXT`. Renders the app name and timestamp on the banner. |
+| `include_title_and_message` | boolean | `IMAGE_BANNER_WITH_TEXT`. Overlays the title and message on the banner. |
+| `banner_image_url` | URI | **Required** for `IMAGE_BANNER_WITH_TEXT`. |
+| `collapsed_push_notification` | string | `IMAGE_BANNER_WITH_TEXT`. Configuration for the collapsed view. |
+| `image_scaling` | enum | `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`. `FIT_INSIDE_IMAGE_CONTAINER` or `FILL_IMAGE_CONTAINER`. |
+| `carousel_content` | object | **Required** for `SIMPLE_IMAGE_CAROUSEL`. See [Android carousel content](#android-carousel-content). |
+
+#### Android carousel content
+
+Configuration for the image carousel used by `SIMPLE_IMAGE_CAROUSEL` on Android.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `slider_transition` | enum | `manual` or `automatic` (lowercase). |
+| `slide_data[].image_url` | URI | The image for the slide. |
+| `slide_data[].image_click_action` | enum | `DEEPLINKING`, `RICH_LANDING`, or `NAVIGATE_TO_A_SCREEN`. |
+| `slide_data[].image_click_action_value` | string | **Required** when `image_click_action` is provided. |
+| `slide_data[].key_value_pairs` | array of `{ key, value }` | Optional per-slide custom payload keys. |
+
+### Android timer fields
+
+`AndroidTimer` is required for `TIMER` and `TIMER_WITH_PROGRESS_BAR`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `timer_ends_at` | enum | `DURATION`, `SPECIFIC_TIME_USER_TIMEZONE`, or `SPECIFIC_TIME_CAMPAIGN_TIMEZONE`. |
+| `specific_time` | date-time | **Required** when `personalized_value` is `true`. |
+| `time_period` | string | **Required** when `timer_ends_at` is `SPECIFIC_TIME_USER_TIMEZONE` or `SPECIFIC_TIME_CAMPAIGN_TIMEZONE`. |
+| `personalized_value` | boolean | When `false`, the same duration applies to all users. |
+| `duration_hour` | string | The number of hours the timer runs. **Required** when `personalized_value` is `false`. |
+| `duration_minute` | string | The additional number of minutes the timer runs. **Required** when `personalized_value` is `false`. |
+
+### Android button fields
+
+Each entry in `buttons` is an `AndroidButton`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `btn_name` | string | The visible button label. |
+| `click_action_type` | enum | One of `DEEPLINKING`, `NAVIGATE_TO_A_SCREEN`, `RICH_LANDING`, `CALL`, `SHARE`, `COPY`, `SET_USER_ATTRIBUTE`, `TRACK_EVENT`, `CUSTOM_ACTION`, `SNOOZE`, `REMIND_LATER`. |
+| `click_action_name` | string | The named action for `SET_USER_ATTRIBUTE`, `TRACK_EVENT`, or `CUSTOM_ACTION`. |
+| `click_action_value` | string | The URL, deep link, attribute value, or event name (depending on `click_action_type`). |
+| `key_value_pairs` | array of `{ key, value }` | Per-button custom payload keys. |
+
+### Android advanced fields
+
+`AndroidAdvanced` collects platform-level delivery flags.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `coupon_code` | string | Coupon code carried in the payload. |
+| `icon_type_in_notification` | string | The icon type label. |
+| `use_large_icon` | boolean | Whether to use the large icon. |
+| `make_notification_sticky` | boolean | When `true`, the user cannot swipe the notification away. |
+| `dismiss_button_text` | string | **Required** when `make_notification_sticky` is `true` or `auto_dismiss_notification` is `true`. |
+| `auto_dismiss_notification` | boolean | Whether the notification can be auto-dismissed. |
+| `auto_dismiss_notification_time_value` | integer | **Required** when `auto_dismiss_notification` is `true`. |
+| `auto_dismiss_notification_time_granularity` | enum | `DAYS`, `HOURS`, or `MINUTES`. **Required** when `auto_dismiss_notification` is `true`. |
+| `group_key` | string | The group key for related notifications. MoEngage truncates to 45 characters and strips non-Latin scripts, special characters, and spaces. |
+| `collapse_replace_key` | string | The update key for notifications that replace each other. |
+
+### Android template backup fields
+
+`AndroidTemplateBackup` defines the fallback notification rendered when the template cannot be displayed (for example, on older Android versions). Required for `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`, `TIMER`, and `TIMER_WITH_PROGRESS_BAR`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `title` | string | Fallback title. |
+| `message` | string | Fallback body. |
+| `summary` | string | Fallback summary. |
+| `image_url` | URI | Fallback image. |
+| `default_click_action` | enum | `DEEPLINKING`, `NAVIGATE_TO_A_SCREEN`, or `RICH_LANDING`. |
+| `default_click_action_value` | string | Fallback click action target. |
+| `key_value_pairs` | array of `{ key, value }` | Per-fallback custom payload keys. |
+
+## iOS push content
+
+`campaign_content.content.push.ios`. Accepted `template_type` values for iOS:
+
+`BASIC`, `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `Custom`.
+
+<Warning>
+iOS does **not** support `IMAGE_BANNER_WITH_TEXT`, `TIMER`, or `TIMER_WITH_PROGRESS_BAR`. Submitting any of these for iOS fails validation.
+</Warning>
+
+| Sub-object | Schema | When used |
+| :--- | :--- | :--- |
+| `basic_details` | [iOS basic details fields](#ios-basic-details-fields) | Always. |
+| `buttons` | array of [iOS button fields](#ios-button-fields) | Optional. iOS button categories. |
+| `advanced` | [iOS advanced fields](#ios-advanced-fields) | Optional. Custom sound, badge, group key. |
+| `template_backup` | [iOS template backup fields](#ios-template-backup-fields) | **Required** for `STYLIZED_BASIC` and `SIMPLE_IMAGE_CAROUSEL`. |
+| `custom_template_id` | string | **Required** when `template_type` is `Custom`. |
+| `custom_template_version` | integer | Optional. |
+
+### iOS template variants
+
+<Tabs>
+<Tab title="BASIC">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "ios": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "New Message",
+            "message": "You have a new message waiting for you",
+            "subtitle": "Inbox update",
+            "default_click_action": "DEEPLINKING",
+            "default_click_action_value": "https://example.com/inbox"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Optional rich media: `rich_media_type` (`Image`, `Video`, or `GIF`, in title case) with `rich_media_value` (the URL). `input_gif_url` is supported on `BASIC` and `STYLIZED_BASIC`.
+
+</Tab>
+<Tab title="STYLIZED_BASIC">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "ios": {
+          "template_type": "STYLIZED_BASIC",
+          "basic_details": {
+            "title": "Welcome back",
+            "message": "Pick up where you left off.",
+            "background_color_code": "#a0a0a0",
+            "image_url": "https://example.com/welcome.jpg"
+          },
+          "template_backup": {
+            "title": "Welcome back",
+            "message": "Pick up where you left off."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`background_color_code` and `apply_background_color_in_text_editor` are supported on this template. `template_backup` is required.
+
+</Tab>
+<Tab title="SIMPLE_IMAGE_CAROUSEL">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "ios": {
+          "template_type": "SIMPLE_IMAGE_CAROUSEL",
+          "basic_details": {
+            "title": "New Arrivals",
+            "message": "Tap to swipe through.",
+            "image_url": "https://example.com/cover.jpg",
+            "carousel_content": {
+              "slider_transition": "AUTOMATIC",
+              "slide_data": [
+                { "image_url": "https://example.com/slide1.jpg", "image_click_action": "DEEPLINKING", "image_click_action_value": "https://example.com/p/1" },
+                { "image_url": "https://example.com/slide2.jpg", "image_click_action": "DEEPLINKING", "image_click_action_value": "https://example.com/p/2" }
+              ]
+            }
+          },
+          "template_backup": {
+            "title": "New Arrivals",
+            "message": "Tap to swipe through."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`image_url` is required on iOS for `SIMPLE_IMAGE_CAROUSEL` (it serves as the cover image before the carousel loads). `carousel_content.slider_transition` for iOS is uppercase (`MANUAL` or `AUTOMATIC`). `template_backup` is required.
+
+</Tab>
+<Tab title="Custom">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "ios": {
+          "template_type": "Custom",
+          "custom_template_id": "tmpl_xyz789",
+          "custom_template_version": 1
+        }
+      }
+    }
+  }
+}
+```
+
+`custom_template_id` is required.
+
+</Tab>
+</Tabs>
+
+### iOS basic details fields
+
+| Field | Type | Supported templates |
+| :--- | :--- | :--- |
+| `title` | string | All. |
+| `message` | string | All. |
+| `subtitle` | string | All. Rendered below the title. |
+| `default_click_action` | enum | All. `DEEPLINKING`, `NAVIGATE_TO_A_SCREEN`, or `RICH_LANDING`. |
+| `default_click_action_value` | string | All. |
+| `key_value_pairs` | array of `{ key, value }` | All. |
+| `allow_bg_refresh` | boolean | All. Whether the app can be woken in the background to refresh content. |
+| `rich_media_type` | enum | `BASIC`. `Image`, `Video`, or `GIF` (title case). |
+| `rich_media_value` | URI | `BASIC`. The media asset URL. |
+| `input_gif_url` | URI | `BASIC`, `STYLIZED_BASIC`. A GIF URL. |
+| `image_url` | URI | All. **Required** when `template_type` is `SIMPLE_IMAGE_CAROUSEL`. |
+| `background_color_code` | hex string | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`. |
+| `apply_background_color_in_text_editor` | boolean | `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`. |
+| `carousel_content` | object | **Required** for `SIMPLE_IMAGE_CAROUSEL`. See [iOS carousel content](#ios-carousel-content). |
+
+#### iOS carousel content
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `slider_transition` | enum | `MANUAL` or `AUTOMATIC` (uppercase, differs from Android). |
+| `slide_data[].image_url` | URI | The image for the slide. |
+| `slide_data[].image_click_action` | enum | `DEEPLINKING`, `RICH_LANDING`, or `NAVIGATE_TO_A_SCREEN`. |
+| `slide_data[].image_click_action_value` | string | The target for the slide click. |
+| `slide_data[].key_value_pairs` | array of `{ key, value }` | Per-slide custom payload keys. |
+
+### iOS button fields
+
+iOS buttons use a category-based model. Buttons are pre-defined in the app, and the campaign references the category by name.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `button_category` | string | The pre-defined category name configured in the app (for example, `MOE_PUSH_TEMPLATE`). |
+
+### iOS advanced fields
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `coupon_code` | string | Coupon code carried in the payload. |
+| `sound_file` | string | The name of a custom sound file in the app bundle. |
+| `enable_ios_badge` | boolean | Whether the campaign increments the app's badge count. |
+| `group_key` | string | The group key for related notifications. Truncated to 45 characters; non-Latin scripts, special characters, and spaces are stripped. |
+| `collapse_replace_key` | string | The update key for notifications that replace each other. |
+
+### iOS template backup fields
+
+Required for `STYLIZED_BASIC` and `SIMPLE_IMAGE_CAROUSEL`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `title` | string | Fallback title. |
+| `message` | string | Fallback body. |
+| `subtitle` | string | Fallback subtitle. |
+| `allow_bg_refresh` | boolean | Whether to enable background app refresh for the fallback. |
+| `rich_media_type` | enum | `Image`, `Video`, or `GIF`. |
+| `rich_media_value` | URI | The media URL. |
+| `default_click_action` | enum | `DEEPLINKING`, `NAVIGATE_TO_A_SCREEN`, or `RICH_LANDING`. |
+| `default_click_action_value` | string | The click target. |
+| `key_value_pairs` | array of `{ key, value }` | Per-fallback custom payload keys. |
+
+## Web push content
+
+`campaign_content.content.push.web`. Web push currently supports only `template_type: BASIC`.
+
+<CodeGroup>
+
+```json Component only
+{
+  "campaign_content": {
+    "content": {
+      "push": {
+        "web": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "Special Offer",
+            "message": "Check out our latest deals!",
+            "redirect_url": "https://example.com/offers",
+            "image_url": "https://example.com/hero.jpg",
+            "auto_dismiss_notification": false
+          },
+          "buttons": [
+            { "title": "View Offer", "url": "https://example.com/offers", "icon_url": "https://example.com/icons/offer.png" }
+          ],
+          "advanced": {
+            "icon_image_type": "ICON_URL",
+            "icon_url": "https://example.com/icon.png"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```json Create request body (ONE_TIME)
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "ONE_TIME",
+  "created_by": "{{user_email}}",
+  "basic_details": {
+    "name": "{{campaign_name}}",
+    "platforms": ["WEB"]
+  },
+  "campaign_content": {
+    "content": {
+      "push": {
+        "web": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "{{title}}",
+            "message": "{{message}}",
+            "redirect_url": "{{redirect_url}}",
+            "image_url": "{{image_url}}"
+          },
+          "buttons": [
+            { "title": "{{button_label}}", "url": "{{button_url}}" }
+          ]
+        }
+      }
+    }
+  },
+  "scheduling_details": { "delivery_type": "ASAP" }
+}
+```
+
+</CodeGroup>
+
+### Web basic details fields
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `title` | string | The notification title. |
+| `message` | string | The notification body. |
+| `redirect_url` | URI | The URL opened on click of the notification body. |
+| `image_url` | URI | Optional large image. |
+| `auto_dismiss_notification` | boolean | Whether the notification auto-dismisses. |
+
+### Web button fields
+
+Each entry in `buttons` is a `WebButton`.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `title` | string | The button label. |
+| `icon_url` | URI | Optional icon displayed next to the label. |
+| `url` | URI | The destination opened on click of the button. |
+
+### Web advanced fields
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `icon_image_type` | enum | `DEFAULT` or `ICON_URL`. |
+| `icon_url` | URI | The custom icon URL. Required when `icon_image_type` is `ICON_URL`. |
+
+## Email content
+
+`campaign_content.content.email` carries the email message. Two mutually compatible content sources are supported: raw HTML in `html_content`, or a saved template referenced by `custom_template_id`. At least one of these must be present.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `subject` | string | The subject line. |
+| `preview_text` | string | The preview text shown in inbox listings. |
+| `sender_name` | string | The display name of the sender. |
+| `from_address` | email | The sender email address. |
+| `reply_to_address` | email | The reply-to address. |
+| `cc_ids` | array of email | CC recipients. |
+| `bcc_ids` | array of email | BCC recipients. |
+| `html_content` | string | The raw HTML body. Optional when `custom_template_id` is provided. |
+| `email_editor` | enum | `Froala Editor` or `Ace Editor`. Required when the campaign uses `Ace Editor`. |
+| `custom_template_id` | string | A saved email template ID. When provided, `subject`, `preview_text`, and `sender_name` are not required. |
+| `custom_template_version` | integer | Optional template version. |
+| `attachments` | array of `{ file_type, url }` | See [Email attachments](#email-attachments). |
+
+### Email content variants
+
+<Tabs>
+<Tab title="HTML content">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Welcome to our store",
+        "sender_name": "Example Team",
+        "preview_text": "Get started in seconds",
+        "from_address": "hello@example.com",
+        "reply_to_address": "support@example.com",
+        "html_content": "<!DOCTYPE html><html><body><p>Hello {{UserAttribute['First Name']}}</p></body></html>"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="Saved template">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "custom_template_id": "email_tmpl_42",
+        "custom_template_version": 3
+      }
+    }
+  }
+}
+```
+
+When `custom_template_id` is provided, `subject`, `preview_text`, and `sender_name` do not need to be repeated. The values are sourced from the saved template.
+
+</Tab>
+<Tab title="Ace Editor">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Release notes",
+        "from_address": "notify@example.com",
+        "html_content": "<html>...</html>",
+        "email_editor": "Ace Editor"
+      }
+    }
+  }
+}
+```
+
+`email_editor: Ace Editor` is required when the campaign is composed using `Ace Editor`. The default `Froala Editor` does not require this field.
+
+</Tab>
+<Tab title="CC and BCC">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Order confirmation",
+        "from_address": "orders@example.com",
+        "html_content": "<p>Your order is confirmed.</p>",
+        "cc_ids": ["records@example.com"],
+        "bcc_ids": ["audit@example.com"]
+      }
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+### Email attachments
+
+Each entry in `attachments` is `{ file_type, url }`.
+
+| `file_type` | Behavior |
+| :--- | :--- |
+| `URL` | A static file hosted at a fixed URL. Every recipient receives the same file. |
+| `PERSONALIZED_ATTACHMENT` | A personalized file generated per recipient via a URL that includes personalization expressions. |
+
+<CodeGroup>
+
+```json URL attachment
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Latest brochure",
+        "from_address": "marketing@example.com",
+        "html_content": "<p>See the attached brochure.</p>",
+        "attachments": [
+          { "file_type": "URL", "url": "https://example.com/brochure.pdf" }
+        ]
+      }
+    }
+  }
+}
+```
+
+```json Personalized attachment
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your invoice",
+        "from_address": "billing@example.com",
+        "html_content": "<p>Your invoice is attached.</p>",
+        "attachments": [
+          { "file_type": "PERSONALIZED_ATTACHMENT", "url": "https://example.com/invoices/{{UserAttribute['User ID']}}.pdf" }
+        ]
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+## A/B test variations
+
+`campaign_content.variation_details` configures A/B testing.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `distribution_type` | enum | `MANUAL` or `SHERPA`. |
+| `no_of_variations` | integer (≥ 1) | The number of variations. |
+| `manual_distribution_percentage` | object | A map of variation name to integer percentage. Values must be positive integers that sum to 100. **Required** when `distribution_type` is `MANUAL`. |
+| `sherpa_campaign_duration` | integer (hours) | The window over which Sherpa collects performance data before declaring a winning variation. **Required** when `distribution_type` is `SHERPA`. |
+| `sherpa_distribution_metric` | enum | `OPEN RATE`, `CLICK RATE`, or `BOTH`. **Required** when `distribution_type` is `SHERPA`. |
+
+When `variation_details` is set, `campaign_content.content` must use the locale-keyed and variation-keyed shape. See [Content payload structure](#content-payload-structure).
+
+<Tabs>
+<Tab title="MANUAL (50/50)">
+
+```json
+{
+  "campaign_content": {
+    "variation_details": {
+      "distribution_type": "MANUAL",
+      "no_of_variations": 2,
+      "manual_distribution_percentage": {
+        "variation_1": 50,
+        "variation_2": 50
+      }
+    },
+    "content": {
+      "default": {
+        "variation_1": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Variant A", "message": "Try us today" } } } },
+        "variation_2": { "push": { "android": { "template_type": "BASIC", "basic_details": { "title": "Variant B", "message": "Save 20% today" } } } }
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="SHERPA (auto-optimized)">
+
+```json
+{
+  "campaign_content": {
+    "variation_details": {
+      "distribution_type": "SHERPA",
+      "no_of_variations": 2,
+      "sherpa_campaign_duration": 24,
+      "sherpa_distribution_metric": "OPEN RATE"
+    },
+    "content": {
+      "default": {
+        "variation_1": { "email": { "subject": "Variant A", "html_content": "<p>Try us today</p>" } },
+        "variation_2": { "email": { "subject": "Variant B", "html_content": "<p>Save 20% today</p>" } }
+      }
+    }
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## Email delivery connector
+
+The `connector` object is part of the Email request body (not the Email `campaign_content`) and identifies the delivery provider configured in the workspace.
+
+<Note>
+`connector` is **required** on Email Create requests and Email inline test requests. It is not part of the Push request body.
+</Note>
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `connector_type` | string | The connector service (for example, `SENDGRID`, `AWS SES`). |
+| `connector_name` | string | The connector configuration name in the MoEngage workspace. |
+
+```json
+{
+  "connector": {
+    "connector_type": "SENDGRID",
+    "connector_name": "Sendgrid1"
+  }
+}
+```
+
+## Validation rules
+
+The following rules span multiple sub-objects on this page. Each is enforced at validate or publish time.
+
+| Rule | Source |
+| :--- | :--- |
+| For Push `template_type: Custom`, `custom_template_id` is required (Android, iOS). | `AndroidPushContent.custom_template_id`, `IOSPushContent.custom_template_id` |
+| iOS supports only `BASIC`, `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, and `Custom`. Submitting `IMAGE_BANNER_WITH_TEXT`, `TIMER`, or `TIMER_WITH_PROGRESS_BAR` for iOS fails. | `IOSPushContent.template_type` enum |
+| Web push supports only `BASIC`. | `WebPushContent.template_type` enum |
+| For Android `STYLIZED_BASIC`, `SIMPLE_IMAGE_CAROUSEL`, `IMAGE_BANNER_WITH_TEXT`, `TIMER`, and `TIMER_WITH_PROGRESS_BAR`, `template_backup` is required. | `AndroidTemplateBackup` description |
+| For iOS `STYLIZED_BASIC` and `SIMPLE_IMAGE_CAROUSEL`, `template_backup` is required. | `IOSTemplateBackup` description |
+| For Android `IMAGE_BANNER_WITH_TEXT`, `banner_image_url` is required. | `AndroidBasicDetails.banner_image_url` |
+| For iOS `SIMPLE_IMAGE_CAROUSEL`, `image_url` is required (used as the cover image before the carousel loads). | `IOSBasicDetails.image_url` |
+| For Android `TIMER` and `TIMER_WITH_PROGRESS_BAR`, `timer` is required. When `personalized_value` is `false`, both `duration_hour` and `duration_minute` are required. When `personalized_value` is `true`, `specific_time` is required. | `AndroidTimer.duration_hour`, `AndroidTimer.duration_minute`, `AndroidTimer.specific_time` |
+| For Android `STYLIZED_BASIC` and `SIMPLE_IMAGE_CAROUSEL`, the slider transition is **lowercase** (`manual` or `automatic`). For iOS `SIMPLE_IMAGE_CAROUSEL`, the slider transition is **uppercase** (`MANUAL` or `AUTOMATIC`). Mismatched casing fails validation. | `CarouselContent.slider_transition`, `IOSCarouselContent.slider_transition` |
+| For Android, when `make_notification_sticky` is `true` or `auto_dismiss_notification` is `true`, `dismiss_button_text` is required. When `auto_dismiss_notification` is `true`, `auto_dismiss_notification_time_value` and `auto_dismiss_notification_time_granularity` are also required. | `AndroidAdvanced.dismiss_button_text` |
+| For iOS, exactly one of `send_to_all_eligible_device`, `exclude_provisional_push_devices`, or `send_to_only_provisional_push_enabled_devices` must be `true` inside `basic_details.platform_specific_details.ios`. | `PlatformSpecificDetails.ios` description |
+| For Email `content_type: PROMOTIONAL`, `subscription_category` is required. | `EmailBasicDetailsV5.subscription_category` |
+| For Email, `html_content` is optional when `custom_template_id` is provided. When `custom_template_id` is provided, `subject`, `preview_text`, and `sender_name` are not required. | `EmailContent.html_content`, `EmailContent.custom_template_id` |
+| For an A/B test with `distribution_type: MANUAL`, `manual_distribution_percentage` values must sum to 100. For `SHERPA`, `sherpa_campaign_duration` and `sherpa_distribution_metric` are both required. | `VariationDetails` description |
+| For multi-locale or multi-variation campaigns, the `"default"` locale key is always required and serves as the fallback. Additional locale keys must match values listed in `campaign_content.locales`. | `PushCampaignContent.content`, `EmailCampaignContent.content` |
+| `connector` is required on Email Create requests and Email inline test requests. | `Connector` description |
+| `BROADCAST_LIVE_ACTIVITY` is **not** supported through draft creation. The V1 Campaigns API is used to send a Live Activity broadcast. | `PushCampaignCreateV5Request.campaign_delivery_type` description |
+| `business_event` (inside `basic_details`) is required when `campaign_delivery_type` is `BUSINESS_EVENT_TRIGGERED`. | `PushBasicDetailsV5.business_event`, `EmailBasicDetailsV5.business_event` |
+| `geofences` (inside `basic_details`) is required when `campaign_delivery_type` is `LOCATION_TRIGGERED`. The full schema is at [Geofence targeting](/api/campaigns/audience-scheduling-delivery-reference#geofence-targeting). | `Geofences` description |
+
+## Updating an existing campaign
+
+`PATCH /v5/campaigns/{campaign_id}` reuses every schema on this page. Additional rules apply for updates.
+
+- When a field inside a nested object is updated, the **complete parent object** must be included in the request. For example, to change only the title of an Android push, the full `campaign_content.content.push.android` block is included.
+- The Update request body includes `updated_by` (the editing user's email, for audit purposes). When omitted, the update is attributed to the authenticated API credential.
+- For campaigns in `ACTIVE` state, the following fields **cannot** be edited: `trigger_condition`, `segmentation_details`, `conversion_goal_details`, the scheduling type, and the scheduling start date. `campaign_content` and `basic_details.platforms` **can** be edited. The full per-state matrix is at [Update Campaign](/api/update-campaigns/update-campaign-v5).
+- Updates to `campaign_content` on event-triggered campaigns can take up to 30 minutes to propagate due to content caching.
+- The Update Push schema accepts `BROADCAST_LIVE_ACTIVITY` as a `campaign_delivery_type` value, but draft creation does not. A draft cannot be transitioned to a Live Activity campaign through V5.
+
+<Tabs>
+<Tab title="campaign_content (Push)">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "campaign_content": {
+    "content": {
+      "push": {
+        "android": {
+          "template_type": "BASIC",
+          "basic_details": {
+            "title": "{{notification_title}}",
+            "message": "{{notification_message}}"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="campaign_content (Email)">
+
+```json
+{
+  "channel": "EMAIL",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "{{email_subject}}",
+        "sender_name": "{{sender_name}}",
+        "from_address": "{{from_email}}",
+        "html_content": "{{html_body}}"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="platform_specific_details">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "basic_details": {
+    "platform_specific_details": {
+      "android": {
+        "push_amp_plus_enabled": true
+      },
+      "ios": {
+        "send_to_all_eligible_device": true
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab title="control_group_details (Push)">
+
+```json
+{
+  "channel": "PUSH",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "control_group_details": {
+    "is_campaign_control_group_enabled": true,
+    "campaign_control_group_percentage": 10
+  }
+}
+```
+
+</Tab>
+<Tab title="control_group_details (Email)">
+
+```json
+{
+  "channel": "EMAIL",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "control_group_details": {
+    "is_campaign_control_group_enabled": true,
+    "campaign_control_group_percentage": 10
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## See also
+
+- [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference) — `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls`, `conversion_goal_details`, `control_group_details`, `utm_params`, `campaign_audience_limit`, `advanced`, and `geofences`.
+- [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) — required fields, happy-path cURLs, error responses.
+- [Update Campaign](/api/update-campaigns/update-campaign-v5) — per-state edit restrictions, publish action.
+- [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5) — `STOP`, `PAUSE`, `RESUME` transitions.
+- [Validate Campaign](/api/create-campaigns/validate-campaign-v5) — pre-publish validation check.
+- [Campaign drafts overview](/api/campaigns/campaign-draft-overview) — lifecycle, channels, supported delivery types.
