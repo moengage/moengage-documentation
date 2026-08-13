@@ -1,0 +1,216 @@
+---
+title: "JWT Authentication"
+description: "Secure your MoEngage data collection by implementing JWT authentication in your Flutter application."
+keywords: "JWT, JSON Web Token, SDK authentication, passAuthenticationDetails, setAuthenticationErrorCallbackHandler, Flutter"
+---
+
+## Overview
+
+JWT (JSON Web Token) authentication is a standard method for securely verifying user identity. By implementing JWT authentication, you add a critical layer of security to your data collection process with MoEngage.
+
+The feature ensures that the data sent on behalf of your identified users is authentic and has not been tampered with. This security is achieved by requiring a token that is cryptographically signed by your own server, which prevents unauthorized users from impersonating your legitimate users.
+
+<Note>
+  **Prerequisites**
+
+  Before you begin the implementation, ensure you meet the following requirements:
+
+  - Your application must use the MoEngage Flutter Core plugin version **_[VERSION]_** or higher to access the JWT authentication feature.
+  - You must have access to your MoEngage dashboard to manage public keys and configure the feature's enforcement settings. For detailed information on enforcement settings, [refer here](/user-guide/settings/account/security/sdk-authentication#step-2-select-an-enforcement-mode).
+</Note>
+
+The following diagram illustrates the interaction between your application, your server, the MoEngage SDK, and the MoEngage server:
+
+![Flow diagram showing the application requesting a JWT from your server, passing it to the MoEngage SDK, and the SDK sending authenticated requests to the MoEngage server](/images/jwt1.jpeg)
+
+## Integration
+
+Perform the following to integrate JWT authentication into your Flutter application.
+
+### Step 1: Enable JWT Authentication
+
+Enable JWT authentication during native SDK initialization on each platform.
+
+#### Android
+
+Configure the **_NetworkAuthorizationConfig_** property on the **_MoEngage.Builder_** object. For more information, refer to [Android SDK Initialization](/developer-guide/flutter-sdk/sdk-integration/sdk-initialization/manual-initialization/android-sdk-initialization).
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import com.moengage.flutter.MoEInitializer
+
+val moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(NetworkRequestConfig(NetworkAuthorizationConfig(isJwtEnabled = true)))
+MoEInitializer.initialiseDefaultInstance(context = this, builder = moEngage)
+```
+
+
+```java Java wrap
+import com.moengage.flutter.MoEInitializer;
+
+MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)));
+MoEInitializer.initialiseDefaultInstance(this, moEngage);
+```
+
+</CodeGroup>
+
+#### iOS
+
+Configure the **_networkConfig_** property on the **_MoEngageSDKConfig_** object. For more information, refer to [iOS SDK Initialization](/developer-guide/flutter-sdk/sdk-integration/sdk-initialization/manual-initialization/ios-sdk-initialization).
+
+<CodeGroup>
+
+```swift Swift wrap
+let sdkConfig = MoEngageSDKConfig(withAppID: "YOUR_WORKSPACE_ID", dataCenter: .YOUR_DATA_CENTER)
+sdkConfig.networkConfig = MoEngageNetworkRequestConfig(authorizationConfig: MoEngageNetworkAuthorizationConfig(isJwtEnabled: true))
+MoEngageInitializer.sharedInstance.initializeDefaultInstance(sdkConfig, launchOptions: launchOptions)
+```
+
+
+```objectivec Objective-C wrap
+MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppID:@"YOUR_WORKSPACE_ID" dataCenter:YOUR_DATA_CENTER];
+sdkConfig.networkConfig = [[MoEngageNetworkRequestConfig alloc] initWithAuthorizationConfig:[[MoEngageNetworkAuthorizationConfig alloc] initWithIsJwtEnabled:YES]];
+[[MoEngageInitializer sharedInstance] initializeDefaultInstance:sdkConfig launchOptions:launchOptions];
+```
+
+</CodeGroup>
+
+### Step 2: Pass the JWT to the SDK
+
+Your application is responsible for managing the JWT lifecycle. The recommended flow is to fetch a token when the user logs in and pass the token to the SDK. You should also check whether the token has expired on subsequent app launches and fetch a new one if necessary.
+
+Use the **_passAuthenticationDetails()_** method on the **_MoEngageFlutter_** object to provide the token to the SDK.
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+
+_moengagePlugin.passAuthenticationDetails(
+  AuthenticationDetailsRequest(
+    authenticationType: AuthenticationType.jwt,
+    data: JwtAuthenticationData(
+      token: 'YOUR_JWT_TOKEN',
+      userIdentifier: 'USER_IDENTIFIER',
+    ),
+  ),
+);
+```
+
+For detailed information, refer to [Classes and Enums](#classes-and-enums).
+
+### Step 3: Register the Callback Handler and Handle Authentication Errors
+
+The SDK delivers token validation errors returned by the MoEngage server through a callback. Register a handler using **_setAuthenticationErrorCallbackHandler()_** so your application can fetch and provide a new token when authentication fails. This method takes a function whose `typedef` is `AuthenticationErrorCallbackHandler(AuthenticationErrorData data)`.
+
+Register the handler in a global scope, such as the `initState()` of your root widget, so your application always receives callbacks.
+
+```dart Dart wrap
+import 'package:moengage_flutter/moengage_flutter.dart';
+
+final MoEngageFlutter _moengagePlugin = MoEngageFlutter(YOUR_WORKSPACE_ID);
+
+_moengagePlugin.setAuthenticationErrorCallbackHandler(_onAuthenticationError);
+
+void _onAuthenticationError(AuthenticationErrorData data) {
+  if (data.authenticationType == AuthenticationType.jwt) {
+    final JwtAuthenticationErrorData errorData =
+        data.data as JwtAuthenticationErrorData;
+    final JwtErrorCode jwtError = errorData.code;
+    final String message = errorData.message;
+    // Take appropriate action based on jwtError.
+    // For example, fetch a new token and call passAuthenticationDetails() again.
+  }
+}
+```
+
+To stop receiving the callback, pass `null` to the same method.
+
+```dart Dart wrap
+_moengagePlugin.setAuthenticationErrorCallbackHandler(null);
+```
+
+For detailed information, refer to [Classes and Enums](#classes-and-enums).
+
+## Classes and Enums
+
+The following classes and enums define the data structures used by the JWT authentication methods described in this guide. Use them when constructing your token payload and handling errors.
+
+```dart Dart wrap
+// Payload accepted by passAuthenticationDetails().
+class AuthenticationDetailsRequest {
+  AuthenticationDetailsRequest({
+    required this.authenticationType,
+    required this.data,
+  });
+
+  AuthenticationType authenticationType;
+  AuthenticationDetails data; // For JWT, use JwtAuthenticationData.
+}
+
+// Authentication scheme used to authenticate the SDK's network requests.
+enum AuthenticationType { jwt }
+
+// JWT specific authentication payload.
+final class JwtAuthenticationData extends AuthenticationDetails {
+  JwtAuthenticationData({
+    required this.token,
+    required this.userIdentifier,
+  });
+
+  String token;
+  String userIdentifier;
+}
+
+// Payload delivered to AuthenticationErrorCallbackHandler.
+class AuthenticationErrorData {
+  AuthenticationErrorData({
+    required this.platform,
+    required this.accountMeta,
+    required this.authenticationType,
+    required this.data,
+  });
+
+  Platforms platform;
+  AccountMeta accountMeta;
+  AuthenticationType authenticationType;
+  AuthenticationErrorDetails data; // For JWT, use JwtAuthenticationErrorData.
+}
+
+// JWT specific error details.
+final class JwtAuthenticationErrorData extends AuthenticationErrorDetails {
+  JwtAuthenticationErrorData({
+    required this.code,
+    required this.token,
+    required this.userIdentifier,
+    required this.message,
+  });
+
+  JwtErrorCode code;
+  String token;
+  String userIdentifier;
+  String message;
+}
+
+// Reason the JWT authentication failed.
+enum JwtErrorCode {
+  timeConstraintFailure,
+  decryptionFailed,
+  headerTypeIncompatible,
+  payloadContentMissing,
+  invalidSignature,
+  identifierMismatch,
+  unknown,
+  tokenNotAvailable,
+}
+```
+
+<Info>
+  **Information**
+
+  - If an API request fails due to an authentication error, the SDK will not retry the request until your application provides a new token.
+  - After 10 consecutive authentication failures in a single session, the SDK will stop attempting to sync data until the next session begins. This counter resets after any successful sync.
+  - Upon user logout, if a data sync fails due to a JWT error, the pending data will be deleted, and no retry will be attempted.
+</Info>
