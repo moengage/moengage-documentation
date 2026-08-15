@@ -497,6 +497,303 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /v5/flows/{flow_id}/analytics:
+    get:
+      operationId: getFlowAnalytics
+      summary: Get Flow Analytics
+      description: |
+        This API returns how a flow is performing: the user journeys started, completed, in progress,
+        and dropped, along with exit and drop reasons, split stage results, and conversion goal
+        performance. Requires the `campaigns:view` permission.
+      x-mint:
+        content: |
+          The date filter is based on activity, not entry. A user journey is included when any activity
+          happened within the window, such as moving through a stage, receiving a campaign, converting,
+          or exiting.
+
+          #### Rate Limits
+
+          The rate limits are at the workspace level. A maximum of 10,000 requests per minute is allowed, shared across all Flow Analytics endpoints rather than applied to each endpoint.
+      tags:
+        - Flow Analytics
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FlowId'
+        - $ref: '#/components/parameters/XMoeTenantId'
+        - $ref: '#/components/parameters/XMoeScopes'
+        - $ref: '#/components/parameters/Granularity'
+        - $ref: '#/components/parameters/ActivityAfter'
+        - $ref: '#/components/parameters/ActivityBefore'
+        - $ref: '#/components/parameters/VersionName'
+        - $ref: '#/components/parameters/AttributionType'
+        - $ref: '#/components/parameters/MetricType'
+        - name: fields
+          in: query
+          required: false
+          description: >
+            Comma-separated list of top-level `data` fields to include. When omitted, all
+            fields are returned.
+          schema:
+            type: string
+            example: "summary,drop_stats"
+            enum:
+              - summary
+              - drop_stats
+              - split_stage_stats
+              - business_trigger_stats
+        - $ref: '#/components/parameters/XMoeRequestIdHeader'
+      responses:
+        '200':
+          description: Flow analytics returned successfully.
+          headers:
+            X-MOE-Request-Id:
+              $ref: '#/components/headers/XMoeRequestIdEchoed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlowAnalyticsResponse'
+              example:
+                response_id: "resp_a1b2c3d4"
+                type: "flow_analytics"
+                data:
+                  flow_id: "69f1de84f9e401a2d7d9a931"
+                  version_name: "Version 2"
+                  summary:
+                    - timestamp: 1706745600
+                      trip_stats:
+                        trips_started: 12400
+                        trips_completed: 8900
+                        trips_in_progress: 1200
+                        trips_dropped: 2300
+                      conversion_goal_stats:
+                        goal_001:
+                          is_primary_goal: true
+                          view_through:
+                            total: 1200
+                            unique: 980
+                            cvr: 0.079
+                            revenue: 45000.0
+                          click_through:
+                            total: 890
+                            unique: 720
+                            cvr: 0.058
+                            revenue: 32000.0
+                  drop_stats:
+                    - timestamp: 1706745600
+                      exits:
+                        conversions:
+                          UD_ER_1:
+                            count: 800
+                            description: "Exit Condition 1"
+                        exit_reasons:
+                          UD_ER_2:
+                            count: 410
+                            description: "Exit Condition 2"
+                      drops:
+                        drop_reasons:
+                          UD_DR_EX:
+                            count: 120
+                            description: "Exceptions"
+                          UD_DR_FC_DND:
+                            count: 380
+                            description: "FC/DND"
+                          UD_DR_IF:
+                            count: 45
+                            description: "Inactive flow"
+                          UD_DR_WTE:
+                            count: 90
+                            description: "Wait till expired"
+                  split_stage_stats:
+                    ab_split_stages:
+                      - stage_id: "sdmimd"
+                        stage_name: "My Custom Split Name"
+                        branches:
+                          - branch_id: "br7f3a9c"
+                            branch_name: "Control"
+                            entered: 6200
+                            converted: 980
+                          - branch_id: "br2e8d1f"
+                            branch_name: "Test"
+                            entered: 6200
+                            converted: 750
+                    ipo_stages:
+                      - stage_id: "ipoabc"
+                        stage_name: "Intelligent Path Optimizer 1"
+                        branches:
+                          - branch_id: "ipo9c4a2"
+                            branch_name: "Branch A"
+                            entered: 4100
+                            converted: 610
+                  business_trigger_stats: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v5/flows/{flow_id}/analytics/channels/{channel}:
+    get:
+      operationId: getFlowChannelAnalytics
+      summary: Get Flow Channel Analytics
+      description: |
+        This API returns the analytics for one channel in a flow: delivery and performance stats
+        aggregated across that channel's campaigns, and a breakdown for each action node that uses
+        the channel. Requires the `campaigns:view` permission.
+      x-mint:
+        content: |
+          When `granularity` is `overall`, `aggregated_stats` holds a single entry with no `timestamp`,
+          and each `campaign_stats[].performance` is a single object. For a time-based granularity such
+          as `daily`, `aggregated_stats` holds one entry per period, each with a `timestamp`, and each
+          `campaign_stats[].performance` is an array of per-period objects.
+
+          #### Rate Limits
+
+          The rate limits are at the workspace level. A maximum of 10,000 requests per minute is allowed, shared across all Flow Analytics endpoints rather than applied to each endpoint.
+      tags:
+        - Flow Analytics
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FlowId'
+        - $ref: '#/components/parameters/XMoeTenantId'
+        - $ref: '#/components/parameters/XMoeScopes'
+        - $ref: '#/components/parameters/Granularity'
+        - name: channel
+          in: path
+          required: true
+          description: |
+            The channel to scope the analytics to. The value is case-insensitive, so `email`,
+            `Email`, and `EMAIL` all work, and the response always echoes the channel back in
+            lowercase. Use `ON_SITE` with the underscore for the on-site channel; `ONSITE`
+            returns the error code `CHANNEL_NOT_SUPPORTED`.
+          schema:
+            $ref: '#/components/schemas/ChannelEnum'
+        - $ref: '#/components/parameters/ActivityAfter'
+        - $ref: '#/components/parameters/ActivityBefore'
+        - $ref: '#/components/parameters/VersionName'
+        - $ref: '#/components/parameters/AttributionType'
+        - $ref: '#/components/parameters/MetricType'
+        - name: fields
+          in: query
+          required: false
+          description: >
+            Comma-separated list of top-level `data` fields to include. When omitted, all
+            fields are returned.
+          schema:
+            type: string
+            example: "aggregated_stats,campaign_stats"
+            enum:
+              - aggregated_stats
+              - campaign_stats
+        - $ref: '#/components/parameters/XMoeRequestIdHeader'
+      responses:
+        '200':
+          description: Channel analytics returned successfully.
+          headers:
+            X-MOE-Request-Id:
+              $ref: '#/components/headers/XMoeRequestIdEchoed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlowChannelAnalyticsResponse'
+              example:
+                response_id: "resp_b2c3d4e5"
+                type: "flow_channel_analytics"
+                data:
+                  flow_id: "69f1de84f9e401a2d7d9a931"
+                  channel: "EMAIL"
+                  version_name: "Version 2"
+                  aggregated_stats:
+                    performance:
+                      group_level_stats:
+                        sent: 48200
+                        delivered: 45900
+                        opened: 12300
+                        clicked: 3800
+                        conversions: 980
+                        cvr: 0.021
+                      conversion_goal_stats: {}
+                    delivery:
+                      group_level_stats:
+                        delivery_funnel:
+                          unique_users_in_segment:
+                            count: 48200
+                            description: "Reachable users in segment"
+                          valid_tokens:
+                            count: 48200
+                            description: "Users with Email"
+                          success:
+                            count: 45900
+                            description: "Successfully Sent"
+                        delivery_failure_breakdown: {}
+                  campaign_stats:
+                    - action_id: "a3f9c2e1"
+                      campaign_id: 69f1de84f9e401a2d7d9a999
+                      stage_name: "Welcome Email"
+                      performance:
+                        group_level_stats:
+                          sent: 26000
+                          delivered: 24800
+                          opened: 7200
+                          clicked: 2300
+                          conversions: 620
+                          cvr: 0.024
+                        conversion_goal_stats: {}
+                      delivery:
+                        group_level_stats:
+                          delivery_funnel:
+                            unique_users_in_segment:
+                              count: 26000
+                              description: "Reachable users in segment"
+                            valid_tokens:
+                              count: 26000
+                              description: "Users with Email"
+                            success:
+                              count: 24800
+                              description: "Successfully Sent"
+                          delivery_failure_breakdown: {}
+                    - action_id: "b7d4e9f2"
+                      campaign_id: 7a02ef95f9e401a2d7d9aa42
+                      stage_name: "Day 3 Nudge"
+                      performance:
+                        group_level_stats:
+                          sent: 22200
+                          delivered: 21100
+                          opened: 5100
+                          clicked: 1500
+                          conversions: 360
+                          cvr: 0.017
+                        conversion_goal_stats: {}
+                      delivery:
+                        group_level_stats:
+                          delivery_funnel:
+                            unique_users_in_segment:
+                              count: 22200
+                              description: "Reachable users in segment"
+                            valid_tokens:
+                              count: 22200
+                              description: "Users with Email"
+                            success:
+                              count: 21100
+                              description: "Successfully Sent"
+                          delivery_failure_breakdown: {}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     basicAuth:
@@ -560,6 +857,100 @@ components:
           - "All Versions"
         example: "Version 2"
 
+    XMoeTenantId:
+      name: X-MOE-Tenant-ID
+      in: header
+      required: true
+      description: >
+        Identifies the workspace making the request. The analytics endpoints read this header
+        directly and do not resolve the workspace from the Basic Auth credentials, so you must
+        send it. Omitting it returns a `401` with the code `MISSING_TENANT_ID`, and a value that
+        cannot be resolved returns a `401` with the code `INVALID_TENANT_ID`.
+      schema:
+        type: string
+
+    XMoeScopes:
+      name: X-MOE-SCOPES
+      in: header
+      required: true
+      description: Comma-separated list of the scopes authorized for this request.
+      schema:
+        type: string
+    Granularity:
+      name: granularity
+      in: query
+      required: false
+      description: |
+        The time granularity of the response.
+
+        - `overall` (default) returns a single entry covering the whole date range, and each
+          entry omits `timestamp`.
+        - `daily`, `weekly`, and `monthly` return one entry per period, and each entry includes
+          a `timestamp` in Unix epoch seconds (UTC).
+
+        The server also accepts `hourly`, `half_hourly`, and `bts_hourly`, but these are not
+        recommended for this API and can return empty data.
+      schema:
+        type: string
+        enum:
+          - overall
+          - daily
+          - weekly
+          - monthly
+          - hourly
+          - half_hourly
+          - bts_hourly
+        default: overall
+
+    ActivityAfter:
+      name: activity_after
+      in: query
+      required: false
+      description: |
+        The start of the activity window, as an ISO 8601 datetime in UTC. When you omit it,
+        MoEngage uses the flow's creation date normalized to midnight UTC, or 90 days before
+        `activity_before`, whichever is more recent. The window between `activity_after` and
+        `activity_before` cannot exceed 90 days.
+      schema:
+        type: string
+        format: date-time
+        example: "2024-01-01T00:00:00Z"
+    ActivityBefore:
+      name: activity_before
+      in: query
+      required: false
+      description: |
+        The end of the activity window, as an ISO 8601 datetime in UTC. It must be the same as or
+        later than `activity_after`. When you omit it, MoEngage uses the current time. When you
+        send `activity_after`, MoEngage instead uses whichever is earlier: `activity_after` plus
+        90 days, or the current time, so the window never exceeds 90 days.
+      schema:
+        type: string
+        format: date-time
+        example: "2024-03-31T23:59:59Z"
+    AttributionType:
+      name: attribution_type
+      in: query
+      required: true
+      description: Attribution model to use for conversion metrics.
+      schema:
+        type: string
+        enum:
+          - VIEW_THROUGH
+          - CLICK_THROUGH
+          - IN_SESSION
+          - TOTAL_CONVERSIONS
+          - CLICK_CONVERSIONS
+    MetricType:
+      name: metric_type
+      in: query
+      required: true
+      description: Whether to return total or unique counts.
+      schema:
+        type: string
+        enum:
+          - TOTAL
+          - UNIQUE
   schemas:
     FlowStatusEnum:
       type: string
@@ -1045,6 +1436,336 @@ components:
                     type: string
                     description: An explanation of why the field failed the check.
 
+    ChannelEnum:
+      type: string
+      description: Channel type.
+      enum:
+        - EMAIL
+        - SMS
+        - PUSH
+        - WHATSAPP
+        - IN_APP
+        - ONSITE
+        - CONNECTOR
+        - CARDS
+        - FB_AUDIENCE
+        - GOOGLE_ADS
+        - CONNECTED_APPS
+    FlowAnalyticsResponse:
+      type: object
+      required: [response_id, type, data]
+      properties:
+        response_id:
+          type: string
+          description: Unique ID for this response.
+          example: "resp_a1b2c3d4"
+        type:
+          type: string
+          enum: [flow_analytics]
+          description: Resource type discriminator. Always `flow_analytics`.
+        data:
+          $ref: '#/components/schemas/FlowAnalyticsData'
+    FlowAnalyticsData:
+      type: object
+      description: |
+        MoEngage omits a field entirely rather than returning it as null when there is no data for
+        it, or when you did not ask for it through the `fields` parameter. MoEngage also drops any
+        object that would otherwise be empty, at any depth, including when filtering by
+        `attribution_type` or `metric_type` removes everything inside it. Dropping cascades, so a
+        parent left with nothing is dropped too. Empty arrays are not affected and are returned
+        as `[]`.
+      required: [flow_id, version_name]
+      properties:
+        flow_id:
+          type: string
+          example: "69f1de84f9e401a2d7d9a931"
+        version_name:
+          type: string
+          example: "Version 2"
+        summary:
+          type: array
+          items:
+            $ref: '#/components/schemas/SummaryEntry'
+        drop_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DropStatsEntry'
+        split_stage_stats:
+          $ref: '#/components/schemas/SplitStageStats'
+        business_trigger_stats:
+          type: array
+          description: Business trigger performance stats. Empty array when none exist.
+          items:
+            type: object
+    SummaryEntry:
+      type: object
+      required: [timestamp, trip_stats]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix epoch timestamp (seconds).
+          example: 1706745600
+        trip_stats:
+          $ref: '#/components/schemas/TripStats'
+        conversion_goal_stats:
+          type: object
+          description: Keyed by goal ID.
+          additionalProperties:
+            $ref: '#/components/schemas/ConversionGoalStat'
+    TripStats:
+      type: object
+      properties:
+        trips_started:
+          type: integer
+          description: Number of user journeys that started within the requested activity window.
+          example: 12400
+        trips_completed:
+          type: integer
+          description: Number of user journeys that reached the end of the flow within the window.
+          example: 8900
+        trips_in_progress:
+          type: integer
+          description: Number of user journeys still active in the flow at the end of the window.
+          example: 1200
+        trips_dropped:
+          type: integer
+          description: Number of user journeys that exited or dropped before completing, within the window.
+          example: 2300
+    ConversionGoalStat:
+      type: object
+      properties:
+        is_primary_goal:
+          type: boolean
+          example: true
+        view_through:
+          $ref: '#/components/schemas/ConversionMetrics'
+        click_through:
+          $ref: '#/components/schemas/ConversionMetrics'
+    ConversionMetrics:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of conversions attributed under this model.
+          example: 1200
+        unique:
+          type: integer
+          description: Number of unique users who converted under this model.
+          example: 980
+        cvr:
+          type: number
+          format: float
+          description: Conversion rate for this attribution model, as a decimal (0.079 = 7.9%).
+          example: 0.079
+        revenue:
+          type: number
+          format: float
+          description: Attributed revenue in the flow's configured currency.
+          example: 45000.0
+    DropStatsEntry:
+      type: object
+      required: [timestamp]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          example: 1706745600
+        exits:
+          type: object
+          properties:
+            conversions:
+              type: object
+              description: Keyed by exit reason ID.
+              additionalProperties:
+                $ref: '#/components/schemas/ReasonCount'
+            exit_reasons:
+              type: object
+              description: Keyed by exit reason ID.
+              additionalProperties:
+                $ref: '#/components/schemas/ReasonCount'
+        drops:
+          type: object
+          properties:
+            drop_reasons:
+              type: object
+              description: >
+                Keyed by drop reason code. Known codes: `UD_DR_EX` (Exceptions),
+                `UD_DR_FC_DND` (FC/DND), `UD_DR_IF` (Inactive flow),
+                `UD_DR_WTE` (Wait till expired).
+              additionalProperties:
+                $ref: '#/components/schemas/ReasonCount'
+    ReasonCount:
+      type: object
+      required: [count, description]
+      properties:
+        count:
+          type: integer
+          example: 120
+        description:
+          type: string
+          example: "Exceptions"
+    SplitStageStats:
+      type: object
+      properties:
+        ab_split_stages:
+          type: array
+          description: Stats for A/B split stages.
+          items:
+            $ref: '#/components/schemas/SplitStage'
+        ipo_stages:
+          type: array
+          description: Stats for Intelligent Path Optimizer stages.
+          items:
+            $ref: '#/components/schemas/SplitStage'
+    SplitStage:
+      type: object
+      required: [stage_id, stage_name, branches]
+      properties:
+        stage_id:
+          type: string
+          description: ID of the split stage within the flow.
+          example: "sdmimd"
+        stage_name:
+          type: string
+          description: User-defined name for the stage.
+          example: "My Custom Split Name"
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchStat'
+    BranchStat:
+      type: object
+      required: [branch_id, branch_name]
+      properties:
+        branch_id:
+          type: string
+          description: ID of the branch within the split stage.
+          example: "br7f3a9c"
+        branch_name:
+          type: string
+          description: User-defined name; defaults to "Branch A", "Branch B", and so on.
+          example: "Control"
+        entered:
+          type: integer
+          description: Number of users who entered this branch within the requested window.
+          example: 6200
+        converted:
+          type: integer
+          description: Number of users in this branch who converted within the window.
+          example: 980
+    FlowChannelAnalyticsResponse:
+      type: object
+      required: [response_id, type, data]
+      properties:
+        response_id:
+          type: string
+          example: "resp_b2c3d4e5"
+        type:
+          type: string
+          enum: [flow_channel_analytics]
+          description: Resource type discriminator. Always `flow_channel_analytics`.
+        data:
+          $ref: '#/components/schemas/FlowChannelAnalyticsData'
+    FlowChannelAnalyticsData:
+      type: object
+      description: |
+        MoEngage omits a field entirely rather than returning it as null when there is no data for
+        it, or when you did not ask for it through the `fields` parameter. MoEngage also drops any
+        object that would otherwise be empty, at any depth, including when filtering by
+        `attribution_type` or `metric_type` removes everything inside it. Dropping cascades, so a
+        parent left with nothing is dropped too. Empty arrays are not affected and are returned
+        as `[]`.
+      required: [flow_id, channel, version_name]
+      properties:
+        flow_id:
+          type: string
+          example: "69f1de84f9e401a2d7d9a931"
+        channel:
+          $ref: '#/components/schemas/ChannelEnum'
+        version_name:
+          type: string
+          example: "Version 2"
+        aggregated_stats:
+          $ref: '#/components/schemas/AggregatedChannelStats'
+        campaign_stats:
+          type: array
+          description: Per-action-node stats. Actions belonging to other channels are filtered out.
+          items:
+            $ref: '#/components/schemas/CampaignStat'
+    AggregatedChannelStats:
+      type: object
+      description: >
+        Aggregated stats spanning the entire requested date range. `timestamp` is omitted — this
+        is not a time-series object.
+      properties:
+        performance:
+          $ref: '#/components/schemas/ChannelPerformance'
+        delivery:
+          $ref: '#/components/schemas/ChannelDelivery'
+    ChannelPerformance:
+      type: object
+      properties:
+        group_level_stats:
+          type: object
+          properties:
+            sent:
+              type: integer
+              example: 48200
+            delivered:
+              type: integer
+              example: 45900
+            opened:
+              type: integer
+              example: 12300
+            clicked:
+              type: integer
+              example: 3800
+            conversions:
+              type: integer
+              example: 980
+            cvr:
+              type: number
+              format: float
+              example: 0.021
+        conversion_goal_stats:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ConversionGoalStat'
+    ChannelDelivery:
+      type: object
+      properties:
+        group_level_stats:
+          type: object
+          properties:
+            delivery_funnel:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/ReasonCount'
+            delivery_failure_breakdown:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/ReasonCount'
+    CampaignStat:
+      type: object
+      required: [action_id, campaign_id, stage_name]
+      properties:
+        action_id:
+          type: string
+          description: Unique ID of the action node within the flow.
+          example: "a3f9c2e1"
+        campaign_id:
+          type: string
+          description: ID of the campaign for this action node.
+          example: "camp_xyz001"
+        stage_name:
+          type: string
+          description: User-defined name for this action stage.
+          example: "Welcome Email"
+        performance:
+          $ref: '#/components/schemas/ChannelPerformance'
+        delivery:
+          $ref: '#/components/schemas/ChannelDelivery'
   responses:
     BadRequest:
       description: >
