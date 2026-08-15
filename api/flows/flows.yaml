@@ -507,12 +507,21 @@ paths:
         performance. Requires the `campaigns:view` permission.
       x-mint:
         content: |
+          <Note>
+            This endpoint is in BETA. MoEngage does not make breaking changes to the request or
+            response schema during the BETA period.
+          </Note>
+
           The date filter is based on activity, not entry. A trip is included when any activity happened
           within the window, such as moving through a stage, receiving a campaign, converting, or exiting.
+          For example, a user who entered the flow on 25 April appears in a 1–20 May query if they moved
+          through a stage, received a campaign, converted, or exited during that window.
 
-          #### Rate Limits
+          MoEngage builds each field group from a separate internal call. When one of those calls fails
+          and the others succeed, MoEngage omits that field group from the response rather than failing
+          the request, so you see a missing key instead of an error. MoEngage returns a `500` with the
+          code `UPSTREAM_ERROR` only when every requested field group fails.
 
-          The rate limits are at the workspace level. A maximum of 10,000 requests per minute is allowed, shared across the Flow Analytics endpoints rather than applied to each endpoint.
       tags:
         - Flow Analytics
       security:
@@ -643,14 +652,21 @@ paths:
         the channel. Requires the `campaigns:view` permission.
       x-mint:
         content: |
+          <Note>
+            This endpoint is in BETA. MoEngage does not make breaking changes to the request or
+            response schema during the BETA period.
+          </Note>
+
           When `granularity` is `overall`, `aggregated_stats` holds a single entry with no `timestamp`,
           and each `campaign_stats[].performance` is a single object. For a time-based granularity such
           as `daily`, `aggregated_stats` holds one entry per period, each with a `timestamp`, and each
           `campaign_stats[].performance` is an array of per-period objects.
 
-          #### Rate Limits
+          MoEngage builds each field group from a separate internal call. When one of those calls fails
+          and the others succeed, MoEngage omits that field group from the response rather than failing
+          the request. MoEngage returns a `500` with the code `UPSTREAM_ERROR` only when every requested
+          field group fails.
 
-          The rate limits are at the workspace level. A maximum of 10,000 requests per minute is allowed, shared across the Flow Analytics endpoints rather than applied to each endpoint.
       tags:
         - Flow Analytics
       security:
@@ -858,16 +874,18 @@ components:
     XMoeScopes:
       name: X-MOE-SCOPES
       in: header
-      required: true
-      description: A comma-separated list of the scopes authorized for this request.
+      required: false
+      description: The scope of the request. MoEngage recommends that you send it.
       schema:
         type: string
 
     AttributionType:
       name: attribution_type
       in: query
-      required: false
-      description: The attribution model MoEngage applies to the conversion metrics.
+      required: true
+      description: >
+        The attribution model MoEngage applies to the conversion metrics. There is no default, so
+        omitting it returns a `400` with the code `INVALID_REQUEST`.
       schema:
         type: string
         enum:
@@ -876,19 +894,19 @@ components:
           - IN_SESSION
           - TOTAL_CONVERSIONS
           - CLICK_CONVERSIONS
-        default: TOTAL_CONVERSIONS
 
     MetricType:
       name: metric_type
       in: query
-      required: false
-      description: Whether MoEngage returns total counts or counts of unique users.
+      required: true
+      description: >
+        Whether MoEngage returns total counts or counts of unique users. There is no default, so
+        omitting it returns a `400` with the code `INVALID_REQUEST`.
       schema:
         type: string
         enum:
           - TOTAL
           - UNIQUE
-        default: TOTAL
 
     Granularity:
       name: granularity
@@ -922,9 +940,9 @@ components:
       required: false
       description: |
         The start of the activity window, as an ISO 8601 datetime in UTC. When you omit it,
-        MoEngage uses the flow's creation date normalized to midnight UTC, or 90 days before
-        `activity_before`, whichever is more recent. The window between `activity_after` and
-        `activity_before` cannot exceed 90 days.
+        MoEngage anchors a 90-day lookback to the end of the window: it uses whichever is later,
+        90 days before `activity_before`, or the flow's creation date at midnight UTC. When you
+        send both dates, the window cannot exceed 90 days.
       schema:
         type: string
         format: date-time
@@ -935,10 +953,11 @@ components:
       in: query
       required: false
       description: |
-        The end of the activity window, as an ISO 8601 datetime in UTC. It must be the same as or
-        later than `activity_after`. When you omit it, MoEngage uses the current time. When you send
+        The end of the activity window, as an ISO 8601 datetime in UTC. When you send both dates,
+        it must be the same as or later than `activity_after`. When you omit it and send
         `activity_after`, MoEngage uses whichever is earlier: `activity_after` plus 90 days, or the
-        current time, so the window never exceeds 90 days.
+        current time, so the window never reaches into the future. When you omit both dates,
+        MoEngage uses the current time.
       schema:
         type: string
         format: date-time
@@ -2059,6 +2078,15 @@ components:
               nullable: true
               description: The request field the error relates to, such as `flow_id` or `channel`.
               example: "flow_id"
+            details:
+              type: array
+              description: Any additional detail about the failure.
+              items:
+                type: object
+                additionalProperties: true
+            doc_url:
+              type: string
+              description: A link to the documentation for this error.
   responses:
     BadRequest:
       description: >
@@ -2167,10 +2195,19 @@ components:
 
 
     AnalyticsBadRequest:
-      description: >
-        The request is not valid. Codes include `INVALID_REQUEST`, `INVALID_FLOW_ID`,
-        `INVALID_DATE_RANGE`, `DATE_RANGE_TOO_LARGE`, `INVALID_VERSION_NAME`, `UNKNOWN_PARAMETERS`,
-        `INVALID_CHANNEL`, and `CHANNEL_NOT_SUPPORTED`.
+      description: |
+        The request is not valid.
+
+        | Code | Cause |
+        | --- | --- |
+        | `INVALID_FLOW_ID` | `flow_id` is not a 24-character hexadecimal ID. |
+        | `UNKNOWN_PARAMETERS` | The request carries a query parameter outside the documented set. The message names the offending keys. |
+        | `INVALID_DATE_RANGE` | `activity_after` is later than `activity_before`. MoEngage checks this only when you send both. |
+        | `DATE_RANGE_TOO_LARGE` | You sent both dates and the window exceeds 90 days. |
+        | `INVALID_VERSION_NAME` | `version_name` is not `Active Version`, `All Versions`, or `Version N`. |
+        | `INVALID_CHANNEL` | The channel path segment is empty. Applies to Get Flow Channel Analytics only. |
+        | `CHANNEL_NOT_SUPPORTED` | The channel is well formed but not supported. Applies to Get Flow Channel Analytics only. |
+        | `INVALID_REQUEST` | Anything else that fails validation, such as an invalid `attribution_type`, `metric_type`, or `granularity` value, a malformed date, or a missing `attribution_type` or `metric_type`. |
       headers:
         X-MOE-Request-Id:
           $ref: '#/components/headers/XMoeRequestIdEchoed'
@@ -2187,8 +2224,8 @@ components:
 
     AnalyticsUnauthorized:
       description: >
-        Authentication failed, or the workspace headers are missing or unusable. Codes include
-        `MISSING_TENANT_ID` and `INVALID_TENANT_ID`.
+        Authentication failed, or MoEngage could not resolve the workspace because the
+        `X-MOE-Tenant-ID` header was missing or could not be resolved.
       headers:
         X-MOE-Request-Id:
           $ref: '#/components/headers/XMoeRequestIdEchoed'
@@ -2205,8 +2242,9 @@ components:
 
     AnalyticsNotFound:
       description: >
-        The flow or the requested version does not exist in this workspace. Codes are
-        `FLOW_NOT_FOUND` and `VERSION_NOT_FOUND`.
+        `FLOW_NOT_FOUND` means `flow_id` is well formed but does not resolve to a flow in this
+        workspace. `VERSION_NOT_FOUND` means the `Version N` you asked for is outside the flow's
+        version history.
       headers:
         X-MOE-Request-Id:
           $ref: '#/components/headers/XMoeRequestIdEchoed'
