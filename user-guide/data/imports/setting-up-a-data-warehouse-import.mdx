@@ -11,7 +11,7 @@ import DwImportFaqs from '/snippets/imports-faq-dw.mdx';
 import PortfolioRouting from '/snippets/imports-portfolio-routing.mdx';
 import TimezoneDisplayNote from '/snippets/imports-timezone-display-note.mdx';
 
-MoEngage imports users and events directly from tables and views in your data warehouse — Snowflake, BigQuery, or Databricks. Warehouse imports are connection-driven: you grant MoEngage read access, map your columns once, and run the import on a one-time or periodic schedule.
+MoEngage imports users and events directly from tables and views in your data warehouse: Snowflake, BigQuery, or Databricks. Warehouse imports are connection-driven: you grant MoEngage read access, map your columns once, and run the import on a one-time or periodic schedule.
 
 Select your warehouse in any tabbed section below and the page stays on that warehouse throughout.
 
@@ -33,32 +33,32 @@ MoEngage does not require a specific table schema. Every column can be mapped or
 
 <Tabs>
   <Tab title="User Imports">
-    For periodic User Imports, MoEngage syncs only the data that changed since the last sync. It uses a timestamp (date + time) column — commonly named `updated_at` — to identify changed rows. You can name this column anything, as long as it holds the timestamp of when the row last changed, and map it on the dashboard.
+    For periodic User Imports, MoEngage syncs only the data that changed since the last sync. It uses a timestamp (date + time) column, commonly named `updated_at`, to identify changed rows. You can name this column anything, as long as it holds the timestamp of when the row last changed, and map it on the dashboard.
   </Tab>
   <Tab title="Event Imports">
     For Event Imports, you must map a column containing the event's timestamp (date + time) in UTC. MoEngage uses it to sync new events since the previous sync. To import standard MoEngage events, ensure the event names in your table match MoEngage's standard event names.
   </Tab>
 </Tabs>
 
-**Importing datetime attributes:** When you map a column that holds dates or times, create it as a **Date Time** attribute and select the matching format (see [Supported Datetime Formats](#supported-datetime-formats)). After the first successful import, an account Admin should open [Data Management](/user-guide/settings/data-management/overview-data-management) and set the **allowed data type** to _datetime_ for each new attribute — for both user and event attributes. Until the data type is pinned, values may not be ingested or segmented as datetime.
+**Importing datetime attributes:** When you map a column that holds dates or times, create it as a **Date Time** attribute and select the matching format (see [Supported Datetime Formats](#supported-datetime-formats)). After the first successful import, an account Admin should open [Data Management](/user-guide/settings/data-management/overview-data-management) and set the **allowed data type** to _datetime_ for each new attribute, for both user and event attributes. Until the data type is pinned, values may not be ingested or segmented as datetime.
 
 ## How Periodic Sync Detects Changed Rows
 
-For **periodic** imports, MoEngage syncs each run over a fixed time window `[last_run_time, next_run_time)` — half-open and non-overlapping, advancing on a fixed wall-clock cadence (for an hourly import, `last_run_time + 1 hour`), never derived from the data seen. A row is included in a run only if its mapped reference timestamp (`Updated At` for users; `Updated At`, or `Event Time` when not mapped separately, for events) falls inside that window.
+For **periodic** imports, MoEngage syncs each run over a fixed time window `[last_run_time, next_run_time)`, half-open and non-overlapping, advancing on a fixed wall-clock cadence (for an hourly import, `last_run_time + 1 hour`), never derived from the data seen. A row is included in a run only if its mapped reference timestamp (`Updated At` for users; `Updated At`, or `Event Time` when not mapped separately, for events) falls inside that window.
 
-Because windows only ever move forward, **a row whose reference timestamp is earlier than the current `last_run_time` is permanently missed** — not delayed, and not caught up on a later run. This applies no matter why the timestamp is early: upstream pipeline delay, an intentional backfill, a missing `Updated At` mapping, or a timezone conversion that shifts the value backward. The first, historic run has no lower bound, which is why it never loses data this way — see the note in [Step 3](#step-3-select-the-import-frequency).
+Because windows only ever move forward, **a row whose reference timestamp is earlier than the current `last_run_time` is permanently missed**, not delayed, and not caught up on a later run. This applies no matter why the timestamp is early: upstream pipeline delay, an intentional backfill, a missing `Updated At` mapping, or a timezone conversion that shifts the value backward. The first, historic run has no lower bound, which is why it never loses data this way. See the note in [Step 3](#step-3-select-the-import-frequency).
 
 <Accordion title="Deep dive: entity behavior, timezone pitfalls, and a worked example">
   ### Users vs Events
 
-  **Users** — a single `Updated At` column drives both *what changed* and *when it changed*; the two cannot be decoupled. To avoid permanent misses, ensure `Updated At` reflects **table write-time**, not business or event time. This is commonly done with a view whose column defaults to `CURRENT_TIMESTAMP` on insert, so even late-arriving writes get a current, ever-advancing timestamp.
+  **Users**, a single `Updated At` column drives both *what changed* and *when it changed*; the two cannot be decoupled. To avoid permanent misses, ensure `Updated At` reflects **table write-time**, not business or event time. This is commonly done with a view whose column defaults to `CURRENT_TIMESTAMP` on insert, so even late-arriving writes get a current, ever-advancing timestamp.
 
-  **Events** — two separate mappable columns:
+  **Events**, two separate mappable columns:
 
-  - `Event Time` — the true, possibly-backdated business timestamp, used for analytics.
-  - `Updated At` — drives the delta filter; defaults to `Event Time` if not mapped separately.
+  - `Event Time`, the true, possibly-backdated business timestamp, used for analytics.
+  - `Updated At`, drives the delta filter; defaults to `Event Time` if not mapped separately.
 
-  Mapping `Updated At` to table write-time lets genuinely backdated events still import via periodic sync without corrupting `Event Time` for analysis. If you leave `Updated At` defaulted to `Event Time`, backdated events carry the same permanent-miss risk as users. Events are immutable in MoEngage once imported — there is no update-in-place for a previously synced event.
+  Mapping `Updated At` to table write-time lets genuinely backdated events still import via periodic sync without corrupting `Event Time` for analysis. If you leave `Updated At` defaulted to `Event Time`, backdated events carry the same permanent-miss risk as users. Events are immutable in MoEngage once imported, there is no update-in-place for a previously synced event.
 
   ### The Reference Column Must Be Genuine UTC
 
@@ -69,14 +69,14 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
       MoEngage converts the column using `CONVERT_TIMEZONE('UTC', col)`. For a `TIMESTAMP_NTZ` column, the conversion first interprets the naive value using the session's effective timezone (session → user → account, in that precedence). If that timezone isn't actually UTC, an already-correct value is double-shifted. Check it with `SHOW PARAMETERS LIKE 'TIMEZONE'` and, if needed, set it at the user level for the MoEngage connection user.
     </Tab>
     <Tab title="BigQuery">
-      MoEngage applies no conversion — the raw column value is compared directly. The risk is specific to `DATETIME`-typed columns (naive, no timezone) holding non-UTC values. `TIMESTAMP`-typed columns are safe by construction, because BigQuery stores them as true UTC instants.
+      MoEngage applies no conversion, the raw column value is compared directly. The risk is specific to `DATETIME`-typed columns (naive, no timezone) holding non-UTC values. `TIMESTAMP`-typed columns are safe by construction, because BigQuery stores them as true UTC instants.
     </Tab>
     <Tab title="Databricks">
-      MoEngage applies no conversion and reads only `TIMESTAMP`-typed columns over its connector. (Databricks' `TIMESTAMP_NTZ` type isn't supported over JDBC/ODBC, so it isn't a path here.) Since `TIMESTAMP` is already UTC-normalized, the only realistic failure mode is your own pipeline writing local-time values into a UTC-typed column — a data-hygiene issue.
+      MoEngage applies no conversion and reads only `TIMESTAMP`-typed columns over its connector. (Databricks' `TIMESTAMP_NTZ` type isn't supported over JDBC/ODBC, so it isn't a path here.) Since `TIMESTAMP` is already UTC-normalized, the only realistic failure mode is your own pipeline writing local-time values into a UTC-typed column, a data-hygiene issue.
     </Tab>
   </Tabs>
 
-  An import can run in a timezone different from your workspace timezone, but schedule run times are always computed and stored in UTC. Choosing a non-UTC import timezone only changes the time the schedule appears to run in the UI — it does not change the window mechanics above.
+  An import can run in a timezone different from your workspace timezone, but schedule run times are always computed and stored in UTC. Choosing a non-UTC import timezone only changes the time the schedule appears to run in the UI, it does not change the window mechanics above.
 
   ### Worked Example
 
@@ -100,7 +100,7 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
 
   `u_101` (`11:30`) falls inside `[11:00, 12:00)`, so Run 1 imports it cleanly.
 
-  Before Run 2, two more rows land: `u_102` with `Updated At = 12:00:00`, and `u_103` — physically written to the table at `12:45` but carrying a backdated `Updated At = 09:15`. Run 2 covers `[12:00, 13:00)`:
+  Before Run 2, two more rows land: `u_102` with `Updated At = 12:00:00`, and `u_103`, physically written to the table at `12:45` but carrying a backdated `Updated At = 09:15`. Run 2 covers `[12:00, 13:00)`:
 
   | user_id | updated_at (UTC) | Imported in |
   | --- | --- | --- |
@@ -109,7 +109,7 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
   | u_102 | 12:00:00 | Run 2 |
   | u_103 | 09:15 | Not imported |
 
-  `u_102` sits exactly on the boundary: it was excluded from Run 1 (`< 12:00` fails there) and imported by Run 2 (`>= 12:00` passes) — no gap, no double-count. `u_103` carries `Updated At = 09:15`, already earlier than Run 2's lower bound of `12:00` — and earlier than the `11:00` historic cutoff too — so no run's window contains it.
+  `u_102` sits exactly on the boundary: it was excluded from Run 1 (`< 12:00` fails there) and imported by Run 2 (`>= 12:00` passes), no gap, no double-count. `u_103` carries `Updated At = 09:15`, already earlier than Run 2's lower bound of `12:00`, and earlier than the `11:00` historic cutoff too, so no run's window contains it.
 
   Run 3 covers `[13:00, 14:00)`. No new rows have landed, and `u_103` is still sitting in the table:
 
@@ -120,12 +120,12 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
   | u_102 | 12:00:00 | Run 2 |
   | u_103 | 09:15 | Not imported |
 
-  `u_103` never appears in any run, because `09:15` is earlier than every future `last_run_time`. It is permanently missed — even though it was added to the table only moments before Run 3.
+  `u_103` never appears in any run, because `09:15` is earlier than every future `last_run_time`. It is permanently missed, even though it was added to the table only moments before Run 3.
 
     </Tab>
     <Tab title="Event Imports">
 
-  Events expose two mappable columns — `Event Time` (the true business timestamp, kept for analytics) and `Updated At` (drives the delta filter). This example uses the same hourly cadence (created `10:07 UTC`, historic cutoff `11:00`) and imports on `2024-01-16 UTC`. As before, each table shows the full source table state after a run.
+  Events expose two mappable columns: `Event Time` (the true business timestamp, kept for analytics) and `Updated At` (drives the delta filter). This example uses the same hourly cadence (created `10:07 UTC`, historic cutoff `11:00`) and imports on `2024-01-16 UTC`. As before, each table shows the full source table state after a run.
 
   After the historic run (imports everything with `Updated At < 11:00`):
 
@@ -143,7 +143,7 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
   | purchase | u_201 | 2024-01-16 11:45 | 2024-01-16 11:45 | Run 1 |
   | purchase | u_202 | 2024-01-15 18:00 | 2024-01-16 11:20 | Run 1 |
 
-  `u_201` (`Updated At = 11:45`) falls inside `[11:00, 12:00)` and imports cleanly. `u_202` also imports, even though its `Event Time` is a day old — the delta filter reads `Updated At` (write-time `11:20`, inside the window), not `Event Time`. MoEngage stores the event at its real `Event Time` (`2024-01-15 18:00`), so analytics still reflect when it actually happened.
+  `u_201` (`Updated At = 11:45`) falls inside `[11:00, 12:00)` and imports cleanly. `u_202` also imports, even though its `Event Time` is a day old, the delta filter reads `Updated At` (write-time `11:20`, inside the window), not `Event Time`. MoEngage stores the event at its real `Event Time` (`2024-01-15 18:00`), so analytics still reflect when it actually happened.
 
   Before Run 2, two more events are written. `u_203`'s `Updated At` is exactly `12:00:00`. `u_204` is a backdated event whose customer left `Updated At` **defaulted to `Event Time`** (`09:30`), so the two columns aren't decoupled. Run 2 covers `[12:00, 13:00)`:
 
@@ -155,7 +155,7 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
   | purchase | u_203 | 2024-01-16 12:00:00 | 2024-01-16 12:00:00 | Run 2 |
   | refund | u_204 | 2024-01-16 09:30 | 2024-01-16 09:30 | Not imported |
 
-  `u_203`'s `Updated At` sits exactly on the boundary: it was excluded from Run 1 (`< 12:00` fails there) and imported by Run 2 (`>= 12:00` passes) — no gap, no double-count. `u_204`'s `Updated At` is `09:30` — earlier than Run 2's lower bound of `12:00` and the `11:00` historic cutoff — so no window contains it, and it is missed. The only difference from `u_202`, which imported successfully, is that `u_202` mapped `Updated At` to write-time while `u_204` left it defaulted to `Event Time`.
+  `u_203`'s `Updated At` sits exactly on the boundary: it was excluded from Run 1 (`< 12:00` fails there) and imported by Run 2 (`>= 12:00` passes), no gap, no double-count. `u_204`'s `Updated At` is `09:30`, earlier than Run 2's lower bound of `12:00` and the `11:00` historic cutoff, so no window contains it, and it is missed. The only difference from `u_202`, which imported successfully, is that `u_202` mapped `Updated At` to write-time while `u_204` left it defaulted to `Event Time`.
 
   Run 3 covers `[13:00, 14:00)`. No new events have landed, and `u_204` is still in the table:
 
@@ -167,14 +167,14 @@ Because windows only ever move forward, **a row whose reference timestamp is ear
   | purchase | u_203 | 2024-01-16 12:00:00 | 2024-01-16 12:00:00 | Run 2 |
   | refund | u_204 | 2024-01-16 09:30 | 2024-01-16 09:30 | Not imported |
 
-  `u_204` still does not import — `09:30` is earlier than every future `last_run_time`, so the miss does not self-correct. Because events are immutable once imported, there is no update-in-place to fix `u_204` later — recovery requires a one-time import (see below).
+  `u_204` still does not import, because `09:30` is earlier than every future `last_run_time`, so the miss does not self-correct. Because events are immutable once imported, there is no update-in-place to fix `u_204` later, recovery requires a one-time import (see below).
 
     </Tab>
   </Tabs>
 
   ### Recovering Missed or Backdated Data
 
-  Once data is already missed, periodic sync will not pick it up. To recover it — or to intentionally backfill — build a one-time view containing the corrected or missed records and run a **one-time import** against it. One-time imports have no lower-bound filter, so they capture every matching row regardless of reference timestamp. Alternatively, duplicate the import (which triggers a fresh historic run) or edit the schedule's start time backward to force `last_run_time` to recompute.
+  Once data is already missed, periodic sync will not pick it up. To recover it, or to intentionally backfill, build a one-time view containing the corrected or missed records and run a **one-time import** against it. One-time imports have no lower-bound filter, so they capture every matching row regardless of reference timestamp. Alternatively, duplicate the import (which triggers a fresh historic run) or edit the schedule's start time backward to force `last_run_time` to recompute.
 </Accordion>
 
 # Required Access Permissions
@@ -216,15 +216,15 @@ To start, on the MoEngage sidebar go to **Data** > **Data imports**, click **+ I
 
 <Tabs>
   <Tab title="Snowflake">
-    <Frame><img src="/images/snowflake2.png" alt="Selecting the Snowflake tile on the Data imports page" style={{ width:"65%" }} /></Frame>
+    <img src="/images/snowflake2.png" alt="Selecting the Snowflake tile on the Data imports page" style={{ width:"65%" }} />
   </Tab>
   <Tab title="BigQuery">
-    <Frame><img src="/images/moengage_588dda.png" alt="Selecting Users or Events on the Data imports page" /></Frame>
-    <Frame><img src="/images/moengage_ffbdab.png" alt="Selecting the Google BigQuery tile and clicking Continue" /></Frame>
+    <img src="/images/moengage_588dda.png" alt="Selecting Users or Events on the Data imports page" />
+    <img src="/images/moengage_ffbdab.png" alt="Selecting the Google BigQuery tile and clicking Continue" />
   </Tab>
   <Tab title="Databricks">
-    <Frame><img src="/images/data3-2.png" alt="Selecting Users or Events on the Data imports page" /></Frame>
-    <Frame><img src="/images/data4-2.png" alt="Selecting the Databricks tile and clicking Continue" /></Frame>
+    <img src="/images/data3-2.png" alt="Selecting Users or Events on the Data imports page" />
+    <img src="/images/data4-2.png" alt="Selecting the Databricks tile and clicking Continue" />
   </Tab>
 </Tabs>
 
@@ -237,7 +237,7 @@ Enter a name for this import to identify it on the Imports Dashboard. Based on t
 </Accordion>
 
 <Accordion title="Event Imports">
-  Select the event you want to import, or create a new one. If a single table holds multiple events, MoEngage uses the **Event Name** column to determine which rows to import — the value depends on the event you select. Event display names and event names can differ; view them on the [Data Management](/user-guide/settings/data-management/overview-data-management) page. For example, the event _App/Site Opened_ has the event name `MOE_APP_OPENED`.
+  Select the event you want to import, or create a new one. If a single table holds multiple events, MoEngage uses the **Event Name** column to determine which rows to import, the value depends on the event you select. Event display names and event names can differ; view them on the [Data Management](/user-guide/settings/data-management/overview-data-management) page. For example, the event _App/Site Opened_ has the event name `MOE_APP_OPENED`.
 
   To create a new event, click **+ Create event** at the end of the **Select event** list and enter a unique name. New events appear on the Data Management page only after the first successful import.
 </Accordion>
@@ -248,16 +248,16 @@ For a table containing multiple events, first **Preview** the table, then select
 
 <Tabs>
   <Tab title="Snowflake">
-    <Frame><img src="/images/snowflake6.png" alt="Selecting the Snowflake connection, schema, and table" style={{ width:"70%" }} /></Frame>
-    <Frame><img src="/images/snowflake7.png" alt="Table contains multiple events option for Snowflake" style={{ width:"80%" }} /></Frame>
+    <img src="/images/snowflake6.png" alt="Selecting the Snowflake connection, schema, and table" style={{ width:"70%" }} />
+    <img src="/images/snowflake7.png" alt="Table contains multiple events option for Snowflake" style={{ width:"80%" }} />
   </Tab>
   <Tab title="BigQuery">
-    <Frame><img src="/images/moengage_1f2b5a.png" alt="Selecting the BigQuery connection, schema/dataset, and table/view" style={{ width:"73%" }} /></Frame>
-    <Frame><img src="/images/moengage_4ed8b4.png" alt="Table contains multiple events option for BigQuery" /></Frame>
+    <img src="/images/moengage_1f2b5a.png" alt="Selecting the BigQuery connection, schema/dataset, and table/view" style={{ width:"73%" }} />
+    <img src="/images/moengage_4ed8b4.png" alt="Table contains multiple events option for BigQuery" />
   </Tab>
   <Tab title="Databricks">
-    <Frame><img src="/images/mceclip0b.png" alt="Selecting the Databricks connection, schema, and table/view" style={{ width:"67%" }} /></Frame>
-    <Frame><img src="/images/mceclip1.png" alt="Table contains multiple events option for Databricks" style={{ width:"61%" }} /></Frame>
+    <img src="/images/mceclip0b.png" alt="Selecting the Databricks connection, schema, and table/view" style={{ width:"67%" }} />
+    <img src="/images/mceclip1.png" alt="Table contains multiple events option for Databricks" style={{ width:"61%" }} />
   </Tab>
 </Tabs>
 
@@ -280,7 +280,7 @@ The timestamp column type differs by warehouse:
     <Accordion title="User Imports">
       | Mapping | Description |
       | --- | --- |
-      | User ID (Registered) / Anonymous ID (Anonymous) | A column with a unique user identifier, or an identifier such as email or mobile for anonymous users. For **All Users**, map both — users with an empty User ID are imported as anonymous. |
+      | User ID (Registered) / Anonymous ID (Anonymous) | A column with a unique user identifier, or an identifier such as email or mobile for anonymous users. For **All Users**, map both, users with an empty User ID are imported as anonymous. |
       | Updated at | Determines which rows changed since the last sync. Must be a UTC timestamp of column type `TIMESTAMP_NTZ`. |
     </Accordion>
     <Accordion title="Event Imports">
@@ -310,7 +310,7 @@ The timestamp column type differs by warehouse:
     <Accordion title="User Imports">
       | Mapping | Description |
       | --- | --- |
-      | User ID (Registered) / Anonymous ID (Anonymous) | A column with a unique user identifier, or an identifier such as email or mobile for anonymous users. For **All Users**, map both — users with an empty User ID are imported as anonymous. |
+      | User ID (Registered) / Anonymous ID (Anonymous) | A column with a unique user identifier, or an identifier such as email or mobile for anonymous users. For **All Users**, map both, users with an empty User ID are imported as anonymous. |
       | Updated at | Determines which rows changed since the last sync. Must be a UTC timestamp of column type `TIMESTAMP`. |
     </Accordion>
     <Accordion title="Event Imports">
@@ -339,7 +339,7 @@ Optionally, auto-map your columns by uploading a manifest file. Click **Upload m
 
 ### Support for Object Data Type
 
-MoEngage can import JSON columns as an Object data type (Object Data Type support must be enabled for your account). MoEngage maps only top-level attributes — nested attributes are not supported. You can map existing Object attributes or create new ones during mapping.
+MoEngage can import JSON columns as an Object data type (Object Data Type support must be enabled for your account). MoEngage maps only top-level attributes, nested attributes are not supported. You can map existing Object attributes or create new ones during mapping.
 
 Store the JSON in the correct column type for your warehouse:
 
@@ -373,7 +373,7 @@ Store the JSON in the correct column type for your warehouse:
 
 ### Save Users as a Segment
 
-When importing users, turn on **Save as a custom segment** to add the imported users to a MoEngage segment. Enter a segment name and select the identifier column. Users are added to this segment on every sync (append only — no users are removed), so you can target them with campaigns.
+When importing users, turn on **Save as a custom segment** to add the imported users to a MoEngage segment. Enter a segment name and select the identifier column. Users are added to this segment on every sync (append only, no users are removed), so you can target them with campaigns.
 
 ### Import Behaviour
 
@@ -405,15 +405,15 @@ Use these in the `datetime_format` field of your manifest, or when configuring D
 <DatetimeFormats />
 
 <Info>
-  **Snowflake only:** Snowflake imports additionally support `"datetime_format": "YYYY-MM-DD hh:mm:ss.sTZD"` — for example, `2019-01-31 17:54:14.957299-08:00` or `2019-01-31 17:54:14.957299+08:00`.
+  **Snowflake only:** Snowflake imports additionally support `"datetime_format": "YYYY-MM-DD hh:mm:ss.sTZD"`, for example, `2019-01-31 17:54:14.957299-08:00` or `2019-01-31 17:54:14.957299+08:00`.
 </Info>
 
 # Duplicate Imports
 
 You can configure only one unique import at a time. An import is a duplicate when **all** of these match an existing import:
 
-1. **Import type** — Users or Events.
-2. **Import sub-type** — Event name, or Registered / Anonymous / All users.
+1. **Import type**: Users or Events.
+2. **Import sub-type**: Event name, or Registered / Anonymous / All users.
 3. **Warehouse connection**.
 4. **Schema/Dataset and Table/View**.
 
@@ -421,7 +421,7 @@ If any one of these differs, the import is unique.
 
 # Limits
 
-Data warehouse imports are subject to the following ingestion rate limits (defaults — contact MoEngage to increase):
+Data warehouse imports are subject to the following ingestion rate limits (defaults, contact MoEngage to increase):
 
 | Phase | Hourly | Daily |
 | --- | --- | --- |
@@ -436,7 +436,7 @@ In the event of a connection failure (for example, credentials, network, or ware
 
 | Policy | Description | Action |
 | --- | --- | --- |
-| Automatic Retry | MoEngage retries the import up to 10 times to restore the connection. | None — MoEngage handles this automatically. |
+| Automatic Retry | MoEngage retries the import up to 10 times to restore the connection. | None. MoEngage handles this automatically. |
 | Import Failure | If all 10 retries fail, MoEngage marks the import FAILED and stops all future runs. | Investigate and restart (see below). |
 
 ### Restart a Failed Import
@@ -448,7 +448,7 @@ A FAILED import requires manual intervention:
 
 <Info>
   - The first successful run of any new recurring import is always a historical import (it fetches all data from the configured table/view).
-  - Because the historical run pulls in all matching rows, a very large single import can fail to complete — for example, the run may time out or its schedule may expire — due to payload-size and processing-time limits. If you have a large dataset, split it into multiple smaller imports (for example, by date range) instead of importing everything in a single sync.
+  - Because the historical run pulls in all matching rows, a very large single import can fail to complete, for example, the run may time out or its schedule may expire, due to payload-size and processing-time limits. If you have a large dataset, split it into multiple smaller imports (for example, by date range) instead of importing everything in a single sync.
   - Duplicating a failed import starts a new historical import. If the original import previously succeeded, this may create redundant data. To control data flow, MoEngage recommends using views.
 </Info>
 
@@ -475,7 +475,7 @@ To monitor your imports, understand import statuses, or trigger a run manually o
       MoEngage imports `STRUCT` columns as Object data types, pulling in the struct's schema and creating a corresponding set of fields. You cannot cherry-pick or rename individual fields within a struct during import.
     </Accordion>
     <Accordion title="How does MoEngage handle BigQuery TIMESTAMP columns with local time zones instead of UTC?">
-      MoEngage applies no timezone conversion to your reference column — it compares the raw value directly. `TIMESTAMP`-typed columns are safe, because BigQuery stores them as true UTC instants. The risk is with `DATETIME`-typed columns, which are naive (no timezone): if they hold non-UTC values, the delta filter uses those values as-is. Store UTC values in `DATETIME` columns, or use the `TIMESTAMP` type.
+      MoEngage applies no timezone conversion to your reference column, it compares the raw value directly. `TIMESTAMP`-typed columns are safe, because BigQuery stores them as true UTC instants. The risk is with `DATETIME`-typed columns, which are naive (no timezone): if they hold non-UTC values, the delta filter uses those values as-is. Store UTC values in `DATETIME` columns, or use the `TIMESTAMP` type.
     </Accordion>
   </Tab>
   <Tab title="Databricks">
@@ -489,7 +489,7 @@ To monitor your imports, understand import statuses, or trigger a run manually o
       Databricks requires the column type to be `VARIANT` at table creation.
     </Accordion>
     <Accordion title="How does MoEngage handle Databricks TIMESTAMP columns with local time zones instead of UTC?">
-      MoEngage applies no timezone conversion and reads only `TIMESTAMP`-typed columns over its JDBC/ODBC connector. `TIMESTAMP` is UTC-normalized, so the only realistic issue is your own pipeline writing local-time values into a UTC-typed column — a data-hygiene problem, not a type choice. (Databricks' naive `TIMESTAMP_NTZ` type isn't supported over the driver, so it isn't a path here.)
+      MoEngage applies no timezone conversion and reads only `TIMESTAMP`-typed columns over its JDBC/ODBC connector. `TIMESTAMP` is UTC-normalized, so the only realistic issue is your own pipeline writing local-time values into a UTC-typed column, a data-hygiene problem, not a type choice. (Databricks' naive `TIMESTAMP_NTZ` type isn't supported over the driver, so it isn't a path here.)
     </Accordion>
   </Tab>
 </Tabs>
