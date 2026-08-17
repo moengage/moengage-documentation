@@ -1,6 +1,7 @@
 ---
 title: "iOS Push Integration Tutorial"
 description: "Step-by-step instructions for integrating the MoEngage iOS SDK to send, receive, and track rich push notifications."
+keywords: ["Allow Arbitrary Loads", "App Transport Security", "UNNotificationAttachment", "push media size limit", "webp push image", "video not showing"]
 ---
 
 This article provides step-by-step instructions for integrating the MoEngage iOS SDK, enabling your application to send, receive, and track rich push notifications. By following these instructions, you will implement a comprehensive setup that supports rich media content, including images and GIFs, and ensures reliable analytics.
@@ -165,6 +166,50 @@ NSE enables rich push notifications (including images, video, and GIFs) and trac
     </CodeGroup>
   </Step>
 </Steps>
+
+### Media Requirements
+
+The NSE downloads the image, audio, or video before the notification displays. The constraints below apply to that download, whether the media comes from a standard rich push or a push template.
+
+#### Serve Media Over HTTPS
+
+Serve push media over HTTPS. App Transport Security blocks plain HTTP downloads in the NSE, so the asset never attaches and the notification displays without it.
+
+If you must serve media over HTTP, add the **App Transport Security Settings** dictionary to the `Info.plist` of your **Notification Service Extension** and set **Allow Arbitrary Loads** to **YES**:
+
+<CodeGroup>
+
+```xml Info.plist
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+</dict>
+```
+
+</CodeGroup>
+
+<Note>
+  Set this in the NSE's `Info.plist`. Setting it only in the app target's `Info.plist` does not apply to media that the extension downloads.
+</Note>
+
+#### Keep Media Within Apple's Attachment Size Limits
+
+Apple caps the size of a notification attachment, and the cap differs by media type. An asset over the limit is not attached, and the notification displays without it.
+
+| Media Type | Maximum Size |
+| :--------- | :----------- |
+| Audio      | 5 MB         |
+| Image      | 10 MB        |
+| Video      | 50 MB        |
+
+Apple sets these limits, not MoEngage. For the current values and the supported file formats for each type, see Apple's [UNNotificationAttachment](https://developer.apple.com/documentation/usernotifications/unnotificationattachment) documentation.
+
+#### When Media Displays for Some Types but Not Others
+
+An image or audio file that renders correctly does not confirm that video will. The download failure is silent: the notification still arrives and displays its title and body, and no error surfaces in the app. When video specifically fails to display, check that it is served over HTTPS and that it is within Apple's size limit for video.
+
+Image format also differs by platform. iOS does not support WebP (`.webp`) for notification attachments, while Android renders it, so the same campaign shows the image on Android and no image on iOS. Use JPG or PNG for campaigns that target both platforms.
 
 ## Step 2: Implement Push Handling in AppDelegate
 
@@ -464,6 +509,7 @@ Adhering to these best practices will ensure a robust and reliable push notifica
     - **NSE Target Configuration:** Ensure the `MoEngageNotificationService` target is correctly added to your project and is properly configured.
     - **App Group ID:** Confirm that the same App Group ID is enabled for both your main app and the NSE target, and that it has been correctly set in your code.
     - **Media URL Reachability:** Check that the URLs for your images, GIFs, or videos are public and accessible. A broken URL will prevent the media from being downloaded and displayed.
+    - **Transport, Format, and Size:** Confirm the media meets the constraints in [Media Requirements](#media-requirements) — served over HTTPS, within Apple's size limit for its type, and not a `.webp` image.
     - Ensure the deployment target of the extension matches the main app.
   </Accordion>
 
