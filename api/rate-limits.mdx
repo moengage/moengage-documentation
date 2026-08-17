@@ -1,0 +1,226 @@
+---
+title: "Rate Limits"
+description: "Understand API rate limits and payload size caps for the MoEngage REST APIs, how to monitor usage, and what happens when a limit is exceeded."
+keywords: ["rate limit", "API limits", "429", "RPM", "payload size", "throttling"]
+---
+
+MoEngage enforces rate limits on its REST APIs to keep the shared platform fast and reliable for every customer. Limits apply **per workspace** unless a specific endpoint states otherwise (some are per client or per consumer), and a request that exceeds its limit is rejected with an `HTTP 429 Too Many Requests` response.
+
+Most limits below are the defaults. Several limits can be raised for your workspace based on genuine need — contact your MoEngage Customer Success Manager (CSM) or the Support team to discuss an increase.
+
+<Note>
+  Rate limits and payload caps are two separate controls. A request can be within the rate limit but still be rejected for exceeding the [payload size](#payload-size-limits), or vice versa. Each endpoint's own reference page carries its authoritative limit; the tables below summarize them.
+</Note>
+
+## Rate limits by endpoint
+
+Endpoints are grouped by product area to match the API reference navigation. When several endpoints share a single pool, the limit is applied across all of them.
+
+### Data
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /customer/{app_id}` — Track User | 10,000 user updates per minute |
+| `POST /customers/export` — Get User | 1,000 users per minute; up to 20 users per payload |
+| `POST /customer/merge` — Merge Users | 1,000 user updates per minute; up to 50 users per call |
+| `POST /customer/delete` — Delete Users | 5,000 requests per minute; 1 user per request |
+| `POST /event/{Workspace_ID}` — Track Event | 30,000 events per minute |
+| `POST /device/{app_id}` — Track Device | 10,000 device updates per minute |
+| `POST /devices/manage` — Device Opt-out | 1,000 requests per minute |
+| `POST /transition/{Workspace_ID}` — Bulk Import Users and Events | 60,000 users and 60,000 events per minute, across all requests |
+
+### File imports
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /fileimports/trigger/{schedule_id}` — Trigger File Imports | Once every 5 minutes per `schedule_id` (else `HTTP 400`) |
+| `POST /fileimports/import/status` — Import Details | 50 requests per minute |
+| `POST /fileimports/import/run/history` — Import File Run History | 50 requests per minute |
+
+### Business Events
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /business_event` — Create Business Event | Up to 50 business events per workspace |
+| `POST /business_event/trigger` — Trigger Business Event | Campaign triggers: 50 per hour, 200 per day. Flow triggers: 5 per hour, 20 per day |
+| `POST /business_event/search` — Search Business Events | 100 requests per minute |
+
+### Templates and content
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST` / `GET` / `PUT /email-templates`, `PUT /bulk/email-templates` (V1) | 1,000 requests per minute per workspace (combined across all V1 template endpoints) |
+| `POST /custom-templates/email` — Create Email Template (V2) | 100 requests per minute; up to 10,000 templates per channel |
+| `PUT /custom-templates/email`, `POST /custom-templates/email/search` | 100 requests per minute |
+| `POST /custom-templates/push` — Create Push Template | 100 requests per minute |
+| `PUT /custom-templates/push`, `POST /custom-templates/push/search` | 100 requests per minute |
+| `POST /custom-templates/sms` — Create SMS Template | 100 requests per minute; up to 100 templates per channel |
+| `PUT /custom-templates/sms`, `POST /custom-templates/sms/search` | 100 requests per minute |
+| `POST /custom-templates/osm` — Create OSM Template | 100 requests per minute; up to 100 templates per minute |
+| `PUT /custom-templates/osm`, `POST /custom-templates/osm/search` | 100 requests per minute |
+
+### Recommendations
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `GET /recommendations/{recommendations_id}` — Fetch Recommendation Details | 1,000 recommendations per minute |
+| `POST /recommendations/{recommendations_id}/items` — Fetch Recommendation Results | 10,000 recommendations per minute |
+
+### Coupons
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /coupon-list` — Create a Coupon List | 100 coupon lists per day |
+| `GET /coupon-list` — Fetch All Coupon Lists | 10,000 coupon lists per day |
+| `GET /coupon-list/{coupon_list_id}` — Fetch Coupon List Details | 10,000 coupon lists per day |
+| `PATCH /coupon-list/{coupon_list_id}` — Update a Coupon List | 100 coupon lists per day |
+| `PUT /coupon-list/{coupon_list_id}/activate` — Activate Coupon List | 100 coupon lists per day |
+| `PUT /coupon-list/{coupon_list_id}/archive` — Archive a Coupon List | 100 coupon lists per day |
+| `POST /coupon-list/{coupon_list_id}/files` — Upload a Coupon File | 5 per minute or 50 per day |
+| `GET /coupon-list/{coupon_list_id}/files` — Fetch All Coupon Files | 10,000 coupon files per day |
+| `GET /coupon-list/{coupon_list_id}/files/{coupon_file_id}` — Fetch a Coupon File | 10,000 coupon files per day |
+| `DELETE /coupon-list/{coupon_list_id}/files/{coupon_file_id}` — Delete a Coupon File | 5 per minute or 50 per day |
+| `POST /coupon-list/{coupon_list_id}/usage-report` — Generate Usage Report | 5 per minute or 50 per day |
+
+### Catalog
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /catalog` — Create Catalog | 100 per minute or 1,000 per hour |
+| `PATCH /catalog/{catalog_id}/attributes` — Add Attributes | 100 per minute or 1,000 per hour |
+| `POST /catalog/{catalog_id}/items` — Add Items | 100 per minute or 1,000 per hour; up to 50 items per request |
+| `PATCH /catalog/{catalog_id}/items` — Update Items | 100 per minute or 1,000 per hour; up to 50 items per request |
+| `POST /catalog/{catalog_id}/items/bulk-delete` — Delete Items | 100 per minute or 1,000 per hour; up to 50 items per request |
+| `POST /catalog/{catalog_id}/items/search` — Get Items | 100 per minute or 1,000 per hour; up to 50 items per request |
+
+### Flows
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /v5/flows/search` — Search Flows | 10 per second, 100 per minute, 6,000 per hour per workspace |
+| `GET /v5/flows/{flow_id}` — Get a Single Flow | 10 per second, 100 per minute, 6,000 per hour per workspace |
+| `GET /v5/flows/{flow_id}/versions/{version_id}` — Get a Flow Version | 10 per second, 100 per minute, 6,000 per hour per workspace |
+| `PATCH /v5/flows/{flow_id}/status` — Update Flow Status | 10 per second, 100 per minute, 6,000 per hour per workspace |
+
+### Offerings
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `GET /v5/offers` — List Offerings | 150 per minute, 500 per hour, 1,000 per day per consumer |
+| `POST /v5/offers` — Create Offering | 100 per minute, 300 per hour, 600 per day per consumer |
+| `PATCH /v5/offers/{offer_id}` — Update Offering | 100 per minute, 300 per hour, 600 per day per consumer |
+| `GET /v5/offers/templates` — List Offer Templates | 150 per minute, 500 per hour, 1,000 per day per consumer |
+
+### Campaigns (V5)
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /v5/campaigns` — Create Campaign Draft | 5 per minute, 25 per hour, 100 per day per client |
+| `GET /v5/campaigns/{campaign_id}` — Get Campaign | 10 per second, 100 per minute per client |
+| `PATCH /v5/campaigns/{campaign_id}` — Update Campaign | 10 per second, 100 per minute per client |
+| `POST /v5/campaigns/{campaign_id}/validate` — Validate Campaign | 10 per second, 100 per minute per client |
+| `PATCH /v5/campaigns/{campaign_id}/status` — Update Campaign Status | 10 per second, 100 per minute per client |
+| `POST /v5/campaigns/search` — Search Campaigns | 10 per second, 100 per minute per client |
+| `POST /v5/campaigns/meta` — Get Campaign Meta | 10 per second, 100 per minute per client |
+| `POST /v5/campaigns/test` — Test Campaign | 10 per second, 100 per minute per client |
+| `POST /v5/personalization/preview` — Personalized Preview | 10,000 requests per minute |
+
+### Campaigns (Legacy)
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /campaigns` — Create Campaign | 5 per minute, 25 per hour, 100 per day per client |
+| `PATCH /campaigns/{campaign_id}` — Update Campaign | 10 per second, 100 per minute per client |
+| `POST /campaigns/search` — Search Campaigns | 10 per second, 100 per minute per client |
+| `POST /campaigns/test` — Test Campaign | 10 per second, 100 per minute per client |
+| `POST /campaigns/meta` — Get Campaign Meta | 10 per second, 100 per minute per client |
+| `POST /campaigns/status` — Change Campaign Status | 10 per second, 100 per minute per client |
+| `POST /campaigns/{parent_campaign_id}/executions` — Get Child Campaigns | 10 per second, 100 per minute per client |
+| `POST /personalization/preview` — Personalized Preview | 10,000 requests per minute |
+| `PUT /global-control-group/users` — Update Global Control Group | 10 requests per minute |
+
+### Campaign report and stats
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /core-services/v1/campaign-stats` — Get Campaign Stats | 100 requests per minute per workspace |
+
+### Segments
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /v2/custom-segments/file-segment` — Create File Segment | 10 file-segment operations per hour (create/add/remove, combined) |
+| `PUT /v2/custom-segments/file-segment/add-users`, `/remove-users` | Counted within the 10 file-segment operations per hour limit |
+| `POST /v3/custom-segments` — Create Filter Segment | 50 per minute, 200 per hour, 1,000 per day |
+| `GET /v3/custom-segments` — List Segments | 50 per minute, 200 per hour, 1,000 per day |
+| `GET /v3/custom-segments/{id}` — Get Segment by ID | 100 per minute, 1,000 per hour, 4,000 per day |
+| `POST /v1/integrations/cohortsync` — Sync Cohort Members | 300 requests per minute |
+
+<Note>
+  A workspace can have up to **1,000 active segments** at a time (file, filter, and custom combined).
+</Note>
+
+### Subscriptions
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /emails/v1.0/bulk-resubscribe` — Bulk Resubscribe Users | 10 per minute; 14,400 per day; up to 100 recipient addresses per request |
+| `PUT /v1.0/opt-in-management/user-preferences` — Update Email Opt-in Preferences | 1,000 per minute; 360,000 per day |
+| `GET` / `PUT` / `POST /category-subscription/user-preferences` — Subscription Categories | 100 per minute; 360,000 per day (each) |
+
+### Push
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /transaction/sendpush` — Send Push Notification | 10,000 requests per minute |
+| `POST /v2.1/transaction/sendpush` — Send Push Notification (V2.1) | 10,000 requests per minute |
+
+### Cards
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /cards/fetch` — Fetch Cards for User | 50,000 requests per minute per workspace |
+| `DELETE /cards/delete` — Delete Cards for User | 50,000 requests per minute per workspace |
+
+### Inform
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /alerts/send` — Send Transactional Alert | 10,000 requests per minute |
+
+### Live Activities
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /live-activity/broadcast/start` — Start Broadcast | 5 per minute per workspace |
+| `POST /live-activity/broadcast/update` — Update Broadcast | 500 per minute per workspace; 5 per minute per live-activity ID |
+| `POST /live-activity/broadcast/end` — End Broadcast | 500 per minute per workspace; 5 per minute per live-activity ID |
+
+### Personalize
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /experiences/fetch` — Fetch Experience | 10,000 requests per minute per workspace (configurable on request; may incur additional cost) |
+
+### Message Archival
+
+| Endpoint | Rate limit |
+| --- | --- |
+| `POST /archival/view` — View Archived Message | 1,000 requests per minute |
+
+## Payload size limits
+
+Payload caps are enforced independently of rate limits. A request larger than the cap is rejected — typically with `HTTP 413` (payload too large) or `HTTP 400`, depending on the endpoint.
+
+| API / endpoint | Maximum payload |
+| --- | --- |
+| Track User (`/customer/{app_id}`) | 128 KB per request |
+| Merge Users (`/customer/merge`) | 128 KB per request |
+| Cohort sync (`/v1/integrations/cohortsync`) | 128 KB per request |
+| GDPR / CCPA (`/opengdpr_requests/{appId}`) | 128 KB per request; 100 KB per user record |
+| Custom Segments — File | 150 MB per file |
+| Catalog API | 5 MB per request |
+| Recommendations API | 1 MB per request |
+| Live Activities (`/live-activity/broadcast/*`) | 5,120 bytes per request (iOS) |
+| Email bulk resubscribe (`/emails/v1.0/bulk-resubscribe`) | 100 recipient addresses per request |
+
