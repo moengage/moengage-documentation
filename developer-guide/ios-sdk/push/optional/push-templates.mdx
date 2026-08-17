@@ -1,6 +1,7 @@
 ---
 title: "Push templates"
 description: "Add custom push notification templates with Notification Content Extension in your iOS app."
+keywords: ["push template media", "HTTPS", "Allow Arbitrary Loads", "App Transport Security", "UNNotificationAttachment", "video not showing"]
 ---
 
 Notification Content Extension allows you to customize the appearance of the notification in expanded mode. For info on how to create campaigns with templates in the dashboard refer to [this](https://www.moengage.com/docs/user-guide/campaigns-and-channels/mobile-push/create/push-templates) link.
@@ -260,3 +261,45 @@ func notificationClicked(withScreenName screenName: String?, kvPairs: [AnyHashab
 ```
 
 </CodeGroup>
+
+# Media Requirements
+
+Templates that carry an image, audio, or video rely on the Notification Service Extension to download the asset before the notification displays. The constraints below apply to that download.
+
+## Serve Media Over HTTPS
+
+Serve push media over HTTPS. App Transport Security blocks plain HTTP downloads in the Notification Service Extension, so the asset never attaches and the notification displays without it.
+
+If you must serve media over HTTP, add the **App Transport Security Settings** dictionary to the `Info.plist` of your **Notification Service Extension** and set **Allow Arbitrary Loads** to **YES**:
+
+<CodeGroup>
+
+```xml Info.plist
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+</dict>
+```
+
+</CodeGroup>
+
+<Note>
+  Set this in the Notification Service Extension's `Info.plist`. Setting it only in the app target's `Info.plist` does not apply to media that the extension downloads.
+</Note>
+
+## Keep Media Within Apple's Attachment Size Limits
+
+Apple caps the size of a notification attachment, and the cap differs by media type. An asset over the limit is not attached, and the notification displays without it.
+
+| Media Type | Maximum Size |
+| :--------- | :----------- |
+| Audio      | 5 MB         |
+| Image      | 10 MB        |
+| Video      | 50 MB        |
+
+Apple sets these limits, not MoEngage. For the current values and the supported file formats for each type, see Apple's [UNNotificationAttachment](https://developer.apple.com/documentation/usernotifications/unnotificationattachment) documentation.
+
+## When Media Displays for Some Types but Not Others
+
+An image or audio file that renders correctly does not confirm that video will. The download failure is silent: the notification still arrives and displays its title and body, and no error surfaces in the app. When video specifically fails to display, check that it is served over HTTPS and that it is within Apple's size limit for video.
