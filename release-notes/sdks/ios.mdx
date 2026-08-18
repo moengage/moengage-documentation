@@ -19,6 +19,86 @@ rss: true
 
 {/* ---- 2026 Releases ---- */}
 
+<Update label="1st September 2026" description="SDK 11.1.0">
+
+<CardGroup cols={2}>
+  <Card title="Modules">
+
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Core</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>InApp</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Messaging</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>RichNotification</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>LiveActivity</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Inbox</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>Geofence</span>
+    - <span style={{ color: '#008767', fontWeight: 'bold' }}>RealTimeTrigger</span>
+
+    Cards · CampaignsCore · Personalize
+  </Card>
+
+  <Card title="Dependencies">
+    - Swift: 5.0.0
+    - iOS: 13.0
+    - tvOS: 13.0
+  </Card>
+</CardGroup>
+
+#### Core
+<span style={{ backgroundColor: 'rgba(0, 135, 103, 0.1)', color: '#008767', border: '1px solid #B5F5EC', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Improvements</span>
+
+* The SDK's default **Dismiss** notification action has been removed from its notification categories. Notifications now show only the actions you configure. If your app relies on that button, add it explicitly to your own category definition.
+* `trackUserPushPreference` is deprecated. The API still works in this release but will be removed in a future major version.
+
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed duplicate event identifiers during data syncing. An analytics batch identifier could be reused across two different sets of events when the app was terminated before pending writes finished — most commonly when a notification dismissal was handled while the app was killed. The identifier is now assigned at the moment a batch is sent, so each batch of events syncs exactly once under its own identifier.
+
+#### Inbox
+<span style={{ backgroundColor: 'rgba(0, 135, 103, 0.1)', color: '#008767', border: '1px solid #B5F5EC', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Improvements</span>
+
+* Inbox APIs now follow Swift's concurrency model. `presentInboxViewController`, `pushInboxViewController`, and `getInboxViewController` are main-actor bound. Objective-C callers are unaffected. Swift callers not already on the main actor must hop to it.
+
+  | API | Before (compiled anywhere) | After (must be on the main actor) |
+  | :-- | :-- | :-- |
+  | `presentInboxViewController` | `func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`}` | `func openInbox() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`}` |
+  | `pushInboxViewController` | `func openInbox(in navController: UINavigationController) {`<br />`    MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`}` | `func openInbox(in navController: UINavigationController) async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox(in navController: UINavigationController) {`<br />`    MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`}` |
+  | `getInboxViewController` | `func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`        // use inboxVC`<br />`    })`<br />`}` | `func openInbox() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`            // use inboxVC`<br />`        })`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`        // use inboxVC`<br />`    })`<br />`}` |
+
+* All Inbox completion blocks are now invoked on the main thread, so you can update UI directly from them.
+* `getInboxViewController` now always invokes its completion block, passing `nil` when no SDK instance is registered for the given app ID.
+* Inbox entries are now immutable snapshots. Read-state changes such as `isRead` and `clickedDate` appear on the next fetch instead of mutating entry objects you already hold. Re-fetch the inbox after marking an entry as read rather than reading the updated value from a retained object.
+* The `flushDuration` property is replaced by `flushNanoSeconds`. Update any code that reads or sets `flushDuration`.
+* Inbox methods deprecated in earlier releases have been removed. Call sites still using them no longer compile.
+
+#### Geofence
+<span style={{ backgroundColor: 'rgba(0, 135, 103, 0.1)', color: '#008767', border: '1px solid #B5F5EC', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Improvements</span>
+
+* Geofence now runs on the actor-based concurrency model. Location and campaign handling is structured around Swift concurrency, removing data-race risk in geofence processing.
+* Geofence methods deprecated in earlier releases have been removed. Call sites still using them no longer compile.
+
+#### RealTimeTrigger
+<span style={{ backgroundColor: 'rgba(0, 135, 103, 0.1)', color: '#008767', border: '1px solid #B5F5EC', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Improvements</span>
+
+* Trigger evaluation and delivery now run under the actor model for safer concurrent access.
+* Real-Time Trigger methods deprecated in earlier releases have been removed. Call sites still using them no longer compile.
+
+#### RichNotification
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Rich push media now renders for dynamic media URLs. Images and other media served from URLs without a recognizable file extension previously failed to display in the expanded notification. The media type is now resolved from the server response, with the URL extension used only as a fallback.
+
+#### InApp
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed race conditions in in-app stats tracking when the SDK is initialized multiple times in a process's lifecycle.
+
+#### LiveActivity
+<span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
+
+* Fixed race conditions in Live Activity token handling when the SDK is initialized multiple times in a process's lifecycle.
+
+</Update>
+
 <Update label="22nd July 2026" description="SDK 11.0.0">
 
 <CardGroup cols={2}>
