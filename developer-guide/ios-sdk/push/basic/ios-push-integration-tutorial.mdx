@@ -175,9 +175,9 @@ The NSE downloads the image, audio, or video before the notification displays. T
 
 #### Serve Media Over HTTPS
 
-Serve push media over HTTPS so that the NSE can download it. App Transport Security blocks plain HTTP downloads, and the notification then displays without the media.
+Serve push media over HTTPS so that the NSE can download it. [App Transport Security](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity) blocks plain HTTP downloads, and the notification then displays without the media.
 
-To serve media over HTTP, add the **App Transport Security Settings** dictionary to the `Info.plist` of your **Notification Service Extension** and set **Allow Arbitrary Loads** to **YES**:
+To serve media over HTTP, set [`NSAllowsArbitraryLoads`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowsarbitraryloads) to `true` in the `Info.plist` of your **Notification Service Extension**:
 
 <CodeGroup>
 
@@ -192,26 +192,18 @@ To serve media over HTTP, add the **App Transport Security Settings** dictionary
 </CodeGroup>
 
 <Note>
-  Set this in the NSE's `Info.plist`. The app target's `Info.plist` governs only the requests that the app itself makes, so the extension requires its own entry.
+  Set this in the NSE's own `Info.plist` — the file inside the extension's folder in Xcode, the group created alongside `NotificationService.swift` — not the app target's. The app target's `Info.plist` governs only the requests that the app itself makes, so the extension requires its own entry.
 </Note>
 
 #### Keep Media Within Apple's Attachment Size Limits
 
-Apple caps the size of a notification attachment, and the cap differs by media type. iOS drops an asset that exceeds the limit and displays the notification without it.
-
-| Media Type | Maximum Size |
-| :--------- | :----------- |
-| Audio      | 5 MB         |
-| Image      | 10 MB        |
-| Video      | 50 MB        |
-
-Apple sets these limits, not MoEngage. For the current values and the supported file formats for each type, see Apple's [UNNotificationAttachment](https://developer.apple.com/documentation/usernotifications/unnotificationattachment) documentation.
+Apple caps notification attachments at 5 MB for audio, 10 MB for images, and 50 MB for video. iOS drops an asset that exceeds its limit and displays the notification without it. Apple sets these limits, not MoEngage. For the current values and the supported file formats, see Apple's [UNNotificationAttachment](https://developer.apple.com/documentation/usernotifications/unnotificationattachment) documentation.
 
 #### Verify Each Media Type Separately
 
 An image or audio file that renders correctly confirms only that media type. The NSE fails silently when a download does not succeed: the notification still arrives and displays its title and body, and the app receives no error. When video alone fails to display, confirm that you serve it over HTTPS and keep it within Apple's size limit for video.
 
-Supported image formats also differ by platform. Android renders WebP (`.webp`), while iOS supports only the formats that Apple lists for notification attachments. The same campaign therefore displays the image on Android and omits it on iOS. Use JPG or PNG for campaigns that target both platforms.
+Supported image formats also differ by platform. Android renders WebP (`.webp`), while iOS supports only [the formats that Apple lists for notification attachments](https://developer.apple.com/documentation/usernotifications/unnotificationattachment#Supported-File-Types). The same campaign therefore displays the image on Android and omits it on iOS. Use JPG, PNG, or GIF for campaigns that target both platforms.
 
 ## Step 2: Implement Push Handling in AppDelegate
 
