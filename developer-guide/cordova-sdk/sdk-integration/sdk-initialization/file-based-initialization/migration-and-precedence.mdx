@@ -1,0 +1,117 @@
+---
+title: "Migration and Precedence"
+description: "Migrate the MoEngage Cordova SDK from code-based initialization to file-based configuration and understand which configuration source wins."
+keywords: "cordova sdk migration, file based initialization precedence, moengage.xml, Info.plist"
+---
+
+Use this page to move an existing Cordova integration from code-based initialization to [file-based initialization](/developer-guide/cordova-sdk/sdk-integration/sdk-initialization/file-based-initialization/file-based-initialization), and to understand which configuration source the SDK uses when both exist.
+
+## Prerequisites
+
+- Cordova SDK `cordova-moengage-core` version 10.1.0 or above.
+- A generated `moengage.xml` file and `MoEngage` plist dictionary. Refer to [File Based Initialization](/developer-guide/cordova-sdk/sdk-integration/sdk-initialization/file-based-initialization/file-based-initialization).
+
+## Android Migration Steps
+
+<Steps>
+  <Step title="Add the Configuration File">
+    Place `moengage.xml` in `platforms/android/app/src/main/res/values/`.
+  </Step>
+  <Step title="Update the Application Class">
+    In your `Application` class, remove the `MoEngage.Builder` setup and call the file-based overload of `initialiseDefaultInstance()` instead.
+  </Step>
+</Steps>
+
+Before:
+
+<CodeGroup>
+
+```java Java
+import com.moengage.cordova.MoEInitializer;
+import com.moengage.core.MoEngage;
+import com.moengage.core.DataCenter;
+
+MoEngage.Builder moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X);
+MoEInitializer.initialiseDefaultInstance(this, moEngage);
+```
+
+</CodeGroup>
+
+After:
+
+<CodeGroup>
+
+```java Java
+import com.moengage.cordova.MoEInitializer;
+
+@Override
+public void onCreate() {
+    super.onCreate();
+    // ... existing code
+    MoEInitializer.initialiseDefaultInstance(this);
+}
+```
+
+</CodeGroup>
+
+<Note>
+  Both overloads share the name `initialiseDefaultInstance`. The file-based one takes only the `Application` instance; the code-based one also takes a `MoEngage.Builder`.
+</Note>
+
+## iOS Migration Steps
+
+<Steps>
+  <Step title="Update Info.plist">
+    Add the MoEngage configuration keys, such as `WorkspaceId` and `DataCenter`, inside the `MoEngage` dictionary in `platforms/ios/<YourAppName>/<YourAppName>-Info.plist`.
+  </Step>
+  <Step title="Update AppDelegate">
+    Remove the `MoEngageSDKConfig` setup from `application:didFinishLaunchingWithOptions:` and call the default instance initialization so the SDK reads from `Info.plist`.
+  </Step>
+</Steps>
+
+Before:
+
+<CodeGroup>
+
+```objectivec Objective-C wrap
+#import "AppDelegate+MoEngage.h"
+
+MoEngageSDKConfig *sdkConfig = [[MoEngageSDKConfig alloc] initWithAppID:@"YOUR_WORKSPACE_ID"];
+sdkConfig.moeDataCenter = DATA_CENTER_01;
+[self initializeDefaultSDKConfig:sdkConfig andLaunchOptions:launchOptions];
+```
+
+</CodeGroup>
+
+After:
+
+<CodeGroup>
+
+```objectivec Objective-C wrap
+#import "AppDelegate+MoEngage.h"
+
+MoEngageCordovaSDKDefaultInitializationConfig *config = [[MoEngageCordovaSDKDefaultInitializationConfig alloc] init];
+config.launchOptions = launchOptions;
+[self initializeDefaultInstanceWithAdditionalCordovaConfig:config];
+```
+
+</CodeGroup>
+
+## Precedence Rules
+
+The configuration source depends on which initialization method your native code calls.
+
+### Android
+
+| Method | Configuration source |
+| :-- | :-- |
+| `MoEInitializer.initialiseDefaultInstance(application)` | Reads `moengage.xml` from the resource directory. |
+| `MoEInitializer.initialiseDefaultInstance(context, builder)` | Uses the `MoEngage.Builder` passed in, and ignores `moengage.xml` even if the file exists. |
+
+### iOS
+
+Auto-initialization from `Info.plist` runs first. If you subsequently call a manual initialization method with a configuration object, it updates the configuration of the current instance.
+
+<Warning>
+  Call only one initialization method per platform. Calling both the code-based and file-based methods leads to configuration that is difficult to trace.
+</Warning>
