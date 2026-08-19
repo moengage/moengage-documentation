@@ -22,61 +22,64 @@ You can personalize the campaign with recommendations in the second step 'Conten
 
 To create an RCS campaign with recommendations, perform the following steps:
 
-1. On the sidebar menu in MoEngage, hover over the **Engage** menu item <img alt="The Engage menu icon" src="/images/moengage_3a6ded.png" style={{ display: "inline-block", height: "20px", width: "auto" }} />. The **Engage** menu appears.
-2. Click **+ New Campaign**.
-
-   ![The New Campaign button on the Engage menu](/images/moengage_f884be.png)
+1. On the sidebar menu in MoEngage, hover over the Engage menu item <img alt="The Engage menu icon" src="/images/moengage_3a6ded.png" style={{ display: "inline-block", height: "20px", width: "auto" }} /> . The **Engage** menu appears.
+2. Click **+ New Campaign**. <img src="/images/moengage_f884be.png" alt="The Engage menu with the New Campaign option" /> You can also click **All Campaigns** on the **Engage** menu and then click **\+ Create campaign** on the All campaigns page.
 3. On the **New Campaign** dialog box, under **OUTBOUND**, click **RCS**.
-4. Click **Periodic** campaign, and you can follow the same steps for any other RCS campaign type. For more information about delivery types, refer to [Delivery Types](/user-guide/campaigns-and-channels/getting-started/introduction/delivery-types-moengage-channels).
+4. Click **Periodic** campaign, and you can follow the same steps for any other RCS campaign type. For more information about delivery types, refer to [Delivery Types](/user-guide/campaigns-and-channels/getting-started/introduction/delivery-types-moengage-channels). <img src="/images/rcs-new-campaign-periodic.png" alt="The New Campaign dialog box with RCS selected under Outbound and the Periodic delivery type" />
+5. Enter the basic campaign details and define the audience in step 1 'Target users' and click **Next**.
+6. In step 2, on the **Content** tab, click **Blank Template** under **Default templates**, or select a template under **Custom templates**. <img src="/images/rcs-select-template.png" alt="The Content tab showing the Blank Template option and the Custom templates list" />
+7. Select the sender in the **Select sender** list.
+8. Select the template in the **Select template** list. <img src="/images/rcs-configure-content.png" alt="The Configure RCS panel showing the Select sender and Select template lists and the template placeholder fields" />
+9. In a placeholder field, such as **{{Link}}**, type '@' where you want the recommendation to appear. The **RCS Personalization** window opens.
+10. On the **Data personalization** tab, in the **Select attribute** list, search for your recommendation and select it under **Product sets**. <img src="/images/rcs-personalization-window.png" alt="The RCS Personalization window showing the Data personalization tab, the Select attribute list, and the Choose Fallback options" />
+11. Under **Choose Fallback**, select a fallback and click **Done**.
+    The **Choose Fallback** option controls what a user receives when personalization fails for them:
 
-   ![The Create menu in MoEngage](/images/create-campaign-menu.png)
-5. Enter the basic campaign details, define the audience in step 1 'Target users', and click **Next**.
-6. In step 2, on the **Content** tab, select the sender and the message type.
-7. In the message field, type **@** where you want the recommendation to appear.
-8. Search the recommendation name under the **Data personalization** drop-down, and then click **Done**.
-9. Modify the inserted Jinja code to fetch a single item.
-10. Click **Personalized preview** to see the message as a specific user receives it.
-11. You can also deliver a test campaign to ensure end-to-end delivery before scheduling it for all users.
+    | Fallback | What happens |
+    | --- | --- |
+    | **No fallback** | The recommendation is replaced with an empty value. |
+    | **Do not send RCS** | The RCS message is not sent to that user. |
+    | **Replace text** | The recommendation is replaced with the text you enter. |
+12. It auto-populates some Jinja code retrieving all available items list from recommendations. You can modify the code for your use case. For example, the following is the modified code to display one item:
+    <CodeGroup>
+    ```jinja Item Title
+    {% if ProductSet.Recommendations %}
+    {% for product in ProductSet.Recommendations[0:1] %}
+    {{product.title}}
+    {% endfor %}
+    {% else %}
+    MOE_NOT_SEND
+    {% endif %}
+    ```
 
-    ![The Test Campaign panel](/images/moengage_64d866.png)
-12. After the content setup with recommendations is complete, click **Next** at the bottom and move to 'Schedule and Goals', which is the step 3 of campaign setup.
-13. Set up the appropriate settings in **Schedule and Goals** and publish the campaign.
-
-# Fetch a Single Recommended Item
-
-Adding a product set on its own inserts every item in the set. To send one product instead, loop through the product set. The following example uses a product set named `ProductSet` with a recommendation named `Recommendations`.
-
-To fetch the title of the first recommended item:
-
-<CodeGroup>
-```text JINJA
-{% if ProductSet.Recommendations %}
-{% for product in ProductSet.Recommendations[0:1] %}
-{{product.title}}
-{% endfor %}
-{% else %}
-MOE_NOT_SEND
-{% endif %}
-```
-</CodeGroup>
-
-To add the product's image link in the same message:
-
-<CodeGroup>
-```text JINJA
-{% if ProductSet.Recommendations %}
-{% for product in ProductSet.Recommendations[0:1] %}
-{{product.image_link}}
-{% endfor %}
-{% else %}
-MOE_NOT_SEND
-{% endif %}
-```
-</CodeGroup>
-
-`MOE_NOT_SEND` stops the message from going out when the product set is empty for a user, so no one receives a message with a missing product.
-
-A product set contains a list of items, each with attributes such as `name`, `title`, `id`, and `image link`. To fetch an attribute inside the loop, type **@** and select the property from the personalization window.
+    ```jinja Item Image Link
+    {% if ProductSet.Recommendations %}
+    {% for product in ProductSet.Recommendations[0:1] %}
+    {{product.image_link}}
+    {% endfor %}
+    {% else %}
+    MOE_NOT_SEND
+    {% endif %}
+    ```
+    </CodeGroup>
+    <Note>
+      `MOE_NOT_SEND` stops the message from going out when the product set is empty for a user, so no one receives a message with a missing product.
+    </Note>
+13. To display an item attribute, place the cursor inside the `for` loop, type '@', and select the attribute in the **Select attribute** list. The attribute is inserted inside the loop, for example `{{product['price']}}`.
+14. Repeat steps 9 to 13 for each remaining recommendation. You can choose recommendations personalization or static textual content for different parts of the message.
+15. After you complete the setup, under **Preview type**, click **Personalized**. MoEngage selects a user and renders the message with real values.
+16. To preview the message for a specific user, click the edit icon <img alt="The edit icon" src="/images/personalized-preview-edit-icon.png" style={{ display: "inline-block", height: "16px", width: "auto" }} /> . The **Personalized preview** slide-out opens.
+17. In the **Select user by** list, select the identifier you want to use.
+18. In the **User identifier value** field, type the identifier of the user.
+19. Click **Fetch user data**. Under **Personalization inputs**, your product set appears as JSON with the items available for that user.
+20. Change the JSON to match what you want to preview. (Optional)
+21. Click **Update preview**. <img src="/images/rcs-personalized-preview.png" alt="The Personalized preview slide-out showing the product set JSON and the rendered RCS message" />
+    <Note>
+      To enable **Update preview** for your account, contact your MoEngage CSM or the Support team. For more information, refer to [Personalized Preview](/user-guide/campaigns-and-channels/getting-started/message-personalization/personalized-preview).
+    </Note>
+22. You can also deliver a test campaign to ensure end-to-end delivery before scheduling it for all users. <img src="/images/moengage_64d866.png" alt="The Test Campaign panel" />
+23. After you complete the content setup with recommendations, click **Next** at the bottom and move to 'Schedule and Goals', which is the step 3 of campaign setup.
+24. Set up the appropriate settings in **Schedule and Goals** and publish the campaign.
 
 # Related Articles
 
