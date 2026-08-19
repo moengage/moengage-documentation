@@ -5,9 +5,13 @@ description: "Learn how MoEngage's Fair Usage Policy (FUP) for Event-Triggered F
 
 ## Overview
 
-MoEngage Flows run on shared infrastructure, which means every workspace on a cluster draws from the same processing capacity. The Fair Usage Policy (FUP) limits the number of successful flow entries within a rolling 60-minute window, per workspace. Your limit is derived from your workspace's contracted Monthly Active Users (MAU).
+MoEngage Flows run on shared infrastructure — every workspace on a cluster draws from the same underlying processing capacity. Until now, there was no enforced ceiling on how much of that capacity any one workspace could draw on: a sustained spike from one workspace could degrade performance for every other workspace sharing the same cluster, including yours, even when your own usage was well within normal patterns.
 
-The limit counts entries, not users. A single user can account for several entries if they re-qualify and re-enter.
+The Fair Usage Policy (FUP) is designed to give every workspace a guaranteed, predictable share of that infrastructure, sized to its contracted Monthly Active Users (MAU) — so no other workspace's spike can degrade your performance, and yours is equally protected from ever being the cause. The result is more consistent, more reliable flow processing for your workspace, regardless of what else is happening on the cluster.
+
+<Info>
+  Fewer than 3% of workspaces currently exceed their FUP limit. For the large majority of workspaces, this policy has no practical impact on day-to-day usage.
+</Info>
 
 <Note>
 This policy is separate from the [Fair Usage Policy (FUP)](/user-guide/data/key-concepts/fair-usage-policy-fup) that governs data tracking. The two share a name but use different limits and different enforcement mechanisms.
@@ -15,18 +19,20 @@ This policy is separate from the [Fair Usage Policy (FUP)](/user-guide/data/key-
 
 ### Why Flow Entries Have a Separate Limit
 
-Data API rate limits govern how fast you send data to MoEngage. Your MAU governs the size of your tracked audience. Neither governs how intensively those users trigger flow entries, which is what consumes flow processing capacity.
+MoEngage already governs usage in two other ways — rate limits at the Data API layer, and billing based on Monthly Active Users (MAU). Neither is designed to catch this specific pattern:
 
-| Control | What it governs |
-|---|---|
-| Data API rate limits | The rate of individual requests sent to the MoEngage API |
-| MAU | The size of your tracked audience |
-| Flow entry FUP | The rate of entries into flows in a rolling 60-minute window |
+| Existing control | What it measures | What it doesn't cover |
+| --- | --- | --- |
+| Data API rate limits | Individual request rates to the MoEngage API | Sustained high-frequency event triggers firing across multiple flows at once |
+| MAU billing | The size of your tracked audience | How intensively those users trigger flow entries within a given hour |
+| **Flow Entry FUP** | Rate of users successfully entering flows in a rolling 60-minute window | — this is the gap it closes |
 
-A flow entry consumes more processing capacity than the entry count indicates. Trigger events that fail an eligibility check are still evaluated, and each user who enters a flow is evaluated again at every branch, wait condition, and message eligibility check. A high-frequency trigger such as App Opened or Product Viewed, used across several flows, therefore draws heavily on capacity even when few users complete an entry.
+What makes flow entry volume expensive isn't just the number of successful entries — it's everything evaluated behind the scenes. For roughly every 1 successful entry, about 11 trigger events are processed (the other ~10 fail eligibility checks but still consume system resources). Once a user is in a flow, the system runs an average of 20 decision checks — branching logic, wait conditions, message eligibility — before their journey ends. A single high-frequency trigger like App Opened or Product Viewed, configured across multiple flows, can generate far more processing load than its entry count alone suggests.
+
+The FUP sets a limit on the number of successful flow entries within a rolling 60-minute window, per workspace. FUP makes that shared capacity predictable and fair for every workspace on the platform.
 
 <Info>
-The FUP currently applies to **Event-Triggered Flows** only. Each workspace has its own independent limit — multiple workspaces under the same account do not share a limit.
+  The FUP currently applies to **Event-Triggered Flows** only. Each workspace has its own independent limit — multiple workspaces under the same account do not share a limit.
 </Info>
 
 ## Your FUP Limit
@@ -61,7 +67,7 @@ Evaluating a trigger event uses processing capacity even when the user fails an 
 
 Once your workspace reaches its FUP limit within the rolling 60-minute window, new flow entries are blocked immediately. Entries are not queued, retried, or recovered automatically.
 
-A [Consumption Alert](#consumption-alert-75) is triggered automatically when your workspace reaches 75% of its limit, so you can review your flow configuration before entries are blocked.
+Set up a [Threshold Alert](#threshold-alert) so your team has advance notice and time to review flow architecture before entries start getting blocked.
 
 ### Dropped Entries
 
@@ -96,19 +102,13 @@ Each alert email includes:
 - Suppressed entries per flow during the same window.
 - A direct link to the FUP Status Hub.
 
-### Consumption Alert (75%)
-
-This system alert is automatically added to your workspace — no setup required. It is triggered when your workspace reaches 75% of its FUP limit and includes a direct link to the FUP Status Hub.
-
-At 75%, review which flows are consuming the most entries and adjust their configuration before entries are blocked.
-
 ### Limit Reached Alert (100%)
 
 This system alert is automatically added to your workspace — no setup required. It is triggered the moment your workspace reaches 100% of its FUP limit and confirms that new flow entries are now being blocked.
 
 This alert does not include flow-level diagnostic detail. Use the Threshold Alert or the FUP Status Hub for per-flow detail.
 
-The following permissions apply to both FUP system alerts:
+The following permissions apply to this alert:
 
 | Role | Can View | Can Edit | Subscribe Yourself | Subscribe Others |
 |---|---|---|---|---|
