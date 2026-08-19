@@ -9,46 +9,63 @@ In this document, we list a few steps that you can execute to share the MoEngage
 
 <iframe src="https://www.youtube.com/embed/kQjcdzQkOq4" title="YouTube video player" frameborder="0" className="w-full aspect-video rounded-xl" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
 
-## Enable debug logs
+## Enable debug logs for Android
 
-MoEngage SDK logs are best read in verbose format, which prints almost all the steps the SDK takes at any given time. You must first enable verbose-level logging by following this documentation and changing the initialization code a bit.
+Use the snippet below to enable all MoEngage SDK-related logs.
 
 <CodeGroup>
 
-```Kotlin Kotlin wrap
+```kotlin Kotlin
+import com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.config.LogConfig
+import com.moengage.core.LogLevel
+import com.moengage.core.enableAllLogs
 
-val moEngage = MoEngage.Builder(
-        application = this,
-        appId = "YOUR_Workspace_ID",
-        dataCenter = DataCenter.DATA_CENTER_X
-    )
-    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuilds = true))
+enableAllLogs()
+
+val moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureLogs(LogConfig(logLevel = LogLevel.VERBOSE, isEnabledForReleaseBuild = true))
     .build()
+MoEngage.initialiseDefaultInstance(moEngage)
 ```
 
+```java Java
+import com.moengage.core.MoEngage;
+import com.moengage.core.config.LogConfig;
+import com.moengage.core.LogLevel;
+import com.moengage.core.MoESdkStateHelper;
 
-```Java Java
- 
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
-              .build();
-```
+MoESdkStateHelper.enableAllLogs();
 
-
-```ReactNative ReactNative
-
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
-```
-
-
-```Flutter Flutter
-
-MoEngage moEngage = new MoEngage.Builder(this, "YOUR_Workspace_ID", DataCenter.DATA_CENTER_X)
-              .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+// replace X with the correct data center
+MoEngage moEngage = new MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.getDataCenterX())
+    .configureLogs(new LogConfig(LogLevel.VERBOSE, true))
+    .build();
+MoEngage.initialiseDefaultInstance(moEngage);
 ```
 
 </CodeGroup>
+
+<Warning>
+  `enableAllLogs()` only captures logs generated after it is called — it does not replay earlier logs. To turn off all logs, call `disableAllLogs()`. Set `isEnabledForReleaseBuild` to `false` and remove these calls before pushing the app to production.
+</Warning>
+
+## Enable debug logs for React Native
+
+Follow the same steps as the [Android section](#enable-debug-logs-for-android) above. In addition, React Native provides log control at the TypeScript level. Update your MoEngage initialization code in `App.tsx` (or your app entry file) to pass a log configuration:
+
+```typescript TypeScript
+import { MoEInitConfig, MoEPushConfig, MoEngageLogConfig, MoEngageLogLevel } from "react-native-moengage";
+import ReactMoE from "react-native-moengage";
+
+const moEInitConfig = new MoEInitConfig(
+  MoEPushConfig.defaultConfig(),
+  new MoEngageLogConfig(MoEngageLogLevel.VERBOSE, true)
+);
+
+ReactMoE.initialize("YOUR_WORKSPACE_ID", moEInitConfig);
+```
 
 <Warning>
   Ensure to remove the above lines before the application is pushed to production.
@@ -97,7 +114,7 @@ When browsing the logs, you can search for a few keywords to understand what is 
 
 **Description**
 
-This log line indicates that the API call has been made to MoEngage servers and has succeeded. This API call is dependent on the proper integration of the lifecycle process. You might not see this line when the app goes into the background or killed state if the lifecycle observer isn't properly registered. Troubleshooting article - [How to debug lifecycle issues](/developer-guide/android-sdk/troubleshooting-and-faqs/troubleshooting-and-faqs#Why-is-lifecycle-process-library-important?).
+This log line indicates that the API call has been made to MoEngage servers and has succeeded. This API call is dependent on the proper integration of the lifecycle process. You might not see this line when the app goes into the background or killed state if the lifecycle observer isn't properly registered. Troubleshooting article - [How to debug lifecycle issues](/developer-guide/android-sdk/troubleshooting-and-faqs/troubleshooting-and-faqs#why-is-lifecycle-process-library-important).
 
 ### Push Token
 
@@ -121,7 +138,7 @@ If this parameter is present and not empty, it indicates that the push token was
 
 **Description**
 
-This log line indicates that MoEngage SDK has made an API call to its backend servers to fetch the valid InApps or Nudges for the user. This API call is essential for InApps or Nudges to work as expected and depends on properly registering the lifecycle process. If you don't see this call once you open the app from killed state, go through the troubleshooting article here - [How to debug lifecycle issues.](/developer-guide/android-sdk/troubleshooting-and-faqs/troubleshooting-and-faqs#Why-is-lifecycle-process-library-important?)
+This log line indicates that MoEngage SDK has made an API call to its backend servers to fetch the valid InApps or Nudges for the user. This API call is essential for InApps or Nudges to work as expected and depends on properly registering the lifecycle process. If you don't see this call once you open the app from killed state, go through the troubleshooting article here - [How to debug lifecycle issues.](/developer-guide/android-sdk/troubleshooting-and-faqs/troubleshooting-and-faqs#why-is-lifecycle-process-library-important)
 
 ### InApps - display not shown
 

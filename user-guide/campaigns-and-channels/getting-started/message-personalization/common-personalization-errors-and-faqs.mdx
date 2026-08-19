@@ -5,7 +5,7 @@ description: "Troubleshoot personalization failures in MoEngage campaigns caused
 
 Personalization failure occurs when you use a user attribute or event attribute that is not present in the MoEngage dataset and do not configure a fallback.
 
-# Personalization Errors
+## Personalization Errors
 
 You can see personalization errors in the **Failed to Send** error category in the **Error breakdown** table. Click **See breakdown** in the **Name** column for personalization errors to get a detailed view of the number of users for whom personalization has failed and the reasons for failure.
 
@@ -17,7 +17,7 @@ If you configure custom Jinja errors using the *MOE\_NOT\_SEND* tag, the error b
 
 <img alt="image (5).png" src="/images/moengage_3fdb01.png" />
 
-# Personalization Failure Analysis
+## Personalization Failure Analysis
 
 The *Personalization failure analysis* helps you identify specific attributes that cause personalization failures and offers in-depth insights into these causes.   
 Personalization errors can be classified into the following categories:
@@ -38,16 +38,71 @@ The number of failures listed in the **Personalization Failed** category under *
 
 <img alt="Personalization Failure Analysis.png" src="/images/moengage_bd5dac.png" />
 
-## Personalization Failure
+### Personalization Failure
 
 Consider a scenario where you have personalized both the template and backup notifications but not added the personalization fallback. In this situation, if the personalization fails for the template or backup, the notification will not be sent to any users. This is because the template and backup are considered to be part of one payload. Because the personalization fallback does not exist, MoEngage won't have any alternate message to send to the user in case of failure.
 
 To avoid this issue, make sure that you add a personalization backup to your messages.
 
-# Internal Errors
+## Internal Errors
 
 MoEngage internal system generates a few errors, which apply to Push messages sent to all platforms.
 
 | Error | Description |
 | --- | --- |
 | Personalization Failed | This occurs when Push Personalization fails, and you have not configured a fallback message. MoEngage will not notify the user and will generate the Personalization Failed error. |
+
+## Jinja and HTML Editor FAQs
+
+### Why does my dynamically generated table render incorrectly after saving?
+
+HTML tables have a strict structural hierarchy: `<table> > <tbody> > <tr> > <td>`. If a Jinja `for` loop is placed directly inside `<table>` or `<tbody>` — instead of wrapping a complete `<tr>...</tr>` row — the email HTML editor treats this as invalid markup and auto-corrects it by relocating or removing the Jinja tags when the template is saved.
+
+This is why the Jinja can look different in the backend after saving, and why the resulting table doesn't render as expected — the editor isn't corrupting your personalization, it's "fixing" HTML it considers invalid.
+
+**Correct pattern:** wrap the entire `<tr>` row (not just the cell content) inside the loop, and place the loop inside `<tbody>`:
+
+```text theme={null}
+<table>
+  <tbody>
+    {% for product in products %}
+    <tr>
+      <td>{{ product.name }}</td>
+      <td>{{ product.price }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+```
+
+<Warning>
+  Do not place `{% for %}` / `{% endfor %}` tags directly inside `<table>` or `<tbody>` without a complete `<tr>...</tr>` row wrapping them. The editor will relocate or strip tags placed in invalid positions, which can silently break dynamic tables.
+</Warning>
+
+For more information on loops, refer to [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language#for).
+
+### Why does my Jinja condition display a TemplateSyntaxError in the rich editor?
+
+The rich (Froala) editor used for stylized email and push templates HTML-encodes the `>` and `<` comparison operators when they appear inside Jinja (`>` becomes `&gt;`, `<` becomes `&lt;`). This produces a template error similar to:
+
+```text theme={null}
+TemplateSyntaxError in jinja: unexpected char u'&'
+```
+
+and the personalization fails to render.
+
+This only affects templates authored through the rich/stylized editor. The same Jinja works correctly on a basic (non-rich) editor or in a custom HTML/source view, since there's no encoding step involved.
+
+**To avoid this:**
+
+* Rewrite the condition to avoid `>` / `<` — for example, use `!=` instead:
+
+```text theme={null}
+{# Avoid #}
+{% if UserAttribute['orders']|int > 0 %}
+
+{# Use instead #}
+{% if UserAttribute['orders']|int != 0 %}
+```
+
+* Or author the Jinja in the custom HTML/source view instead of the rich editor, where no auto-encoding is applied.

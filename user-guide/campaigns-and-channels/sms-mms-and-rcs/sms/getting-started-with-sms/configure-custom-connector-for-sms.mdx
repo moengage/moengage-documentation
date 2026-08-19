@@ -121,7 +121,7 @@ To enable delivery tracking:
    | **Attribute storing unique ID of the sent response** | This field uniquely identifies the request. The value of this field should ideally match the value present in the Transaction or msg ID field. |
    | **Attribute storing Unique delivery ID field of delivery response** | This field stores the unique identifier of the delivery response. The value in this field should match the value in the sent response. This will help MoEngage identify the delivery response for any given SMS. |
    | **Attribute storing delivery status** | This field contains the delivery status of the sent SMS. This is used to calculate the _Delivered_ metric by MoEngage. |
-   | **Success values for delivery status** | The values denote that the SMS has been delivered successfully. We mark a message as delivered if any values mentioned in this field are received as part of the response. If any other value is received in the response, it will be considered a failure by default. |
+   | **Success values for delivery status** | The values denote that the SMS has been delivered successfully. We mark a message as delivered if any values mentioned in this field are received as part of the response. If any other value is received in the response, it will be considered a failure by default. Enter the exact success status string your vendor sends in the delivery callback (for example, `SENT`). If this value does not match the status the vendor reports, the Delivered count stays 0 even when delivery tracking is enabled. |
    | **Attribute storing failure reason** | This field contains the failure reason when an SMS delivery is unsuccessful. The failure reason can be seen in campaign analytics. For more information, refer to [Failure Reasons](/user-guide/campaigns-and-channels/sms-mms-and-rcs/sms/analyze-sms-campaigns#error-breakdown). |
    <Tabs>
      <Tab title="Map fields from the delivery response">
@@ -141,7 +141,12 @@ To enable delivery tracking:
   - The delivery callback is a POST request and accepts a JSON payload.
   - To optimize system usage, reduce costs, and increase reliability, the delivery callback response payload should not exceed 150 KB in size. MoEngage sends a 413 Bad Request error if the response exceeds this limit. In such cases, it is recommended to reduce the payload size and resend the response. MoEngage recommends updating your payload creation code if this error is observed consistently.
   - Only Admins and Managers can configure Delivery Tracking in MoEngage.
+  - Delivery callbacks must be sent one per message. Bulk or batched callbacks that report multiple messages in a single call are not supported. MoEngage counts such a callback as a single delivery, which under-reports the Delivered count.
 </Info>
+
+<Warning>
+If delivery tracking is enabled but the Delivered count stays 0 or looks too low, check that the **Success values for delivery status** field matches the exact success status your vendor sends, and that your vendor sends one delivery callback per message instead of a single bulk callback.
+</Warning>
 
 # Next Steps
 
