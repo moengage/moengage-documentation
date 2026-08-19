@@ -1,0 +1,46 @@
+# Connector Error Reference
+
+> Understand the timeout, hostname validation, OAuth, and duplicate-send behaviors that can cause a Connector campaign request to fail, and how to resolve each.
+
+This article lists the common ways a Connector request can fail after a campaign has qualified a user, along with the resolution or configuration option available for each. For more information about connector campaign performance metrics, refer to [Connector Campaign Analytics](/user-guide/campaigns-and-channels/connectors/analyze/connector-campaign-analytics).
+
+## Timeouts and Retry Logic
+
+MoEngage applies a 5-second timeout to every connector request. If your endpoint does not respond within this window, or responds with anything other than an HTTP `200` (including `202 Accepted`), MoEngage marks the request as failed.
+
+<Info>
+  Automatic retry (up to 3 attempts at a fixed 5-second interval) is available for connector requests but is not enabled for every workspace. Contact MoEngage Support to check whether it applies to your workspace. This is different from the **Reattempt error codes** field used for OAuth-authenticated connectors. For more information, refer to [OAuth Errors and Resolution](#oauth-errors-and-resolution).
+</Info>
+
+If your endpoint is slow to respond, optimize its response time, or configure it to acknowledge the request immediately and process it asynchronously.
+
+## Hostname Validation
+
+MoEngage validates the Webhook URL's hostname when you create or test-send a Connector campaign, and not on every scheduled send. The request is rejected with the error **"Provided hostname is not valid"** (HTTP `400`) if the hostname:
+
+* Does not resolve to a valid address
+* Resolves to a private or reserved IP range
+* Points to a cloud-metadata endpoint
+
+All three conditions return the same generic error message.
+
+<Info>
+  MoEngage verifies the endpoint's TLS certificate by default. If your endpoint uses a self-signed or non-standard certificate and requests are failing as a result, contact MoEngage Support.
+</Info>
+
+## OAuth Errors and Resolution
+
+If your Connector campaign uses OAuth 2.0 authentication, two different behaviors apply:
+
+1. **Endpoint-returned error codes**: If your endpoint returns one of the codes listed in your **Reattempt error codes** field, MoEngage refreshes the OAuth access token and retries the request once. For more information, refer to [Enable Authorization Settings](/user-guide/campaigns-and-channels/connectors/create/create-a-connector-campaign#enable-authorization-settings).
+2. **OAuth 500 error**: MoEngage can return a generic `500` error when its own token-fetch step fails, separate from any error returned by your endpoint. This is not covered by the **Reattempt error codes** field. If you encounter this error, retry your test send. If the error persists, contact MoEngage Support.
+
+## Batch Rerun and Duplicate Prevention
+
+<Info>
+  Applies to One Time and Periodic Connector campaigns.
+</Info>
+
+MoEngage may automatically rerun a Connector campaign batch due to infrastructure or network issues. If a dedup key is not configured, a rerun can result in the same user being targeted more than once.
+
+To prevent this, configure **Remove Duplicate Users** using a stable user attribute, such as a standardized mobile number, as the dedup key. For more information, refer to [Remove Duplicate Users](/user-guide/campaigns-and-channels/connectors/create/create-a-connector-campaign#remove-duplicate-users).
