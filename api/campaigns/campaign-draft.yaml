@@ -55,14 +55,12 @@ components:
       type: http
       scheme: basic
       description: |
-        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format 'username:password'.
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format `username:password`.
 
-        - **Username**: Use your MoEngage workspace ID (also known as the App ID). You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
-        - **Password**: On your MoEngage workspace, navigate to **Settings** → **Account** → **API keys** and click **Create new key**. The tab lists every API surface (Data, Segmentation, Push, Email, Campaigns, Templates, and more) and exposes per-resource actions. For Campaigns, ensure the **View**, **Create & Manage**, and **Create, Manage & Publish** checkboxes are selected.
+        - **Username**: Use your MoEngage Workspace ID (also known as the App ID). Find it in the MoEngage dashboard at **Settings** > **Account** > **API keys**.
+        - **Password**: Use an API key from **Settings** > **Account** > **API keys**.
 
-        For more information on authentication and getting your credentials, refer to [Getting your credentials](/api/introduction#getting-your-credentials).
-
-        Send the value in the `Authorization` header as `Basic` followed by Base64-encoding of `appkey:apisecret` (workspace ID and API key).
+        Refer to [API Key Dashboard](/user-guide/settings/account/api-and-api-keys/api-key-dashboard) for details on creating and managing API keys.
   
   parameters:
     MOE-APPKEY:
@@ -70,16 +68,16 @@ components:
       in: header
       required: false
       description: |
-        Your MoEngage Workspace ID (App ID). Optional — Basic Auth already carries the Workspace ID as the username, so this header is not required. Find it in the dashboard at **Settings** > **Account** > **APIs** > **Workspace ID**.
+        Your MoEngage Workspace ID (App ID). Optional — Basic Auth already carries the Workspace ID as the username, so this header is not required. Find it in the dashboard at **Settings** > **Account** > **API keys**.
       schema:
         type: string
       example: "{{workspace_id}}"
     X-MOE-Request-Id:
       name: X-MOE-Request-Id
       in: header
-      required: true
+      required: false
       description: |
-        Correlates with `response_id`. Supply this header or `request_id` in the body; if both are set, they must match.
+        Client-supplied trace ID for tracing. Correlates with `response_id`. Supply this header or `request_id` in the body; if both are set, they must match.
       schema:
         type: string
     Idempotency-Key:
@@ -100,22 +98,6 @@ components:
       schema:
         type: string
         format: uuid
-    X-MOE-Scopes:
-      name: X-MOE-Scopes
-      in: header
-      required: false
-      description: |
-        Caller's effective Campaigns permissions. When requests pass through the MoEngage IAM gateway, the gateway injects this header from the permissions tied to your API key, and the service treats it as the source of truth. The service reads only the `campaigns:` entry.
-
-        Action vocabulary: `view` (read), `create_manage` (create and edit drafts), and `create_manage_publish` (reserved for future publish support). The hierarchy is `create_manage_publish` ⟹ `create_manage` ⟹ `view`.
-
-        Required action by operation:
-        - `PATCH /v5/campaigns/{campaign_id}` (component edits) requires `create_manage`.
-
-        If your effective permissions do not satisfy the required action, the API returns `403`. Other V5 routes are not gated by this header in the current release.
-      schema:
-        type: string
-      example: "campaigns:create_manage"
 
   schemas:
     # ==================== V5 Draft-First Envelopes ====================
@@ -3878,7 +3860,7 @@ paths:
             curl -X GET 'https://api-{dc}.moengage.com/v5/campaigns/{{sms_campaign_id}}' \
               -H 'Authorization: Basic {{auth_token}}' \
               -H 'MOE-APPKEY: {{workspace_id}}' \
-              -H 'X-MOE-Request-Id: {{request_id}}'    
+              -H 'X-MOE-Request-Id: {{request_id}}'
       tags:
         - Get Campaign Details
       parameters:
@@ -4092,7 +4074,6 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/Idempotency-Key-Required'
-        - $ref: '#/components/parameters/X-MOE-Scopes'
       requestBody:
         description: |
           In this payload, you can include the fields you want to update.
