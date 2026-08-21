@@ -1,0 +1,117 @@
+---
+title: "Computed Traits for Banking, Financial Services, and Insurance"
+description: "A reference of computed traits for banking, financial services, and insurance: the computation method, data source, and business use case for each trait."
+keywords: "computed traits, BFSI, banking, insurance, wealth tier, cross-sell, churn, user attributes"
+---
+
+BFSI apps generate high-signal event data every minute: deposits, EMI payments, SIP contributions, policy renewals, and claims. Most of it never reaches the user profile. Computed traits turn those raw events into live user attributes you can segment on, personalize with, and branch Flows on, without engineering support or CSV uploads.
+
+This page is a menu. Each row tells you what to build, which computation method to pick, what event data it needs, the business outcome, and how to use it.
+
+New to computed traits? [Computed Traits - Overview](/user-guide/data/computed-traits/computed-traits-overview) explains what they are and how each computation method works, and [Create a Computed Trait](/user-guide/data/computed-traits/create-a-computed-trait) walks through building one.
+
+## How Computed Traits Work
+
+Every trait on this page follows the same four-step model. Once you recognize it, the tables below read at a glance.
+
+<Steps>
+  <Step title="Start with an event" icon="database">
+    A user behavior you already track, such as Deposit Successful or Loan Product Viewed.
+  </Step>
+  <Step title="Choose a method" icon="calculator">
+    [Count, Aggregation, First/Last Value, or SQL](/user-guide/data/computed-traits/computed-traits-overview#methods-of-computations).
+  </Step>
+  <Step title="Get a trait" icon="user-check">
+    A live attribute like Lifetime Deposit Value that updates automatically.
+  </Step>
+  <Step title="Activate it" icon="rocket">
+    Use it in segmentation, analytics, Jinja personalization, and Flows.
+  </Step>
+</Steps>
+
+Once a trait runs, it becomes a standard user attribute you can use anywhere in MoEngage: build [segments](/user-guide/segment/create-segments/rule-based-filter-segments) from it, group and filter it in [analytics](/user-guide/analyze/moengage-analytics/overview), insert its value into message copy with [Jinja personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language), or branch a [Flow](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows) on it.
+
+<Tip>
+  **Most traits here are no-code.** The <Badge color="green">Count</Badge> <Badge color="green">Aggregation</Badge> and <Badge color="green">First/Last Value</Badge> methods need no SQL. Reach for <Badge color="purple">SQL</Badge> only for composite scores that combine multiple events, or for ratios such as redemption or completion rate. You can build every no-code trait on this page yourself.
+</Tip>
+
+## Start Here
+
+Build these three first. They give you the fastest return and the most reuse across campaigns.
+
+<CardGroup cols={3}>
+  <Card title="Lifetime Deposit Value" icon="wallet">
+    **Aggregation** · Quick to set up. Enables tier-based segmentation right away.
+  </Card>
+  <Card title="Last Transaction Date" icon="clock">
+    **Last Value** · Runs your first churn-prevention Flow, no SQL needed.
+  </Card>
+  <Card title="Preferred Investment Category" icon="chart-pie">
+    **Last Value** · Makes every product recommendation personal.
+  </Card>
+</CardGroup>
+
+## Browse Traits by Goal
+
+<Info>
+  The event and property names in these tables are examples. The exact names in your account depend on how your app tracks data, so you might not find an event named `Deposit Successful` as written here. Check your tracked events and properties under **Data** before you build a trait, and ask your development team to track any that are missing. For how tracking works, see [A Complete Guide to Event Tracking](/user-guide/data/event-data/a-complete-guide-to-event-tracking).
+</Info>
+
+### Customer Value
+
+Rank customers by how deep their relationship with your bank runs, so premium service, wealth outreach, and card upgrades reach the right people.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Lifetime Deposit Value | Aggregation (Sum) | **Event:** `Deposit Successful`; **Property:** `amount` | Identify high-net-worth customers for priority banking and dedicated relationship managers. | Build a segment of your highest-value depositors, send them a personalized private-banking email, and use Jinja to greet each customer by their tier. |
+| Total Amount Invested | Aggregation (Sum) | **Event:** `Investment Successful`; **Property:** `amount` | Bucket users into Bronze, Silver, Gold, and Platinum wealth tiers automatically. | Segment customers by wealth tier, and trigger an upgrade campaign when someone moves up a tier. |
+| Total Investments Made | Count | **Event:** `Investment Successful` | Activity indicator: active investors vs. one-time depositors. | Reward frequent investors in one campaign, and run a Flow that nudges one-time investors toward a second investment. |
+| Average Monthly Balance (AMB) | Aggregation (Average) | **Event:** `End-of-Day Balance`; **Property:** `balance` | Detect customers falling below the minimum AMB before they are penalized. | Run a Flow that sends a low-balance reminder before month-end, so the customer avoids the penalty. |
+| Wallet Share Score | SQL Computation | **Events:** `Investment`, `Deposit`, and `Loan`, combined with the `declared_income` property | Composite score measuring how much of a customer's financial life sits with you vs. competitors. | Segment low-share, high-income customers for a cross-sell campaign, and exclude customers who already hold most products with you. |
+
+### Product Affinity
+
+Track what each customer browses, applies for, and buys, so cross-sell points to the next right product instead of everyone.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Last Loan Product Viewed | Last Value | **Event:** `Loan Product Viewed`; **Property:** `loan_type` | Re-engage drop-off users with the exact product they last considered (Home, Auto, or Personal). | Run a retargeting Flow that emails or pushes the exact product they last viewed, inserted with Jinja. |
+| Preferred Investment Category | Last Value | **Event:** `Investment Successful`; **Property:** `category` (Equity, Debt, Gold, ELSS) | Recommend NFOs and thematic funds aligned to a demonstrated preference. | Switch your newsletter content by the customer's preferred category, and skip them when a fund launch does not match it. |
+| Distinct Product Categories Held | Aggregation (Count Distinct) | **Event:** `Product Owned Snapshot`; **Property:** `product_type` | Identify single-product customers who are ready for cross-sell. | Segment single-product customers for a cross-sell campaign, and exclude anyone who already holds three or more products. |
+| Total Card Spend (Last 90 Days) | Aggregation (Sum) | **Event:** `Card Transaction`; **Property:** `amount` | Identify heavy card users for premium-card upgrades and reward programs. | Send high spenders a limit-enhancement offer, and send low spenders a nudge to use their card more. |
+| Loan Pre-Qualified | SQL Computation | **Events:** `Loan Offer Viewed`, `Documents Submitted`; **Properties:** `credit_score`, `income` | Composite trait for users who meet pre-approval criteria without applying. | Show a one-tap pre-approved offer in an in-app message, and send a personalized push telling them they are pre-approved. |
+
+### Risk & Lifecycle
+
+Catch the early signals like dormancy, complaints, or an expiring policy, and act before they turn into churn or an escalation.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Last Transaction Date | Last Value | **Event:** `Any Transaction`; **Property:** `timestamp` | Detect dormancy: catch users lapsing at 60, 90, or 120 days with date operators in segmentation. | Build segments with date operators to find users inactive for 60, 90, or 120 days, and run a re-activation campaign with escalating incentives. |
+| Total Transactions (Last 30 Days) | Count | **Event:** `Any Transaction` | Activity intensity: a drop in transactions is an early churn-risk signal. | Segment customers whose activity has dropped, and send them a check-in nudge before they churn. |
+| Total Support Tickets Raised | Count | **Event:** `Support Ticket Raised` | Identify customers who may be at risk after raising complaints. | Run a Flow that sends an NPS survey and a goodwill offer within 7 days of a resolved ticket. |
+| Days to Policy Expiry | Last Value | **Property:** `policy_expiry_date` on the `Policy Purchased` event | Trigger renewal campaigns at the right moment for each customer. | Build segments with date operators to send renewal reminders 30, 15, and 7 days before the policy expires. |
+| Policy Renewal Score | SQL Computation | Combines historical renewal count, claims filed, and engagement recency | Composite score predicting renewal likelihood; reserve premium outreach for low scores. | Segment low-score renewals, and run a Flow that sends SMS and WhatsApp reminders 30, 15, and 7 days out. |
+
+### Engagement
+
+Measure how and where each customer engages, so you can drive digital adoption and reach them on their preferred channel.
+
+| Computed Trait | Method | Data Source (Events / Properties) | Business Use Case | How to Use It |
+| --- | --- | --- | --- | --- |
+| Total Digital Sessions (30 Days) | Count | **Event:** `App Session Started` | Identify digital-active vs. dormant users for separate marketing tracks. | Segment users with zero sessions for a reactivation campaign, and send casual users feature-adoption nudges. |
+| Total SIPs Completed | Count | **Event:** `SIP Successful` | Celebrate disciplined investors; identify serial missers. | Send milestone congratulations at 6, 12, and 24 SIPs, and a recovery nudge after a customer misses one. |
+| Rewards Points Balance | Aggregation (Sum) | **Event:** `Points Balance Updated`; **Property:** `current_balance` | Drive redemption and reduce point-expiry churn. | Use Jinja to show each customer their live balance, such as "You have `{{points_balance}}` points expiring in 30 days." |
+| Preferred Login Channel | Last Value | **Event:** `App Session Started`; **Property:** `platform` | Optimize the channel mix per user: no push if they only use web banking. | Match each campaign to the channel the customer uses, and skip mobile push for web-only users. |
+| Preferred Transaction Channel | Last Value | **Event:** `Transaction Completed`; **Property:** `channel` (App, Web, Branch, IVR) | Understand true channel preference and message through the channel a customer actually uses. | Send campaigns on the customer's preferred channel, and skip promotions for channels they never use. |
+
+## Related Documentation
+
+Computed traits are used across MoEngage. These guides cover the surfaces referenced in the tables above:
+
+- [Segments](/user-guide/segment/create-segments/rule-based-filter-segments): build audiences from a computed trait's value.
+- [Analytics](/user-guide/analyze/moengage-analytics/overview): group and filter user behavior by a computed trait's value.
+- [Campaigns and channels](/user-guide/campaigns-and-channels/getting-started/introduction/moengage-channels): the channels you can reach users on.
+- [Flows](/user-guide/flows-cross-channel-messaging/getting-started/overview-flows/overview-flows): branch users down different paths based on a trait.
+- [Message personalization](/user-guide/campaigns-and-channels/getting-started/message-personalization/overview): insert trait values into your content with Jinja.
+- [Data](/user-guide/data/key-concepts/overview-data): how MoEngage collects and manages the event data these traits build on.
