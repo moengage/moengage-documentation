@@ -134,6 +134,17 @@ paths:
         content: |
           #### Rate Limit
           You can fetch 1,000 recommendations per minute.
+
+          #### FAQs
+
+          <AccordionGroup>
+            <Accordion title="Why does an archived recommendation return 400 instead of 404?">
+              This endpoint returns `400` for any `recommendation_id` it cannot serve. A recommendation that was archived and a recommendation that was never created both return `400`. Check the `recommendation_id` and the recommendation's status in the MoEngage dashboard.
+            </Accordion>
+            <Accordion title="Can I fetch the metadata of a recommendation that is paused?">
+              Yes. A paused recommendation still returns its metadata, and the `status` field in the response shows its current state.
+            </Accordion>
+          </AccordionGroup>
       parameters:
         - $ref: '#/components/parameters/AppKeyHeader'
         - $ref: '#/components/parameters/RecommendationIdPath'
@@ -171,7 +182,7 @@ paths:
                 code: "request-unauthenticated"
                 message: "Your request is unauthorized. Please verify your credentials and try again."
         '413':
-          description: Request entity too large. The request body can be large in terms of size (bytes) or length of items.
+          description: Request entity too large. The request body can be large in terms of size (bytes) or length of items. For more information on the payload size limit, refer to [FAQs](/api/recommendations/recommendations-overview#faqs).
           content:
             application/json:
               schema:
@@ -261,7 +272,7 @@ paths:
                 code: "request-unauthenticated"
                 message: "Your request is unauthorized. Please verify your credentials and try again."
         '413':
-          description: Request entity too large. The request body can be large in terms of size (bytes) or length of items.
+          description: Request entity too large. The request body can be large in terms of size (bytes) or length of items. For more information on the payload size limit, refer to [FAQs](/api/recommendations/recommendations-overview#faqs).
           content:
             application/json:
               schema:
@@ -397,7 +408,7 @@ components:
         all_user_actions:
           type: boolean
           description: |
-            This key represents whether all user actions are being considered to find the most recently interacted item. If this is true, the most recently interacted ID from any of the user action set-ups will be considered to find the related items as per the recommendation type.
+            This key shows whether all user actions are considered when MoEngage finds the most recently interacted item. When it is `true`, MoEngage takes the most recently interacted ID from any user action setup. MoEngage then finds items related to that ID, based on the recommendation type.
             
             **Note**: This key is available with the `similar_item`, `frequently_viewed_together`, and `frequently_bought_together` recommendation types.
           nullable: true
@@ -434,7 +445,7 @@ components:
           type: boolean
           default: false
           description: |
-            When this field is `true`, MoEngage automatically triggers a business event for catalog alert recommendations. MoEngage creates a business event named `Catalog_Alerts_{recommendation_name}`, which you can use to trigger campaigns or flows when the catalog alert conditions are met.
+            When this field is `true`, MoEngage triggers a business event for catalog alert recommendations. The event is named `Catalog_Alerts_{recommendation_name}`. Use this event to trigger campaigns or flows when the catalog alert conditions are met.
 
             **Note**: This key applies only when `recommendation_type` is `catalog_alert`.
         business_event:
@@ -477,7 +488,7 @@ components:
       description: |
         The items JSON object contains the key-value pairs of all the requested attributes.
 
-        The fields below are the standard catalog attributes. The response also returns any other attribute you request in `include_fields`, using the same attribute name and data type as the attribute has in your catalog.
+        The fields below are the standard catalog attributes. The response also returns any other attribute you request in `include_fields`, using the same attribute name and data type as the attribute has in your catalog. For example, if your catalog has a `fabric` attribute and you list it in `include_fields`, the item object also contains `fabric`, as shown in the example below.
       properties:
         item_id: { type: string, description: "This field shows the ID of the item." }
         title: { type: string, description: "This field shows the title of the item." }
@@ -498,6 +509,7 @@ components:
         link: "https://example.com/products/prod_xyz"
         image_link: "https://example.com/images/prod_xyz.jpg"
         price: 19.99
+        fabric: "Silk"
     ErrorResponse:
       type: object
       properties:
