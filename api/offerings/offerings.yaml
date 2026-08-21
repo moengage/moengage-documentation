@@ -309,23 +309,27 @@ paths:
           on retries. The same key within 24 hours returns the original 201 response.
 
           For a simple single-variant offering with no A/B test:
-            - Set variation_meta.type = SMV, variantsPerLocale = [Variant_A], split = {Variant_A: 100}
-            - Put content in offer_content.locales["0"].variations.Variant_A
+            - Set variation_meta.type = SMV, variantsPerLocale = [variation_1], split = {variation_1: 100}
+            - Put content in offer_content.locales["0"].variations.variation_1
             - Locale key must be "0" for single-locale offerings (not "default" or "en")
+            - Variation keys must follow the variation_N format (e.g. variation_1, variation_2). Other formats are rejected.
         param_overrides:
           variation_meta:
             description: |
               A/B test configuration. For a simple offering (no A/B test), use:
-                type: SMV, variantsPerLocale: [Variant_A], split: {Variant_A: 100}
+                type: SMV, variantsPerLocale: [variation_1], split: {variation_1: 100}
+              Variation keys must follow the variation_N format (e.g. variation_1, variation_2). Other formats are rejected.
+              Maximum 5 variations per offering.
               For A/B test (SMV): split values must sum to exactly 100 inclusive of control group allocation(INVALID_SPLIT if not).
               For AI optimization (DMV): provide equal initial splits; the server learns over time.
               Status-based PATCH rules: SCHEDULED=free; ACTIVE+SMV=split% only; ACTIVE+DMV=control_group.percentage only.
           offer_content:
             description: |
               Content payload. Use the locales["0"] nested format for single-locale offerings:
-                {"locales": {"0": {"variations": {"Variant_A": {"content_1": {"type": "json", "value": "..."}}}}}}
+                {"locales": {"0": {"variations": {"variation_1": {"content_1": {"type": "json", "value": "..."}}}}}}
               The locale key "0" is required for single-locale — do not use "default" or "en".
               Variation keys in offer_content must exactly match variantsPerLocale and split keys (SPLIT_KEY_MISMATCH if not).
+              Variation keys must follow the variation_N format (e.g. variation_1, variation_2).
           scheduling:
             description: |
               Schedule window. Both start_datetime and expiry_datetime are required and **MUST** use
@@ -333,7 +337,8 @@ paths:
               start_datetime must be in the future.
           segment_info:
             description: |
-              Audience targeting. To target all users with no restrictions, send: {"filters": {}}
+              Audience targeting. To target all users, use the built-in moe_all_users segment:
+                {"filters": {"included_filters": {"filter_operator": "and", "filters": [{"filter_type": "custom_segments", "id": "moe_all_users", "name": "All Users"}]}}}
               For attribute-based targeting, use filter_type: "user_attributes" with data_type required.
       tags:
         - Public Offerings
@@ -393,13 +398,13 @@ paths:
                       value: '{"discount":"10%"}'
                   variation_meta:
                     type: SMV
-                    variantsPerLocale: [Variant_A]
+                    variantsPerLocale: [variation_1]
                     control_group:
                       is_enabled: false
                       percentage: 0
                     smv_distribution:
                       split:
-                        Variant_A: 100
+                        variation_1: 100
                   capping_rules: {}
                   is_global_control_enabled: false
                   imp_track_hours: 36
@@ -427,24 +432,24 @@ paths:
                     locales:
                       "0":
                         variations:
-                          Variant_A:
+                          variation_1:
                             content_1:
                               type: json
                               value: '{"discount":"10%"}'
-                          Variant_B:
+                          variation_2:
                             content_1:
                               type: json
                               value: '{"discount":"20%"}'
                   variation_meta:
                     type: SMV
-                    variantsPerLocale: [Variant_A, Variant_B]
+                    variantsPerLocale: [variation_1, variation_2]
                     control_group:
                       is_enabled: true
                       percentage: 10
                     smv_distribution:
                       split:
-                        Variant_A: 50
-                        Variant_B: 50
+                        variation_1: 50
+                        variation_2: 50
                   capping_rules:
                     overall:
                       enabled: true
@@ -501,7 +506,7 @@ paths:
                     locales:
                       "0":
                         variations:
-                          Variant_A:
+                          variation_1:
                             content_1:
                               type: template
                               value:
@@ -515,7 +520,7 @@ paths:
                                 ariaLabel: Alternative text description for screen readers
                               meta:
                                 templateId: feature_hero_slide
-                          Variant_B:
+                          variation_2:
                             content_1:
                               type: template
                               value:
@@ -531,7 +536,7 @@ paths:
                                 templateId: feature_hero_slide
                   variation_meta:
                     type: DMV
-                    variantsPerLocale: [Variant_A, Variant_B]
+                    variantsPerLocale: [variation_1, variation_2]
                     control_group:
                       is_enabled: true
                       percentage: 5
@@ -613,11 +618,11 @@ paths:
                       message: expiry_datetime must be after start_datetime.
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                     - code: INVALID_TEMPLATE_ID
-                      target: offer_content.locales.0.variations.Variant_A.content_1.meta.templateId
+                      target: offer_content.locales.0.variations.variation_1.content_1.meta.templateId
                       message: "Template 'app_large' is not registered in this workspace."
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                     - code: MISSING_TEMPLATE_FIELD
-                      target: offer_content.locales.0.variations.Variant_A.content_1.value.cta_url
+                      target: offer_content.locales.0.variations.variation_1.content_1.value.cta_url
                       message: "Field 'cta_url' is required by the template but is missing or blank."
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                 response_id: resp_<trace-id>
@@ -726,7 +731,10 @@ paths:
           required: true
           schema:
             type: string
-          description: The unique ID of the offering to be updated. You can fetch the offering ID using the [List Offerings API](/api/public-offerings/list-offerings) by filtering with name.
+          description: >
+            The unique ID of the offering to be updated. Must include the `offer_` prefix
+            (e.g. `offer_6a4f69ee490f66322f968b87`). You can retrieve the prefixed ID from the
+            `data[].id` field in the [List Offerings API](/api/public-offerings/list-offerings) response.
         - name: Idempotency-Key
           in: header
           required: true
@@ -774,7 +782,7 @@ paths:
                     locales:
                       "0":
                         variations:
-                          Variant_A:
+                          variation_1:
                             content_1:
                               type: json
                               value: '{"headline":"Flash Sale - 30% Off!","cta_text":"Claim Now","cta_url":"https://example.com/flash"}'
@@ -844,11 +852,11 @@ paths:
                       message: variation_meta.type cannot be changed on an active offering.
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                     - code: INVALID_TEMPLATE_ID
-                      target: offer_content.locales.0.variations.Variant_A.content_1.meta.templateId
+                      target: offer_content.locales.0.variations.variation_1.content_1.meta.templateId
                       message: "Template 'app_large' is not registered in this workspace."
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                     - code: MISSING_TEMPLATE_FIELD
-                      target: offer_content.locales.0.variations.Variant_A.content_1.value.cta_url
+                      target: offer_content.locales.0.variations.variation_1.content_1.value.cta_url
                       message: "Field 'cta_url' is required by the template but is missing or blank."
                       doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview"
                 response_id: resp_<trace-id>
@@ -1497,8 +1505,23 @@ components:
         `excluded_filters`: criteria that DISQUALIFY a user even if they match the
         included filters.
 
-        To target `all users`, send an empty filters object:
-        { "filters": {} }
+        To target **all users**, use the built-in `moe_all_users` segment:
+        ```json
+        {
+          "filters": {
+            "included_filters": {
+              "filter_operator": "and",
+              "filters": [
+                {
+                  "filter_type": "custom_segments",
+                  "id": "moe_all_users",
+                  "name": "All Users"
+                }
+              ]
+            }
+          }
+        }
+        ```
       type: object
       properties:
         filters:
@@ -1674,11 +1697,17 @@ components:
         variantsPerLocale:
           type: array
           description: >
-            Ordered list of variations. This list **must** contain exactly the same keys defined in smv_distribution.split
-            and **must** match the variation keys used in `offer_content.locales[0].variations`.
+            Ordered list of variation keys for this offering. This list **must** contain exactly the same keys defined in
+            `smv_distribution.split` and **must** match the variation keys used in `offer_content.locales[0].variations`.
+
+            **Naming convention:** Variation keys must follow the `variation_N` format (e.g. `variation_1`, `variation_2`).
+            Keys in any other format (e.g. `var_1`, `Variant_A`, `1`, `2`) are rejected with a validation error.
+
+            **Maximum:** A maximum of 5 variations can be defined per offering.
           items:
             type: string
-          example: [Variant_A, Variant_B]
+          maxItems: 5
+          example: [variation_1, variation_2]
         smv_distribution:
           type: object
           description: >
@@ -1693,8 +1722,8 @@ components:
                 minimum: 1
                 maximum: 100
               example:
-                Variation_1: 70
-                Variation_2: 30
+                variation_1: 70
+                variation_2: 30
         control_group:
           type: object
           description: >
@@ -1714,11 +1743,11 @@ components:
               example: 10
       example:
         type: SMV
-        variantsPerLocale: [Variant_A, Variant_B]
+        variantsPerLocale: [variation_1, variation_2]
         smv_distribution:
           split:
-            Variant_A: 70
-            Variant_B: 30
+            variation_1: 70
+            variation_2: 30
         control_group:
           is_enabled: true
           percentage: 10
