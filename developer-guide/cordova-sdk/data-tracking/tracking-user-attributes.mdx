@@ -1,7 +1,10 @@
 ---
 title: "Tracking User Attributes"
 description: "Track user attributes and manage login and logout states using the MoEngage Cordova SDK."
+keywords: "identifyUser, getUserIdentities, user identities, multiple identifiers, setUniqueId"
 ---
+
+import GetUserIdentitiesScopeNote from '/snippets/get-user-identities-scope-note.mdx';
 
 User Attributes are pieces of information you know about a user which could be demographics like age or gender, account-specific like plan, or even things like whether a user has seen a particular A/B test variation. It's up to you! It is basically a customer identity that you can reference across the customer’s whole lifetime.
 
@@ -14,15 +17,80 @@ User Attributes are pieces of information you know about a user which could be d
 
 ## Login
 
+Call `identifyUser()` as soon as the user logs in. The method accepts either a single identifier or a set of identifiers. It is available from Core 10.0.0.
+
+### Login With a Single Identifier
+
+When you pass a string, the SDK sets it as the `uid` identifier.
+
 <CodeGroup>
 ```javascript JavaScript
 var moe = MoECordova.init(YOUR_WORKSPACE_ID);
-moe.setUniqueId(uniqueID);
+moe.identifyUser("identifier");
 ```
 
 </CodeGroup>
 
+<Info>
+  This method replaces the deprecated `setUniqueId()`. If you are using `setUniqueId()`, replace it with `identifyUser()`. Do not use both methods in the same project, because that leads to inconsistent user profile creation and merging in your MoEngage account.
+</Info>
+
 **Note:** The following values are not allowed in the UniqueID field: "unknown", "guest", "null", "0", "1", "true", "false", "user\_attribute\_unique\_id", "(empty)", "na", "n/a", "", "dummy\_seller\_code", "user\_id", "id", "customer\_id", "uid", "userid", "none", "-2", "-1", "2"
+
+### Login With Multiple Identifiers
+
+If your application has multiple identifiers for a user, pass all identifiers as an object of key-value pairs.
+
+<CodeGroup>
+```javascript JavaScript
+var moe = MoECordova.init(YOUR_WORKSPACE_ID);
+moe.identifyUser({ "u_em": "user@example.com", "u_mb": "9999999999" });
+```
+
+</CodeGroup>
+
+Use the standard identifier keys below when passing common attributes as identifiers:
+
+| User attribute | Key      |
+| :------------- | :------- |
+| ID             | `uid`    |
+| Email          | `u_em`   |
+| Gender         | `u_gd`   |
+| Birthday       | `u_bd`   |
+| Name           | `u_n`    |
+| First name     | `u_fn`   |
+| Last name      | `u_ln`   |
+| Mobile number  | `u_mb`   |
+
+For custom identifiers, use any key name that is not in the reserved keywords list.
+
+Before you use multiple identifiers, activate the identifiers on the MoEngage Dashboard. For configuration steps, see [Configure multiple identifiers](/user-guide/data/user-data/unified-identity-identity-resolution#configure-multiple-identifiers).
+
+**Behavior of multiple `identifyUser()` calls:**
+
+- If you call `identifyUser()` without logging out first, the existing logged-in user's identifiers are updated.
+- If you call `identifyUser()` multiple times with different identifier names, the SDK appends the new identifier to the already set identifiers.
+- If you call `identifyUser()` with an identifier key that is already set, the new value replaces the existing one.
+
+The SDK validates the argument before it sends anything. It logs an error and drops the call when the identity is null, an array, or a type other than a string or an object, when an object key is numeric or is not a string, or when an object value is not a non-null string.
+
+## Retrieving User Identities
+
+To read the identifiers currently set for the user, call `getUserIdentities()`. It is available from Core 10.0.0 and returns a promise that resolves to an object of identifier names and their values.
+
+<CodeGroup>
+```javascript JavaScript
+var moe = MoECordova.init(YOUR_WORKSPACE_ID);
+moe.getUserIdentities().then(function (identities) {
+    console.log(identities);
+});
+```
+
+</CodeGroup>
+
+When no identifiers are set, the resolved value is an empty object on Android and `null` on iOS. Check the resolved value before you read keys from it.
+
+<GetUserIdentitiesScopeNote />
 
 ## Logout
 
