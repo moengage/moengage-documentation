@@ -1,0 +1,82 @@
+---
+title: "Create a Warehouse Segment Using SQL"
+description: "Write a SQL query against your connected data warehouse and save the result as a custom segment in MoEngage."
+keywords: ["warehouse segment", "sql editor", "warehouse query", "custom segment"]
+---
+
+Once you have [connected your data warehouse](/user-guide/segment/create-segments/warehouse-segments/connect-your-warehouse), you can write a SQL query against it and save the users it returns as a custom segment.
+
+Segments created this way are of type **Warehouse - SQL**.
+
+<Note>
+  If you would rather build a segment from dropdown filters than write SQL, refer to [Create a Warehouse Segment Using Filters](/user-guide/segment/create-segments/warehouse-segments/create-using-filters).
+</Note>
+
+# Run a Warehouse Query
+
+1. Navigate to the **Warehouse segment** tab under **Segment** on the MoEngage dashboard.
+2. Here, you can choose the data warehouse connection you [set up in App Marketplace](/user-guide/segment/create-segments/warehouse-segments/connect-your-warehouse), from the **Source** dropdown on the top.
+3. Once a source is chosen, the data warehouse **schema** - database, tables, and columns, will be populated on the left panel. From here, you can search for any database, table, or column that you want to use in your query. The schema is refreshed every hour.
+4. You can enter your SQL query in the **SQL editor** on the right. You can perform any operations, such as joining multiple tables, sub-queries, aliases, etc., as required to return your optimal results.
+5. Click on **Run Query** to run the SQL query in your data warehouse. You should be able to see a new row added in the Query results section below.
+
+![2024-11-26\_17-24-56.gif](/images/moengage_ac825e.png)
+
+6. The **Query results** section provides a list of recently run warehouse queries with query metrics such as Run time, Data scanned, and the number of rows of data returned by a specific query from your data warehouse. These metrics are useful for gauging the performance of your data warehouse queries and can be used to optimize your queries while you write them on MoEngage.
+   1. Credits used per query are available for Snowflake.
+   2. Databricks does not provide credits utilized when a query is executed; hence, regularly monitoring the [usage](https://docs.databricks.com/aws/en/admin/account-settings/usage) is recommended.
+   3. Redshift does not provide data scanned when a query is executed; hence, regularly monitoring the usage is recommended.
+7. The Query results section also provides the status of each warehouse query run from MoEngage. The status can be successful, failed, or processed.
+8. Once a query has run successfully, you should be able to expand the row from the Query results section and see the sample results of each query. We show up to 100 rows and 10 columns of data for each query.
+9. Each query result also has a set of actions that can be accessed from the 3-dot menu on each row.
+   - **Insert in SQL editor:** You can directly insert a particular SQL query from the Query results section on the editor.\
+     Do note that this action will replace any existing query in the editor.
+   - **Create a custom segment:** You can directly create a custom segment from any query result. However, we expect the query to return a single column of IDs (the unique user identification that is present as an ID in MoEngage) in order to be saved as a custom segment. Hence, this option will be active only for those queries that return a single column.
+   - **Copy query:** This action will copy the query to the clipboard.
+   - **Run query:** You can run the query from Query results directly using the Run query action. A new row will be added to the Query results section at the top for the new execution.
+   - **Download results**:You can download the results of a query using the download results action. The downloaded file will contain a maximum of 100 rows and 100 columns of data <img src="/images/moengage_ce3a6a.png" />
+10. **Preview Table**: Now you can one-click preview a few sample rows from any table listed in the schema section. On hovering over a table name in the schema, you should be able to see an eye icon, clicking on this will run a sample query on the table providing up to 10 rows of data as a preview.
+
+<Warning>
+  1. The SQL query must return a single column of IDs in order to be saved as a custom segment. If the query returns multiple columns, the segment will not return any users.
+  2. The SQL query runs on your data warehouse directly. Please note that when utilizing this feature, you will incur the costs associated with running the queries from your data warehouse.
+  3. The SQL queries are subject to a 15-minute timeout limit. To manage warehouse costs and ensure efficiency, optimize your SQL scripts for faster execution.
+  4. The SQL query should be compatible with your DWH. If you are using Warehouse segments on BigQuery, the SQL query must be supported by [GoogleSQL.](https://cloud.google.com/bigquery/docs/introduction-sql) Similarly, Snowflake supports [Standard SQL](https://docs.snowflake.com/guides-overview-queries) for querying, Databricks supports [ANSI standard SQL,](https://www.databricks.com/blog/2021/11/16/evolution-of-the-sql-language-at-databricks-ansi-standard-by-default-and-easier-migrations-from-data-warehouses.html) and Redshift supports [PostgreSQL](https://docs.aws.amazon.com/redshift/latest/dg/c_SQL_commands.html).
+</Warning>
+
+# Define a Warehouse Custom Segment
+
+Once the SQL query is finalized, you can proceed to create a custom segment. We expect the custom segment query to return a single column of IDs (the unique user identification that is present as an ID in MoEngage). Give a name and a description for the segment.
+
+![Screenshot 2024-06-26 at 3.37.51 PM.png](/images/moengage_41d64d.png)
+
+# Use the Warehouse Custom Segment
+
+Custom segments created using warehouse segment are of type Warehouse - SQL. They will be listed on the All Segments page.
+
+![](/images/moengage_0b927b.png)
+
+## Actions Possible on External Custom Segments
+
+- **View** - View the details of the custom segment on the segment info page. Here you can:
+  - View the SQL query that defines the segment
+  - Run the custom segment to update user count - This is when MoEngage connects to your data warehouse, runs the SQL query, and updates the user count.
+- **Edit** - You can edit the SQL query that was used to define the custom segment
+- **Create campaign** - You can create a campaign directly from the All Segments page. The target audience section of campaign creation will be populated with the selected custom segment.
+- External data warehouse segments can be combined with other custom segments as well as user attributes, and behaviors captured in MoEngage.
+
+# Refresh the User Count of a Warehouse Segment
+
+You can update the user count of an external data warehouse segment in two ways:
+
+- **On campaign run-time** - The data warehouse segment that is part of the Target audience of a campaign will auto-refresh at the campaign run-time.
+- **Run the custom segment from the segment info page** - You can also run the segment manually from the segment info page.
+
+![nandhini scr rec2.gif](/images/moengage_b49ffc.png)
+
+# Considerations
+
+- One warehouse segment can be defined on one data warehouse connection. You can combine multiple custom segments pointing to different sources and create a new custom segment.
+- Running analysis - Behaviour, Funnel, etc., will not refresh the user count of a warehouse segment. The target audience containing a warehouse segment will either:
+  - Return 0 if the segment has never run.
+  - Return the last run count of users if the segment has run before.

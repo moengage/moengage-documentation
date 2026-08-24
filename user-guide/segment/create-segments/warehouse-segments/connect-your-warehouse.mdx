@@ -1,0 +1,390 @@
+---
+title: "Connect Your Data Warehouse"
+description: "Grant MoEngage read access to BigQuery, Snowflake, Databricks, or Redshift and save the connection in App Marketplace."
+keywords: ["warehouse connection", "bigquery", "snowflake", "databricks", "redshift", "app marketplace"]
+---
+
+Before you can build a warehouse segment, connect MoEngage to your data warehouse and grant it read access to the tables you want to query. This is a one-time setup task for your data or engineering team.
+
+Select your warehouse below for the full setup steps.
+
+<Tabs>
+  <Tab title="Big Query">
+    Follow the below steps to grant read access to certain tables in BigQuery to MoEngage. Additionally, it covers providing access to BigQuery Jobs API, enabling Moengage to submit jobs and download query results.
+
+    These instructions assume you have administrative privileges in the Google Cloud Platform, specifically in the project that hosts the BigQuery dataset and jobs.
+
+    ### Create a Service Account for MoEngage
+
+    1. Open the [Google Cloud](https://console.cloud.google.com) Console.
+    2. Navigate to the project housing the **BigQuery** dataset and jobs.
+    3. Go to the **IAM & Admin** section and select **Service Accounts**.
+       <Frame>
+         ![IAM](/images/IAM.png)
+       </Frame>
+    4. Click **Create Service Account**.
+    5. Provide a name for the service account (e.g., moengage-access).
+       <Frame>
+         ![Service](/images/service.png)
+       </Frame>
+    6. Set the appropriate role for the service account as **BigQuery Job User**.
+       <Frame>
+         ![Bigquery](/images/bigquery.png)
+       </Frame>
+    7. Create the service account.
+    8. Navigate to the **service account** and select the **KEYS** tab.
+    9. Click the **ADD** KEY dropdown and then select Create new key.
+       <Frame>
+         ![Add](/images/add.png)
+       </Frame>
+    10. Select **JSON** as the screen type in the pop-up
+    11. Click CREATE to generate and download the JSON key file.
+    12. Keep the JSON file securely and share it with MoEngag as below.
+
+    Share the below details to [warehousesegments@moengage.com](mailto:warehousesegments@moengage.com) to get warehouse segments enabled on your workspace:
+
+    1. JSON key file of the service account created for MoEngage as per the steps above
+    2. Your MoEngage workspace name, along with your data cluster (DC)
+    3. Your BigQuery location
+
+    ### Share Access to Specific Tables with Moengage
+
+    1. In the BigQuery console, navigate to the dataset containing the tables you want Moengage to access.
+    2. Click the **SHARING** dropdown and then select **Permissions.**
+       <Frame>
+         ![Permissions](/images/permissions.png)
+       </Frame>
+    3. Add the service account's email address (found in the JSON key file) as a member with the "BigQuery Data Viewer" role.
+
+    ![](/images/moengage_dc2141.png)
+
+    4. Click **Save** to grant access to the dataset.
+
+    ### Grant Access to BigQuery Jobs API
+
+    Skip if access is already given in the first step.
+
+    1. In the Google Cloud Console, go to the **IAM & Admin** section and then select IAM.
+    2. Click **Grant Access**to add a new member.
+    3. Enter the service account's email address (found in the JSON key file).
+    4. Assign the **Role** as **BigQuery Job Use**r to enable interaction with the BigQuery Jobs API.
+    5. Click **Save** to grant access to the API.
+
+    ![](/images/moengage_6396e1.png)
+
+    <Accordion title="Limit Access to Specific Tables (Optional)">
+      1. Open the JSON key file shared with Moengage.
+      2. Locate the private\_key\_id attribute in the JSON content.
+      3. In the BigQuery console, open the dataset with the desired tables.
+      4. Select the table(s) you want to restrict access to and click on "Share Table" from the context menu.
+      5. Add the service account's email address as a member and restrict the role to "BigQuery Data Viewer" only for these table(s).
+    </Accordion>
+
+    By following the above steps, you have successfully granted Moengage read access to specific tables in BigQuery.
+
+    Additionally, you have authorized access to the BigQuery Jobs API, allowing them to submit jobs and download query results. It is essential to review and manage access permissions periodically to maintain data security.
+  </Tab>
+  <Tab title="Snowflake">
+    In order to run queries on data from Snowflake, you will first need to connect MoEngage to your Snowflake data warehouse.
+
+    ### Steps to create a new Snowflake Connection
+
+    1. On your MoEngage Dashboard, go to the **App Marketplace.**
+    2. Search for Snowflake. <img src="/images/moengage_1a8d60.png" />
+    3. Go to the **Integrate tab,** and click **Add Connection**
+    4. Provide your Snowflake data warehouse details.
+
+    ![](/images/moengage_e340d7.png)
+
+    Enter the following fields in Snowflake.
+
+    1. **Connect Name:** Give this connection an identifiable name, e.g., My Snowflake Prod
+    2. **Snowflake Account Identifier**
+       - It is always found at the beginning of your Snowflake URL, for example; ([https://ACCOUNT\_IDENTIFIER.snowflakecomputing.com](https://ACCOUNT_IDENTIFIER.snowflakecomputing.com)).
+       - The format may differ based on Snowflake account age. For details, [refer to Snowflake documentation.](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)
+    3. If you're using Snowsight, you can find **your account name** at the bottom of the left navigation. Select the account you want to import from and then click on the “copy” icon to copy the Account ID. For up-to-date information and details, [refer to Snowflake documentation.](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)
+
+    ![](/images/moengage_06939e.png)
+
+    4. **Warehouse:** The name of the warehouse MoEngage uses to execute the queries. For example, COMPUTE \_WAREHOUSE
+    5. **Database:** The database that MoEngage should use to read the tables from. You can choose the schema while setting up warehouse segments/imports/exports. e.g., MY\_DEMO\_DB
+    6. **Username:** The database that MoEngage should use to read the tables from. You can choose the schema while setting up warehouse segments/imports/exports.
+    7. **Authentication Method:** MoEngage can connect to your Snowflake Instance using two methods:
+       - **Password:** If you select a password, provide the password of the database user (username) you entered above.
+       - **Key:** If you select "Key" as your authentication method. Perform the below-mentioned steps.
+       - Click on "Generate Key," and MoEngage will display your public key. You will need to add this public key to your database user. Follow the instructions mentioned on [Snowflake help docs](https://docs.snowflake.com/en/user-guide/key-pair-auth#assign-the-public-key-to-a-snowflake-user) to set this up: **Key** - MoEngage can connect to your Snowflake Instance using the Key pair authentication method. To use this method: <img src="/images/moengage_3d2da2.png" alt="img 1.png" />
+       - Once you have added this key to your database user, click on "Test connection," and MoEngage will attempt to verify the credentials.
+    8. MoEngage also supports the rotating of keys. If your IT Policy requires to rotate the keys, you can do it by following these steps:
+       - Go to the **App Marketplace** \> **Snowflake** \> **Integrate and edit the connection.**
+       - Click on the generate new key icon: <img src="/images/moengage_a3bb9a.png" alt="img 2.png" />
+       - You will be asked for a confirmation to review. Please read the instructions carefully. Once you save the connection with the newly generated key, MoEngage will no longer use the previous key. You have to ensure that the new key is attached to your database user as the second RSA key (see [Snowflake](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-rotation) help doc on rotating keys) for the rotation to work properly. If the new key is not attached after saving the connection, your imports and exports might break:
+         <Frame>
+           ![Generate](/images/generate.png)
+         </Frame>
+       - Your new key will be generated and shown to you. At this point, it is highly recommended to copy this new key and attach it as an additional key to your Snowflake database user by following the instructions provided on the [Snowflake help docs](https://docs.snowflake.com/en/user-guide/key-pair-auth#configuring-key-pair-rotation). Once you have attached the new key, you need to test the connection successfully to complete the rotation.
+       - If you decide to close the edit form or do not click **Connec**t at any point after generating the new key, your old (existing) key will continue to be used as before, and the newly generated key will be deleted from our system.
+    9. **Role:** This role will be used to execute queries from MoEngage.
+
+    Once you have set up a Snowflake Connection, you can use it to set up warehouse segments, imports and exports in MoEngage. If your Snowflake instances aren't public and are on AWS, we recommend you set up [AWS Private Link](https://docs.snowflake.com/en/user-guide/admin-security-privatelink) with MoEngage AWS account. Please reach out to your account manager for more information on this.
+  </Tab>
+  <Tab title="Databricks">
+    In order to run queries on data from Databricks, you must connect MoEngage to your Databricks warehouse. Ensure, you have administrative privileges in the Databricks platform.
+
+    ### Steps to grant read access to MoEnagage
+
+    1. [Add a service principal in Databricks](#add-a-service-principal-in-databricks)
+    2. [Assign a service principal to Databricks workspace](#assign-a-service-principal-to-databricks-workspace)
+    3. [Provide data reader access to the service principal](#provide-data-reader-access-to-the-service-principal)
+    4. [Provide compute permissions on SQL warehouses to service principal](#provide-permissions-for-service-principal-to-compute-on-sql-warehouses)
+    5. [Create a personal access token (PAT)](#create-a-personal-access-token-pat)
+    6. [Fetch the HTTP path and Hostname](#fetch-the-http-path-and-hostname)
+    7. [Connect Databricks on the App Marketplace](#connect-databricks-on-the-app-marketplace)
+
+    ### Add a Service Principal in Databricks
+
+    Account admins can add service principals to the Databricks account using the account console. For more information, refer [here.](https://docs.databricks.com/aws/en/admin/users-groups/service-principals#add-service-principals-to-your-account-using-the-account-console)
+
+    Perform the following steps to add a service principal:
+
+    1. Log in to your [account console](https://accounts.cloud.databricks.com/) in Databricks as an admin.
+    2. In the sidebar, click **User Management**.
+    3. On the **Service principals** tab, click **Add Service principal**.
+    4. Enter a name for the Service principal.
+    5. Click **Add**.
+
+    ### Assign a Service Principal to Databricks Workspace
+
+    As an admin, assign a service principal to a workspace using the [account console](https://accounts.cloud.databricks.com/). For more information, refer [here](https://docs.databricks.com/aws/en/admin/users-groups/service-principals#assign-a-service-principal-to-a-workspace-using-the-account-console).
+
+    Perform the following steps to assign permissions:
+
+    1. Log in to your account console in Databricks as an admin.
+    2. In the sidebar, click **Workspaces**.
+    3. Click your workspace name.
+    4. On the **Permissions** tab, click **Add permissions.**
+    5. Search for and select the service principal, and assign the permission level (Workspace **User**). You can assign the [workspace admin role](https://docs.databricks.com/aws/en/admin/users-groups/service-principals#add-sp-admin-console) to the workspace admin settings page.
+    6. Click **Save**.
+
+    ### Provide Data Reader Access to The Service Principal
+
+    Provide data reader access, as shown below to the entire workspace or individual schemas to the service principal, ensuring that the tables you want to query in MoEngage are available in the schema.
+
+    ![Screenshot 2025-02-25 at 5.37.34 PM.png](/images/moengage_03f878.png)
+
+    ### Provide Permissions for Service Principal to Compute on SQL Warehouses
+
+    Perform the following steps to provide compute permissions:
+
+    1. In the Databricks dashboard, Click **Settings \> Compute \> SQL warehouses**
+    2. Select the warehouse that needs to be accessed by the service principal.
+    3. Click **Permissions**. In the list, select _Can use_ for the service principal.
+
+    ![](/images/moengage_a5a3fc.png)
+
+    ### Create a Personal Access Token (PAT)
+
+    You can create a PAT for a service principal using Databricks CLI. For more information, refer [here](https://docs.databricks.com/aws/en/dev-tools/auth/pat#step-1-as-a-databricks-admin-create-a-pat-for-your-databricks-service-principal-from-the-cli).
+
+    <Accordion title="Create a PAT for a user (optional)">
+      You can also create a user, assign appropriate access to the user, and allow MoEngage to access your warehouse from that user’s role. However, Databricks recommends the service principal approach. In case you want to create a personal access token for a user, please follow the steps below:
+
+      1. In your Databricks workspace, select your Databricks username in the title bar, and then select **Settings** from the dropdown list.
+      2. On the **Access Tokens** tab, select **Generate New Token.**
+      3. Enter a comment to identify this token, and change the token’s lifetime to no lifetime by leaving the Lifetime box empty.
+      4. Click **Generate** and copy the generated token
+      5. Click **Done**. <img src="/images/moengage_ab1f55.png" alt="Screenshot 2025-02-25 at 6.03.21 PM.png" />
+    </Accordion>
+
+    ### Fetch the HTTP Path and Hostname
+
+    Perform the following steps to fetch the HTTP path and Server hostname, which MoEngage requires to access your Databricks workspace.
+
+    1. In your Databricks workspace, select **SQL warehouses**.
+    2. Choose your warehouse.
+    3. Click the **Connection details** tab and copy the hostname and HTTP path provided, which is required for MoEngage.
+
+    ![image (1).png](/images/moengage_b71e33.png)
+
+    ### Connect Databricks on the App Marketplace
+
+    To connect Databricks on the App marketplace, perform the following steps:
+
+    1. On the left navigation menu in the MoEngage dashboard, click **App marketplace**.
+    2. On the App Marketplace page, search for **Databricks**.
+
+    ![](/images/moengage_1f597d.png)
+
+    3. Click the **Databricks** tile.
+    4. On the Databricks page, go to the **Integrate** tab and click \+**Add Connection**.
+    5. Enter the following details:
+       | Field | Required | Description |
+       | --- | --- | --- |
+       | **Connection name** | Yes | Type a name for the Databricks connection. |
+       | **Host name** | Yes | This refers to the unique identifier assigned to a specific cluster. Type the hostname that you want to connect. To find your server hostname, visit the Databricks web console and locate your cluster. Then, click to reveal Advanced options and navigate to the JDBC/ODBC tab. |
+       | **Port** | Optional | Type the port to which you want to connect your Databricks server. It defaults to 443. |
+       | **HTTP path** | Yes | Type the HTTP path of your compute resource on Databricks. To find your HTTP path, go to your Databricks workspace, locate your warehouse, and then get your HTTP path from the connection details tab. |
+       | **Access token** | Yes | This is an authentication token used to access Databricks APIs securely. Type the Access token, which helps you make authorized requests to the Databricks server with the necessary permissions. On your Databricks workspace, go to **Settings** \> **Developer** \> **Access tokens** \> **Manage tokens**. |
+       | **Catalog** | Yes | Type the Databricks Catalog name to which MoEngage will have access. |
+       | <img src="/images/moengage_831a09.png" /> |  |  |
+    6. Click **Connect**. Your Databricks connection is now integrated.
+
+    After you have set up a Databricks connection, you can use it to set up various imports and exports in MoEngage.
+
+    <Info>
+      Ensure at least two to five minutes of warm-up time when MoEngage connects to Classic and Pro SQL instances. There might be a delay in connection setup and testing, as well as during warehouse segment query execution, segment creation, and refresh. Using a serverless SQL instance will minimize warmup time and improve query throughput but may result in slightly higher integration costs
+    </Info>
+  </Tab>
+  <Tab title="Redshift">
+    To run queries on data from Redshift, you must connect MoEngage to your Redshift warehouse and ensure you have administrative privileges on the Redshift platform.
+
+    <Info>
+      - Administrative privileges on the Redshift platform.
+      - Trust Policy JSON obtained from MoEngage
+    </Info>
+
+    ### Steps to create an IAM role and Provide Access to MoEnagage
+
+    <Info>
+      If you have created a Redshift connection earlier, make sure you have the [current permissions](/user-guide/segment/create-segments/warehouse-segments/connect-your-warehouse) listed below.
+    </Info>
+
+    ### Step 1: Create an Identity and Access Management (IAM) Role in Your Account
+
+    1. Sign in to your AWS account in the **AWS Management Console**.
+    2. In the **Find Services** search box, search for IAM. You will be directed to the IAM dashboard. <img src="/images/moengage_c7baa3.png" />
+    3. In the IAM dashboard, select the **Roles** tab.
+    4. Click **Create role.**
+    5. Select **AWS account**.
+    6. Under the **Select trusted entity** section, select **Custom trust policy.**
+       <Frame>
+         ![Trustedentity](/images/trustedentity.png)
+       </Frame>
+    7. Paste the Trust Policy JSON obtained from MoEngage, as shown below. MoEngage's AWS Account ID is 612427630422. Ensure this ID is present in the trusted relationship JSON.
+       ```text
+       {
+       "Version": "2012-10-17",
+       "Statement": [
+       {
+       "Effect": "Allow",
+       "Principal": {
+       "Service": [
+       "redshift.amazonaws.com",
+       "ec2.amazonaws.com"
+       ]
+       },
+       "Action": "sts:AssumeRole"
+       },
+       {
+       "Effect": "Allow",
+       "Principal": {
+       "AWS": "arn:aws:iam::612427630422:root"
+       },
+       "Action": "sts:AssumeRole"
+       }
+       ]
+       }
+       ```
+    8. Select **Allow assuming roles** from this account option.
+    9. Click **Next** \> **Permissions.**
+    10. Add the permissions mentioned below:
+        ```text
+        redshift_finegrained (customer-managed policy)
+        ```
+        ```text
+        {
+        "Version": "2012-10-17",
+        "Statement": [
+        {
+        "Sid": "DataAPIPermissions",
+        "Action": [
+        "redshift-data:ExecuteStatement",
+        "redshift-data:CancelStatement",
+        "redshift-data:ListStatements",
+        "redshift-data:GetStatementResult",
+        "redshift-data:DescribeStatement",
+        "redshift-data:ListDatabases",
+        "redshift-data:ListSchemas",
+        "redshift-data:ListTables",
+        "redshift-data:DescribeTable"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+        },
+        {
+        "Sid": "Redshiftminimal",
+        "Action": [
+        "redshift:Get*",
+        "redshift:Describe*"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+        },
+        {
+        "Effect": "Allow",
+        "Action": "iam:CreateServiceLinkedRole",
+        "Resource": "arn:aws:iam::*:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift",
+        "Condition": {
+        "StringLike": {
+        "iam:AWSServiceName": "redshift.amazonaws.com"
+        }
+        }
+        }
+        ]
+        }
+        ```
+        ```text
+        stsAssumerRole (customer-managed policy)
+        ```
+        ```text
+        {
+        "Version": "2012-10-17",
+        "Statement": [
+        {
+        "Sid": "123",
+        "Effect": "Allow",
+        "Action": [
+        "sts:AssumeRole"
+        ],
+        "Resource": [
+        "*"
+        ]
+        }
+        ]
+        }
+        ```
+    11. You can optionally restrict access to specific db-groups and users by selecting those options in the policy editor. <img src="/images/moengage_c3091a.png" />
+    12. Click **Next.**
+    13. In the **Add tags** section, click the Add new tag button to add the tags required for this IAM role.
+
+    ![](/images/moengage_509a18.png)
+
+    14. Click on **Next** \> **Review.**
+    15. In **Role name** box, enter the name for your role (for example, moengage-redshift-data-access-role"). <img src="/images/moengage_514fa4.png" />
+    16. Click on **Create IAM role**. <img src="/images/moengage_9b1612.png" />
+
+    ### Step 2: Share Details with MoEngage
+
+    Share the following details to [_warehousesegments@moengage.com_](mailto:warehousesegments@moengage.com) to get warehouse segments on Redshift enabled on your workspace:
+
+    - **ARN** (Amazon Resource Name):
+      - In your AWS Management Console, go to the IAM dashboard and select the IAM Role that you created in step 1.
+      - Copy the ARN for the IAM role. MoEngage will use this ARN to assume the IAM role in your account to access the Redshift cluster. <img src="/images/moengage_582dd5.png" />
+    - **Database name:** The default Redshift database name is used for the queries that will be running. It is recommended that separate connections be created for each database.
+    - **Redshift Cluster Identifier name:** It is recommended that separate connections be created for each provisioned Redshift cluster.
+      ```text
+      #{
+      "role_arn" : "arn:aws:iam::5822XXXX730:role/Segmentation_Redshift",
+      "aws_regions" : "ap-south-1",
+      "cluster_identifier" : "redshift-segmentation-cluster",
+      "default_db" : "dev",
+      }
+      ```
+  </Tab>
+</Tabs>
+
+# Next Steps
+
+With a connection saved, choose how you want to define your audience:
+
+- [Create a Segment Using SQL](/user-guide/segment/create-segments/warehouse-segments/create-using-sql) — write a query that returns user IDs.
+- [Map Your Warehouse Schema](/user-guide/segment/create-segments/warehouse-segments/map-your-schema) — map your tables so marketers can build segments from dropdown filters.
