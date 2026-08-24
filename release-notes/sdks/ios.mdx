@@ -51,22 +51,15 @@ rss: true
 
 <span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
 
-* Fixed duplicate event identifiers during data syncing. An analytics batch identifier could be reused across two different sets of events when the app was terminated before pending writes finished — most commonly when a notification dismissal was handled while the app was killed. The identifier is now assigned at the moment a batch is sent, so each batch of events syncs exactly once under its own identifier.
+* Fixed duplicate event identifiers during data syncing. An analytics batch identifier could be reused across two sets of events when the app was terminated before pending writes finished. This typically occurred when a notification dismissal was handled while the app was killed. The identifier is now assigned when the batch is sent, so each batch syncs once under its own identifier.
 
 #### Inbox
 <span style={{ backgroundColor: 'rgba(0, 135, 103, 0.1)', color: '#008767', border: '1px solid #B5F5EC', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Improvements</span>
 
 * Inbox APIs now follow Swift's concurrency model. `presentInboxViewController`, `pushInboxViewController`, and `getInboxViewController` are main-actor bound. Objective-C callers are unaffected. Swift callers not already on the main actor must hop to it.
-
-  | API | Before (compiled anywhere) | After (must be on the main actor) |
-  | :-- | :-- | :-- |
-  | `presentInboxViewController` | `func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`}` | `func openInbox() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.presentInboxViewController()`<br />`}` |
-  | `pushInboxViewController` | `func openInbox(in navController: UINavigationController) {`<br />`    MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`}` | `func openInbox(in navController: UINavigationController) async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox(in navController: UINavigationController) {`<br />`    MoEngageSDKInbox.sharedInstance.pushInboxViewController(toNavigationController: navController)`<br />`}` |
-  | `getInboxViewController` | `func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`        // use inboxVC`<br />`    })`<br />`}` | `func openInbox() async {`<br />`    await MainActor.run {`<br />`        MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`            // use inboxVC`<br />`        })`<br />`    }`<br />`}`<br /><br />or mark the caller `@MainActor` so the hop is implicit:<br />`@MainActor`<br />`func openInbox() {`<br />`    MoEngageSDKInbox.sharedInstance.getInboxViewController(withCompletionBlock: { inboxVC in`<br />`        // use inboxVC`<br />`    })`<br />`}` |
-
 * All Inbox completion blocks are now invoked on the main thread, so you can update UI directly from them.
 * `getInboxViewController` now always invokes its completion block, passing `nil` when no SDK instance is registered for the given app ID.
-* Inbox entries are now immutable snapshots. Read-state changes such as `isRead` and `clickedDate` appear on the next fetch instead of mutating entry objects you already hold. Re-fetch the inbox after marking an entry as read rather than reading the updated value from a retained object.
+* Inbox entries are now immutable snapshots. Read-state changes such as `isRead` and `clickedDate` appear on the next fetch instead of mutating entry objects you already hold. Re-fetch the inbox after marking an entry as read.
 * The `flushDuration` property is replaced by `flushNanoSeconds`. Update any code that reads or sets `flushDuration`.
 * Inbox methods deprecated in earlier releases have been removed. Call sites still using them no longer compile.
 
@@ -85,7 +78,7 @@ rss: true
 #### RichNotification
 <span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
 
-* Rich push media now renders for dynamic media URLs. Images and other media served from URLs without a recognizable file extension previously failed to display in the expanded notification. The media type is now resolved from the server response, with the URL extension used only as a fallback.
+* Fixed rich push media not rendering for dynamic media URLs. Images and other media served from URLs without a recognizable file extension failed to display in the expanded notification. The media type is now resolved from the server response, with the URL extension used as a fallback.
 
 #### InApp
 <span style={{ backgroundColor: 'rgba(212, 107, 8, 0.1)', color: '#D46B08', border: '1px solid #FFE58F', padding: '2px 10px', borderRadius: '12px', fontSize: '0.85em', fontWeight: 'bold' }}>Fixes</span>
