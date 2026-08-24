@@ -1,0 +1,93 @@
+---
+title: "Using Recommendations in SMS"
+description: "Add personalized product recommendations to MoEngage SMS campaigns using Jinja to send each user a relevant product name and link."
+keywords: "sms recommendations, product sets sms, sms personalization, sms jinja"
+---
+
+By adding recommendations to your SMS campaigns, you can send each user a product that matches their interests instead of the same message to everyone. In the SMS channel, recommendations are inserted into the message text using the [Jinja templating language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language).
+
+At MoEngage, creating an SMS campaign is a three-step process.
+
+1. Target users
+2. Content
+3. Schedule and Goals
+
+You can personalize the campaign with recommendations in the second step 'Content'. Let us create a recommendation personalized SMS campaign.
+
+<Warning>
+  Ensure that you have created the desired recommendations. You can use only active recommendations for campaign personalization. Learn how to [create and manage recommendations](/user-guide/content/recommendations).
+</Warning>
+
+<Note>
+  SMS is a plain text channel with a limited character count. Adding a product set on its own inserts every item in the set, which can make the message exceed the character limit and split into multiple messages. Loop through the set to fetch a single item, as described in [Fetch a Single Recommended Item](/user-guide/content/recommendations/personalize-campaign-with-recommendations/using-recommendations-in-sms#fetch-a-single-recommended-item).
+</Note>
+
+# Create SMS Campaigns with Recommendations
+
+To create an SMS campaign with recommendations, perform the following steps:
+
+1. On the sidebar menu in MoEngage, hover over the Engage menu item <img alt="Engage icon" src="/images/moengage_2f187f.png" className="inline-block" style={{ display: 'inline', height: '1.2em', verticalAlign: 'text-bottom' }} />. The **Engage** menu appears.
+2. Click **+ New Campaign**.
+3. On the **New Campaign** dialog box, under **OUTBOUND**, click **SMS**.
+4. Click **Periodic** campaign. You can follow the same steps for any other SMS campaign type. For more information about delivery types, refer to [Delivery Types](/user-guide/campaigns-and-channels/getting-started/introduction/delivery-types-moengage-channels).
+5. Enter the basic campaign details, define the audience in step 1 'Target users', and click **Next**.
+6. In step 2, on the **Content** tab, select the sender.
+7. In the message field, which shows the placeholder text **Type @ to personalize**, type **@** where you want the recommendation to appear. The personalization menu opens.
+
+{/* SCREENSHOT NEEDED: SMS personalization menu with Product sets expanded */}
+
+8. On the **Data personalization** tab, click the required set under **Product sets**.
+9. Select a fallback option to control what happens when the recommendation is unavailable for a user:
+
+   | Fallback | What happens |
+   | --- | --- |
+   | **No Fallback** | The recommendation is replaced with an empty string. |
+   | **Do not send SMS** | The SMS is not sent to that user. |
+   | **Replace text** | The recommendation is replaced with the text you type in the **Fallback text** field. |
+10. Click **Done**.
+11. Modify the inserted Jinja code to fetch a single item, as described in the following section.
+12. Click **Personalized preview** to see the message as a specific user receives it.
+13. Deliver a test campaign to confirm end-to-end delivery before scheduling it for all users.
+14. Click **Next** at the bottom to move to 'Schedule and Goals', which is step 3 of campaign setup.
+15. Set up the appropriate settings in **Schedule and Goals** and publish the campaign.
+
+# Fetch a Single Recommended Item
+
+To send one product instead of the whole set, loop through the product set. The following example uses a product set named `ProductSet` with a recommendation named `Recommendations`.
+
+To fetch the title of the first recommended item:
+
+<CodeGroup>
+```text JINJA
+{% if ProductSet.Recommendations %}
+{% for product in ProductSet.Recommendations[0:1] %}
+{{product.title}}
+{% endfor %}
+{% else %}
+MOE_NOT_SEND
+{% endif %}
+```
+</CodeGroup>
+
+To add the product's link in the same message:
+
+<CodeGroup>
+```text JINJA
+{% if ProductSet.Recommendations %}
+{% for product in ProductSet.Recommendations[0:1] %}
+{{product.link}}
+{% endfor %}
+{% else %}
+MOE_NOT_SEND
+{% endif %}
+```
+</CodeGroup>
+
+`MOE_NOT_SEND` stops the message from going out when the product set is empty for a user, so no one receives an SMS with a missing product name.
+
+A product set contains a list of items, each with attributes such as `name`, `title`, `id`, and `image link`. To fetch an attribute inside the loop, type **@** and select the property from the personalization window.
+
+# Related Articles
+
+- [Personalize SMS Campaign](/user-guide/campaigns-and-channels/sms-mms-and-rcs/sms/personalize-sms-campaign)
+- [Personalize Content Using Recommendations](/user-guide/campaigns-and-channels/getting-started/message-personalization/personalize-content-using-recommendations)
