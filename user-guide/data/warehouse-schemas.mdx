@@ -1,7 +1,7 @@
 ---
-title: "Warehouse Schemas"
+title: "Warehouse Schema"
 description: "Map tables in your data warehouse to MoEngage users, events, and attributes so your marketers can build warehouse segments without writing SQL."
-keywords: ["warehouse schema", "schema mapping", "lookup traits", "user master table", "data entity", "bigquery", "redshift"]
+keywords: ["warehouse schema", "schema mapping", "max event look-back", "lookup traits", "user master table", "bigquery", "databricks"]
 ---
 
 A warehouse schema maps one table or view in your data warehouse to MoEngage users, events, or attributes. Once you map your tables, the columns become available as dropdown options in the segment builder, so your marketers can build warehouse segments without writing SQL.
@@ -21,7 +21,7 @@ You set up warehouse schemas once. Your marketers then use the result to build a
 
 {/* TODO: Confirm the list of supported warehouses against the dashboard before publishing. */}
 
-# How Warehouse Schemas Work
+# How a Warehouse Schema Works
 
 MoEngage does not copy your warehouse data. It reads your schema definitions, builds a SQL query from the filters selected in the segment builder, and runs that query against your warehouse when a segment is evaluated.
 
@@ -36,6 +36,8 @@ Each schema is a 1:1 mapping to a single table or view. You map three types of t
 <Note>
   Lookup traits are referred to as data entities in some MoEngage interfaces and API responses.
 </Note>
+
+{/* TODO: The in-product description of a warehouse schema mentions only a user table and event tables. Confirm lookup traits are part of this release, and that "Lookup traits" is the label used in the UI. */}
 
 ## Mapping Order
 
@@ -53,25 +55,19 @@ The mapping order is enforced in the dashboard. Options for a table type stay di
   </Step>
 </Steps>
 
-# Connection-Level Settings
+# Set the Event Look-Back Window
 
-Two settings apply to every schema created under a connection. Both are set on the connection itself, not on individual schemas.
+Before you map your first table, set **Max event look-back**. This is how far back in days MoEngage reads event data from this warehouse. It defaults to **60 days** and is mandatory.
 
-| Setting | Required | Description |
-| --- | --- | --- |
-| **Query window** | Yes | How far back MoEngage reads event data. Choose 30, 60, 90, 180, or 360 days. Defaults to 60 days. This applies only to event tables — user master and lookup trait tables are not time-bound. |
-| **Date/datetime format** | Yes | The format your warehouse stores timestamps in. No default — you must select one. |
+The setting applies to everything MoEngage reads from that connection, so you set it once rather than per schema. It bounds event tables only — user master and lookup traits tables are not time-based. You can change it later from the same field.
 
-{/* TODO: Confirm this setting still exists and that the four formats are current. MoEngage may instead rely on each warehouse's own date functions. */}
+<Tip>
+  A longer look-back window scans more data on every query, which costs more and takes longer. Set it to the oldest event your marketers actually segment on rather than the longest window available.
+</Tip>
 
-The supported date and datetime formats are:
+{/* TODO: Confirm the selectable values. The spec lists 30, 60, 90, 180, and 360 days; the field on staging accepts a typed number. */}
 
-```text
-YYYY-MM-DD hh:mm:ss
-YYYY-MM-DD hh:mm:ss.s
-YYYY-MM-DDThh:mm:ssTZD
-YYYY-MM-DDThh:mm:ss.sTZD
-```
+{/* TODO: The spec also defines a mandatory connection-level date/datetime format with four options. It is not on the initial setup screen — confirm whether it appears elsewhere or was dropped in favour of each warehouse's own date functions. */}
 
 <Warning>
   Deleting a connection puts every schema and segment that depends on it into a **Broken** state, and flags any campaigns using those segments. Check dependencies before you delete a connection.
@@ -79,11 +75,13 @@ YYYY-MM-DDThh:mm:ss.sTZD
 
 # Create a Schema
 
-To create a schema, go to **Settings** > **Analytics and Data** > **Warehouse Schemas** and click **+ Schema**.
+Go to **Settings** > **Data** > **Warehouse Schema**.
 
-{/* TODO: Confirm the in-product navigation path against the dashboard. This page now sits under Data in the docs, so the dashboard entry point may have moved out of Settings too. */}
+The first time you open the page for a connection, MoEngage asks you to set **Max event look-back** and then start with the user table. Click **Create user schema** to begin — event and lookup traits tables become available once the user table is mapped.
 
-The listing page has three tabs — **Events**, **User attributes**, and **Lookup traits** — showing the schema name, source connection, table name, created date, and creator. From each row you can view details, edit, duplicate, or delete a schema.
+Once you have schemas, the page lists them in tabs — **Events**, **User attributes**, and **Lookup traits** — showing the schema name, source connection, table name, created date, and creator. From each row you can view details, edit, duplicate, or delete a schema.
+
+{/* TODO: Confirm the tab names and the listing columns against the built page. Captured from the spec, not yet seen on staging. */}
 
 ## Map the User Master Table
 
@@ -224,7 +222,7 @@ When the query generated by a segment fails — because a column was renamed, a 
 
 Broken segments are listed on the All Segments page under an **Action Required** view, and the segment detail page shows a banner pointing you back to your schema configuration.
 
-To fix a broken segment, correct the underlying schema mapping in **Warehouse Schemas**, then re-run the segment.
+To fix a broken segment, correct the underlying schema mapping in **Settings** > **Data** > **Warehouse Schema**, then re-run the segment.
 
 # Limits
 
@@ -242,7 +240,7 @@ Schema limits are configurable. To raise them, contact [MoEngage Support](https:
 
 # Permissions and Audit Logs
 
-All admins can create and manage warehouse schemas. To restrict access, use [custom roles](/user-guide/settings/account/team-management/access-roles) to control which roles reach the Warehouse Schemas page.
+All admins can create and manage warehouse schemas. To restrict access, use [custom roles](/user-guide/settings/account/team-management/access-roles) to control which roles reach the Warehouse Schema page.
 
 Creating, updating, and deleting user, event, and lookup trait schemas is recorded in audit logs. Changes to the warehouse connection itself are outside this scope.
 
