@@ -19,19 +19,19 @@ You set up warehouse schemas once. Your marketers then use the result to build a
   Warehouse schemas support **BigQuery** and **Databricks**. Support for Snowflake and Redshift is planned for a later release.
 </Note>
 
-{/* TODO: Confirm the list of supported warehouses against the dashboard before publishing. */}
+{/* TODO: BigQuery is confirmed on staging. Confirm Databricks before publishing, and whether Snowflake and Redshift are genuinely later-phase. */}
 
 # How a Warehouse Schema Works
 
 MoEngage does not copy your warehouse data. It reads your schema definitions, builds a SQL query from the filters selected in the segment builder, and runs that query against your warehouse when a segment is evaluated.
 
-Each schema is a 1:1 mapping to a single table or view. You map three types of tables:
+Each schema maps one table or view in your warehouse. There are three kinds:
 
-| Table type | What it holds | How many |
+| Schema | The table behind it | How many |
 | --- | --- | --- |
-| **User master** | The full set of unique users, keyed by a user identifier column. Other columns become user attributes. | One per connection |
-| **Event** | Behavioral data, with one row per event occurrence. Has a many-to-one relationship with users. | Many |
-| **Lookup traits** | Relational or lookup data — products, stores, subscription plans — that enriches users or events. | Many |
+| **User schema** | Your user master table — the full set of unique users, keyed by a user identifier column. Other columns become user attributes. | One per connection |
+| **Event schema** | An event table: behavioral data, one row per event occurrence, many rows per user. | Many |
+| **Lookup traits schema** | A relational or lookup table — products, stores, subscription plans — that enriches users or events. | Many |
 
 <Note>
   Lookup traits are referred to as data entities in some MoEngage interfaces and API responses.
@@ -44,14 +44,14 @@ Each schema is a 1:1 mapping to a single table or view. You map three types of t
 The mapping order is enforced in the dashboard. Options for a table type stay disabled until the tables they depend on are mapped.
 
 <Steps>
-  <Step title="Map the user master table">
-    Required first. Every other table needs a path back to the user master table.
+  <Step title="Create the user schema">
+    Required first. Every other table needs a path back to your user master table, and only one user schema is allowed per connection.
   </Step>
-  <Step title="Map event tables">
-    Available after the user master table is mapped.
+  <Step title="Create event schemas">
+    Available once the user schema exists.
   </Step>
-  <Step title="Map lookup trait tables">
-    Available after the table they relate to — a user, event, or another lookup trait table — is mapped.
+  <Step title="Create lookup traits schemas">
+    Available once the table they relate to — the user table, an event table, or another lookup traits table — is mapped.
   </Step>
 </Steps>
 
@@ -83,19 +83,29 @@ Once you have schemas, the page lists them in tabs — **Events**, **User attrib
 
 {/* TODO: Confirm the tab names and the listing columns against the built page. Captured from the spec, not yet seen on staging. */}
 
-## Map the User Master Table
+## Map the User Schema
 
-The user master table defines the universe of users MoEngage can segment. Each connection has exactly one.
+The user schema points at your user master table — the single table holding every user ID you want to segment on. Each connection has exactly one user schema, and it must be created before any event or lookup traits schema.
+
+Creating it is a two-step wizard: **Source and format**, then **Mapping**.
+
+### Step 1: Source and Format
+
+| Field | Required | Description |
+| --- | --- | --- |
+| **User schema name** | Yes | A name for this schema. Use something your marketers will recognise in the segment builder. |
+| **Connection** | Yes | Pre-filled with the connection you opened the page for. |
+| **Schema/Dataset** | Yes | The schema or dataset holding the table. On BigQuery this is your dataset. Populated from the connection. |
+| **Table** | Yes | The user master table. Populated from the schema or dataset you picked. |
+| **Columns for preview** | Yes | The columns to show in the preview. Pick only the ones you need to identify the table — warehouse tables can carry thousands of columns, and previewing them all is slow and costly. |
+
+Click **Preview** to see the top 5 rows for the columns you selected. Use this to confirm you picked the right table before mapping anything.
+
+### Step 2: Mapping
 
 <Steps>
-  <Step title="Select the source">
-    Choose the connection, then the database and table. The database and table dropdowns populate from the connection.
-  </Step>
-  <Step title="Preview the data">
-    Click **Preview** to see the top 5 rows from the table before mapping columns. Select or search for the columns you want to see — warehouse tables can carry thousands of columns, so previewing them all at once is not practical.
-  </Step>
   <Step title="Map the user identifier">
-    Map the column that holds your user ID. MoEngage matches this against the customer ID on existing MoEngage users.
+    Map the column holding your user ID. MoEngage matches this against the customer ID on existing MoEngage users.
 
     Exactly one column can serve as the user identifier. Composite identifiers made of two or more columns are not supported.
   </Step>
@@ -106,23 +116,25 @@ The user master table defines the universe of users MoEngage can segment. Each c
 
     To map a large table without working through it column by column, use **Upload mapping file** and supply the mapping as a JSON file.
   </Step>
-  <Step title="Save">
+  <Step title="Publish">
     MoEngage runs a validation query against your warehouse to confirm the user identifier column is non-null and unique.
   </Step>
 </Steps>
+
+Each column shows both its warehouse data type and the MoEngage data type it maps to. A BigQuery `STRING` and a `VARCHAR` both map to a MoEngage String. Check these pairs before publishing to avoid type mismatches in the segment builder.
 
 <Warning>
   Users whose identifier is null, empty, or absent from MoEngage are skipped. Warehouse segments target users who already exist in MoEngage — mapping a schema does not create new users.
 </Warning>
 
-Each column shows both its warehouse data type and the MoEngage data type it maps to. A Redshift `VARCHAR`, for example, maps to a MoEngage String. Check these pairs before saving to avoid type mismatches in the segment builder.
+## Map an Event Schema
 
-## Map an Event Table
+Event schemas follow the same two-step wizard as the user schema — **Source and format**, then **Mapping**. Pick the schema or dataset, the table, and the columns to preview, then map the columns.
 
-Event tables hold behavioral data. The user identifier and event time columns are both mandatory; every other column is optional and becomes an event attribute.
+The user identifier and event time columns are both mandatory; every other column is optional and becomes an event attribute.
 
 <Note>
-  A table can be used in one mapping only. Once you map a table as an event, it cannot also be mapped as a user master table, a lookup traits table, or a second event.
+  A table can be used in one mapping only. Once you map a table as an event, it cannot also be mapped as a user table, a lookup traits table, or a second event.
 </Note>
 
 Your warehouse stores events in one of two patterns:
@@ -149,7 +161,7 @@ If your event table is partitioned, map the **partition identifier** column as w
 
 {/* TODO: Confirm whether the event time timezone is set per connection or per schema. */}
 
-## Map a Lookup Traits Table
+## Map a Lookup Traits Schema
 
 Lookup trait tables carry relational data that enriches users or events — a Products table joined to an Order Placed event, or a Membership Plan table joined to users.
 
@@ -228,7 +240,7 @@ To fix a broken segment, correct the underlying schema mapping in **Settings** >
 
 | Limit | Value |
 | --- | --- |
-| User master tables per connection | 1 |
+| User schemas per connection | 1 |
 | Schemas per table type, per connection | 250 |
 | Levels in a join path (including the user master table) | 6 |
 | Attribute name length | 200 characters |
