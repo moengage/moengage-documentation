@@ -25,13 +25,13 @@ MoEngage builds the SQL for you and runs it against your warehouse. Your data st
 
 <Steps>
   <Step title="Select your source">
-    On the Create Segments page, choose your warehouse connection from the **Source** dropdown. Selecting an external source loads the attributes and events mapped from that connection.
+    Go to warehouse segments and select the **Simplified Builder** tab, then choose your warehouse connection from the **Source** dropdown. Selecting a source loads the attributes and events mapped from that connection.
   </Step>
   <Step title="Add your filters">
-    Use the **User Property** and **User Behaviour** sections to define your audience. Combine filters with AND, OR, and Exclude conditions, and nest them as needed.
+    Use the **User Property** and **User Behaviour** sections to define your audience. Combine filters with AND and OR conditions, and nest them as needed.
   </Step>
   <Step title="Check the count">
-    Click **Show count**. MoEngage runs the query against your warehouse and matches the returned users against users in MoEngage, then reports rows fetched, user count, and reachable count.
+    Click **Show count**. MoEngage runs the query against your warehouse, then reports two numbers — see [Reading the Count](#reading-the-count).
   </Step>
   <Step title="Save the segment">
     Give the segment a name and description and save it. Saved segments appear on the All Segments page with the type **Filter - external**.
@@ -42,15 +42,31 @@ MoEngage builds the SQL for you and runs it against your warehouse. Your data st
   Queries run on your data warehouse directly, so you incur the compute costs your warehouse charges for them.
 </Warning>
 
+## Reading the Count
+
+**Show count** reports two numbers, and they are usually different:
+
+| | What it means |
+| --- | --- |
+| **Rows returned** | How many rows your warehouse matched. |
+| **User count** | How many of those users MoEngage could resolve to an existing user. |
+
+If your warehouse matches 1,000 rows but only 90 of those users exist in MoEngage, the segment contains 90 users. The gap is normal — it reflects users in your warehouse who have never been seen by MoEngage.
+
+Reachability is calculated from the resolved user count, so of those 90 users, only the ones reachable on a given channel receive a campaign.
+
+The user count is not fixed. The same segment can resolve to more users later as those users become known to MoEngage.
+
 ## Filter on User Properties
 
-The **User Property** section shows a single dropdown listing every user attribute available to you:
+The **User Property** section lists the attributes reachable from your user master table without passing through an event:
 
 - Attributes from your user master table.
-- Attributes from lookup trait tables joined to users.
-- Attributes from lookup trait tables joined to those lookup trait tables.
+- Attributes from lookup trait tables joined to users, at any depth, as long as no event table sits in the path.
 
-All attributes appear upfront regardless of which table they come from. You do not pick a table first.
+Lookup trait attributes are grouped under the name of the table they come from, the same way MoEngage groups its own user attributes into categories. You do not pick a table first — pick the attribute.
+
+Attributes that are only reachable through an event table appear under **User Behaviour** instead, because they describe something the user did rather than something the user is.
 
 **Example.** A fashion retailer maps a Membership Plan table to users and a Plan Perks table to Membership Plan. Plan Perks has no direct link to users — it reaches them through Membership Plan. To target users whose plan includes an unexpired free shipping perk, you select `perk_type is Free Shipping`, add an AND condition, and select `expiry_date is after today`. Both attributes come from Plan Perks; MoEngage resolves the two-hop join for you.
 
@@ -112,7 +128,9 @@ Once saved, a segment built this way behaves like any other custom segment on th
 
 The segment detail page shows its type, source connection, creation date, last run time, user count, reachability, and edit history. Running the segment from this page refreshes the user count by re-querying your warehouse. Segments used in a campaign refresh automatically at campaign run time.
 
-The **Recent Query** view lists your recent segment runs. Unlike the SQL editor, it does not report runtime, data scanned, or rows fetched.
+The **Recent Query** view lists your recent segment runs.
+
+{/* TODO: Confirm which query metrics appear here — runtime, data scanned, and rows fetched may or may not be shown. */}
 
 To export the users in a segment, use the standard segment export, which exports MoEngage attributes. MoEngage cannot resolve warehouse attribute values during export, so warehouse columns are not included.
 
@@ -125,6 +143,7 @@ The filter builder does not support:
 - **Waterfall analysis.**
 - **Value suggestions.** Attribute value dropdowns stay empty — type values manually.
 - **Analyse.** Warehouse segments cannot be used as the audience for an analysis.
+- **Exclusion conditions.** You cannot subtract one query from another inside the builder. Save each audience as a custom segment and combine them with an exclusion on the standard segment builder instead.
 - **Affinity segments and custom segments** as filters inside a warehouse segment.
 - **Object and object array attributes**, and boolean or date arrays.
 

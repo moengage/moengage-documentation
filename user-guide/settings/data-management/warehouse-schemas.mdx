@@ -1,12 +1,12 @@
 ---
 title: "Warehouse Schemas"
-description: "Map tables in your data warehouse to MoEngage users, events, and attributes so marketers can build warehouse segments without writing SQL."
+description: "Map tables in your data warehouse to MoEngage users, events, and attributes so your marketers can build warehouse segments without writing SQL."
 keywords: ["warehouse schema", "schema mapping", "lookup traits", "user master table", "data entity", "bigquery", "redshift"]
 ---
 
-A warehouse schema maps one table or view in your data warehouse to MoEngage users, events, or attributes. Once you map your tables, the columns become available as dropdown options in the segment builder, so marketers can build warehouse segments without writing SQL.
+A warehouse schema maps one table or view in your data warehouse to MoEngage users, events, or attributes. Once you map your tables, the columns become available as dropdown options in the segment builder, so your marketers can build warehouse segments without writing SQL.
 
-Setting up warehouse schemas is a one-time task for your data or engineering team. Marketers use the result to build audiences — refer to [Create a Warehouse Segment Using Filters](/user-guide/segment/create-segments/warehouse-segments/create-using-filters).
+You set up warehouse schemas once. Your marketers then use the result to build audiences — refer to [Create a Warehouse Segment Using Filters](/user-guide/segment/create-segments/warehouse-segments/create-using-filters).
 
 <Info>
   **Prerequisites**
@@ -23,13 +23,13 @@ Setting up warehouse schemas is a one-time task for your data or engineering tea
 
 # How Warehouse Schemas Work
 
-MoEngage does not copy your warehouse data. It reads your schema definitions, builds a SQL query from the filters a marketer selects, and runs that query against your warehouse when a segment is evaluated.
+MoEngage does not copy your warehouse data. It reads your schema definitions, builds a SQL query from the filters selected in the segment builder, and runs that query against your warehouse when a segment is evaluated.
 
 Each schema is a 1:1 mapping to a single table or view. You map three types of tables:
 
 | Table type | What it holds | How many |
 | --- | --- | --- |
-| **User master** | The full set of unique users, keyed by a user identifier column. Other columns become user attributes. | One per workspace |
+| **User master** | The full set of unique users, keyed by a user identifier column. Other columns become user attributes. | One per connection |
 | **Event** | Behavioral data, with one row per event occurrence. Has a many-to-one relationship with users. | Many |
 | **Lookup traits** | Relational or lookup data — products, stores, subscription plans — that enriches users or events. | Many |
 
@@ -62,6 +62,8 @@ Two settings apply to every schema created under a connection. Both are set on t
 | **Query window** | Yes | How far back MoEngage reads event data. Choose 30, 60, 90, 180, or 360 days. Defaults to 60 days. This applies only to event tables — user master and lookup trait tables are not time-bound. |
 | **Date/datetime format** | Yes | The format your warehouse stores timestamps in. No default — you must select one. |
 
+{/* TODO: Confirm this setting still exists and that the four formats are current. MoEngage may instead rely on each warehouse's own date functions. */}
+
 The supported date and datetime formats are:
 
 ```text
@@ -85,20 +87,26 @@ The listing page has three tabs — **Events**, **User attributes**, and **Looku
 
 ## Map the User Master Table
 
-The user master table defines the universe of users MoEngage can segment. Map one per workspace.
+The user master table defines the universe of users MoEngage can segment. Each connection has exactly one.
 
 <Steps>
   <Step title="Select the source">
     Choose the connection, then the database and table. The database and table dropdowns populate from the connection.
   </Step>
   <Step title="Preview the data">
-    Click **Preview** to see up to 100 rows from the table before mapping columns. Use this to confirm you picked the right table.
+    Click **Preview** to see the top 5 rows from the table before mapping columns. Select or search for the columns you want to see — warehouse tables can carry thousands of columns, so previewing them all at once is not practical.
   </Step>
   <Step title="Map the user identifier">
-    Map the column that holds your user ID. MoEngage matches this against existing MoEngage user IDs.
+    Map the column that holds your user ID. MoEngage matches this against the customer ID on existing MoEngage users.
+
+    Exactly one column can serve as the user identifier. Composite identifiers made of two or more columns are not supported.
   </Step>
   <Step title="Map the remaining columns">
-    Map each remaining column to a MoEngage user attribute, or mark it as skipped. Skipped columns are not read and do not appear in the segment builder.
+    Map each remaining column to a MoEngage user attribute, or mark it as skipped. Skipped columns are not read and do not appear in the segment builder. You can skip columns individually or skip all of them at once.
+
+    Each mapped attribute takes a display name, which is what appears in the segment builder instead of the raw column name, and an optional description.
+
+    To map a large table without working through it column by column, use **Upload mapping file** and supply the mapping as a JSON file.
   </Step>
   <Step title="Save">
     MoEngage runs a validation query against your warehouse to confirm the user identifier column is non-null and unique.
@@ -113,15 +121,19 @@ Each column shows both its warehouse data type and the MoEngage data type it map
 
 ## Map an Event Table
 
-Event tables hold behavioral data. Map the user identifier, the event time, and the event identifier.
+Event tables hold behavioral data. The user identifier and event time columns are both mandatory; every other column is optional and becomes an event attribute.
+
+<Note>
+  A table can be used in one mapping only. Once you map a table as an event, it cannot also be mapped as a user master table, a lookup traits table, or a second event.
+</Note>
 
 Your warehouse stores events in one of two patterns:
 
 <Tabs>
   <Tab title="One table per event">
-    Every row in the table is the same event. Enter a name for the event — this is the name marketers see in the segment builder.
+    Every row in the table is the same event. Enter a name for the event — this is the name that appears in the segment builder.
   </Tab>
-  {/* TODO: Mapping several events from a single table is documented from the spec but was called out as not part of the MVP build. Confirm before publishing, and cut this tab if it did not ship. */}
+  {/* TODO: Mapping several events from a single table is not expected to be part of the first release. Confirm before publishing, and cut this tab if it did not ship. */}
   <Tab title="One table for all events">
     The table holds several event types, distinguished by an event name column. Map that column, then select which event to import. MoEngage filters rows to the selected event, including in the preview.
 
@@ -134,6 +146,8 @@ Your warehouse stores events in one of two patterns:
 </Tabs>
 
 Only date and datetime columns can be selected as the event time column. MoEngage reads event times as UTC and converts them to your workspace timezone for display.
+
+If your event table is partitioned, map the **partition identifier** column as well. This is optional, and lets MoEngage restrict queries to the relevant partitions instead of scanning the whole table.
 
 {/* TODO: Confirm whether the event time timezone is set per connection or per schema. */}
 
@@ -162,44 +176,47 @@ You can join on any column in either table. Select the relationship type that ma
 | **1:Many** | One user or event row maps to many lookup trait rows. |
 | **Many:1** | Many user or event rows map to one lookup trait row. |
 
-### Validate the Join
+### Test the Join
 
-Click **Validate** before saving. MoEngage runs the join against your warehouse and returns the top rows of the joined result so you can confirm the keys are correct.
+Run **Test join** before publishing. MoEngage runs the join against your warehouse and returns the top 5 rows of the joined result so you can confirm the keys are correct.
 
-{/* TODO: Confirm the number of rows returned by join validation, then state it here. */}
-
-If the join returns no rows, MoEngage shows a warning but still lets you save, since the table may legitimately be empty at setup time.
+<Warning>
+  If the join returns no rows, you cannot publish the schema. A join that matches nothing usually means the wrong column was picked on one side, and publishing it would produce segments that silently return no users.
+</Warning>
 
 ### Join Depth Limits
 
-You can chain up to six tables in a single path, counting the user master, event, and lookup trait tables. Where a path loops back on itself, the limit is 12 — six from each side, starting from the user master table. Both limits are configurable; contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new) to change them.
+A join path can be six levels deep, counting the user master table as the first level. That leaves five tables chained after it. The limit exists because every level adds a join to the generated query, and warehouses cap how large a query can get. It is configurable — to raise it, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
 
-MoEngage validates join depth when you save a schema, not when a segment runs, so you find out immediately rather than when a marketer builds a query.
+MoEngage validates join depth when you save a schema, not when a segment runs, so you find out immediately rather than when someone builds a query.
 
 # Keep Schemas in Sync
 
-MoEngage does not detect warehouse changes automatically. When you add columns to a source table, open the schema and click **Refresh**.
+MoEngage reads your warehouse metadata — databases, tables, and columns — on a schedule rather than live. Exploring a large warehouse on every page load is slow and runs up query costs on your side, so the metadata is cached.
 
-New columns appear in an **Unmapped columns** section, flagged in yellow. They stay invisible in the segment builder until you either map them or mark them as skipped.
+**Metadata refreshes automatically every 6 hours.** A table or column you create now appears in MoEngage within that window. To pick it up sooner, use **Force refresh**, which re-reads the metadata in the background.
+
+New columns are never mapped for you. Until you map a column or mark it as skipped, it does not appear in the segment builder. Use the **Show unmapped columns** filter on the mapping screen to see only the columns still waiting on a decision.
 
 # Edit and Delete Schemas
 
-## Deletion Rules
+## What You Can Edit
 
-Only the last table in a dependency chain can be deleted. In the chain `User → Order Placed → Product → Supplier`, you can delete Supplier, but not Product, until Supplier is gone. The delete option on other tables is disabled, with a tooltip naming the table that depends on it.
+You can edit descriptive details on a published schema at any time: the schema name, the event name, attribute display names, and attribute descriptions.
 
-Deleting the user master table deletes the entire schema for that connection.
+You cannot change the structure. Mapping columns and join columns are locked once a schema is published, because changing them would rewrite the queries behind every segment built on that schema.
 
-## Impact Warnings
+## Deleting a Schema
 
-Unmapping a column or marking it as skipped removes data the segment builder depends on. Before saving, MoEngage scans your active and draft segments for uses of that column.
+Individual tables cannot be deleted on their own. Lookup traits can be joined in a loop, so there is no reliable last table in the chain to remove safely.
 
-If it finds any, a summary lists every affected segment by name. You can either cancel the change or save it and accept the consequence: the listed segments are tagged **Broken** and their campaigns are paused.
+Deletion works at the schema level instead: **delete the user master schema and the whole schema for that connection goes with it** — every event table, every lookup traits table, and every join between them. To confirm, type `DELETE` in capitals.
 
-Editing a join key follows the same pattern, with two extra requirements:
+<Danger>
+  Deleting a schema breaks everything built on it. Segments that depend on it start failing, and campaigns using those segments break with them.
+</Danger>
 
-- Re-run **Validate**. You cannot save an edited join until validation passes.
-- Confirm the acknowledgement checkbox stating that the change may affect user counts and reachability in existing segments.
+If you need a different structure, plan on recreating the schema rather than editing your way there.
 
 # Broken Segments
 
@@ -213,12 +230,12 @@ To fix a broken segment, correct the underlying schema mapping in **Warehouse Sc
 
 | Limit | Value |
 | --- | --- |
-| User master tables per workspace | 1 |
+| User master tables per connection | 1 |
 | Schemas per table type, per connection | 250 |
-| Tables in a join chain | 6 (12 where the path loops back) |
+| Levels in a join path (including the user master table) | 6 |
 | Attribute name length | 200 characters |
 | Attribute description length | 512 characters |
-| Preview rows | 100 |
+| Preview rows | 5 |
 | Distinct values available for filtering | 1,000 |
 
 Schema limits are configurable. To raise them, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
@@ -229,8 +246,19 @@ All admins can create and manage warehouse schemas. To restrict access, use [cus
 
 Creating, updating, and deleting user, event, and lookup trait schemas is recorded in audit logs. Changes to the warehouse connection itself are outside this scope.
 
-# Unsupported Data Types
+# Data Types
 
-Some warehouse-specific data types, such as nested and geospatial types, cannot be mapped. Columns with these types are unavailable in the mapping dropdowns.
+Warehouses use far more data types than MoEngage needs. Each column is normalized to one of six MoEngage data types, which is what determines the operators available in the segment builder.
 
-{/* TODO: Replace the examples below with the full list of unsupported data types per warehouse. */}
+| Warehouse data type | MoEngage data type |
+| --- | --- |
+| `TEXT`, `VARCHAR`, `CHAR`, and other unbounded text types | String |
+| `INTEGER`, `LONG`, `DOUBLE`, `FLOAT`, and other precision numeric types | Numeric |
+| `DATE`, `TIMESTAMP`, `DATETIME` | Date / time |
+| `BOOLEAN` | Boolean |
+| Numeric arrays | Array (numeric) |
+| String arrays | Array (string) |
+
+The mapping screen shows both types side by side — the type as your warehouse reports it, and the MoEngage type it maps to. A Redshift `VARCHAR(255)` and an unbounded `TEXT` column both become String.
+
+Object, nested, and geospatial types are not supported. Columns using them cannot be mapped.
