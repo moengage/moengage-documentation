@@ -1,7 +1,7 @@
 ---
 title: "Audience and delivery reference"
 description: "Reference for trigger_condition, segmentation_details, scheduling_details, delivery_controls, conversion_goal_details, control_group_details, utm_params, campaign_audience_limit, advanced, and geofences. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping"]
+keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping", "SMS delivery controls", "MMS delivery controls"]
 icon: "users-viewfinder"
 ---
 
@@ -424,6 +424,10 @@ The `segmentation_details` object defines who receives the campaign. Two top-lev
 | `is_all_user_campaign` | boolean | When `true`, all users are targeted (subject to opt-in status). |
 | `send_campaign_to_opt_out_users` | boolean | When `true`, users who have opted out are also targeted. |
 
+<Note>
+**SMS/MMS:** This schema is reused as-is. The PRD marks SMS "Segmentation" as unresolved ("- ?"), but no SMS-specific shape has been specified anywhere — this repo documents SMS/MMS as reusing this existing channel-agnostic schema, matching Push/Email. Confirm with Engineering.
+</Note>
+
 <Tabs>
 <Tab title="All users">
 
@@ -538,6 +542,10 @@ The `scheduling_details.delivery_type` field selects the send model. Different f
 | `SEND_IN_USER_TIMEZONE` | At a fixed wall-clock time in each user's local timezone. | `start_time` and `user_timezone_details`. |
 
 For `PERIODIC` campaigns, `delivery_type` is `AT_FIXED_TIME` and `periodic_details` is required.
+
+<Note>
+**SMS/MMS:** This schema is reused as-is. The PRD's "Delivery Type: ASAP / Scheduled Time" maps directly onto the existing `ASAP` / `AT_FIXED_TIME` values above. SMS/MMS adds one additional constraint: a scheduled `start_time` must be at least 1 hour ahead of the current time when the request is made — see [Validation rules](#validation-rules). This constraint is SMS/MMS-specific per the PRD; it is not assumed to apply to Push/Email.
+</Note>
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
@@ -865,9 +873,37 @@ The `delivery_controls` object carries throttling, frequency capping, DND behavi
 }
 ```
 
+### SMS delivery controls
+
+Reuses the same field names as Push/Email `delivery_controls` wherever the PRD concept already has one. Applies to both SMS and MMS campaigns.
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `bypass_dnd` | boolean | Whether to bypass Do Not Disturb. PRD: "Ignore DND." |
+| `campaign_throttle_rpm` | integer | The throttle in requests per minute. PRD: "RPM." **Maximum:** 200,000. <Note>The minimum value is not confirmed — the PRD references an unincluded "low throttling file." Confirm with Engineering.</Note> |
+| `count_for_frequency_capping` | boolean | Whether the campaign counts toward frequency caps. PRD: "Count for FC." **Conditionally required** when `ignore_frequency_capping` is `true` — see [Validation rules](#validation-rules). This conditional requirement is SMS/MMS-specific and is not documented for Push/Email today. |
+| `ignore_frequency_capping` | boolean | Whether to bypass frequency capping. PRD: "Ignore FC." |
+| `minimum_delay_between_two_notification_in_hour` | integer | Minimum hours between two messages from this campaign. PRD: "Minimum Delay b/w message." |
+
+```json
+{
+  "delivery_controls": {
+    "bypass_dnd": false,
+    "campaign_throttle_rpm": 50000,
+    "count_for_frequency_capping": true,
+    "ignore_frequency_capping": false,
+    "minimum_delay_between_two_notification_in_hour": 4
+  }
+}
+```
+
 ## Conversion goal tracking
 
 The `conversion_goal_details` object configures the events MoEngage tracks to attribute campaign success.
+
+<Note>
+**SMS/MMS:** This schema is reused as-is. The PRD's conversion-goals story (goal name, event name, attribute filter, one primary goal, tracking window in days) maps directly onto the existing schema below.
+</Note>
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
@@ -946,6 +982,10 @@ The `conversion_goal_details` object configures the events MoEngage tracks to at
 
 The `control_group_details` object configures the campaign-level and global control groups (users held back from the send).
 
+<Note>
+**SMS/MMS:** This schema is reused as-is — see [campaign_content (SMS)](/api/campaigns/campaign-content-reference#updating-an-existing-campaign) for an update example.
+</Note>
+
 | Field | Type | Notes |
 | :--- | :--- | :--- |
 | `is_campaign_control_group_enabled` | boolean | Whether the campaign control group is enabled. |
@@ -1018,6 +1058,10 @@ The `campaign_audience_limit` object caps the number of users a campaign can rea
 <Warning>
 **Flag-gated feature.** Not enabled by default for any workspace. Including `campaign_audience_limit` on a workspace where the flag is not enabled returns a `400` with `error.code: VALIDATION_FAILED` and `error.message: "Campaign Audience Limit feature is not enabled for this db"`. Contact the MoEngage account team to enable.
 </Warning>
+
+<Note>
+**SMS/MMS:** The PRD's "Limit Audience" story maps conceptually onto this feature, but this schema's supported-channels list (below) currently documents Email and Push only — SMS/MMS support is not yet confirmed. This is intentionally **not** extended to SMS/MMS here pending Engineering confirmation; it is not included in the `SmsCampaignCreateV5Request`/`SmsComponentPatchRequest` schemas in this PR.
+</Note>
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
@@ -1268,6 +1312,8 @@ The following rules span multiple sub-objects on this page.
 | `utm_params` accepts the 5 standard keys plus up to 5 additional `utm_`-prefixed custom keys. `utm_source` and `utm_medium` are required when UTM parameters are used. | `UTMParams` description |
 | `advanced.expiration_settings.remove_from_inbox_after_type` accepts only `DAY`. Other granularities fail. | `AdvancedDetails.expiration_settings` |
 | `advanced.platform_level_priority.ios_specific_priority.apns_priority` values are **strings** (`"1"`, `"5"`, `"10"`). `relevance_score` values are **numbers** (`0`, `0.5`, `1`). `interruption_level` accepts `Passive`, `Active`, `Time sensitive`, `Critical` (note the space and casing of `Time sensitive`). | `AdvancedDetails.platform_level_priority` |
+| For SMS/MMS, `scheduling_details.start_time` must be at least 1 hour ahead of the current time when scheduling a send. This is SMS/MMS-specific per the PRD and is not assumed to apply to Push/Email. | [Campaign delivery schedule](#campaign-delivery-schedule) |
+| For SMS/MMS, `delivery_controls.count_for_frequency_capping` is **required** when `delivery_controls.ignore_frequency_capping` is `true`. This conditional requirement is SMS/MMS-specific per the PRD and is not documented for Push/Email today. | `SmsDeliveryControls.count_for_frequency_capping` |
 
 ## Updating an existing campaign
 
@@ -1342,6 +1388,26 @@ The following rules span multiple sub-objects on this page.
   }
 }
 ```
+
+</Tab>
+<Tab title="delivery_controls (SMS)">
+
+```json
+{
+  "channel": "SMS",
+  "campaign_delivery_type": "{{campaign_delivery_type}}",
+  "updated_by": "{{user_email}}",
+  "delivery_controls": {
+    "bypass_dnd": false,
+    "campaign_throttle_rpm": 50000,
+    "count_for_frequency_capping": true
+  }
+}
+```
+
+<Note>
+Applies to MMS with `"channel": "MMS"` — the payload shape is identical.
+</Note>
 
 </Tab>
 <Tab title="conversion_goal_details">
