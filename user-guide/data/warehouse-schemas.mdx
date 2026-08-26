@@ -1,7 +1,7 @@
 ---
 title: "Warehouse Schema"
 description: "Map tables in your data warehouse to MoEngage users, events, and attributes so your marketers can build warehouse segments without writing SQL."
-keywords: ["warehouse schema", "schema mapping", "max event look-back", "lookup traits", "user master table", "bigquery", "databricks"]
+keywords: ["warehouse schema", "schema mapping", "max event look-back", "user master table", "event schema", "bigquery", "databricks"]
 ---
 
 A warehouse schema maps one table or view in your data warehouse to MoEngage users, events, or attributes. Once you map your tables, the columns become available as dropdown options in the segment builder, so your marketers can build warehouse segments without writing SQL.
@@ -25,47 +25,20 @@ You set up warehouse schemas once. Your marketers then use the result to build a
 
 MoEngage does not copy your warehouse data. It reads your schema definitions, builds a SQL query from the filters selected in the segment builder, and runs that query against your warehouse when a segment is evaluated.
 
-Each schema maps one table or view in your warehouse. There are three kinds:
+Each schema maps one table or view in your warehouse. There are two kinds:
 
 | Schema | The table behind it | How many |
 | --- | --- | --- |
 | **User schema** | Your user master table — the full set of unique users, keyed by a user identifier column. Other columns become user attributes. | One per connection |
 | **Event schema** | An event table: behavioral data, one row per event occurrence, many rows per user. | Many |
-| **Lookup traits schema** | A relational or lookup table — products, stores, subscription plans — that enriches users or events. | Many |
 
-<Note>
-  Lookup traits are referred to as data entities in some MoEngage interfaces and API responses.
-</Note>
-
-{/* TODO: The in-product description of a warehouse schema mentions only a user table and event tables. Confirm lookup traits are part of this release, and that "Lookup traits" is the label used in the UI. */}
-
-## Mapping Order
-
-The mapping order is enforced in the dashboard, so the options you see depend on what already exists for that connection:
-
-- A connection with no schemas offers only **Create user schema**.
-- **Create event schema** appears once the user schema exists.
-- **Create lookup traits schema** appears once the table it attaches to exists.
-
-If you expected an option and it is missing, the schema it depends on has not been created yet. Every event and lookup traits table has to resolve back to a user, so there is nothing to join against until the user schema is in place.
-
-<Steps>
-  <Step title="Create the user schema">
-    Required first. Every other table needs a path back to your user master table, and only one user schema is allowed per connection.
-  </Step>
-  <Step title="Create event schemas">
-    Available once the user schema exists.
-  </Step>
-  <Step title="Create lookup traits schemas">
-    Available once the table they relate to — the user table, an event table, or another lookup traits table — is mapped.
-  </Step>
-</Steps>
+Create the user schema first. Event tables are matched to users through it, so there is nothing to join against until it exists.
 
 # Set the Event Look-Back Window
 
 Before you map your first table, set **Max event look-back**. This is how far back in days MoEngage reads event data from this warehouse. It defaults to **60 days** and is mandatory.
 
-The setting applies to everything MoEngage reads from that connection, so you set it once rather than per schema. It bounds event tables only — user master and lookup traits tables are not time-based. You can change it later from the same field.
+The setting applies to everything MoEngage reads from that connection, so you set it once rather than per schema. It bounds event tables only — the user master table is not time-based. You can change it later from the same field.
 
 <Tip>
   A longer look-back window scans more data on every query, which costs more and takes longer. Set it to the oldest event your marketers actually segment on rather than the longest window available.
@@ -81,7 +54,7 @@ The setting applies to everything MoEngage reads from that connection, so you se
 
 # Create a User Schema
 
-The user schema points at your user master table — the single table that holds every user ID you want to segment on. Each connection has exactly one user schema, and you must create it before any event or lookup traits schema.
+The user schema points at your user master table — the single table that holds every user ID you want to segment on. Each connection has exactly one user schema, and you must create it before any event schema.
 
 To create a user schema, perform the following steps:
 
@@ -172,7 +145,7 @@ First, point MoEngage at the event table and name the event your marketers will 
 3. **Schema/Dataset:** Select the schema or dataset that holds your event table.
 4. **Table:** Select the event table.
 
-   Tables already used in another schema appear greyed out and cannot be selected. A table can belong to one schema only, whether that is a user, event, or lookup traits schema.
+   Tables already used in another schema appear greyed out and cannot be selected. A table can belong to one schema only, whether that is a user schema or an event schema.
 5. **Columns for preview:** Select the columns you want to see in the preview. Use **Select all** or **Clear all** to change the whole selection at once.
 
    Select only what you need to recognise the table. Every preview runs a live query against your warehouse.
@@ -221,49 +194,6 @@ Next, tell MoEngage which column identifies the user, which column holds the eve
 
 {/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It does not appear on either step. Confirm whether it exists. */}
 
-{/* TODO: Lookup traits are not visible in the current build. The Warehouse schema page lists only a user schema section and an Event schemas section, and the only creation option is "+ Event schema". Confirm whether lookup traits ship in this release before publishing this section — if not, remove it. */}
-
-# Create a Lookup Traits Schema
-
-Lookup trait tables carry relational data that enriches users or events — a Products table joined to an Order Placed event, or a Membership Plan table joined to users.
-
-## Join Rules
-
-Every lookup trait table needs a join path back to the user master table. MoEngage blocks chains that do not resolve to a user.
-
-Valid paths:
-
-```text
-Lookup trait → User
-Lookup trait → Event → User
-Lookup trait → Lookup trait → User
-Lookup trait → Lookup trait → Event → User
-```
-
-You can join on any column in either table. Select the relationship type that matches your data:
-
-| Relationship | Meaning |
-| --- | --- |
-| **1:1** | One user or event row maps to one lookup trait row. |
-| **1:Many** | One user or event row maps to many lookup trait rows. |
-| **Many:1** | Many user or event rows map to one lookup trait row. |
-
-## Test the Join
-
-Run **Test join** before publishing. MoEngage runs the join against your warehouse and returns sample rows of the joined result so you can confirm the keys are correct.
-
-Event schemas have the same check — every schema is tested against the table it joins to before it can be published.
-
-<Warning>
-  A join that returns no rows usually means the wrong column was picked on one side. Publishing it produces segments that silently return no users, so treat an empty result as a failure rather than an empty table.
-</Warning>
-
-## Join Depth Limits
-
-A join path can be six levels deep, counting the user master table as the first level. That leaves five tables chained after it. The limit exists because every level adds a join to the generated query, and warehouses cap how large a query can get. It is configurable — to raise it, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
-
-MoEngage validates join depth when you save a schema, not when a segment runs, so you find out immediately rather than when someone builds a query.
-
 # Keep Schemas in Sync
 
 MoEngage reads your warehouse metadata — databases, tables, and columns — on a schedule rather than live. Exploring a large warehouse on every page load is slow and runs up query costs on your side, so the metadata is cached.
@@ -310,9 +240,9 @@ The structural fields are locked because changing them would rewrite the queries
 
 ## Delete a Schema
 
-Individual tables cannot be deleted on their own. Lookup traits can be joined in a loop, so there is no reliable last table in the chain to remove safely.
+Delete a schema from the ellipsis menu on its row.
 
-Deletion works at the schema level instead: **delete the user master schema and the whole schema for that connection goes with it** — every event table, every lookup traits table, and every join between them. To confirm, type `DELETE` in capitals.
+Deleting the user schema removes everything for that connection, including every event schema built on it, because events are matched to users through the user schema. To confirm, type `DELETE` in capitals.
 
 <Danger>
   Deleting a schema breaks everything built on it. Segments that depend on it start failing, and campaigns using those segments break with them.
@@ -333,8 +263,7 @@ To fix a broken segment, correct the underlying schema mapping in **Settings** >
 | Limit | Value |
 | --- | --- |
 | User schemas per connection | 1 |
-| Schemas per table type, per connection | 250 |
-| Levels in a join path (including the user master table) | 6 |
+| Event schemas per connection | 250 |
 | Attribute name length | 200 characters |
 | Attribute description length | 512 characters |
 | Preview rows | 100 |
@@ -346,7 +275,7 @@ Schema limits are configurable. To raise them, contact [MoEngage Support](https:
 
 All admins can create and manage warehouse schemas. To restrict access, use [custom roles](/user-guide/settings/account/team-management/access-roles) to control which roles reach the Warehouse Schema page.
 
-Creating, updating, and deleting user, event, and lookup trait schemas is recorded in audit logs. Changes to the warehouse connection itself are outside this scope.
+Creating, updating, and deleting user and event schemas is recorded in audit logs. Changes to the warehouse connection itself are outside this scope.
 
 # Data Types
 
