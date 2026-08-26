@@ -206,6 +206,16 @@ The metrics can be viewed as numbers with the percentages shown above them:
 | Sent | Represents the number of devices for which notification was sent successfully to GCM or APNS. Please note that this number does not guarantee that GCM/APNS can deliver to these many devices. |
 | Impressions | Represents the number of user devices that have received the notification sent by the marketer. |
 
+<Info>
+  **Why push has no "delivered" stage between Sent and Impressions**
+
+  Standard FCM and APNS push sends don't have a delivery receipt callback. **Sent** only confirms that FCM or APNS accepted the notification through their synchronous send API — it doesn't confirm the notification reached the device. Neither FCM nor APNS calls back to tell MoEngage that a notification was delivered, so a push campaign never has a "delivered" state to report; **Impressions** is the closest downstream signal, and it's tracked only when the app SDK reports the notification back from the device.
+
+  This is why **Sent** can be, and often is, higher than **Impressions** or conversions — the gap is made up of notifications FCM/APNS accepted but that never reached, or were never reported back from, the user's device (for reasons such as an inactive device, an uninstalled app, or OS-level restrictions). It also means push doesn't have any auto-suppression logic based on delivery beyond the automatic removal of invalid tokens described in [Automatic Token Cleanup](/user-guide/campaigns-and-channels/mobile-push/troubleshooting-and-faqs-mobile-push/troubleshoot-common-push-errors#automatic-token-cleanup) — there's no "wait for delivery confirmation" step for a standard push campaign to suppress or hold on. This is separate from journey features that explicitly wait for a delivery signal from one channel before falling back to another as part of a multi-step send flow — those use their own logic and aren't part of a standard push campaign.
+
+  For more on why a sent notification might not reach a device, refer to [Why Aren't End Users Receiving Push Notifications?](/user-guide/campaigns-and-channels/mobile-push/troubleshooting-and-faqs-mobile-push/why-arent-end-users-receiving-push-notifications)
+</Info>
+
 ## Error breakdown
 
 This section details the number of campaign delivery failures and their reasons. For more information, refer to [Troubleshooting Common Push errors](/user-guide/campaigns-and-channels/mobile-push/troubleshooting-and-faqs-mobile-push/troubleshoot-common-push-errors).
