@@ -98,6 +98,25 @@ components:
       schema:
         type: string
         format: uuid
+    X-MOE-Tenant-ID:
+      name: X-MOE-Tenant-ID
+      in: header
+      required: true
+      description: |
+        Your MoEngage Workspace ID (App ID). Required for `POST /v5/personalizations/previews` — unlike `MOE-APPKEY` on other endpoints, this header is mandatory because it is how the service resolves your workspace.
+      schema:
+        type: string
+      example: "{{workspace_id}}"
+    DATA-COMPRESSION:
+      name: DATA-COMPRESSION
+      in: header
+      required: false
+      description: |
+        Set to `true` when the values in `personalization_content.payload` are compressed at the wire level. The service decompresses them before rendering and re-compresses the rendered content in the response. Not supported when `personalization_content.custom_template_data` is used instead of `payload`.
+      schema:
+        type: string
+        enum: ["true", "false"]
+        default: "false"
 
   schemas:
     # ==================== V5 Draft-First Envelopes ====================
@@ -3252,6 +3271,119 @@ components:
           description: Human-readable summary of the test send operation.
           example: "Test campaign processed"
 
+    # ==================== Personalized Preview (V5) ====================
+    PersonalizationChannel:
+      type: string
+      description: The channel to render the preview for.
+      enum: [PUSH, SMS, EMAIL, INAPP, OSM, WHATSAPP, CARDS, GENERIC]
+
+    PersonalizationUserIdentifier:
+      type: string
+      description: |
+        The user-identifier field to resolve the user by. `identifier_value` is validated against the chosen identifier — for example, a valid email address when `identifier` is `email`, or digits only when `identifier` is `mobile`.
+      enum: [email, mobile, id, moeId]
+
+    PersonalizationUserDetails:
+      type: object
+      description: Identifies the user whose attributes are used to resolve personalization tokens. Omit this object to render without resolving a specific user's stored attributes.
+      required: [identifier, identifier_value]
+      properties:
+        identifier:
+          $ref: '#/components/schemas/PersonalizationUserIdentifier'
+        identifier_value:
+          type: string
+          description: The value of the chosen identifier — an email address, a mobile number, an `id`, or a MoEngage ID.
+          example: "user@example.com"
+
+    PersonalizationCustomTemplateData:
+      type: object
+      description: Reference to a saved custom template to render instead of an inline `payload`. Supported only when `personalization_details.channel` is `PUSH`, `SMS`, `EMAIL`, or `INAPP`, and requires custom templates to be enabled for your workspace.
+      required: [template_id, version]
+      properties:
+        template_id:
+          type: string
+          description: The unique identifier of the saved custom template.
+          example: "tpl_abc123"
+        version:
+          type: integer
+          description: The version number of the saved custom template.
+          example: 3
+
+    PersonalizationContent:
+      type: object
+      description: Supply exactly one of `payload` or `custom_template_data`. A request with both, or with neither, fails validation.
+      properties:
+        payload:
+          type: object
+          additionalProperties: true
+          description: |
+            A free-form key-value blob whose string values can contain Jinja personalization tokens, such as `UserAttribute`, `EventAttribute`, `ContentBlock`, and `ProductSet`. The shape is the same for every channel — use the keys your rendered content needs, for example `subject` and `body` for email, or `title` and `message` for push.
+          example:
+            subject: "Hello {{UserAttribute['first_name'] | default('there')}}"
+            body: "Welcome {{UserAttribute['first_name']}}!"
+        custom_template_data:
+          $ref: '#/components/schemas/PersonalizationCustomTemplateData'
+
+    PersonalizationPreviewDetails:
+      type: object
+      required: [channel]
+      description: Channel and attribute context used while rendering.
+      properties:
+        channel:
+          $ref: '#/components/schemas/PersonalizationChannel'
+        event_name:
+          type: string
+          description: The event that `EventAttribute['…']` tokens resolve against. Required when `payload` (or the resolved template) uses an `EventAttribute` token and `event_attributes` is set.
+          example: "MOE_APP_OPENED"
+        user_attributes:
+          type: object
+          additionalProperties: true
+          description: Override values for `UserAttribute['…']` tokens.
+          example:
+            first_name: "Ada"
+        event_attributes:
+          type: object
+          additionalProperties: true
+          description: Values for `EventAttribute['…']` tokens.
+          example:
+            product_name: "Running Shoes"
+        dynamic_attributes:
+          type: object
+          additionalProperties: true
+          description: Caller-supplied key-value pairs made available to the render as top-level Jinja variables, in addition to `UserAttribute` and `EventAttribute` tokens.
+
+    PersonalizationPreviewRequest:
+      type: object
+      required: [request_id, personalization_content, personalization_details]
+      properties:
+        request_id:
+          type: string
+          description: A unique identifier for this request. Echoed back as the top-level `response_id` on the response. Takes priority over the `X-MOE-Request-Id` header when both are supplied.
+          example: "req-8841"
+        personalization_content:
+          $ref: '#/components/schemas/PersonalizationContent'
+        user_details:
+          $ref: '#/components/schemas/PersonalizationUserDetails'
+        personalization_details:
+          $ref: '#/components/schemas/PersonalizationPreviewDetails'
+
+    PersonalizationPreviewSuccessResponse:
+      type: object
+      required: [response_id, data]
+      properties:
+        response_id:
+          type: string
+          description: Echo of the request's `request_id` (preferred) or `X-MOE-Request-Id` header. A server-generated ID when neither is supplied.
+          example: "req-8841"
+        data:
+          type: object
+          required: [personalized_content]
+          properties:
+            personalized_content:
+              type: object
+              additionalProperties: true
+              description: The rendered content. For an inline `payload` request, this mirrors the payload's keys with every Jinja token resolved. For a `custom_template_data` request, this mirrors the shape of the resolved template.
+
   responses:
     V5ValidationError:
       description: Request failed schema or component validation.
@@ -5359,151 +5491,100 @@ paths:
         '500':
           $ref: '#/components/responses/V5InternalError'
 
-  /v5/personalization/preview:
+  /v5/personalizations/previews:
     post:
-      x-excluded: true
       operationId: preview_personalized_content_v5
       summary: Personalized Preview (V5)
       description: |
-        Returns a fully resolved preview of personalised campaign content for a specific user - all user attributes, event attributes, content blocks, content APIs, product sets, and custom templates are rendered exactly as they would appear to that user at send time.
+        Resolves Jinja personalization tokens (`UserAttribute`, `EventAttribute`, `BusinessEventAttribute`, `CampaignAttribute`, `ContentBlock`, `ProductSet`, and others) inside a content payload or a saved custom template, and returns the fully rendered output for the specified user — without sending a message.
+
+        Supply either an inline `personalization_content.payload` or a `personalization_content.custom_template_data` reference. The payload shape is the same for every channel; `personalization_details.channel` only changes which tokens can resolve and, for custom templates, which saved template is fetched.
       x-mint:
         content: |
           #### Rate Limits
 
           | Rate Limit Name | Rate Limit |
           | :--- | :--- |
-          | Personalized preview per minute | 10,000 requests per minute |
+          | Personalized preview per second | The total number of personalized preview requests per second per workspace allowed is 100. |
+          | Personalized preview per 10 seconds | The total number of personalized preview requests per 10 seconds per workspace allowed is 1,000. |
+          | Personalized preview per minute | The total number of personalized preview requests per minute per workspace allowed is 6,000. |
+
+          <Note>
+          Personalization tokens introduced by `ContentBlock` expansion, and other aux-data lookups via the `getAuxData` filter, only resolve when aux data preview is enabled for your workspace. Contact MoEngage Support to enable it. Until then, templates that print an aux-data token fail the render with a 400 `VALIDATION_FAILED` error.
+          </Note>
       tags:
         - Personalized Preview
       parameters:
-        - $ref: '#/components/parameters/MOE-APPKEY'
+        - $ref: '#/components/parameters/X-MOE-Tenant-ID'
         - $ref: '#/components/parameters/X-MOE-Request-Id'
+        - $ref: '#/components/parameters/DATA-COMPRESSION'
       requestBody:
-        description: >-
-          Personalization preview request. Supply the target user identification and the campaign content to resolve.
-          All Jinja expressions and dynamic sources are evaluated against the specified user's profile.
+        description: |
+          Supply the target user (optional) and either an inline content payload or a reference to a saved custom template.
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [request_id, channel, user_identification, campaign_content]
-              properties:
-                request_id:
-                  type: string
-                  description: Unique identifier for this request. Correlates with `response_id`.
-                channel:
-                  type: string
-                  enum: [PUSH, EMAIL, SMS]
-                  description: Channel of the content to preview.
-                user_identification:
-                  type: object
-                  description: Identifies the target user whose attributes are used to resolve personalisation.
-                  required: [type, value]
-                  properties:
-                    type:
-                      type: string
-                      enum: [USER_ATTRIBUTE_UNIQUE_ID, EMAIL, MOE_GAID, PUSH_ID]
-                      description: Identifier type.
-                    value:
-                      type: string
-                      description: Value of the identifier.
-                event_attributes:
-                  type: object
-                  description: >-
-                    Optional map of event attribute key-value pairs to inject into personalisation resolution.
-                    Useful for previewing event-triggered campaigns where the triggering event carries attributes.
-                  additionalProperties:
-                    type: string
-                campaign_content:
-                  type: object
-                  description: >-
-                    The campaign content to resolve. Follows the same `campaign_content` structure as the
-                    Create Campaign request. Only the content sent here is evaluated - no saved draft is loaded.
-                  example:
-                    request_id: "preview-001"
+              $ref: '#/components/schemas/PersonalizationPreviewRequest'
+            examples:
+              inline_email_payload:
+                summary: Inline payload — Email
+                value:
+                  request_id: "req-8841"
+                  personalization_content:
+                    payload:
+                      subject: "Hello {{UserAttribute['first_name'] | default('there')}}"
+                      body: "Welcome {{UserAttribute['first_name']}}!"
+                  user_details:
+                    identifier: "email"
+                    identifier_value: "user@example.com"
+                  personalization_details:
+                    channel: "EMAIL"
+                    event_name: "MOE_APP_OPENED"
+                    user_attributes:
+                      first_name: "Ada"
+              inline_push_payload:
+                summary: Inline payload — Push
+                value:
+                  request_id: "req-8842"
+                  personalization_content:
+                    payload:
+                      title: "Hello, {{UserAttribute['first_name']}}!"
+                      message: "{{EventAttribute['product_name']}} is waiting for you."
+                  user_details:
+                    identifier: "id"
+                    identifier_value: "user_abc123"
+                  personalization_details:
                     channel: "PUSH"
-                    user_identification:
-                      type: "USER_ATTRIBUTE_UNIQUE_ID"
-                      value: "user_abc123"
+                    event_name: "MOE_APP_OPENED"
                     event_attributes:
                       product_name: "Running Shoes"
-                      product_price: "4999"
-                    campaign_content:
-                      content:
-                        push:
-                          android:
-                            template_type: "BASIC"
-                            basic_details:
-                              title: "Hello, {{ user.first_name }}!"
-                              message: "{{ event.product_name }} is waiting for you."
-            examples:
-              push_preview:
-                summary: Push personalized preview
+              custom_template:
+                summary: Saved custom template
                 value:
-                  request_id: "{{request_id}}"
-                  channel: "PUSH"
-                  user_identification:
-                    type: "USER_ATTRIBUTE_UNIQUE_ID"
-                    value: "{{user_id}}"
-                  campaign_content:
-                    content:
-                      push:
-                        android:
-                          template_type: "BASIC"
-                          basic_details:
-                            title: "Hello, {{ user.first_name }}!"
-                            message: "{{ event.product_name }} is waiting for you."
-                  event_attributes:
-                    product_name: "{{product_name}}"
-              email_preview:
-                summary: Email personalized preview
-                value:
-                  request_id: "{{request_id}}"
-                  channel: "EMAIL"
-                  user_identification:
-                    type: "EMAIL"
-                    value: "{{user_email}}"
-                  campaign_content:
-                    content:
-                      email:
-                        subject: "Hello, {{ user.first_name }}!"
-                        html_content: "<p>Your order {{ event.order_id }} has shipped.</p>"
-                  event_attributes:
-                    order_id: "{{order_id}}"
+                  request_id: "req-8843"
+                  personalization_content:
+                    custom_template_data:
+                      template_id: "tpl_abc123"
+                      version: 3
+                  user_details:
+                    identifier: "id"
+                    identifier_value: "user_abc123"
+                  personalization_details:
+                    channel: "PUSH"
       responses:
         '200':
-          description: Preview resolved successfully. Returns the fully rendered content for the specified user.
+          description: This response is returned when the request is processed successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  response_id:
-                    type: string
-                  type:
-                    type: string
-                    example: "personalization"
-                  data:
-                    type: object
-                    properties:
-                      personalized_content:
-                        type: object
-                        description: >-
-                          The resolved campaign content with all Jinja expressions, user attributes,
-                          event attributes, and dynamic sources substituted.
-                        example:
-                          response_id: "preview-001"
-                          type: "personalization"
-                          data:
-                            personalized_content:
-                              content:
-                                push:
-                                  android:
-                                    template_type: "BASIC"
-                                    basic_details:
-                                      title: "Hello, Jane!"
-                                      message: "Running Shoes is waiting for you."
+                $ref: '#/components/schemas/PersonalizationPreviewSuccessResponse'
+              example:
+                response_id: "req-8841"
+                data:
+                  personalized_content:
+                    subject: "Hello Ada"
+                    body: "Welcome Ada!"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
