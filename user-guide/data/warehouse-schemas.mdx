@@ -219,6 +219,8 @@ Next, tell MoEngage which column identifies the user, which column holds the eve
 
 {/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It does not appear on either step. Confirm whether it exists. */}
 
+{/* TODO: Lookup traits are not visible in the current build. The Warehouse schema page lists only a user schema section and an Event schemas section, and the only creation option is "+ Event schema". Confirm whether lookup traits ship in this release before publishing this section — if not, remove it. */}
+
 # Create a Lookup Traits Schema
 
 Lookup trait tables carry relational data that enriches users or events — a Products table joined to an Order Placed event, or a Membership Plan table joined to users.
@@ -268,15 +270,43 @@ MoEngage reads your warehouse metadata — databases, tables, and columns — on
 
 New columns are never mapped for you. Until you map a column or mark it as skipped, it does not appear in the segment builder. Use the **Show unmapped columns** filter on the mapping screen to see only the columns still waiting on a decision.
 
-# Edit and Delete Schemas
+# Manage Your Schemas
 
-## What You Can Edit
+The Warehouse schema page lists the schemas for one connection at a time. Select the connection from the dropdown beside the page title.
 
-You can edit descriptive details on a published schema at any time: the schema name, the event name, attribute display names, and attribute descriptions.
+The page has two sections:
 
-You cannot change the structure. Mapping columns and join columns are locked once a schema is published, because changing them would rewrite the queries behind every segment built on that schema.
+- The **user schema** for that connection, showing the schema name, source, user identifier, who last updated it, and when.
+- **Event schemas**, showing the schema name, event display name, source table, who last updated it, and when. Use the search box to find a schema by event or schema name, or sort by schema name.
 
-## Deleting a Schema
+**Max event look-back** and **+ Event schema** are at the top right of the page.
+
+To act on a schema, click the ellipsis icon on its row and select **View**, **Edit**, or **Delete**.
+
+## View a Schema
+
+**View** opens a read-only panel showing the schema name, source, event display name and description, who last updated it, and when.
+
+Below that, **Event attributes mapped** lists every attribute in the schema with its display name, description, and MoEngage data type. Use it to check what your marketers see without opening the edit flow. Attributes without a description show `--`.
+
+## Edit a Schema
+
+**Edit** reopens the two-step wizard with **Update schema** in place of Create schema. What you can change depends on the field:
+
+| Field | Editable |
+| --- | --- |
+| Schema name | Yes |
+| Event display name and description | Yes |
+| Attribute display names and descriptions | Yes |
+| Skipped columns | Yes |
+| Columns for preview | Yes |
+| Connection, Schema/Dataset, Table | No |
+| User identifier | No |
+| Event time | No |
+
+The structural fields are locked because changing them would rewrite the queries behind every segment built on the schema. If you need a different table or a different user identifier, delete the schema and create it again.
+
+## Delete a Schema
 
 Individual tables cannot be deleted on their own. Lookup traits can be joined in a loop, so there is no reliable last table in the chain to remove safely.
 
@@ -327,6 +357,7 @@ The mapping screen shows both types side by side, so you can check them before y
 | `STRING` | String |
 | `INTEGER`, `FLOAT`, `NUMERIC`, `BIGNUMERIC` | Numeric |
 | `BOOLEAN` | Boolean |
+| `TIMESTAMP` | Date-Time |
 | `ARRAY<STRING>` | Array String |
 | `ARRAY<INTEGER>`, `ARRAY<NUMERIC>` | Array Double |
 
@@ -338,11 +369,11 @@ Columns of these types cannot be mapped. They show `--` as the MoEngage data typ
 
 | Warehouse data type | Why |
 | --- | --- |
-| `DATE`, `TIME` | Not available as user or event attributes. |
+| `DATE`, `TIME` | Not available as attributes. Use a timestamp column instead, which maps to Date-Time. |
 | `ARRAY<DATE>`, `ARRAY<TIMESTAMP>` | Date and time arrays are not supported. |
 | `GEOGRAPHY` | Geospatial types are not supported. |
 | `RECORD`, `ARRAY<RECORD>`, `JSON` | Nested and object types are not supported. |
 
-{/* TODO: Date and time columns show as unsupported on the user schema mapping screen, but the segment builder documents date and time operators, and event schemas require a date or datetime column for event time. Confirm whether date attributes are genuinely unmappable, or unsupported only for user attributes. */}
+{/* TODO: Confirm which warehouse types map to Date-Time. A mapped event attribute named event_ts shows as Date-Time, while DATE and TIME columns show as unsupported. The exact BigQuery types behind each need confirming, along with DATETIME. */}
 
 If a column you need is unsupported, cast it to a supported type in a view in your warehouse and map the view instead.
