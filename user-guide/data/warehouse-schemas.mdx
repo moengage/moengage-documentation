@@ -92,10 +92,7 @@ To create a user schema, perform the following steps:
 
 {/* TODO: Add a screenshot of the Warehouse schema landing page with Max event look-back and the Create user schema button. */}
 
-The process includes two steps:
-
-- [Step 1: Source and Format](/user-guide/data/warehouse-schemas#step-1-source-and-format)
-- [Step 2: Mapping](/user-guide/data/warehouse-schemas#step-2-mapping)
+The process includes two steps, **Source and format** and **Mapping**.
 
 ## Step 1: Source and Format
 
@@ -108,7 +105,7 @@ First, point MoEngage at the table you want to read, and confirm it holds the da
 
    All the user IDs you want to segment on must be in this single table. MoEngage cannot combine user IDs from two tables, so pick the table that holds the complete set.
 5. **Columns for preview:** Select the columns you want to see in the preview. Select only the columns you need to recognise the table — warehouse tables can hold thousands of columns, and every preview runs a live query against your warehouse.
-6. Click **Preview**. MoEngage queries your warehouse and displays the top 8 rows for the columns you selected.
+6. Click **Preview**. MoEngage queries your warehouse and displays up to the top 100 rows for the columns you selected.
 
    Check the values before continuing. A preview that returns unexpected data usually means the wrong table was selected, which is far cheaper to fix now than after the mapping is done.
 7. Click **Next**. The **Mapping** step appears.
@@ -152,37 +149,68 @@ Next, tell MoEngage what each column means. Only the columns you map here appear
 
 # Create an Event Schema
 
-Event schemas follow the same two-step wizard as the user schema — **Source and format**, then **Mapping**. Pick the schema or dataset, the table, and the columns to preview, then map the columns.
+An event schema points at a table of behavioral data — one row per event occurrence, many rows per user. You can create as many event schemas as you have event tables.
 
-The user identifier and event time columns are both mandatory; every other column is optional and becomes an event attribute.
+To create an event schema, perform the following steps:
 
-<Note>
-  A table can be used in one mapping only. Once you map a table as an event, it cannot also be mapped as a user table, a lookup traits table, or a second event.
-</Note>
+1. On the sidebar menu in MoEngage, click **Settings**. The Settings page appears.
+2. Under **Data**, click **Warehouse Schema**. The Warehouse schema page appears.
+3. Click **Create event schema**. The **Create event schema** page appears.
 
-Your warehouse stores events in one of two patterns:
+   <Note>
+     This option appears only after a user schema exists for the connection. Events are matched to users through the user schema, so there is nothing to join against until it is created.
+   </Note>
 
-<Tabs>
-  <Tab title="One table per event">
-    Every row in the table is the same event. Enter a name for the event — this is the name that appears in the segment builder.
-  </Tab>
-  {/* TODO: Mapping several events from a single table is not expected to be part of the first release. Confirm before publishing, and cut this tab if it did not ship. */}
-  <Tab title="One table for all events">
-    The table holds several event types, distinguished by an event name column. Map that column, then select which event to import. MoEngage filters rows to the selected event, including in the preview.
+The process includes two steps, **Source and format** and **Mapping**.
 
-    Only string columns can be selected as the event name column. MoEngage shows 10 sample values from the column before fetching the full list of distinct event names.
+## Step 1: Source and Format
 
-    <Note>
-      If fetching distinct event names runs longer than 15 minutes, MoEngage stops and asks you to confirm the column selection. A long-running query usually means the column has high cardinality and is not an event name column.
-    </Note>
-  </Tab>
-</Tabs>
+First, point MoEngage at the event table and name the event your marketers will see.
 
-Only date and datetime columns can be selected as the event time column. MoEngage reads event times as UTC and converts them to your workspace timezone for display.
+1. **Event schema name:** Enter a name for the schema. This identifies the schema on the Warehouse schema page and in error messages when a segment fails.
+2. **Connection:** This is pre-filled with the connection you opened the page for.
+3. **Schema/Dataset:** Select the schema or dataset that holds your event table.
+4. **Table:** Select the event table.
 
-If your event table is partitioned, map the **partition identifier** column as well. This is optional, and lets MoEngage restrict queries to the relevant partitions instead of scanning the whole table.
+   <Note>
+     A table can be used in one schema only. A table already mapped as a user table, an event, or a lookup traits table is not available here.
+   </Note>
+5. **Columns for preview:** Select the columns you want to see in the preview. Select only what you need to recognise the table — every preview runs a live query against your warehouse.
+6. Click **Preview**. MoEngage displays up to the top 100 rows for the columns you selected.
+7. Under **Map event**, name the event:
+   - **Table name:** The source table. This is read-only.
+   - **Event display name:** Required. Enter the name your marketers see when they select this event in the segment builder. It defaults to the table name, which is rarely what a marketer would look for — `TestTable2` means nothing, `Order Placed` does.
+   - **Event description:** Optionally explain what the event records. The description appears alongside the event in the segment builder.
+8. Click **Next**. The **Mapping** step appears.
 
-{/* TODO: Confirm whether the event time timezone is set per connection or per schema. */}
+{/* TODO: Add a screenshot of the Source and format step showing the preview and the Map event section. */}
+
+## Step 2: Mapping
+
+Next, tell MoEngage which column identifies the user, which column holds the event time, and what the remaining columns mean.
+
+1. **User identifier:** Select the column in this table that uniquely identifies each user. This is what MoEngage uses to match rows in your warehouse to users in MoEngage, so the values must correspond to the user identifier in your user schema.
+2. **Event time:** Select the column that records when the event happened.
+
+   <Warning>
+     Event date-times must be stored in UTC. MoEngage converts them to your app timezone when a segment runs. A column stored in local time produces events that appear at the wrong time and fall into the wrong date ranges.
+   </Warning>
+3. Under **Map event attributes**, configure each remaining column. The heading shows how many columns the table has. For each column, do the following:
+   - **Display name:** Required. Enter the name your marketers see in the segment builder.
+   - **Description:** Optionally explain what the column holds.
+   - **Warehouse data type:** The column's native data type as reported by your warehouse. This is read-only.
+   - **MoEngage data type:** The type MoEngage normalises it to, which determines the operators available in the segment builder. This is read-only. For the full mapping, refer to [Data Types](/user-guide/data/warehouse-schemas#data-types).
+   - **Click to skip:** Select this checkbox to exclude the column.
+
+   The column you selected as the user identifier shows **Marked as user identifier** instead of a skip checkbox. It is part of the schema and cannot be excluded.
+4. To map a large table without working through it column by column, click **Upload mapping file** and supply the mapping as a JSON file.
+5. Click **Create schema**.
+
+{/* TODO: Add a screenshot of the Mapping step showing User identifier, Event time, and the attribute table. */}
+
+{/* TODO: Mapping several events from a single table is described in the spec but no option for it appears on the Source and format step. Confirm it is out of scope for this release so this can be stated on the page. */}
+
+{/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It is not on the Mapping step. Confirm whether it exists. */}
 
 # Create a Lookup Traits Schema
 
@@ -268,7 +296,7 @@ To fix a broken segment, correct the underlying schema mapping in **Settings** >
 | Levels in a join path (including the user master table) | 6 |
 | Attribute name length | 200 characters |
 | Attribute description length | 512 characters |
-| Preview rows | 8 |
+| Preview rows | 100 |
 | Distinct values available for filtering | 1,000 |
 
 Schema limits are configurable. To raise them, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
