@@ -668,6 +668,102 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
 
   /v5/offers/{offer_id}:
+    get:
+      operationId: getPublicOfferingMeta
+      summary: Get Offering Meta
+      description: |
+        Retrieve a single offering's full configuration by ID: its content, targeting,
+        scheduling, variation, and capping rules. The response mirrors the [Create Offering](/api/public-offerings/create-offering)
+        request body field-for-field and adds the server-assigned fields `id`, `status`,
+        `created_at`, `updated_at`, and `updated_by`. Because the payload matches the Create
+        Offering schema, you can use it as a reference to replicate or modify an offering with
+        minimal transformation.
+
+        This endpoint accepts only the `offer_id` path parameter. To search, filter, or
+        paginate across offerings, use the [List Offerings API](/api/public-offerings/list-offerings) instead.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 150 requests per minute, 500 requests per hour, and 1000 requests per day per consumer.
+      x-moe-mcp:
+        expose:
+          external: true
+          internal: true
+        tool_description: |
+          Retrieve a single offering's full configuration by ID. The response returns every
+          field accepted by create_offering — content, targeting, scheduling, variation, and
+          capping rules — along with the server-assigned fields id, status, created_at,
+          updated_at, and updated_by.
+
+          This tool is a thin pass-through to GET /v5/offers/{offer_id}: it takes the same
+          input (offer_id) and returns the same response shape, with no additional
+          transformation or filtering. Use list_offerings first to find the offering ID if
+          you don't already have it.
+        param_overrides:
+          offer_id:
+            description: |
+              Prefixed offering ID to retrieve (e.g. offer_6a4f69ee490f66322f968b87).
+              Obtain this from list_offerings — it is the 'id' field in the data array.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - name: offer_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique ID of the offering to retrieve. You can fetch the offering ID using the [List Offerings API](/api/public-offerings/list-offerings) by filtering with name.
+      responses:
+        '200':
+          description: Offering retrieved successfully.
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Maximum requests allowed in the current window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current window before rate limiting applies.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current rate-limit window resets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOfferGetResponse'
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '404':
+          description: Offering not found (OFFER_NOT_FOUND). The `offer_id` does not exist or does not belong to the authenticated workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: |
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error. An unexpected condition prevented the request from being completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     patch:
       operationId: updatePublicOffering
       summary: Update Offering
@@ -2019,6 +2115,114 @@ components:
           id: offer_6a4f69ee490f66322f968b87
           status: active
           updated_at: "2026-07-09T09:29:18.526812352Z"
+
+    PublicOfferGetResponse:
+      description: >
+        Response returned by `GET /v5/offers/{offer_id}`. The `data` object contains the
+        offering's full configuration — every field accepted by `POST /v5/offers` plus the
+        server-assigned fields `id`, `status`, `created_at`, `updated_at`, and `updated_by`.
+      type: object
+      properties:
+        response_id:
+          type: string
+          description: >
+            Format: `resp_<X-MOE-Request-Id>` header value
+            (auto-generated UUID if the `X-MOE-Request-Id` header was not part of the request).
+          example: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
+        type:
+          type: string
+          enum: [offer]
+          description: Resource type discriminator. Always `offer`.
+        data:
+          description: The offering's full configuration.
+          allOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                  description: 'Offering ID assigned by the server. Format: `offer_<OfferingId>`.'
+                  example: offer_6a766d5d094949363d4d6bf2
+                status:
+                  type: string
+                  enum: [active, scheduled, expired, archived]
+                  description: Current lifecycle status of the offering.
+                  example: scheduled
+                created_at:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 UTC timestamp when the offering was created.
+                  example: "2026-08-07T23:42:21.556936210Z"
+                updated_at:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 UTC timestamp of the most recent update.
+                  example: "2026-08-07T23:42:21.556979662Z"
+                updated_by:
+                  type: string
+                  description: Identifier (email) of the user or agent that last updated the offering.
+                  example: bekif.bekiyev@moengage.com
+            - $ref: '#/components/schemas/ClientOfferCreateRequest'
+      example:
+        response_id: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
+        type: offer
+        data:
+          id: offer_6a766d5d094949363d4d6bf2
+          status: scheduled
+          created_at: "2026-08-07T23:42:21.556936210Z"
+          updated_at: "2026-08-07T23:42:21.556979662Z"
+          updated_by: bekif.bekiyev@moengage.com
+          created_by: bekif.bekiyev@moengage.com
+          name: personalized_offer
+          description: Configured using personalization template
+          priority: 90
+          delivery: scheduled
+          tags:
+            - tag_697211b32ccd4a79028b3689
+          scheduling:
+            start_datetime: "2026-08-08T00:23:00Z"
+            expiry_datetime: "2027-08-07T23:23:00Z"
+            timezone: Asia/Kolkata
+          segment_info:
+            cs_id: 6a766d5dc85dc0033f4a1bce
+            filters:
+              included_filters:
+                filter_operator: and
+                filters:
+                  - action_name: MOE_PAGE_VIEWED
+                    executed: true
+                    filter_type: actions
+                    execution:
+                      count: 1
+                      type: atleast
+                    primary_time_range:
+                      type: inTheLast
+                      value: 2
+                      value_type: relative_past
+                      period_unit: weeks
+                    attributes:
+                      filter_operator: and
+                      filters: []
+          # offer_content follows the same structure as the Create Offering request body — see Create Offering.
+          variation_meta:
+            type: SMV
+            variantsPerLocale:
+              - Variation 1
+            control_group:
+              is_enabled: false
+              percentage: 0
+            smv_distribution:
+              split:
+                "1": 100
+          capping_rules:
+            overall:
+              enabled: false
+              limit_value: 1
+              limit_schedule: DAILY
+            user_level:
+              enabled: false
+              limit_value: 1
+              limit_schedule: DAILY
+          is_global_control_enabled: true
 
 
   responses:
