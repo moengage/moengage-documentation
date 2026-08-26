@@ -172,15 +172,19 @@ First, point MoEngage at the event table and name the event your marketers will 
 3. **Schema/Dataset:** Select the schema or dataset that holds your event table.
 4. **Table:** Select the event table.
 
-   <Note>
-     A table can be used in one schema only. A table already mapped as a user table, an event, or a lookup traits table is not available here.
-   </Note>
-5. **Columns for preview:** Select the columns you want to see in the preview. Select only what you need to recognise the table — every preview runs a live query against your warehouse.
-6. Click **Preview**. MoEngage displays up to the top 100 rows for the columns you selected.
-7. Under **Map event**, name the event:
+   Tables already used in another schema appear greyed out and cannot be selected. A table can belong to one schema only, whether that is a user, event, or lookup traits schema.
+5. **Columns for preview:** Select the columns you want to see in the preview. Use **Select all** or **Clear all** to change the whole selection at once.
+
+   Select only what you need to recognise the table. Every preview runs a live query against your warehouse.
+6. Click **Preview**. MoEngage displays the rows returned, up to a maximum of 100.
+7. Under **Map event**, give the table the event name it should be mapped to in MoEngage:
    - **Table name:** The source table. This is read-only.
-   - **Event display name:** Required. Enter the name your marketers see when they select this event in the segment builder. It defaults to the table name, which is rarely what a marketer would look for — `TestTable2` means nothing, `Order Placed` does.
+   - **Event display name:** Required. Enter the name your marketers see when they select this event in the segment builder. It defaults to the table name, which is rarely what a marketer would look for — `bq_event_order_placed_staging` means nothing, `Order Placed` does.
    - **Event description:** Optionally explain what the event records. The description appears alongside the event in the segment builder.
+
+   <Note>
+     One table maps to one event. If your table holds rows for several different events, all of them are treated as the single event you name here.
+   </Note>
 8. Click **Next**. The **Mapping** step appears.
 
 {/* TODO: Add a screenshot of the Source and format step showing the preview and the Map event section. */}
@@ -204,13 +208,16 @@ Next, tell MoEngage which column identifies the user, which column holds the eve
 
    The column you selected as the user identifier shows **Marked as user identifier** instead of a skip checkbox. It is part of the schema and cannot be excluded.
 4. To map a large table without working through it column by column, click **Upload mapping file** and supply the mapping as a JSON file.
-5. Click **Create schema**.
+5. Under **Test Join**, click **Test join**. MoEngage joins this table to your user master table on the user identifier column and returns sample rows.
 
-{/* TODO: Add a screenshot of the Mapping step showing User identifier, Event time, and the attribute table. */}
+   Run this before you create the schema. A join that returns nothing means the values in your user identifier column do not match the ones in your user master table, and every segment built on this event would return no users.
+6. Click **Create schema**. The button stays disabled until the user identifier and event time are both mapped.
 
-{/* TODO: Mapping several events from a single table is described in the spec but no option for it appears on the Source and format step. Confirm it is out of scope for this release so this can be stated on the page. */}
+{/* TODO: Add a screenshot of the Mapping step showing User identifier, Event time, the attribute table, and Test Join. */}
 
-{/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It is not on the Mapping step. Confirm whether it exists. */}
+{/* TODO: Confirm what the Test join result looks like, and whether a zero-row result blocks Create schema or only warns. */}
+
+{/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It does not appear on either step. Confirm whether it exists. */}
 
 # Create a Lookup Traits Schema
 
@@ -239,10 +246,12 @@ You can join on any column in either table. Select the relationship type that ma
 
 ## Test the Join
 
-Run **Test join** before publishing. MoEngage runs the join against your warehouse and returns the top 5 rows of the joined result so you can confirm the keys are correct.
+Run **Test join** before publishing. MoEngage runs the join against your warehouse and returns sample rows of the joined result so you can confirm the keys are correct.
+
+Event schemas have the same check — every schema is tested against the table it joins to before it can be published.
 
 <Warning>
-  If the join returns no rows, you cannot publish the schema. A join that matches nothing usually means the wrong column was picked on one side, and publishing it would produce segments that silently return no users.
+  A join that returns no rows usually means the wrong column was picked on one side. Publishing it produces segments that silently return no users, so treat an empty result as a failure rather than an empty table.
 </Warning>
 
 ## Join Depth Limits
