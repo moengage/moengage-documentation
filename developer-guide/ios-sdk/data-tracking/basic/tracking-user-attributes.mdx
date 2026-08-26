@@ -92,6 +92,33 @@ MoEngageSDKAnalytics.sharedInstance.resetUser()
 
 </CodeGroup>
 
+<Warning>
+  Logout is asynchronous. Identify the next user, set user attributes, or track events only after logout completes. The SDK attributes any call made before completion to the previous user, or discards it when it clears the user data.
+</Warning>
+
+Logout clears the user's attributes and identities, then starts a new anonymous user with a new session. The SDK retains the device identifier and push token, so logout does not unregister the device for push. Call `resetUser()` only when the user logs out. Each call creates a new anonymous user and re-registers the device.
+
+### Logout Callback
+
+To receive a callback when logout is complete, observe the task returned by `resetUser()`:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.resetUser()
+    .onSuccess { _ in
+        // Process your logout completion here
+    }
+    .onFailure { failure in
+        print("Logout failed: \(failure.reason) - \(failure.message)")
+    }
+```
+</CodeGroup>
+
+<Note>
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `resetUser()` returns a typed task object ([`MoEngageResetUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageResetUserTask.html)) instead of `Void`. Observe the outcome through `.onSuccess` / `.onFailure` or the async `result()` method. On SDK versions below 11.0.0, use `resetUser(withCompletionBlock:)`. SDK 11.0.0 deprecates that variant in favor of the typed task shown above.
+</Note>
+
 # Default User Attributes
 
 Some default SDK User Attribute can be set for eg. email-id, mobile number, gender, user name, birthday. The default attributes tracked by SDK can be set as shown below:
