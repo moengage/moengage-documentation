@@ -194,7 +194,7 @@ First, point MoEngage at the event table and name the event your marketers will 
 Next, tell MoEngage which column identifies the user, which column holds the event time, and what the remaining columns mean.
 
 1. **User identifier:** Select the column in this table that uniquely identifies each user. This is what MoEngage uses to match rows in your warehouse to users in MoEngage, so the values must correspond to the user identifier in your user schema.
-2. **Event time:** Select the column that records when the event happened.
+2. **Event time:** Select the column that records when the event happened. This must be a column that maps to the MoEngage Date-Time type, such as a `TIMESTAMP` column.
 
    <Warning>
      Event date-times must be stored in UTC. MoEngage converts them to your app timezone when a segment runs. A column stored in local time produces events that appear at the wrong time and fall into the wrong date ranges.
@@ -206,16 +206,18 @@ Next, tell MoEngage which column identifies the user, which column holds the eve
    - **MoEngage data type:** The type MoEngage normalises it to, which determines the operators available in the segment builder. This is read-only. For the full mapping, refer to [Data Types](/user-guide/data/warehouse-schemas#data-types).
    - **Click to skip:** Select this checkbox to exclude the column.
 
-   The column you selected as the user identifier shows **Marked as user identifier** instead of a skip checkbox. It is part of the schema and cannot be excluded.
+   The columns you selected above show **Marked as user identifier** and **Marked as event time** instead of a skip checkbox. They are part of the schema and cannot be excluded.
 4. To map a large table without working through it column by column, click **Upload mapping file** and supply the mapping as a JSON file.
 5. Under **Test Join**, click **Test join**. MoEngage joins this table to your user master table on the user identifier column and returns sample rows.
 
-   Run this before you create the schema. A join that returns nothing means the values in your user identifier column do not match the ones in your user master table, and every segment built on this event would return no users.
-6. Click **Create schema**. The button stays disabled until the user identifier and event time are both mapped.
+   If the join returns nothing, MoEngage shows **No rows returned** and you cannot create the schema until it passes.
+
+   <Note>
+     The usual cause is mapping the wrong column as the user identifier. Event tables often carry more than one ID — an order or purchase ID that identifies the row, and a user ID that identifies the person. Only the user ID matches your user master table.
+   </Note>
+6. Click **Create schema**. The button stays disabled until the user identifier and event time are mapped and the test join passes.
 
 {/* TODO: Add a screenshot of the Mapping step showing User identifier, Event time, the attribute table, and Test Join. */}
-
-{/* TODO: Confirm what the Test join result looks like, and whether a zero-row result blocks Create schema or only warns. */}
 
 {/* TODO: The spec describes an optional partition identifier column for partitioned event tables. It does not appear on either step. Confirm whether it exists. */}
 
