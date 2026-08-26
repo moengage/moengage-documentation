@@ -73,61 +73,78 @@ The setting applies to everything MoEngage reads from that connection, so you se
   Deleting a connection puts every schema and segment that depends on it into a **Broken** state, and flags any campaigns using those segments. Check dependencies before you delete a connection.
 </Warning>
 
-# Create a Schema
+# Create a User Schema
 
-Go to **Settings** > **Data** > **Warehouse Schema**.
+The user schema points at your user master table — the single table that holds every user ID you want to segment on. Each connection has exactly one user schema, and you must create it before any event or lookup traits schema.
 
-The first time you open the page for a connection, MoEngage asks you to set **Max event look-back** and then start with the user table. Click **Create user schema** to begin — event and lookup traits tables become available once the user table is mapped.
+To create a user schema, perform the following steps:
 
-Once you have schemas, the page lists them in tabs — **Events**, **User attributes**, and **Lookup traits** — showing the schema name, source connection, table name, created date, and creator. From each row you can view details, edit, duplicate, or delete a schema.
+1. On the sidebar menu in MoEngage, click **Settings**. The Settings page appears.
+2. Under **Data**, click **Warehouse Schema**. The Warehouse schema page appears.
+3. In **Max event look-back**, enter the number of days of event history MoEngage should read from this warehouse. The default is 60 days. For more information, refer to [Set the Event Look-Back Window](/user-guide/data/warehouse-schemas#set-the-event-look-back-window).
+4. Click **Create user schema**. The **Create user schema** page appears.
 
-{/* TODO: Confirm the tab names and the listing columns against the built page. Captured from the spec, not yet seen on staging. */}
+{/* TODO: Add a screenshot of the Warehouse schema landing page with Max event look-back and the Create user schema button. */}
 
-## Map the User Schema
+The process includes two steps:
 
-The user schema points at your user master table — the single table holding every user ID you want to segment on. Each connection has exactly one user schema, and it must be created before any event or lookup traits schema.
+- [Step 1: Source and Format](/user-guide/data/warehouse-schemas#step-1-source-and-format)
+- [Step 2: Mapping](/user-guide/data/warehouse-schemas#step-2-mapping)
 
-Creating it is a two-step wizard: **Source and format**, then **Mapping**.
+## Step 1: Source and Format
 
-### Step 1: Source and Format
+First, point MoEngage at the table you want to read, and confirm it holds the data you expect.
 
-| Field | Required | Description |
-| --- | --- | --- |
-| **User schema name** | Yes | A name for this schema. Use something your marketers will recognise in the segment builder. |
-| **Connection** | Yes | Pre-filled with the connection you opened the page for. |
-| **Schema/Dataset** | Yes | The schema or dataset holding the table. On BigQuery this is your dataset. Populated from the connection. |
-| **Table** | Yes | The user master table. Populated from the schema or dataset you picked. |
-| **Columns for preview** | Yes | The columns to show in the preview. Pick only the ones you need to identify the table — warehouse tables can carry thousands of columns, and previewing them all is slow and costly. |
+1. **User schema name:** Enter a name for the schema. Use something recognisable, because this name identifies the schema on the Warehouse schema page and in error messages when a segment fails.
+2. **Connection:** This is pre-filled with the connection you opened the page for. Only one user schema is permitted per connection, so this cannot be changed here.
+3. **Schema/Dataset:** Select the schema or dataset that holds your user master table. On BigQuery, this is your dataset. The list is populated from the connection.
+4. **Table:** Select your user master table. The list is populated from the schema or dataset you selected.
 
-Click **Preview** to see the top 5 rows for the columns you selected. Use this to confirm you picked the right table before mapping anything.
+   All the user IDs you want to segment on must be in this single table. MoEngage cannot combine user IDs from two tables, so pick the table that holds the complete set.
+5. **Columns for preview:** Select the columns you want to see in the preview. Select only the columns you need to recognise the table — warehouse tables can hold thousands of columns, and every preview runs a live query against your warehouse.
+6. Click **Preview**. MoEngage queries your warehouse and displays the top 8 rows for the columns you selected.
 
-### Step 2: Mapping
+   Check the values before continuing. A preview that returns unexpected data usually means the wrong table was selected, which is far cheaper to fix now than after the mapping is done.
+7. Click **Next**. The **Mapping** step appears.
 
-<Steps>
-  <Step title="Map the user identifier">
-    Map the column holding your user ID. MoEngage matches this against the customer ID on existing MoEngage users.
+{/* TODO: Add a screenshot of the Source and format step with the preview table populated. */}
 
-    Exactly one column can serve as the user identifier. Composite identifiers made of two or more columns are not supported.
-  </Step>
-  <Step title="Map the remaining columns">
-    Map each remaining column to a MoEngage user attribute, or mark it as skipped. Skipped columns are not read and do not appear in the segment builder. You can skip columns individually or skip all of them at once.
+## Step 2: Mapping
 
-    Each mapped attribute takes a display name, which is what appears in the segment builder instead of the raw column name, and an optional description.
+Next, tell MoEngage what each column means. Only the columns you map here appear in the segment builder.
 
-    To map a large table without working through it column by column, use **Upload mapping file** and supply the mapping as a JSON file.
-  </Step>
-  <Step title="Publish">
-    MoEngage runs a validation query against your warehouse to confirm the user identifier column is non-null and unique.
-  </Step>
-</Steps>
+1. **User identifier:** Select the column that holds your user ID. MoEngage matches the values in this column against the customer ID on existing MoEngage users, which is how a warehouse row becomes a targetable user.
 
-Each column shows both its warehouse data type and the MoEngage data type it maps to. A BigQuery `STRING` and a `VARCHAR` both map to a MoEngage String. Check these pairs before publishing to avoid type mismatches in the segment builder.
+   Only one column can serve as the user identifier. Composite identifiers made of two or more columns are not supported.
 
-<Warning>
-  Users whose identifier is null, empty, or absent from MoEngage are skipped. Warehouse segments target users who already exist in MoEngage — mapping a schema does not create new users.
-</Warning>
+   {/* TODO: Confirm whether this dropdown is filtered to string columns only. */}
 
-## Map an Event Schema
+   <Warning>
+     Users whose identifier is null, empty, or not found in MoEngage are skipped. Warehouse segments target users MoEngage already knows — creating a schema does not import new users.
+   </Warning>
+2. Under **Map user attributes**, configure each column you want to use in segmentation. The heading shows how many columns the table has. For each column, do the following:
+   - **Display name:** Edit the name your marketers see in the segment builder. It defaults to the raw column name, which is often not readable — `usr_ltv_amt` means little to someone building a campaign.
+   - **Description:** Optionally explain what the column holds. The description appears alongside the attribute in the segment builder, which reduces the number of questions that come back to your team.
+   - **Warehouse data type:** The type as your warehouse reports it. This is read-only.
+   - **MoEngage data type:** The type MoEngage normalises it to. This is read-only, and it determines which operators are available for the attribute in the segment builder. For the full mapping, refer to [Data Types](/user-guide/data/warehouse-schemas#data-types).
+   - **Click to skip:** Select this checkbox to exclude the column. Skipped columns are not read and do not appear in the segment builder.
+
+   To exclude every column at once, select **Click to skip all** in the header row. To find a specific column in a wide table, use **Search by column name**.
+3. To review the columns you excluded, select **Show skipped columns**. Skipped columns are hidden from the list by default.
+4. To map a large table without working through it column by column, click **Upload mapping file** and supply the mapping as a JSON file.
+
+   {/* TODO: Confirm the JSON structure, and whether a template can be downloaded from this screen. */}
+5. Click **Create schema**. MoEngage runs a validation query against your warehouse to confirm the user identifier column is non-null and unique.
+
+   {/* TODO: Confirm what appears after Create schema succeeds, and what the error looks like when the uniqueness check fails. */}
+
+{/* TODO: Add a screenshot of the Mapping step showing the user identifier dropdown and the attribute table. */}
+
+<Note>
+  Columns whose data type MoEngage does not support show `--` as the MoEngage data type and are skipped automatically. You cannot map them. For the list of supported types, refer to [Data Types](/user-guide/data/warehouse-schemas#data-types).
+</Note>
+
+# Create an Event Schema
 
 Event schemas follow the same two-step wizard as the user schema — **Source and format**, then **Mapping**. Pick the schema or dataset, the table, and the columns to preview, then map the columns.
 
@@ -161,11 +178,11 @@ If your event table is partitioned, map the **partition identifier** column as w
 
 {/* TODO: Confirm whether the event time timezone is set per connection or per schema. */}
 
-## Map a Lookup Traits Schema
+# Create a Lookup Traits Schema
 
 Lookup trait tables carry relational data that enriches users or events — a Products table joined to an Order Placed event, or a Membership Plan table joined to users.
 
-### Join Rules
+## Join Rules
 
 Every lookup trait table needs a join path back to the user master table. MoEngage blocks chains that do not resolve to a user.
 
@@ -186,7 +203,7 @@ You can join on any column in either table. Select the relationship type that ma
 | **1:Many** | One user or event row maps to many lookup trait rows. |
 | **Many:1** | Many user or event rows map to one lookup trait row. |
 
-### Test the Join
+## Test the Join
 
 Run **Test join** before publishing. MoEngage runs the join against your warehouse and returns the top 5 rows of the joined result so you can confirm the keys are correct.
 
@@ -194,7 +211,7 @@ Run **Test join** before publishing. MoEngage runs the join against your warehou
   If the join returns no rows, you cannot publish the schema. A join that matches nothing usually means the wrong column was picked on one side, and publishing it would produce segments that silently return no users.
 </Warning>
 
-### Join Depth Limits
+## Join Depth Limits
 
 A join path can be six levels deep, counting the user master table as the first level. That leaves five tables chained after it. The limit exists because every level adds a join to the generated query, and warehouses cap how large a query can get. It is configurable — to raise it, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
 
@@ -245,7 +262,7 @@ To fix a broken segment, correct the underlying schema mapping in **Settings** >
 | Levels in a join path (including the user master table) | 6 |
 | Attribute name length | 200 characters |
 | Attribute description length | 512 characters |
-| Preview rows | 5 |
+| Preview rows | 8 |
 | Distinct values available for filtering | 1,000 |
 
 Schema limits are configurable. To raise them, contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new).
@@ -258,17 +275,31 @@ Creating, updating, and deleting user, event, and lookup trait schemas is record
 
 # Data Types
 
-Warehouses use far more data types than MoEngage needs. Each column is normalized to one of six MoEngage data types, which is what determines the operators available in the segment builder.
+Warehouses use far more data types than MoEngage needs. Each column is normalized to a MoEngage data type, and that type determines which operators are available for the attribute in the segment builder.
+
+The mapping screen shows both types side by side, so you can check them before you publish.
 
 | Warehouse data type | MoEngage data type |
 | --- | --- |
-| `TEXT`, `VARCHAR`, `CHAR`, and other unbounded text types | String |
-| `INTEGER`, `LONG`, `DOUBLE`, `FLOAT`, and other precision numeric types | Numeric |
-| `DATE`, `TIMESTAMP`, `DATETIME` | Date / time |
+| `STRING` | String |
+| `INTEGER`, `FLOAT`, `NUMERIC`, `BIGNUMERIC` | Numeric |
 | `BOOLEAN` | Boolean |
-| Numeric arrays | Array (numeric) |
-| String arrays | Array (string) |
+| `ARRAY<STRING>` | Array String |
+| `ARRAY<INTEGER>`, `ARRAY<NUMERIC>` | Array Double |
 
-The mapping screen shows both types side by side — the type as your warehouse reports it, and the MoEngage type it maps to. A Redshift `VARCHAR(255)` and an unbounded `TEXT` column both become String.
+Warehouse types shown above are BigQuery names. Equivalent types on other warehouses normalize the same way — a `VARCHAR`, `CHAR`, or `TEXT` column all become a MoEngage String.
 
-Object, nested, and geospatial types are not supported. Columns using them cannot be mapped.
+## Unsupported Data Types
+
+Columns of these types cannot be mapped. They show `--` as the MoEngage data type and are skipped automatically.
+
+| Warehouse data type | Why |
+| --- | --- |
+| `DATE`, `TIME` | Not available as user or event attributes. |
+| `ARRAY<DATE>`, `ARRAY<TIMESTAMP>` | Date and time arrays are not supported. |
+| `GEOGRAPHY` | Geospatial types are not supported. |
+| `RECORD`, `ARRAY<RECORD>`, `JSON` | Nested and object types are not supported. |
+
+{/* TODO: Date and time columns show as unsupported on the user schema mapping screen, but the segment builder documents date and time operators, and event schemas require a date or datetime column for event time. Confirm whether date attributes are genuinely unmappable, or unsupported only for user attributes. */}
+
+If a column you need is unsupported, cast it to a supported type in a view in your warehouse and map the view instead.
