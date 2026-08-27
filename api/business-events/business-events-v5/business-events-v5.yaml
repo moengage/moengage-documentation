@@ -53,6 +53,27 @@ paths:
           <Note>
             If you need higher limits, reach out to your Customer Success Manager (CSM) or MoEngage Support team.
           </Note>
+
+          #### Example Request
+
+          ```bash Trigger a Business Event
+          curl --request POST \
+            --url 'https://api-01.moengage.com/v5/business-events/triggers' \
+            --header 'Accept: application/json' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>' \
+            --header 'Content-Type: application/json' \
+            --header 'X-MOE-Request-Id: 550e8400-e29b-41d4-a716-446655440000' \
+            --data '{
+              "event_name": "price_drop",
+              "triggered_by": "ops@acme.com",
+              "event_attributes": {
+                "product_id": "SKU-99321",
+                "new_price": 349.5,
+                "dropped_at": "2026-08-03T09:12:00Z"
+              },
+              "moe_request_id": "550e8400-e29b-41d4-a716-446655440000"
+            }'
+          ```
       operationId: triggerBusinessEvent
       parameters:
         - $ref: '#/components/parameters/AcceptHeader'
@@ -168,7 +189,11 @@ paths:
           in: query
           schema:
             type: string
-          description: Business event ID. Use either `name` or `id`, not both.
+          description: >
+            Business event ID — a bare 24-character hexadecimal ObjectId, with no resource prefix.
+            The `resp_` prefix on `response_id` marks a per-response trace identifier, not a
+            resource; resource IDs on this API carry no prefix. Pass this value exactly as
+            returned in `data[].id`. Use either `name` or `id`, not both.
           example: 67a2c4f18d3b5e0a9c1f4e73
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -566,7 +591,8 @@ components:
           example: 12840
         created_by:
           type: string
-          description: Creator identifier.
+          format: email
+          description: Email address of the user or service that created the business event.
           example: john.doe@example.com
         last_triggered_at:
           type: string
