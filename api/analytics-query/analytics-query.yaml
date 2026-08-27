@@ -2922,6 +2922,188 @@ components:
           example: "1.0"
 
     # ---- Shared request building blocks (reused across analyses) ----
+    AttributeReference:
+      type: object
+      description: >
+        A reference to an event, user, or device attribute used for grouping, splitting, or
+        aggregating results.
+      properties:
+        attr_type:
+          type: string
+          description: The category the attribute belongs to, such as `event`, `user`, `device`, or `source`.
+          example: event
+        column_name:
+          type: string
+          description: The stored name of the attribute.
+          example: Brand
+        readable_name:
+          type: string
+          description: The attribute's display name, as shown in the MoEngage dashboard.
+          example: Brand
+        type:
+          type: string
+          description: >
+            The internal type code for the attribute's data type, such as `_s` for string
+            or `_f` for a numeric value.
+          example: _s
+        data_types:
+          type: array
+          description: The data types accepted for this attribute.
+          items:
+            type: string
+          example: [string]
+        encrypted:
+          type: boolean
+          description: Whether the attribute is stored encrypted.
+          example: false
+        pii:
+          type: boolean
+          description: Whether the attribute is marked as personally identifiable information.
+          example: false
+
+    UserAttributeReference:
+      type: object
+      description: A reference to a user attribute used for splitting User Analysis results.
+      properties:
+        attr_type:
+          type: string
+          description: The category the attribute belongs to.
+          example: user
+        name:
+          type: string
+          description: The stored name of the user attribute.
+          example: moe_ip_country
+        readable_name:
+          type: string
+          description: The attribute's display name, as shown in the MoEngage dashboard.
+          example: Last Known Country
+        data_type:
+          type: string
+          description: The attribute's data type.
+          example: string
+        encrypted:
+          type: boolean
+          description: Whether the attribute is stored encrypted.
+          example: false
+        pii:
+          type: boolean
+          description: Whether the attribute is marked as personally identifiable information.
+          example: false
+
+    BucketDistribution:
+      type: object
+      description: >
+        Bucketing configuration for a distribution analysis. Use `auto` to let MoEngage
+        choose the buckets, or `custom` to define your own range and interval.
+      properties:
+        type:
+          type: string
+          description: Whether buckets are chosen automatically or defined by you.
+          enum: [auto, custom]
+          example: custom
+        from:
+          type: integer
+          description: The lower bound of the first bucket. Use -1 when `type` is `auto`.
+          example: 0
+        to:
+          type: integer
+          description: The upper bound of the last bucket. Use -1 when `type` is `auto`.
+          example: 10
+        interval:
+          type: integer
+          description: The width of each bucket. Use -1 when `type` is `auto`.
+          example: 1
+
+    FunnelAttributeMeta:
+      type: object
+      description: >
+        Describes which funnel steps an attribute is applied to.
+      properties:
+        type:
+          type: string
+          description: >
+            The steps the attribute applies to, such as `all_steps`, the first N steps, or a
+            specific step.
+          example: all_steps
+        applied_on:
+          type: integer
+          description: >
+            The step number the attribute applies to. Use -1 when the attribute applies to
+            all steps.
+          example: -1
+
+    FunnelDistribution:
+      type: object
+      description: >
+        Distribution configuration for a time-to-convert or frequency funnel, defining the
+        step range measured and how results are bucketed.
+      properties:
+        method:
+          type: string
+          description: Whether buckets are chosen automatically or defined by you.
+          enum: [auto, custom]
+          example: auto
+        from_step:
+          type: integer
+          description: The step the measurement starts from.
+          example: 1
+        to_step:
+          type: integer
+          description: The step the measurement ends at.
+          example: 2
+        parameters:
+          type: object
+          description: The range measured and the size of each bucket.
+          properties:
+            range:
+              type: object
+              description: The overall range the distribution covers.
+              properties:
+                start:
+                  type: integer
+                  description: The start of the range.
+                  example: 0
+                end:
+                  type: integer
+                  description: The end of the range.
+                  example: 10
+                multiplier:
+                  type: string
+                  description: The unit the range is measured in, such as `MINUTE`, `HOUR`, or `DAY`.
+                  example: MINUTE
+            bucket:
+              type: object
+              description: The size of each individual bucket.
+              properties:
+                size:
+                  type: integer
+                  description: The number of units in each bucket.
+                  example: 1
+                multiplier:
+                  type: string
+                  description: The unit the bucket size is measured in.
+                  example: MINUTE
+
+    EventAggregation:
+      type: object
+      description: >
+        The aggregation applied to a numeric event attribute, such as a sum or a percentile.
+      properties:
+        operation:
+          type: string
+          description: The aggregation to compute, such as `sum`, `min`, `max`, `average`, `median`, or a percentile.
+          example: sum
+        attr:
+          allOf:
+            - $ref: "#/components/schemas/AttributeReference"
+          description: The attribute the aggregation is computed over.
+        percentile_value:
+          type: integer
+          description: >
+            The percentile to compute, from 1 to 100, when `operation` is a percentile.
+            Use -1 for all other operations.
+          example: -1
+
     FilterGroup:
       type: object
       description: >
@@ -3033,10 +3215,13 @@ components:
                   Attributes to break this event down by. The combined total of all
                   `split_by` entries and `user_attr_grouped_by` must not exceed 10.
                 items:
-                  type: object
+                  $ref: "#/components/schemas/AttributeReference"
               aggregation:
-                type: object
-                description: Optional aggregation configuration for this event.
+                allOf:
+                  - $ref: "#/components/schemas/EventAggregation"
+                description: >
+                  The aggregation applied to this event, used when `analysis_type` is an
+                  aggregation. Pass an empty object for other analysis types.
         segmentation:
           $ref: "#/components/schemas/Segmentation"
         user_attr_grouped_by:
@@ -3046,7 +3231,7 @@ components:
             with all `split_by` entries must not exceed 10.
           maxItems: 10
           items:
-            type: object
+            $ref: "#/components/schemas/AttributeReference"
           example:
             [
               {
@@ -3062,7 +3247,8 @@ components:
               }
             ]
         distribution:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/BucketDistribution"
           description: >
             Custom distribution configuration. When using custom buckets, include at most
             10 buckets. Pass an empty object for no custom distribution.
@@ -3114,7 +3300,8 @@ components:
             A value from 1 to 100, or -1 when not used.
           example: -1
         comparison_timerange:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/Timerange"
           description: >
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
@@ -3194,7 +3381,7 @@ components:
             attribute to split on.
           maxItems: 3
           items:
-            type: object
+            $ref: "#/components/schemas/AttributeReference"
           example:
             [
               {
@@ -3210,7 +3397,8 @@ components:
               }
             ]
         grouped_by_meta:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/FunnelAttributeMeta"
           description: >
             Describes how each `grouped_by` attribute is applied across the funnel — for
             example, to all steps, to the first N steps, or to a specific step. Keys
@@ -3228,7 +3416,7 @@ components:
             users who kept that value are counted as converted. Include up to 3.
           maxItems: 3
           items:
-            type: object
+            $ref: "#/components/schemas/AttributeReference"
           example:
             [
               {
@@ -3244,7 +3432,8 @@ components:
               }
             ]
         holding_attributes_meta:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/FunnelAttributeMeta"
           description: >
             Describes how each holding attribute is applied across the funnel steps. Keys
             correspond to the attributes in `holding_attributes`. Pass an empty object when
@@ -3267,7 +3456,8 @@ components:
           description: Whether steps must be performed in the exact order defined.
           example: false
         distribution:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/FunnelDistribution"
           description: >
             Distribution configuration for `event_time_to_convert` and `user_frequency`
             funnels. When using custom buckets, include at most 25 buckets. Pass an empty
@@ -3306,7 +3496,8 @@ components:
           enum: [line, area, bar, column, euler, pie]
           example: "column"
         comparison_timerange:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/Timerange"
           description: >
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
@@ -3406,7 +3597,7 @@ components:
           description: Attributes to break the cohorts down by. Include up to 10.
           maxItems: 10
           items:
-            type: object
+            $ref: "#/components/schemas/AttributeReference"
           example:
             [
               {
@@ -3422,7 +3613,8 @@ components:
               }
             ]
         comparison_timerange:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/Timerange"
           description: >
             A second time range to compare against. Mutually exclusive with sending 2 or more
             segments. Pass an empty object for no comparison.
@@ -3511,7 +3703,7 @@ components:
             medium). Include up to 2.
           maxItems: 2
           items:
-            type: object
+            $ref: "#/components/schemas/AttributeReference"
           example:
             [
               {
@@ -3548,7 +3740,8 @@ components:
         timerange:
           $ref: "#/components/schemas/Timerange"
         comparison_timerange:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/Timerange"
           description: >
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
@@ -3663,7 +3856,8 @@ components:
         segmentation:
           $ref: "#/components/schemas/Segmentation"
         distribution:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/BucketDistribution"
           description: >
             Distribution configuration. Custom distributions apply to numerical attributes
             only. Use `type: auto` for automatic bucketing.
@@ -3700,7 +3894,7 @@ components:
           description: Attributes to break the result down by. Include up to 10.
           maxItems: 10
           items:
-            type: object
+            $ref: "#/components/schemas/UserAttributeReference"
           example:
             [
               {
