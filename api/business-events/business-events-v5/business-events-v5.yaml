@@ -177,6 +177,27 @@ paths:
           A `401` means the credentials are missing or invalid — check the `Authorization` header and retry.
 
           A `403` means they authenticated, but the API key does not carry access to business events. Retrying with the same key will not help. Create a key with the required access at **Settings** > **Account** > **API keys**, or ask a workspace admin to grant it.
+
+          #### Example Requests
+
+          ```bash List the First Page
+          curl --request GET \
+            --url 'https://api-01.moengage.com/v5/business-events?limit=20' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>' \
+            --header 'X-MOE-Request-Id: 550e8400-e29b-41d4-a716-446655440000'
+          ```
+
+          ```bash Look Up a Single Event by Name
+          curl --request GET \
+            --url 'https://api-01.moengage.com/v5/business-events?name=price_drop' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>'
+          ```
+
+          ```bash Fetch the Next Page
+          curl --request GET \
+            --url 'https://api-01.moengage.com/v5/business-events?limit=20&cursor=eyJsYXN0X2lkIjoiNjdhMmM0ZjE4ZDNiNWUwYTljMWY0ZTc0In0=' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>'
+          ```
       operationId: listBusinessEvents
       parameters:
         - name: name
@@ -253,6 +274,42 @@ paths:
           A `401` means the credentials are missing or invalid — check the `Authorization` header and retry.
 
           A `403` means they authenticated, but the API key does not carry access to business events. Retrying with the same key will not help. Create a key with the required access at **Settings** > **Account** > **API keys**, or ask a workspace admin to grant it.
+
+          #### Example Requests
+
+          ```bash Search by Names
+          curl --request POST \
+            --url 'https://api-01.moengage.com/v5/business-events/search' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>' \
+            --header 'Content-Type: application/json' \
+            --data '{
+              "filters": {
+                "names": ["price_drop", "cart_abandoned"]
+              },
+              "limit": 20
+            }'
+          ```
+
+          ```bash Search by IDs
+          curl --request POST \
+            --url 'https://api-01.moengage.com/v5/business-events/search' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>' \
+            --header 'Content-Type: application/json' \
+            --data '{
+              "filters": {
+                "ids": ["67a2c4f18d3b5e0a9c1f4e73", "67a2c4f18d3b5e0a9c1f4e74"]
+              },
+              "limit": 20
+            }'
+          ```
+
+          ```bash List Everything
+          curl --request POST \
+            --url 'https://api-01.moengage.com/v5/business-events/search' \
+            --header 'Authorization: Basic <base64(workspaceId:apiKey)>' \
+            --header 'Content-Type: application/json' \
+            --data '{ "limit": 20 }'
+          ```
       operationId: searchBusinessEventsV5
       parameters:
         - $ref: '#/components/parameters/RequestIdHeader'
@@ -566,16 +623,33 @@ components:
           example: price_drop
         attributes:
           type: array
-          description: Declared event attributes.
+          description: >
+            The attribute schema registered for this event. Two things depend on it. Values you
+            send in `event_attributes` when triggering the event are validated against these
+            types, and a mismatch returns a `400` — so a `number` attribute sent as a string is
+            rejected. The attribute names are also what campaigns and flows reference as
+            personalization tokens, so this array tells you which tokens are available to
+            content attached to the event.
           items:
             type: object
+            description: One declared attribute — its name, and the type its values are validated against.
             properties:
               name:
                 type: string
-                description: Attribute name.
+                description: Attribute name. Use this when building personalization tokens and when sending `event_attributes` on a trigger call.
+                example: product_id
               data_type:
                 type: string
-                description: Attribute type (string, number, boolean, datetime).
+                description: >
+                  Type that values for this attribute are validated against. One of `string`,
+                  `number`, `boolean`, or `datetime`. The legacy Create Business Event API uses a
+                  different set, so map between them when moving an integration to V5.
+                enum:
+                  - string
+                  - number
+                  - boolean
+                  - datetime
+                example: string
           example:
             - name: product_id
               data_type: string
