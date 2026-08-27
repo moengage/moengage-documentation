@@ -90,12 +90,12 @@ paths:
                       triggered_status: SUCCESS
                       message: The business event has been triggered
                       summary:
-                        total: 12
-                        triggered: 12
+                        total: 4
+                        triggered: 4
                         failed: 0
-                      triggered_campaign_ids: [cid1, cid2, cid3, cid4, cid5, cid6, cid7, cid8, cid9, cid10, cid11, cid12]
+                      triggered_campaign_ids: [64a1b2c3d4e5f6a7b8c9d0e1, 64a1b2c3d4e5f6a7b8c9d0e2, 64a1b2c3d4e5f6a7b8c9d0e3]
                       failed_campaign_ids: []
-                      triggered_flow_ids: [fid13]
+                      triggered_flow_ids: [64a1b2c3d4e5f6a7b8c9d0f1]
                       failed_flow_ids: []
                 partial_success:
                   summary: Some triggered, some skipped due to quota
@@ -106,13 +106,13 @@ paths:
                       triggered_status: PARTIAL_SUCCESS
                       message: The business event has been triggered
                       summary:
-                        total: 12
-                        triggered: 10
-                        failed: 2
-                      triggered_campaign_ids: [cid1, cid2, cid3, cid4, cid5, cid6, cid7, cid8, cid9, cid10]
-                      failed_campaign_ids: [cid1, cid2]
-                      triggered_flow_ids: [fid12]
-                      failed_flow_ids: [fid11]
+                        total: 4
+                        triggered: 3
+                        failed: 1
+                      triggered_campaign_ids: [64a1b2c3d4e5f6a7b8c9d0e1, 64a1b2c3d4e5f6a7b8c9d0e2]
+                      failed_campaign_ids: [64a1b2c3d4e5f6a7b8c9d0e3]
+                      triggered_flow_ids: [64a1b2c3d4e5f6a7b8c9d0f1]
+                      failed_flow_ids: []
                 failed:
                   summary: Nothing triggered — all skipped by quota
                   value:
@@ -122,13 +122,13 @@ paths:
                       triggered_status: FAILURE
                       message: The business event has been triggered
                       summary:
-                        total: 12
+                        total: 4
                         triggered: 0
-                        failed: 12
+                        failed: 4
                       triggered_campaign_ids: []
-                      failed_campaign_ids: [cid1, cid2]
+                      failed_campaign_ids: [64a1b2c3d4e5f6a7b8c9d0e1, 64a1b2c3d4e5f6a7b8c9d0e2, 64a1b2c3d4e5f6a7b8c9d0e3]
                       triggered_flow_ids: []
-                      failed_flow_ids: [fid3]
+                      failed_flow_ids: [64a1b2c3d4e5f6a7b8c9d0f1]
         '400':
           $ref: '#/components/responses/TriggerBadRequest'
         '401':
@@ -309,13 +309,15 @@ components:
     AcceptHeader:
       name: Accept
       in: header
-      required: true
+      required: false
       schema:
         type: string
         enum:
           - application/json
         default: application/json
-      description: Must be `application/json`.
+      description: >
+        Set to `application/json` when you send it. These endpoints return JSON regardless, so the
+        header is optional.
     ContentTypeHeader:
       name: Content-Type
       in: header
@@ -429,27 +431,31 @@ components:
               example: 0
         triggered_campaign_ids:
           type: array
-          description: Base-version campaign IDs that were triggered.
+          description: Base-version campaign IDs that were triggered. Bare 24-character hexadecimal ObjectIds, with no resource prefix.
           items:
             type: string
-          example: [cid1, cid2]
+            example: 64a1b2c3d4e5f6a7b8c9d0e1
+          example: [64a1b2c3d4e5f6a7b8c9d0e1, 64a1b2c3d4e5f6a7b8c9d0e2]
         failed_campaign_ids:
           type: array
-          description: Base-version campaign IDs that were skipped by quota.
+          description: Base-version campaign IDs that were skipped by quota. Bare 24-character hexadecimal ObjectIds, with no resource prefix.
           items:
             type: string
+            example: 64a1b2c3d4e5f6a7b8c9d0e3
           example: []
         triggered_flow_ids:
           type: array
-          description: Base-version flow IDs that were triggered.
+          description: Base-version flow IDs that were triggered. Bare 24-character hexadecimal ObjectIds, with no resource prefix.
           items:
             type: string
-          example: [fid1]
+            example: 64a1b2c3d4e5f6a7b8c9d0f1
+          example: [64a1b2c3d4e5f6a7b8c9d0f1]
         failed_flow_ids:
           type: array
-          description: Base-version flow IDs that were skipped by quota.
+          description: Base-version flow IDs that were skipped by quota. Bare 24-character hexadecimal ObjectIds, with no resource prefix.
           items:
             type: string
+            example: 64a1b2c3d4e5f6a7b8c9d0f1
           example: []
     BusinessEventTriggerResponse:
       type: object
@@ -524,7 +530,10 @@ components:
       properties:
         id:
           type: string
-          description: Business event ID.
+          description: >
+            Business event ID — a bare 24-character hexadecimal ObjectId, with no resource prefix.
+            Unlike `response_id`, which is a per-response trace identifier prefixed with `resp_`,
+            resource identifiers on this API carry no prefix.
           example: 67a2c4f18d3b5e0a9c1f4e73
         name:
           type: string
