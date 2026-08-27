@@ -150,6 +150,12 @@ paths:
           #### Rate Limits
 
           The rate limits are at the workspace level. A maximum of 60 requests per minute and 1,000 requests per hour are allowed per workspace.
+
+          #### Errors
+
+          A `401` means the credentials are missing or invalid — check the `Authorization` header and retry.
+
+          A `403` means they authenticated, but the API key does not carry access to business events. Retrying with the same key will not help. Create a key with the required access at **Settings** > **Account** > **API keys**, or ask a workspace admin to grant it.
       operationId: listBusinessEvents
       parameters:
         - name: name
@@ -216,6 +222,12 @@ paths:
           #### Rate Limits
 
           The rate limits are at the workspace level. A maximum of 30 requests per minute and 500 requests per hour are allowed per workspace.
+
+          #### Errors
+
+          A `401` means the credentials are missing or invalid — check the `Authorization` header and retry.
+
+          A `403` means they authenticated, but the API key does not carry access to business events. Retrying with the same key will not help. Create a key with the required access at **Settings** > **Account** > **API keys**, or ask a workspace admin to grant it.
       operationId: searchBusinessEventsV5
       parameters:
         - $ref: '#/components/parameters/RequestIdHeader'
@@ -640,24 +652,38 @@ components:
           properties:
             code:
               type: string
-              description: Machine-readable UPPER_SNAKE_CASE code.
+              description: Machine-readable UPPER_SNAKE_CASE code identifying the error condition.
+              example: INVALID_REQUEST
             message:
               type: string
+              description: Human-readable description of the error.
+              example: Use either 'name' or 'id', not both.
             target:
               type: string
+              description: The query parameter, body field, or header that caused the error.
+              example: id
             details:
               type: array
+              description: Field-level breakdown. Returned for validation errors only; absent on 401, 403, and 429.
               items:
                 type: object
                 properties:
                   code:
                     type: string
+                    description: Machine-readable UPPER_SNAKE_CASE code for this specific violation. More granular than the top-level `code`.
+                    example: INVALID_PARAMETER_COMBINATION
                   target:
                     type: string
+                    description: The specific parameter or field this violation applies to.
+                    example: id
                   message:
                     type: string
+                    description: Human-readable description of this violation.
+                    example: The 'id' parameter cannot be combined with 'name'.
         response_id:
           type: string
+          description: Unique identifier for this response. Quote it when contacting MoEngage Support.
+          example: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
   responses:
     TriggerBadRequest:
       description: This response is returned when the required parameters are missing from the request or when the provided parameters are invalid.
@@ -757,7 +783,12 @@ components:
               target: Authorization
             response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
     ForbiddenV5:
-      description: Missing required scope
+      description: >
+        Missing required scope. Your credentials authenticated successfully, but the API key does
+        not carry access to business events — unlike a `401`, retrying with the same key will not
+        help. Create a key with the required access in the MoEngage dashboard at
+        **Settings** > **Account** > **API keys**, or ask a workspace admin to grant it. For more
+        information, see [Getting your credentials](/api/introduction#getting-your-credentials).
       content:
         application/json:
           schema:
