@@ -163,7 +163,7 @@ paths:
           schema:
             type: string
           description: Business event ID. Use either `name` or `id`, not both.
-          example: <mongo-object-id>
+          example: 67a2c4f18d3b5e0a9c1f4e73
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/RequestIdHeader'
@@ -175,10 +175,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/BusinessEventListResponse'
               example:
-                response_id: <trace-id>
+                response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
                 type: business-events
                 data:
-                  - id: <mongo-object-id>
+                  - id: 67a2c4f18d3b5e0a9c1f4e73
                     name: price_drop
                     attributes:
                       - name: product_id
@@ -192,7 +192,7 @@ paths:
                     created_at: '2026-05-01T09:12:00Z'
                 pagination:
                   has_more: true
-                  next_cursor: <opaque-cursor>
+                  next_cursor: eyJsYXN0X2lkIjoiNjdhMmM0ZjE4ZDNiNWUwYTljMWY0ZTc0In0=
         '400':
           $ref: '#/components/responses/BadRequestV5'
         '401':
@@ -239,10 +239,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/BusinessEventListResponse'
               example:
-                response_id: <trace-id>
+                response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
                 type: business-events
                 data:
-                  - id: <mongo-object-id>
+                  - id: 67a2c4f18d3b5e0a9c1f4e73
                     name: price_drop
                     attributes:
                       - name: product_id
@@ -256,9 +256,9 @@ paths:
                     created_at: '2026-05-01T09:12:00Z'
                 pagination:
                   has_more: true
-                  next_cursor: <opaque-cursor>
+                  next_cursor: eyJsYXN0X2lkIjoiNjdhMmM0ZjE4ZDNiNWUwYTljMWY0ZTc0In0=
         '400':
-          $ref: '#/components/responses/BadRequestV5'
+          $ref: '#/components/responses/SearchBadRequestV5'
         '401':
           $ref: '#/components/responses/UnauthorizedV5'
         '403':
@@ -494,7 +494,7 @@ components:
         id:
           type: string
           description: Business event ID.
-          example: <mongo-object-id>
+          example: 67a2c4f18d3b5e0a9c1f4e73
         name:
           type: string
           description: Business event name.
@@ -548,8 +548,8 @@ components:
       properties:
         response_id:
           type: string
-          description: Unique identifier for this response. Echoes the `request_id` you sent, if any. Quote it when contacting MoEngage Support.
-          example: <trace-id>
+          description: Unique identifier for this response. Echoes the `X-MOE-Request-Id` header you sent, if any, prefixed with `resp_`. Quote it when contacting MoEngage Support.
+          example: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
         type:
           type: string
           description: The resource type contained in `data`. Always `business-events` for this endpoint.
@@ -577,7 +577,7 @@ components:
         next_cursor:
           type: string
           description: Present only when `has_more` is `true`.
-          example: <opaque-cursor>
+          example: eyJsYXN0X2lkIjoiNjdhMmM0ZjE4ZDNiNWUwYTljMWY0ZTc0In0=
     BusinessEventSearchRequest:
       type: object
       description: Filter and pagination for the search. Provide either names or ids inside filters (not both); omit filters to return everything (paginated).
@@ -600,8 +600,8 @@ components:
               items:
                 type: string
               example:
-                - <mongo-object-id>
-                - <mongo-object-id>
+                - 67a2c4f18d3b5e0a9c1f4e73
+                - 67a2c4f18d3b5e0a9c1f4e74
         limit:
           type: integer
           default: 20
@@ -691,14 +691,30 @@ components:
             $ref: '#/components/schemas/ErrorResponseV5'
           example:
             error:
-              code: <ERROR_CODE>
-              message: <error-message>
-              target: <field>
+              code: INVALID_REQUEST
+              message: Use either 'name' or 'id', not both.
+              target: id
               details:
-                - code: <ERROR_CODE>
-                  target: <field>
-                  message: <error-message>
-            response_id: <trace-id>
+                - code: INVALID_PARAMETER_COMBINATION
+                  target: id
+                  message: The 'id' parameter cannot be combined with 'name'.
+            response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
+    SearchBadRequestV5:
+      description: Bad request / validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseV5'
+          example:
+            error:
+              code: INVALID_REQUEST
+              message: Use either 'names' or 'ids', not both.
+              target: filters.ids
+              details:
+                - code: INVALID_PARAMETER_COMBINATION
+                  target: filters.ids
+                  message: The 'ids' filter cannot be combined with 'names'.
+            response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
     UnauthorizedV5:
       description: Missing or invalid authentication
       content:
@@ -707,14 +723,10 @@ components:
             $ref: '#/components/schemas/ErrorResponseV5'
           example:
             error:
-              code: <ERROR_CODE>
-              message: <error-message>
-              target: <field>
-              details:
-                - code: <ERROR_CODE>
-                  target: <field>
-                  message: <error-message>
-            response_id: <trace-id>
+              code: UNAUTHORIZED
+              message: Missing or invalid authentication credentials.
+              target: Authorization
+            response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
     ForbiddenV5:
       description: Missing required scope
       content:
@@ -723,14 +735,10 @@ components:
             $ref: '#/components/schemas/ErrorResponseV5'
           example:
             error:
-              code: <ERROR_CODE>
-              message: <error-message>
-              target: <field>
-              details:
-                - code: <ERROR_CODE>
-                  target: <field>
-                  message: <error-message>
-            response_id: <trace-id>
+              code: FORBIDDEN
+              message: This API key does not have the scope required to read business events.
+              target: Authorization
+            response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
     RateLimitedV5:
       description: Rate limited
       headers:
@@ -744,11 +752,6 @@ components:
             $ref: '#/components/schemas/ErrorResponseV5'
           example:
             error:
-              code: <ERROR_CODE>
-              message: <error-message>
-              target: <field>
-              details:
-                - code: <ERROR_CODE>
-                  target: <field>
-                  message: <error-message>
-            response_id: <trace-id>
+              code: RATE_LIMIT_EXCEEDED
+              message: Workspace rate limit exceeded. Retry after 60 seconds.
+            response_id: resp_5f3e2a1b9c8d4e6f8a1b2c3d4e5f6a7b
