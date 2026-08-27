@@ -3047,11 +3047,32 @@ components:
           maxItems: 10
           items:
             type: object
+          example:
+            [
+              {
+                "attr_type": "user",
+                "column_name": "t_rev",
+                "data_types": [
+                  "double"
+                ],
+                "encrypted": false,
+                "pii": false,
+                "readable_name": "LTV",
+                "type": "_f"
+              }
+            ]
         distribution:
           type: object
           description: >
             Custom distribution configuration. When using custom buckets, include at most
             10 buckets. Pass an empty object for no custom distribution.
+          example:
+            {
+              "type": "custom",
+              "from": 0,
+              "to": 10,
+              "interval": 1
+            }
         timerange:
           $ref: "#/components/schemas/Timerange"
         granularity:
@@ -3098,6 +3119,14 @@ components:
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
             comparison (2 or more segments). Pass an empty object for no comparison.
+          example:
+            {
+              "start": "2026-08-19 00:00:00",
+              "end": "2026-08-26 23:59:59",
+              "label": "Previous day",
+              "dt_label": "prev_d",
+              "value": 7
+            }
         chart_sort_type:
           type: string
           description: Sort order applied to the result series.
@@ -3166,6 +3195,20 @@ components:
           maxItems: 3
           items:
             type: object
+          example:
+            [
+              {
+                "column_name": "moe_device_os_version",
+                "type": "_s",
+                "attr_type": "event",
+                "data_types": [
+                  "string"
+                ],
+                "readable_name": "OS Version",
+                "encrypted": false,
+                "pii": false
+              }
+            ]
         grouped_by_meta:
           type: object
           description: >
@@ -3173,6 +3216,11 @@ components:
             example, to all steps, to the first N steps, or to a specific step. Keys
             correspond to the attributes in `grouped_by`. Pass an empty object when
             `grouped_by` is empty.
+          example:
+            {
+              "type": "all_steps",
+              "applied_on": -1
+            }
         holding_attributes:
           type: array
           description: >
@@ -3181,12 +3229,31 @@ components:
           maxItems: 3
           items:
             type: object
+          example:
+            [
+              {
+                "column_name": "moe_device_os_version",
+                "type": "_s",
+                "attr_type": "event",
+                "data_types": [
+                  "string"
+                ],
+                "readable_name": "OS Version",
+                "encrypted": false,
+                "pii": false
+              }
+            ]
         holding_attributes_meta:
           type: object
           description: >
             Describes how each holding attribute is applied across the funnel steps. Keys
             correspond to the attributes in `holding_attributes`. Pass an empty object when
             `holding_attributes` is empty.
+          example:
+            {
+              "type": "all_steps",
+              "applied_on": -1
+            }
         funnel_window:
           type: integer
           description: The conversion window in seconds within which users must complete the funnel.
@@ -3205,6 +3272,23 @@ components:
             Distribution configuration for `event_time_to_convert` and `user_frequency`
             funnels. When using custom buckets, include at most 25 buckets. Pass an empty
             object for a standard funnel.
+          example:
+            {
+              "method": "auto",
+              "from_step": 1,
+              "to_step": 2,
+              "parameters": {
+                "range": {
+                  "start": 0,
+                  "end": 10,
+                  "multiplier": "MINUTE"
+                },
+                "bucket": {
+                  "size": 1,
+                  "multiplier": "MINUTE"
+                }
+              }
+            }
         countType:
           type: string
           description: >
@@ -3227,6 +3311,14 @@ components:
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
             comparison (2 or more segments). Pass an empty object for no comparison.
+          example:
+            {
+              "start": "2026-08-13 00:00:00",
+              "end": "2026-08-20 23:59:59",
+              "label": "Previous week",
+              "dt_label": "prev_w",
+              "value": 7
+            }
         timerange:
           $ref: "#/components/schemas/Timerange"
         granularity:
@@ -3315,6 +3407,20 @@ components:
           maxItems: 10
           items:
             type: object
+          example:
+            [
+              {
+                "column_name": "app_version",
+                "type": "_s",
+                "attr_type": "device",
+                "data_types": [
+                  "string"
+                ],
+                "readable_name": "App Version",
+                "encrypted": false,
+                "pii": false
+              }
+            ]
         comparison_timerange:
           type: object
           description: >
@@ -3322,6 +3428,14 @@ components:
             segments. Pass an empty object for no comparison.
 
     # ---- Session/Source ----
+          example:
+            {
+              "start": "2026-07-20 00:00:00",
+              "end": "2026-07-27 23:59:59",
+              "label": "Previous month",
+              "dt_label": "prev_m",
+              "value": 7
+            }
     SessionSourceQueryRequest:
       type: object
       description: Request body for registering a Session/Source analysis query.
@@ -3346,26 +3460,50 @@ components:
           type: array
           description: >
             Conditions that restrict the report to specific acquisition values. Combined
-            with `grouped_by`, at most 2 source properties may be used. Each item names the
-            source property to filter on, the operator to apply, and the values to match.
-            A filter value must match the attribute's declared data type.
+            with `grouped_by`, at most 2 source properties may be used. A filter value must
+            match the attribute's declared data type.
           items:
             type: object
             properties:
-              attribute:
+              attr_type:
+                type: string
+                description: The category the attribute belongs to.
+                example: "source"
+              column_name:
                 type: string
                 description: The acquisition property to filter on, such as source, medium, or campaign.
                 example: "source"
-              operator:
+              type:
                 type: string
-                description: The comparison applied between the attribute and `value`.
-                example: "is"
-              value:
+                description: The internal type code for the attribute's data type.
+                example: "_s"
+              data_types:
                 type: array
-                description: The values to match.
+                description: The data types accepted for this attribute.
                 items:
                   type: string
-                example: ["google"]
+                example: ["string"]
+              encrypted:
+                type: boolean
+                description: Whether the attribute is stored encrypted.
+                example: false
+              condition:
+                type: string
+                description: The condition applied to the attribute.
+                example: "&moekey is not null"
+          example:
+            [
+              {
+                "attr_type": "source",
+                "type": "_s",
+                "column_name": "source",
+                "data_types": [
+                  "string"
+                ],
+                "encrypted": false,
+                "condition": "&moekey is not null"
+              }
+            ]
         grouped_by:
           type: array
           description: >
@@ -3374,6 +3512,18 @@ components:
           maxItems: 2
           items:
             type: object
+          example:
+            [
+              {
+                "attr_type": "source",
+                "type": "_s",
+                "column_name": "medium",
+                "data_types": [
+                  "string"
+                ],
+                "readable_name": "Medium"
+              }
+            ]
         segmentation:
           $ref: "#/components/schemas/Segmentation"
         granularity:
@@ -3403,6 +3553,14 @@ components:
             A second time range to compare against. Time comparison is supported only on
             line, bar, and column charts, and cannot be combined with custom-segment
             comparison (2 or more segments). Pass an empty object for no comparison.
+          example:
+            {
+              "start": "2026-05-20 00:00:00",
+              "end": "2026-05-27 23:59:59",
+              "label": "Previous quarter",
+              "dt_label": "prev_q",
+              "value": 7
+            }
         chart_sort_type:
           type: string
           description: Sort order applied to the result series.
@@ -3509,6 +3667,13 @@ components:
           description: >
             Distribution configuration. Custom distributions apply to numerical attributes
             only. Use `type: auto` for automatic bucketing.
+          example:
+            {
+              "type": "custom",
+              "from": 0,
+              "to": 10,
+              "interval": 1
+            }
         timerange:
           $ref: "#/components/schemas/Timerange"
         granularity:
@@ -3536,6 +3701,17 @@ components:
           maxItems: 10
           items:
             type: object
+          example:
+            [
+              {
+                "attr_type": "user",
+                "data_type": "string",
+                "encrypted": false,
+                "name": "moe_ip_country",
+                "pii": false,
+                "readable_name": "Last Known Country"
+              }
+            ]
         chart_sort_type:
           type: string
           description: Sort order applied to the result series.
