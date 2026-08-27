@@ -1,7 +1,7 @@
 ---
 title: "Campaign content reference"
 description: "Reference for basic_details and campaign_content per channel, platform, and template type. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale", "SMS content", "MMS content", "mms_media_data", "tracked URL shortening"]
+keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale", "SMS content", "MMS content", "mms_media_data"]
 icon: "layout-template"
 ---
 
@@ -221,10 +221,6 @@ The `basic_details` object on an SMS or MMS campaign carries identifying metadat
 | `team` | string | The team collaborating on the campaign. |
 | `user_attribute_identifier` | string | The user attribute that stores the recipient's mobile number. Default: `Mobile Number (Standard)`. |
 | `segmentation_details` | object | The campaign audience. Reuses the existing channel-agnostic `SegmentationDetails` schema already used by Push and Email — see [Campaign audience](/api/campaigns/audience-scheduling-delivery-reference#campaign-audience). <Note>The PRD marks this field as unresolved ("Segmentation - ?"). Documented here as a reuse of the existing shared schema, since no SMS-specific shape has been specified anywhere. Confirm with Engineering.</Note> |
-| `ignore_optin_preference` | boolean | <Warning>**Guessed field name — not confirmed.** Whether to bypass the recipient's SMS opt-in preference (PRD: "Ignore Opt-in Preference"). No Push/Email equivalent exists to confirm this name against, and the `patch/mcp-sms` engineering source does not mention it. Confirm with Engineering.</Warning> |
-| `bypass_prescrub_check` | boolean | <Warning>**Guessed field name — not confirmed, and conditionally *forbidden*, not conditionally required.** Only valid to set when the account has the T-Mobile sentry flag enabled — setting it without that flag is expected to be rejected. This is the one field in the SMS/MMS schema that's conditionally forbidden rather than conditionally required — easy to miss in review. Confirm both the name and the exact validation behavior with Engineering.</Warning> |
-| `delivery_strategy` | enum | <Warning>**Guessed field name — not confirmed, and not mentioned in the `patch/mcp-sms` engineering source.** `STANDARD` or `AI_CAMPAIGN_DECISIONING`, per the PRD. A genuinely new concept with no Push/Email equivalent. Confirm with Engineering.</Warning> |
-| `agent_name` | string | <Warning>**Guessed field name — not confirmed.** Required if `delivery_strategy` is `AI_CAMPAIGN_DECISIONING`, per the PRD. Same caveat as `delivery_strategy`.</Warning> |
 
 <Note>
 The PRD describes `team` as a "List of Team Name," which could mean a multi-value field specific to SMS/MMS. Documented here as the existing single-string `team` field (matching Push/Email), since neither the PRD nor the `patch/mcp-sms` engineering source confirms a plural form. Confirm with Engineering whether SMS/MMS genuinely needs a multi-value team field, and the maximum number of teams per campaign (unresolved in the PRD: "Min - 1, Max - ?").
@@ -1220,7 +1216,6 @@ Each entry in `attachments` is `{ file_type, url }`.
 | :--- | :--- | :--- |
 | `message` | string | The SMS text body. **Maximum:** 1600 characters. Optional when `custom_template_id` is provided. |
 | `custom_template_id` | string | A saved SMS template ID. Reuses the same field name as `EmailContent.custom_template_id`. Optional when `message` is provided. |
-| `tracked_urls` | array of `TrackedUrl` | See [Tracked URLs and shortening](#tracked-urls-and-shortening) below. <Warning>Field name and shape are entirely unconfirmed — see the warning below.</Warning> |
 
 ### SMS connector and sender
 
@@ -1245,36 +1240,6 @@ Per the `patch/mcp-sms` engineering source: on create/update requests, only `con
     "content": {
       "sms": {
         "message": "Your order has shipped. Track it: {{shortened_url}}"
-      }
-    }
-  }
-}
-```
-
-### Tracked URLs and shortening
-
-<Warning>
-**Entirely unconfirmed shape.** No Push/Email precedent exists for this, the PRD does not specify field names, and the `patch/mcp-sms` engineering source does not mention tracked-URL fields at all. Field names below follow this repo's snake_case convention as a guess only — confirm with Engineering before relying on this.
-</Warning>
-
-Each tracked URL specifies a `shortening_method`: `CUSTOM_DOMAIN`, `MOE_SHORTENING`, or `DEEPLINK`. These are mutually exclusive per campaign:
-
-- **`CUSTOM_DOMAIN`** — only valid if a custom domain is configured for SMS on the account. Campaign creation fails otherwise.
-- **`MOE_SHORTENING`** — only valid if a custom domain is **not** configured. Fails if one is.
-- **`DEEPLINK`** — only valid if deeplinking is configured for the account. Requires `web_url`, `alias`, and `key_value_pairs` matching the account's configured dynamic keys. Mismatched keys fail campaign creation. Validation is expected to mirror the existing dashboard deeplink validation, not introduce new rules.
-
-```json
-{
-  "campaign_content": {
-    "content": {
-      "sms": {
-        "message": "Your order has shipped. Track it: {{shortened_url}}",
-        "tracked_urls": [
-          {
-            "url": "https://example.com/orders/{{UserAttribute['Order ID']}}",
-            "shortening_method": "MOE_SHORTENING"
-          }
-        ]
       }
     }
   }
@@ -1431,9 +1396,6 @@ The following rules span multiple sub-objects on this page. Each is enforced at 
 | For SMS/MMS, `basic_details.name` must be 5–50 characters. | `SmsBasicDetailsV5.name` |
 | For SMS/MMS, `basic_details.tags` allows a maximum of 30 tags. | `SmsBasicDetailsV5.tags` |
 | For SMS/MMS, `campaign_delivery_type` is restricted to `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`. `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, and `BROADCAST_LIVE_ACTIVITY` are Push-only. | `SmsCampaignCreateV5Request.campaign_delivery_type` |
-| For SMS, at most one `shortening_method` per tracked URL: `CUSTOM_DOMAIN` requires a custom domain configured for SMS on the account; `MOE_SHORTENING` requires that no custom domain is configured; `DEEPLINK` requires deeplinking configured for the account, plus matching `web_url`, `alias`, and `key_value_pairs`. <Warning>Unconfirmed — see [Tracked URLs and shortening](#tracked-urls-and-shortening).</Warning> | `TrackedUrl` description |
-| For SMS/MMS, `basic_details.bypass_prescrub_check` is only valid to set when the account has the T-Mobile sentry flag enabled — setting it without that flag is expected to be rejected. <Warning>Unconfirmed field name and behavior — see [SMS campaign metadata](#sms-campaign-metadata).</Warning> | `SmsBasicDetailsV5.bypass_prescrub_check` |
-| For SMS/MMS, `basic_details.agent_name` is required when `basic_details.delivery_strategy` is `AI_CAMPAIGN_DECISIONING`. <Warning>Unconfirmed field names — see [SMS campaign metadata](#sms-campaign-metadata).</Warning> | `SmsBasicDetailsV5.agent_name` |
 
 ## Updating an existing campaign
 

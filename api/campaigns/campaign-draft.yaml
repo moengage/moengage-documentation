@@ -1230,33 +1230,6 @@ components:
           description: |
             The user attribute that stores the recipient's mobile number. Use "Mobile Number (Standard)" for SMS/MMS channels.
           example: "Mobile Number (Standard)"
-        ignore_optin_preference:
-          type: boolean
-          default: false
-          description: |
-            <Warning>
-            **Guessed field name — not confirmed.** Whether to bypass the recipient's SMS opt-in preference (PRD: "Ignore Opt-in Preference"). No existing Push/Email field exists to confirm this name against, and the `patch/mcp-sms` engineering source does not mention it. Confirm with Engineering before relying on this.
-            </Warning>
-        bypass_prescrub_check:
-          type: boolean
-          default: false
-          description: |
-            <Warning>
-            **Guessed field name — not confirmed — and conditionally forbidden, not conditionally required.** Per the PRD, this is only valid to set when the account has the T-Mobile sentry flag enabled; setting it on an account without that flag is expected to be rejected. This is the one field in the SMS/MMS schema that is conditionally *forbidden* rather than conditionally required — easy to miss in review. Neither the field name nor the exact validation behavior is confirmed by Engineering.
-            </Warning>
-        delivery_strategy:
-          type: string
-          enum: [STANDARD, AI_CAMPAIGN_DECISIONING]
-          description: |
-            <Warning>
-            **Guessed field name — not confirmed, and not mentioned in the `patch/mcp-sms` engineering source**, which covers this same create-request schema. A genuinely new concept from the PRD (`STANDARD` vs AI Campaign Decisioning) with no Push/Email equivalent. Its absence from the engineering source may mean it isn't implemented yet, or was simply out of scope for that branch — confirm with Engineering before relying on this.
-            </Warning>
-        agent_name:
-          type: string
-          description: |
-            <Warning>
-            **Guessed field name — not confirmed.** Required if `delivery_strategy` is `AI_CAMPAIGN_DECISIONING`, per the PRD. Same caveat as `delivery_strategy` above.
-            </Warning>
 
     PlatformSpecificDetails:
       type: object
@@ -2391,15 +2364,6 @@ components:
             The ID of a saved SMS template. Reuses the same field as Email's `custom_template_id`.
 
             **Optional** if `message` is provided.
-        tracked_urls:
-          type: array
-          items: { $ref: '#/components/schemas/TrackedUrl' }
-          description: |
-            <Warning>
-            **Field name and shape are entirely unconfirmed.** Neither the PRD nor the `patch/mcp-sms` engineering source specifies a structured field for this. The dashboard's SMS editor auto-detects and shortens URLs typed directly into the message body, and separately offers an "Add URL" flow for links generated per-user (static, user attribute, event attribute, or aux-data-sourced). Whether the API exposes the "Add URL" flow as a field named `tracked_urls`, under a different name, or not at all, is unconfirmed. Confirm with Engineering before relying on this field.
-            </Warning>
-
-            URLs to shorten and track within the SMS message, with a shortening method per URL. For mutual-exclusivity rules, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content).
 
     MmsContent:
       type: object
@@ -2436,41 +2400,6 @@ components:
             **Allowed file extensions:** `jpg`, `jpeg`, `gif`, `png`, `mp4`, `webm`. **Maximum:** 10 items. At most one personalized media URL.
 
             **Not required at draft-create time** — an MMS draft can be created without `mms_media_data` (a soft draft). It becomes required when the draft is validated via `POST /v5/campaigns/{campaign_id}/validate`, or when published from the Dashboard.
-
-    TrackedUrl:
-      type: object
-      description: |
-        <Warning>
-        **Entirely unconfirmed shape.** No Push/Email precedent exists for this schema, the PRD does not specify field names, and the `patch/mcp-sms` engineering source does not mention tracked-URL fields at all. Field names below follow this repo's snake_case convention as a guess only — confirm with Engineering before relying on this schema.
-        </Warning>
-
-        A URL to shorten and track within the SMS message. For mutual-exclusivity rules between shortening methods, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content).
-      properties:
-        url:
-          type: string
-          description: The destination URL to shorten and track.
-        shortening_method:
-          type: string
-          enum: [CUSTOM_DOMAIN, MOE_SHORTENING, DEEPLINK]
-          description: |
-            The shortening method for this URL. Mutually exclusive per campaign — see [Validation rules](/api/campaigns/campaign-content-reference#validation-rules).
-        web_url:
-          type: string
-          description: |
-            **Required when `shortening_method` is `DEEPLINK`.** The fallback web URL for the deeplink.
-        alias:
-          type: string
-          description: |
-            **Required when `shortening_method` is `DEEPLINK`.** The deeplink alias configured for the account.
-        key_value_pairs:
-          type: array
-          items:
-            type: object
-            properties:
-              key: { type: string }
-              value: { type: string }
-          description: |
-            **Required when `shortening_method` is `DEEPLINK`.** Key-value pairs matching the account's configured dynamic deeplink keys. Mismatched keys fail campaign creation.
 
     SegmentationDetails:
       type: object
