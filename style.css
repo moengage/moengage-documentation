@@ -26,10 +26,16 @@ div[class*="scroll-mt"][class*="peer"] {
   padding-right: 0 !important;
 }
 
-/* Navbar left inset (max-w-8xl or mx-auto markup) */
-#navbar div[class*="max-w-8xl"],
-#navbar > div[class*="mx-auto"] {
-  padding-left: 1.75rem !important;
+/* Navbar left inset (max-w-8xl or mx-auto markup).
+   Desktop only. The inset exists to line the navbar up with #sidebar's 1.75rem
+   margin below. Under lg there is no sidebar, and the 1.75rem stacked on top of
+   Mintlify's own mx-4 on the nav row, leaving the wordmark 44px from the screen
+   edge instead of 16px. */
+@media (min-width: 1024px) {
+  #navbar div[class*="max-w-8xl"],
+  #navbar > div[class*="mx-auto"] {
+    padding-left: 1.75rem !important;
+  }
 }
 /* Nav row: no extra left padding so container inset is the only one */
 #navbar div[class*="h-16"][class*="lg:px-12"],
@@ -98,26 +104,26 @@ div[class*="scroll-mt"][class*="peer"] {
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background-color: #667085;
+    background-color: #8494B2;
     transition: background-color 0.15s ease;
   }
   
   .moe-resize-handle:hover .moe-resize-handle-dots span {
-    background-color: #4D6DCE;
+    background-color: #2E69FF;
   }
   
   .moe-resize-handle--active .moe-resize-handle-dots span {
-    background-color: #4D6DCE;
+    background-color: #2E69FF;
   }
   
   .dark .moe-resize-handle-dots span,
   [data-theme="dark"] .moe-resize-handle-dots span {
-    background-color: #9ca3af;
+    background-color: #8C8C8C;
   }
   
   .dark .moe-resize-handle:hover .moe-resize-handle-dots span,
   [data-theme="dark"] .moe-resize-handle:hover .moe-resize-handle-dots span {
-    background-color: #4D6DCE;
+    background-color: #2E69FF;
   }
   
   body.moe-resizing {
@@ -135,31 +141,45 @@ div[class*="scroll-mt"][class*="peer"] {
   margin-top: 2rem;
   margin-bottom: 1.5rem;
 }
+/* Hero lockup: "moengage" logotype beside "Documentation".
+   The logo baseline sits at 22.2 of the artwork's 31-unit viewBox, so 28.9% of it
+   is descender space. Aligning or sizing by the image box therefore places the
+   logotype too high; the values below are derived from that baseline instead. */
 .hero-logo-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.3em;
   flex-wrap: wrap;
+  /* Scales both halves together. Fluid so the lockup stays on one line: it is
+     ~13.55em wide, and the content column is 264px at a 320px viewport. */
+  font-size: clamp(1.15rem, 5.5vw, 2.25rem);
+  color: #121016; /* fill baked into logo/light.svg */
+}
+.dark .hero-logo-row {
+  color: #fff; /* fill baked into logo/dark.svg */
 }
 .hero-logo {
-  height: 60px;
+  /* Set width, not height: a height letterboxes the artwork in production, where
+     Mintlify adds width/height attributes and object-contain. 6.38em puts the
+     logotype's x-height on the label's cap height. */
+  width: 6.38em;
+  height: auto;
+  /* Flex aligns images on their bottom edge, which is 0.044 x width below this
+     artwork's baseline. Offset by that amount: 0.044 x 6.38em. */
+  position: relative;
+  top: 0.281em;
 }
 .hero-docs-label {
-  font-size: 2.25rem;
-  font-weight: 300;
+  font-size: 1em;
+  font-weight: 400; /* no 300-weight Circular face is loaded */
+  color: inherit;
 }
 .hero-tagline {
   font-size: 1.15rem;
   margin-top: 0.75rem;
 }
 @media (max-width: 640px) {
-  .hero-logo {
-    height: 40px;
-  }
-  .hero-docs-label {
-    font-size: 1.5rem;
-  }
   .hero-tagline {
     font-size: 1rem;
   }
@@ -215,14 +235,46 @@ div[class*="scroll-mt"][class*="peer"] {
   vertical-align: middle;
 }
 
-/* Sidebar: bold expandable group/section rows (native <button>s with an
-   aria-expanded attribute, which reveal nested pages) so they read as section
-   headers instead of blending in with plain page links (<a>) at the same
-   weight. Leaf links and the already-bold top-level group titles are
-   unaffected. #sidebar-content (desktop) and #mobile-nav (mobile overlay) are
-   Mintlify's sidebar hooks; scoping to them excludes the page context menu,
-   which also uses aria-expanded buttons. */
+/* Sidebar: keep the expandable group/section rows at the same weight as the
+   plain page links, so the nav reads flat. These are the native <button>s
+   carrying aria-expanded that reveal nested pages. #sidebar-content (desktop)
+   and #mobile-nav (mobile overlay) are Mintlify's sidebar hooks; scoping to
+   them excludes the page context menu, which also uses aria-expanded
+   buttons. */
 #sidebar-content button[aria-expanded],
 #mobile-nav button[aria-expanded] {
-  font-weight: 600;
+  font-weight: 400;
+}
+
+/* Footer, multi-column layout.
+
+   From md up, Mintlify lays the wordmark, the link columns and the social icons
+   out on a single row, and hard-codes an inline grid-template-columns for however
+   many columns are configured. In the md-to-lg band that row leaves the grid only
+   ~308px, so three columns come out ~81px each while their labels need 112-130px.
+   The columns are whitespace-nowrap, and md:items-center makes each item
+   shrink-to-fit rather than stretch, so md:truncate never engages and the text
+   simply overflows its column and collides with the neighbour.
+
+   Fix: stack that row until there is genuinely room for it (lg and up), which
+   hands the grid the full content width. Also left-align the icons, since
+   justify-end reads as stranded once the row is stacked. */
+@media (max-width: 1023px) {
+  footer div[class*="md:flex-row"][class*="min-h-19"] {
+    flex-direction: column;
+  }
+  footer div[class*="flex-wrap"][class*="justify-end"] {
+    justify-content: flex-start;
+  }
+}
+
+/* Under md the wordmark and the icons additionally share a row, and at 375px the
+   wordmark takes ~168px of the ~311px available, so the icons wrapped to a second
+   line. Stack them under the wordmark, left-aligned with the link columns. */
+@media (max-width: 767px) {
+  footer div[class*="md:flex-col"][class*="items-center"] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
 }
