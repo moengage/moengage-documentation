@@ -2489,7 +2489,43 @@ components:
             If a user does not become eligible for delivery within the configured window, the message is dropped and the outcome is recorded in campaign analytics.
 
             For active `PERIODIC` and triggered campaigns, changes to this value apply only to messages queued after the update. Messages already in the queue retain the original duration.
-
+        limit_send_config:
+          type: object
+          description: |
+            Configuration for limiting how many times a user can receive this campaign within a specified rolling time window. When enabled, MoEngage drops deliveries to users who have already reached `max_count` within the window and records the outcome in campaign analytics.
+            Applies to `PERIODIC` and `EVENT_TRIGGERED` campaigns. Not applicable to other delivery types.
+          properties:
+            enabled:
+              type: boolean
+              description: |
+                Whether the send limit is enforced for this campaign. When `false`, `max_count`, `window_value`, and `window_unit` are ignored.
+              example: true
+            max_count:
+              type: integer
+              minimum: 1
+              description: |
+                The maximum number of times a user can receive this campaign within the window defined by `window_value` and `window_unit`.
+              example: 1
+            window_value:
+              type: integer
+              minimum: 1
+              description: |
+                The size of the rolling time window during which `max_count` is enforced. Combined with `window_unit` — for example, `window_value: 1` with `window_unit: DAYS` enforces the limit across a 24-hour rolling window. The maximum frequency window you can configure is **1 year**, which means, up to **12 months**, **52 weeks**, or **365 days**, depending on the unit you choose.
+              example: 1
+            window_unit:
+              type: string
+              enum:
+                - HOURS
+                - DAYS
+                - WEEKS
+                - MONTHS
+                - YEAR
+              description: |
+                The unit of time for `window_value`. `HOURS` is applicable only to event triggered campaigns.
+              example: DAYS
+          required:
+            - enabled
+          
     EmailDeliveryControls:
       type: object
       description: |
@@ -2513,6 +2549,43 @@ components:
         minimum_delay_between_two_notification_in_hour: 
           type: integer
           description: Minimum delay between two notifications in hours.
+        limit_send_config:
+          type: object
+          description: |
+            Configuration for limiting how many times a user can receive this campaign within a specified rolling time window. When enabled, MoEngage drops deliveries to users who have already reached `max_count` within the window and records the outcome in campaign analytics.
+
+            Applies to `PERIODIC` and `EVENT_TRIGGERED` campaigns. Not applicable to transactional campaigns, which do not have delivery controls.
+          properties:
+            enabled:
+              type: boolean
+              description: |
+                Whether the send limit is enforced for this campaign. When `false`, `max_count`, `window_value`, and `window_unit` are ignored.
+              example: true
+            max_count:
+              type: integer
+              minimum: 1
+              description: |
+                The maximum number of times a user can receive this campaign within the window defined by `window_value` and `window_unit`.
+              example: 1
+            window_value:
+              type: integer
+              minimum: 1
+              description: |
+                The size of the rolling time window during which `max_count` is enforced. Combined with `window_unit` — for example, `window_value: 1` with `window_unit: DAYS` enforces the limit across a 24-hour rolling window. The maximum frequency window you can configure is **1 year**, which means, up to **12 months**, **52 weeks**, or **365 days**, depending on the unit you choose.
+              example: 1
+            window_unit:
+              type: string
+              enum:
+                - HOURS
+                - DAYS
+                - WEEKS
+                - MONTHS
+                - YEAR
+              description: |
+                The unit of time for `window_value`. `HOURS` is applicable only to event triggered campaigns.
+              example: DAYS
+          required:
+            - enabled
 
     AdvancedDetails:
       type: object
@@ -3375,6 +3448,12 @@ paths:
                       repeat_frequency: 1
                       repeat_on_days_of_week:
                         - "MONDAY"
+                  delivery_controls:
+                    limit_send_config:
+                      enabled: true
+                      max_count: 1
+                      window_value: 1
+                      window_unit: "DAYS"       
               email_one_time:
                 summary: Email - ONE_TIME
                 value:
@@ -3491,6 +3570,11 @@ paths:
                     bypass_dnd: false
                     minimum_delay_between_two_notification_in_hour: 24
                     ignore_global_minimum_delay: false
+                    limit_send_config:
+                      enabled: true
+                      max_count: 1
+                      window_value: 1
+                      window_unit: "DAYS" 
               push_business_event_triggered:
                 summary: Push - BUSINESS_EVENT_TRIGGERED
                 value:
@@ -3656,6 +3740,12 @@ paths:
                       repeat_frequency: 1
                       repeat_on_days_of_week:
                         - "TUESDAY"
+                  delivery_controls:
+                    limit_send_config:
+                      enabled: true
+                      max_count: 1
+                      window_value: 1
+                      window_unit: "DAYS"       
               email_event_triggered:
                 summary: Email - EVENT_TRIGGERED
                 value:
@@ -3691,6 +3781,12 @@ paths:
                     delivery_type: "AT_FIXED_TIME"
                     start_time: "{{start_time}}"
                     expiry_time: "{{expiry_time}}"
+                  delivery_controls:
+                    limit_send_config:
+                      enabled: true
+                      max_count: 1
+                      window_value: 1
+                      window_unit: "DAYS"   
               email_business_event_triggered:
                 summary: Email - BUSINESS_EVENT_TRIGGERED
                 value:
