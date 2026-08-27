@@ -113,6 +113,8 @@ paths:
 
         Send `Content-Type: application/json` only when you include a request body. When the saved configuration has no tokens and you send no body, omit the header as well.
 
+        The upstream response is passed through in `data.api_response_body` — parsed JSON when the upstream returns JSON, and the raw body as a string otherwise. See the response examples for both cases.
+
         The URL is validated against server-side request forgery (SSRF): internal and private ranges are rejected with `400`.
       x-mint:
         content: |
@@ -152,20 +154,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContentApiTestResponse'
-              example:
-                response_id: resp_4c8e1f26-7b93-4d5a-9e08-3a1b6d7c2f45
-                type: content-apis
-                data:
-                  api_response_code: 200
-                  api_response_body:
-                    weather:
-                      - main: Clouds
-                        description: overcast clouds
-                    main:
-                      temp: 307.22
-                      humidity: 50
-                    name: Delhi
-                    cod: 200
+              examples:
+                jsonResponse:
+                  summary: Upstream returned JSON
+                  value:
+                    response_id: resp_4c8e1f26-7b93-4d5a-9e08-3a1b6d7c2f45
+                    type: content-apis
+                    data:
+                      api_response_code: 200
+                      api_response_body:
+                        weather:
+                          - main: Clouds
+                            description: overcast clouds
+                        main:
+                          temp: 307.22
+                          humidity: 50
+                        name: Delhi
+                        cod: 200
+                plainTextResponse:
+                  summary: Upstream returned plain text
+                  value:
+                    response_id: resp_4c8e1f26-7b93-4d5a-9e08-3a1b6d7c2f45
+                    type: content-apis
+                    data:
+                      api_response_code: 200
+                      api_response_body: '22.50'
+                htmlErrorResponse:
+                  summary: Upstream returned an error page
+                  value:
+                    response_id: resp_4c8e1f26-7b93-4d5a-9e08-3a1b6d7c2f45
+                    type: content-apis
+                    data:
+                      api_response_code: 502
+                      api_response_body: "<html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>"
         '400':
           $ref: '#/components/responses/BadRequestTest'
         '401':
@@ -365,10 +386,19 @@ components:
           properties:
             api_response_code:
               type: integer
-              description: HTTP status code returned by the upstream Content API.
+              description: >
+                HTTP status code returned by the upstream Content API. An upstream failure is
+                still reported with `200` from this endpoint, so check this field rather than the
+                envelope status to tell whether the upstream call succeeded.
               example: 200
             api_response_body:
-              description: Response body returned by the upstream Content API (arbitrary JSON or string).
+              description: >
+                Response body returned by the upstream Content API, passed through unchanged.
+                When the upstream returns JSON, the parsed value appears here and can be an
+                object, array, string, number, boolean, or null. When the upstream returns
+                anything else — plain text, HTML, XML — the raw body appears as a JSON string.
+                Do not assume this field is an object: read `api_response_code` first, then
+                handle the body according to what the upstream endpoint actually produces.
               example:
                 weather:
                   - main: Clouds
