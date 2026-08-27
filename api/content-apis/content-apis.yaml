@@ -337,10 +337,17 @@ components:
       description: >
         Sample values for the personalization tokens in the saved Content API. Omit the
         body entirely if the config has no tokens.
+
+
+        Worked example: a config whose URL is
+        `https://api.example.com/v1/weather?q={{UserAttribute['city']}}&units={{UserAttribute['units']}}`
+        has two tokens, both in the `UserAttribute` namespace, so the body carries
+        `dynamic_values.UserAttribute.city` and `dynamic_values.UserAttribute.units`.
       properties:
         request_id:
           type: string
-          description: Client-generated ID for tracing.
+          description: Client-generated ID for tracing. Returned as `response_id` in the response, prefixed with `resp_`.
+          example: 4c8e1f26-7b93-4d5a-9e08-3a1b6d7c2f45
         dynamic_values:
           type: object
           additionalProperties:
@@ -349,8 +356,18 @@ components:
               type: string
           description: >
             Sample values for the personalization tokens in the saved config, grouped by
-            token namespace (for example, `UserAttribute` or `EventAttribute`). A token like
-            `{{UserAttribute['city']}}` resolves from `dynamic_values.UserAttribute.city`.
+            token namespace.
+
+
+            The object is exactly two levels deep — namespace, then attribute name — and every
+            value is a string. A token resolves by path: `{{UserAttribute['city']}}` reads
+            `dynamic_values.UserAttribute.city`, and `{{EventAttribute['product_id']}}` reads
+            `dynamic_values.EventAttribute.product_id`. The namespace is the part before the
+            square brackets and the attribute name is the quoted string inside them.
+
+
+            Which namespaces and attribute names you send depends entirely on the configuration
+            you are testing — supply one entry per token in that config, and nothing else.
             Tokens may appear in the saved url, params, headers, or body; each is resolved
             before the upstream call.
           example:
