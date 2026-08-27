@@ -669,18 +669,9 @@ paths:
 
   /v5/offers/{offer_id}:
     get:
-      operationId: getPublicOfferingMeta
-      summary: Get Offering Meta
-      description: |
-        Retrieve a single offering's full configuration by ID: its content, targeting,
-        scheduling, variation, and capping rules. The response mirrors the [Create Offering](/api/public-offerings/create-offering)
-        request body field-for-field and adds the server-assigned fields `id`, `status`,
-        `created_at`, `updated_at`, and `updated_by`. Because the payload matches the Create
-        Offering schema, you can use it as a reference to replicate or modify an offering with
-        minimal transformation.
-
-        This endpoint accepts only the `offer_id` path parameter. To search, filter, or
-        paginate across offerings, use the [List Offerings API](/api/public-offerings/list-offerings) instead.
+      operationId: getPublicOffering
+      summary: Get Offering
+      description: Retrieve the full configuration of a single offering by its ID.
       x-mint:
         content: |
           #### Rate Limit
@@ -709,12 +700,7 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - name: offer_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique ID of the offering to retrieve. You can fetch the offering ID using the [List Offerings API](/api/public-offerings/list-offerings) by filtering with name.
+        - $ref: '#/components/parameters/OfferId'
       responses:
         '200':
           description: Offering retrieved successfully.
@@ -817,12 +803,7 @@ paths:
       security:
         - basicAuth: []
       parameters:
-        - name: offer_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique ID of the offering to be updated. You can fetch the offering ID using the [List Offerings API](/api/public-offerings/list-offerings) by filtering with name.
+        - $ref: '#/components/parameters/OfferId'
         - name: Idempotency-Key
           in: header
           required: true
@@ -1203,6 +1184,14 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
 
 components:
+  parameters:
+    OfferId:
+      name: offer_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique ID of the offering, including the `offer_` prefix. You can fetch offering IDs using the [List Offerings API](/api/public-offerings/list-offerings).
   schemas:
     OfferTemplateListItem:
       description: >
@@ -2117,51 +2106,106 @@ components:
           updated_at: "2026-07-09T09:29:18.526812352Z"
 
     PublicOfferGetResponse:
-      description: >
-        Response returned by `GET /v5/offers/{offer_id}`. The `data` object contains the
-        offering's full configuration — every field accepted by `POST /v5/offers` plus the
-        server-assigned fields `id`, `status`, `created_at`, `updated_at`, and `updated_by`.
+      description: Response body for `GET /v5/offers/{offer_id}`, containing the offering's stored configuration.
       type: object
       properties:
         response_id:
           type: string
-          description: >
-            Format: `resp_<X-MOE-Request-Id>` header value
-            (auto-generated UUID if the `X-MOE-Request-Id` header was not part of the request).
+          description: Unique identifier for this API response, useful when correlating with server-side logs.
           example: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type:
           type: string
-          enum: [offer]
-          description: Resource type discriminator. Always `offer`.
+          description: The type of object returned. Always `offer` for this endpoint.
+          example: offer
         data:
-          description: The offering's full configuration.
-          allOf:
-            - type: object
-              properties:
-                id:
-                  type: string
-                  description: 'Offering ID assigned by the server. Format: `offer_<OfferingId>`.'
-                  example: offer_6a766d5d094949363d4d6bf2
-                status:
-                  type: string
-                  enum: [active, scheduled, expired, archived]
-                  description: Current lifecycle status of the offering.
-                  example: scheduled
-                created_at:
-                  type: string
-                  format: date-time
-                  description: ISO 8601 UTC timestamp when the offering was created.
-                  example: "2026-08-07T23:42:21.556936210Z"
-                updated_at:
-                  type: string
-                  format: date-time
-                  description: ISO 8601 UTC timestamp of the most recent update.
-                  example: "2026-08-07T23:42:21.556979662Z"
-                updated_by:
-                  type: string
-                  description: Identifier (email) of the user or agent that last updated the offering.
-                  example: bekif.bekiyev@moengage.com
-            - $ref: '#/components/schemas/ClientOfferCreateRequest'
+          type: object
+          description: The offering's stored configuration, as it currently exists in your workspace.
+          properties:
+            id:
+              type: string
+              description: Unique ID of the offering, including the `offer_` prefix.
+              example: offer_6a766d5d094949363d4d6bf2
+            status:
+              type: string
+              description: Current lifecycle status of the offering. One of `scheduled`, `active`, `expired`, or `archived`.
+              example: scheduled
+            created_at:
+              type: string
+              format: date-time
+              description: ISO 8601 UTC timestamp when the offering was created.
+              example: "2026-08-07T23:42:21.556936210Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: ISO 8601 UTC timestamp when the offering was last updated.
+              example: "2026-08-07T23:42:21.556979662Z"
+            updated_by:
+              type: string
+              description: Email of the user who last updated the offering.
+              example: bekif.bekiyev@moengage.com
+            created_by:
+              type: string
+              description: Email of the user who created the offering.
+              example: marketing-team@example.com
+            name:
+              type: string
+              description: Display name of the offering, unique within the workspace.
+              example: personalized_offer
+            description:
+              type: string
+              description: Free-text description of the offering's purpose.
+              example: Configured using personalization template
+            priority:
+              type: integer
+              description: Static priority score from 1 (lowest) to 100 (highest), used when the Decision Policy ranks by Offering Priority.
+              example: 90
+            delivery:
+              type: string
+              description: Delivery mode of the offering. `scheduled` means it is served within its scheduling window.
+              example: scheduled
+            tags:
+              type: array
+              items:
+                type: string
+              description: IDs of the tags applied to the offering.
+              example: [tag_697211b32ccd4a79028b3689]
+            scheduling:
+              allOf:
+                - $ref: '#/components/schemas/OfferSchedulingCreate'
+              description: The offering's delivery window — its start time, expiry time, and timezone.
+            segment_info:
+              allOf:
+                - $ref: '#/components/schemas/OfferSegmentInfo'
+              description: Targeting configuration that determines which users are eligible for the offering.
+            offer_content:
+              allOf:
+                - $ref: '#/components/schemas/OfferContent'
+              description: The content payload delivered to the end user.
+            variation_meta:
+              allOf:
+                - $ref: '#/components/schemas/OfferVariationMeta'
+              description: A/B variation configuration for the offering's content.
+            capping_rules:
+              allOf:
+                - $ref: '#/components/schemas/OfferCappingRules'
+              description: Frequency-capping rules that limit how often the offering is delivered.
+            is_global_control_enabled:
+              type: boolean
+              description: Whether the global control group is enabled for the offering.
+              example: true
+            imp_track_hours:
+              type: integer
+              description: Attribution window, in hours.
+              example: 36
+            offering_attribute_configuration:
+              type: array
+              items:
+                $ref: '#/components/schemas/OfferAttributeConfigurationRequest'
+              description: Custom offering attributes used by the Custom formula ranking strategy in the Decision Policy.
+            conversion:
+              allOf:
+                - $ref: '#/components/schemas/ConversionDto'
+              description: Conversion goals tracked to measure the offering's effectiveness.
       example:
         response_id: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type: offer
