@@ -146,7 +146,6 @@ components:
           PUSH: '#/components/schemas/PushCampaignCreateV5Request'
           EMAIL: '#/components/schemas/EmailCampaignCreateV5Request'
           SMS: '#/components/schemas/SmsCampaignCreateV5Request'
-          MMS: '#/components/schemas/SmsCampaignCreateV5Request'
 
     PushCampaignCreateV5Request:
       title: Push Campaign
@@ -249,15 +248,15 @@ components:
         campaign_audience_limit: { $ref: '#/components/schemas/CampaignAudienceLimit' }
 
     SmsCampaignCreateV5Request:
-      title: SMS / MMS Campaign
+      title: SMS Campaign
       type: object
       description: |
-        Request body for creating an SMS or MMS campaign draft via `POST /v5/campaigns`. `channel: SMS` and `channel: MMS` both use this same request schema — the channel value determines which leaf key (`content.sms` or `content.mms`) is used inside `campaign_content`.
+        Request body for creating an SMS campaign draft via `POST /v5/campaigns`. `channel: SMS` uses `content.sms` inside `campaign_content`.
 
-        Only `channel`, `campaign_delivery_type`, and `created_by` are required. Optional components (`basic_details`, `connector`, `campaign_content`, and so on) can be included in the same request, or added later via `PATCH /v5/campaigns/{campaign_id}`. An MMS draft can be created without `mms_media_data` (a soft draft) — see `MmsContent`.
+        Only `channel`, `campaign_delivery_type`, and `created_by` are required. Optional components (`basic_details`, `connector`, `campaign_content`, and so on) can be included in the same request, or added later via `PATCH /v5/campaigns/{campaign_id}`.
 
         For the component-level schemas with conditional rules:
-        - [Campaign content reference](/api/campaigns/campaign-content-reference) — `basic_details` (see [SMS campaign metadata](/api/campaigns/campaign-content-reference#sms-campaign-metadata)), `campaign_content` (see [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content)), `variation_details`, and `connector`.
+        - [Campaign content reference](/api/campaigns/campaign-content-reference) — `basic_details` (see [SMS campaign metadata](/api/campaigns/campaign-content-reference#sms-campaign-metadata)), `campaign_content` (see [SMS content](/api/campaigns/campaign-content-reference#sms-content)), `variation_details`, and `connector`.
         - [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference) — `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls` (see [SMS delivery controls](/api/campaigns/audience-scheduling-delivery-reference#sms-delivery-controls)), `conversion_goal_details`, `control_group_details`, and `utm_params`.
       required: [channel, campaign_delivery_type, created_by]
       properties:
@@ -267,15 +266,15 @@ components:
           example: "{{request_id}}"
         channel:
           type: string
-          enum: [SMS, MMS]
-          description: The campaign channel. `SMS` for plain-text messages, `MMS` for messages with media attachments.
+          enum: [SMS]
+          description: The campaign channel. `SMS` for plain-text messages.
         campaign_delivery_type:
           type: string
           enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
           description: |
             The delivery type of the campaign.
 
-            `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, and `BROADCAST_LIVE_ACTIVITY` are Push-only and are not valid for SMS or MMS.
+            `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, and `BROADCAST_LIVE_ACTIVITY` are Push-only and are not valid for SMS.
         created_by:
           type: string
           format: email
@@ -417,19 +416,19 @@ components:
             Configuration for capping how many users this campaign can reach. **Flag-gated feature** — must be enabled for your workspace by your MoEngage account team before use.
 
     SmsComponentPatchRequest:
-      title: Update SMS / MMS Campaign Draft
+      title: Update SMS Campaign Draft
       type: object
       description: |
-        Update one or more components of an SMS or MMS campaign draft. Only fields you include are changed,
+        Update one or more components of an SMS campaign draft. Only fields you include are changed,
         omitted fields retain their current values. When updating a nested field, include its complete
-        parent object. `channel: SMS` and `channel: MMS` both use this same request schema.
+        parent object.
 
         <Warning>
-        **Start Time is not editable for Event-Triggered or Business-Triggered SMS/MMS campaigns.** Per the PRD, `scheduling_details.start_time` cannot be updated once the campaign exists for these delivery types. It is not yet confirmed whether this is a stricter rule than the existing `ACTIVE`-state restriction on `scheduling_details` documented in [Update restrictions by campaign state](/api/update-campaigns/update-campaign-v5#update-restrictions-by-campaign-state) (for example, whether it also applies in `DRAFT` state for SMS/MMS). Confirm with Engineering.
+        **Start Time is not editable for Event-Triggered or Business-Triggered SMS campaigns.** Per the PRD, `scheduling_details.start_time` cannot be updated once the campaign exists for these delivery types. It is not yet confirmed whether this is a stricter rule than the existing `ACTIVE`-state restriction on `scheduling_details` documented in [Update restrictions by campaign state](/api/update-campaigns/update-campaign-v5#update-restrictions-by-campaign-state) (for example, whether it also applies in `DRAFT` state for SMS). Confirm with Engineering.
         </Warning>
 
         <Note>
-        The PRD's Update Campaign story does not list `Delivery Type` as an editable field for SMS/MMS at all (unlike Create). This is documented here as **likely immutable after creation** for SMS/MMS, pending Engineering confirmation of whether that's intentional or an omission in the PRD.
+        The PRD's Update Campaign story does not list `Delivery Type` as an editable field for SMS at all (unlike Create). This is documented here as **likely immutable after creation** for SMS, pending Engineering confirmation of whether that's intentional or an omission in the PRD.
         </Note>
       properties:
         request_id:
@@ -438,8 +437,8 @@ components:
           example: "{{request_id}}"
         channel:
           type: string
-          enum: [SMS, MMS]
-          description: Must be `SMS` or `MMS`, matching the existing campaign's channel.
+          enum: [SMS]
+          description: Must be `SMS`, matching the existing campaign's channel.
         campaign_delivery_type:
           type: string
           enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
@@ -1189,7 +1188,7 @@ components:
     SmsBasicDetailsV5:
       type: object
       description: |
-        Identifying metadata for the SMS or MMS campaign, including name, team, tags, and SMS/MMS-specific compliance fields. Shared by both `SMS` and `MMS` campaigns (`channel` distinguishes them).
+        Identifying metadata for the SMS campaign, including name, team, tags, and SMS-specific compliance fields.
 
         For field-by-field rules, refer to [SMS campaign metadata](/api/campaigns/campaign-content-reference#sms-campaign-metadata).
       properties:
@@ -1225,14 +1224,14 @@ components:
             The name of the team collaborating on this campaign.
 
             <Note>
-            The PRD describes this as a "List of Team Name," which could mean a multi-value field specific to SMS/MMS. Documented here as the existing single-string `team` field (matching Push/Email), since the `patch/mcp-sms` engineering source does not address this field and no plural form has been confirmed. Confirm with Engineering whether SMS/MMS genuinely needs a multi-value team field, and the maximum number of teams per campaign (unresolved in the PRD).
+            The PRD describes this as a "List of Team Name," which could mean a multi-value field specific to SMS. Documented here as the existing single-string `team` field (matching Push/Email), since the `patch/mcp-sms` engineering source does not address this field and no plural form has been confirmed. Confirm with Engineering whether SMS genuinely needs a multi-value team field, and the maximum number of teams per campaign (unresolved in the PRD).
             </Note>
           example: "marketing_team"
         user_attribute_identifier:
           type: string
           default: "Mobile Number (Standard)"
           description: |
-            The user attribute that stores the recipient's mobile number. Use "Mobile Number (Standard)" for SMS/MMS channels.
+            The user attribute that stores the recipient's mobile number. Use "Mobile Number (Standard)" for SMS.
           example: "Mobile Number (Standard)"
 
     PlatformSpecificDetails:
@@ -1429,7 +1428,7 @@ components:
     SmsTriggerCondition:
       type: object
       description: |
-        Trigger condition details for SMS/MMS event-triggered campaigns.
+        Trigger condition details for SMS event-triggered campaigns.
 
         **Required** for EVENT_TRIGGERED campaigns.
 
@@ -1440,7 +1439,7 @@ components:
         secondary_included_filters:
           allOf:
             - $ref: '#/components/schemas/FilterGroup'
-          description: Additional filters that must also be satisfied for the SMS/MMS trigger to fire. For runnable examples, refer to [Primary and secondary trigger filters](/api/campaigns/audience-scheduling-delivery-reference#primary-and-secondary-trigger-filters).
+          description: Additional filters that must also be satisfied for the SMS trigger to fire. For runnable examples, refer to [Primary and secondary trigger filters](/api/campaigns/audience-scheduling-delivery-reference#primary-and-secondary-trigger-filters).
         trigger_delay_type:
           type: string
           enum: [DELAY, ASAP]
@@ -1547,11 +1546,11 @@ components:
     SmsCampaignContent:
       type: object
       description: |
-        SMS or MMS message content, locales, and A/B variations. The `channel` value (`SMS` or `MMS`) determines which leaf key under `content` is used: `sms` for SMS campaigns, `mms` for MMS campaigns (with `mms_media_data`).
+        SMS message content, locales, and A/B variations. Content lives under the `sms` leaf key inside `content`.
 
         For full `POST /v5/campaigns` request examples that include `campaign_content`, refer to `campaign_delivery_type` on `SmsCampaignCreateV5Request`, `VariationDetails`, and the Create Campaign Draft code samples.
 
-        For SMS and MMS content fields, including `message` versus `custom_template_id` and `mms_media_data`, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
+        For SMS content fields, including `message` versus `custom_template_id`, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content).
       properties:
         locales:
           type: array
@@ -1565,13 +1564,12 @@ components:
           description: |
             The campaign message payload. Two shapes are accepted, matching the Push/Email pattern:
 
-            - **Flat shape (no locales or variations):** Pass a flat `sms` object directly under `content` for SMS campaigns, or a flat `mms` object for MMS campaigns.
-            - **Locale-keyed and variation-keyed shape:** Key by locale name, then by variation name: `content[locale_name][variation_name] = { sms: { ... } }` (SMS) or `{ mms: { ... } }` (MMS). The `"default"` locale key is always required and serves as the fallback. Additional locale keys must match values listed in `locales`.
+            - **Flat shape (no locales or variations):** Pass a flat `sms` object directly under `content`.
+            - **Locale-keyed and variation-keyed shape:** Key by locale name, then by variation name: `content[locale_name][variation_name] = { sms: { ... } }`. The `"default"` locale key is always required and serves as the fallback. Additional locale keys must match values listed in `locales`.
 
             For runnable payloads, refer to [Content payload structure](/api/campaigns/campaign-content-reference#content-payload-structure).
           properties:
             sms: { $ref: '#/components/schemas/SmsContent' }
-            mms: { $ref: '#/components/schemas/MmsContent' }
           additionalProperties:
             type: object
             description: Variation-keyed content blocks for a single locale.
@@ -1579,7 +1577,6 @@ components:
               type: object
               properties:
                 sms: { $ref: '#/components/schemas/SmsContent' }
-                mms: { $ref: '#/components/schemas/MmsContent' }
 
     VariationDetails:
       type: object
@@ -2369,42 +2366,6 @@ components:
 
             **Optional** if `message` is provided.
 
-    MmsContent:
-      type: object
-      description: MMS campaign content.
-      properties:
-        message:
-          type: string
-          description: |
-            The MMS text body accompanying the media.
-
-            **Optional** if `custom_template_id` is provided. **Maximum:** 1600 characters.
-        custom_template_id:
-          type: string
-          description: |
-            The ID of a saved template.
-
-            **Optional** if `message` is provided.
-        mms_media_data:
-          type: array
-          items:
-            type: object
-            required: [media_url]
-            properties:
-              media_url:
-                type: string
-                description: The URL of the media file to attach.
-              type:
-                type: string
-                description: |
-                  The media MIME type (for example, `image/jpeg`, `video/mp4`).
-          description: |
-            Media attachments for the MMS message.
-
-            **Allowed file extensions:** `jpg`, `jpeg`, `gif`, `png`, `mp4`, `webm`. **Maximum:** 10 items. At most one personalized media URL.
-
-            **Not required at draft-create time** — an MMS draft can be created without `mms_media_data` (a soft draft). It becomes required when the draft is validated via `POST /v5/campaigns/{campaign_id}/validate`, or when published from the Dashboard.
-
     SegmentationDetails:
       type: object
       description: |
@@ -2899,7 +2860,7 @@ components:
     SmsDeliveryControls:
       type: object
       description: |
-        Controls for SMS/MMS campaign delivery behavior. Reuses the same field names as `PushDeliveryControls`/`EmailDeliveryControls` wherever the concept already exists.
+        Controls for SMS campaign delivery behavior. Reuses the same field names as `PushDeliveryControls`/`EmailDeliveryControls` wherever the concept already exists.
 
         For runnable examples, refer to [SMS delivery controls](/api/campaigns/audience-scheduling-delivery-reference#sms-delivery-controls).
       properties:
@@ -2921,7 +2882,7 @@ components:
           description: |
             Whether to count this campaign for frequency capping.
 
-            **Conditionally required:** required when `ignore_frequency_capping` is `true`, per the PRD. This conditional requirement is SMS/MMS-specific — see [Validation rules](/api/campaigns/campaign-content-reference#validation-rules) — and is not documented for Push/Email today.
+            **Conditionally required:** required when `ignore_frequency_capping` is `true`, per the PRD. This conditional requirement is SMS-specific — see [Validation rules](/api/campaigns/campaign-content-reference#validation-rules) — and is not documented for Push/Email today.
         ignore_frequency_capping:
           type: boolean
           description: Whether to ignore frequency capping for this campaign.
@@ -3145,7 +3106,7 @@ components:
     SmsConnector:
       type: object
       description: |
-        SMS/MMS connector configuration. Identifies the configured SMS delivery provider for this campaign. `sender_name` is a separate, sibling field on the request body (not nested inside `connector`) — matching the shape already returned by `GET /v5/campaigns/{campaign_id}` for SMS campaigns.
+        SMS connector configuration. Identifies the configured SMS delivery provider for this campaign. `sender_name` is a separate, sibling field on the request body (not nested inside `connector`) — matching the shape already returned by `GET /v5/campaigns/{campaign_id}` for SMS campaigns.
 
         <Note>
         Per the `patch/mcp-sms` engineering source: only `connector_name` is sent on create/update — `connector_type` is not part of this request schema (unlike the Email `Connector` schema above). `connector_type` is still returned in the `GET /v5/campaigns/{campaign_id}` response, inferred server-side from `connector_name`.
@@ -3699,10 +3660,10 @@ paths:
       operationId: create_draft_campaign_v5
       summary: Create Campaign Draft (V5)
       description: |
-        Creates a Push, Email, SMS, or MMS campaign draft. Content, audience, and delivery settings can be included at the time of creation, or added later via `PATCH /v5/campaigns/{campaign_id}`. Refer to the `sms_*` and `mms_*` request examples below and the SMS campaign metadata for SMS/MMS-specific fields.
+        Creates a Push, Email, or SMS campaign draft. Content, audience, and delivery settings can be included at the time of creation, or added later via `PATCH /v5/campaigns/{campaign_id}`. Refer to the `sms_*` request examples below and the SMS campaign metadata for SMS-specific fields.
 
         <Note>
-        This API supports creating and updating SMS and MMS campaign drafts, but does not support publishing them. Publish these campaigns from the MoEngage Dashboard. Use `POST /v5/campaigns/{campaign_id}/validate` to validate the campaign before publishing.
+        This API supports creating and updating SMS campaign drafts, but does not support publishing them. Publish these campaigns from the MoEngage Dashboard. Use `POST /v5/campaigns/{campaign_id}/validate` to validate the campaign before publishing.
         </Note>
       x-mint:
         content: |
@@ -3714,7 +3675,7 @@ paths:
             - iOS (`BASIC` / `STYLIZED_BASIC` / `SIMPLE_IMAGE_CAROUSEL` / `Custom`)
             - Web `BASIC`
             - Email (`html_content` and `custom_template_id`), see [Campaign content reference](/api/campaigns/campaign-content-reference).
-            - SMS (`message`, `custom_template_id`) and MMS (`message`, `mms_media_data`), see [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
+            - SMS (`message`, `custom_template_id`), see [SMS content](/api/campaigns/campaign-content-reference#sms-content).
           - For the full schema of `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls`, `conversion_goal_details`, `control_group_details`, `utm_params`, `campaign_audience_limit`, `advanced`, and `geofences`, see [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference).
           </Info>
 
@@ -4406,77 +4367,6 @@ paths:
                             message: "{{sms_message_es_v2}}"
                   scheduling_details:
                     delivery_type: "ASAP"
-              mms_required_only:
-                summary: MMS - Required fields only
-                value:
-                  request_id: "{{request_id}}"
-                  channel: "MMS"
-                  campaign_delivery_type: "ONE_TIME"
-                  created_by: "{{user_email}}"
-              mms_one_time:
-                summary: MMS - ONE_TIME
-                value:
-                  request_id: "{{request_id}}"
-                  channel: "MMS"
-                  campaign_delivery_type: "ONE_TIME"
-                  created_by: "{{user_email}}"
-                  basic_details:
-                    name: "{{campaign_name}}"
-                    content_type: "PROMOTIONAL"
-                    user_attribute_identifier: "Mobile Number (Standard)"
-                  connector:
-                    connector_name: "{{connector_name}}"
-                  sender_name: "{{sender_name}}"
-                  campaign_content:
-                    content:
-                      mms:
-                        message: "{{mms_message}}"
-                        mms_media_data:
-                          - type: "image/jpeg"
-                            media_url: "{{media_url}}"
-                  scheduling_details:
-                    delivery_type: "ASAP"
-              mms_event_triggered:
-                summary: MMS - EVENT_TRIGGERED
-                value:
-                  request_id: "{{request_id}}"
-                  channel: "MMS"
-                  campaign_delivery_type: "EVENT_TRIGGERED"
-                  created_by: "{{user_email}}"
-                  basic_details:
-                    name: "{{campaign_name}}"
-                    content_type: "TRANSACTIONAL"
-                    user_attribute_identifier: "Mobile Number (Standard)"
-                  connector:
-                    connector_name: "{{connector_name}}"
-                  sender_name: "{{sender_name}}"
-                  trigger_condition:
-                    included_filters:
-                      filter_operator: "and"
-                      filters:
-                        - filter_type: "actions"
-                          action_name: "{{action_name}}"
-                          execution:
-                            type: "atleast"
-                            count: 1
-                          executed: true
-                          condition: "IF"
-                    trigger_delay_type: "DELAY"
-                    trigger_delay_value: 1
-                    trigger_delay_granularity: "HOURS"
-                    trigger_relation: "AFTER"
-                    trigger_attr: "If Action"
-                  campaign_content:
-                    content:
-                      mms:
-                        message: "{{mms_message}}"
-                        mms_media_data:
-                          - type: "video/mp4"
-                            media_url: "{{media_url}}"
-                  scheduling_details:
-                    delivery_type: "AT_FIXED_TIME"
-                    start_time: "{{start_time}}"
-                    expiry_time: "{{expiry_time}}"
       responses:
         '201':
           description: Draft created
@@ -4730,9 +4620,9 @@ paths:
           </Note>
 
           <Warning>
-          **Two additional restrictions apply to SMS/MMS updates**, on top of the table above:
-          - `scheduling_details.start_time` cannot be updated for Event-Triggered or Business-Triggered SMS/MMS campaigns, per the PRD. Whether this is a stricter rule than the existing `ACTIVE`-state restriction on `scheduling_details` above (for example, whether it also applies in `DRAFT` state for SMS/MMS) is unconfirmed — flag for Engineering.
-          - `campaign_delivery_type` is not listed as editable in the PRD's Update Campaign story for SMS/MMS at all (unlike Create). Documented as **likely immutable after creation** for SMS/MMS, pending Engineering confirmation.
+          **Two additional restrictions apply to SMS updates**, on top of the table above:
+          - `scheduling_details.start_time` cannot be updated for Event-Triggered or Business-Triggered SMS campaigns, per the PRD. Whether this is a stricter rule than the existing `ACTIVE`-state restriction on `scheduling_details` above (for example, whether it also applies in `DRAFT` state for SMS) is unconfirmed — flag for Engineering.
+          - `campaign_delivery_type` is not listed as editable in the PRD's Update Campaign story for SMS at all (unlike Create). Documented as **likely immutable after creation** for SMS, pending Engineering confirmation.
 
           See `SmsComponentPatchRequest` for the full detail.
           </Warning>
@@ -5061,20 +4951,6 @@ paths:
                     content:
                       sms:
                         message: "{{sms_message}}"
-              mms_update_campaign_content:
-                summary: MMS - Update campaign_content
-                value:
-                  request_id: "{{request_id}}"
-                  channel: "MMS"
-                  campaign_delivery_type: "{{campaign_delivery_type}}"
-                  updated_by: "{{user_email}}"
-                  campaign_content:
-                    content:
-                      mms:
-                        message: "{{mms_message}}"
-                        mms_media_data:
-                          - type: "image/jpeg"
-                            media_url: "{{media_url}}"
               sms_update_connector:
                 summary: SMS - Update connector
                 value:
