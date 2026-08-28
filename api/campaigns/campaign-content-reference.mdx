@@ -75,6 +75,7 @@ Everything below this section is reference material covering every supported cha
 | [MMS content](#mms-content) | `campaign_content.content.mms` |
 | [A/B test variations](#a%2Fb-test-variations) | `campaign_content.variation_details` |
 | [Email delivery connector](#email-delivery-connector) | `connector` (Email requests only) |
+| [SMS delivery connector](#sms-delivery-connector) | `connector`, `sender_name` (SMS/MMS requests only) |
 | [Validation rules](#validation-rules) | Cross-cutting rules enforced at validate or publish |
 | [Updating an existing campaign](#updating-an-existing-campaign) | Per-state restrictions for `PATCH /v5/campaigns/{campaign_id}` |
 
@@ -1217,25 +1218,8 @@ Each entry in `attachments` is `{ file_type, url }`.
 | `message` | string | The SMS text body. **Maximum:** 1600 characters. Optional when `custom_template_id` is provided. |
 | `custom_template_id` | string | A saved SMS template ID. Reuses the same field name as `EmailContent.custom_template_id`. Optional when `message` is provided. |
 
-### SMS connector and sender
-
-`connector` and `sender_name` are part of the SMS/MMS request body (not `campaign_content`). These are **already confirmed, live fields** — [Get Campaign (V5)](/api/get-campaign-details/get-campaign-v5) already documents them on the SMS read path today.
-
-<Note>
-Per the `patch/mcp-sms` engineering source: on create/update requests, only `connector.connector_name` and `connector.sender_name` are sent — `connector.connector_type` is **not** part of the SMS/MMS request (unlike Email's `connector`, which requires `connector_type`). `connector_type` still appears in the `GET /v5/campaigns/{campaign_id}` response, inferred server-side from `connector_name`.
-</Note>
-
-| Field | Type | Notes |
-| :--- | :--- | :--- |
-| `connector.connector_name` | string | The SMS connector configuration name in the MoEngage workspace. |
-| `sender_name` | string | The sender ID or name configured for this connector. |
-
 ```json
 {
-  "connector": {
-    "connector_name": "{{connector_name}}",
-    "sender_name": "{{sender_name}}"
-  },
   "campaign_content": {
     "content": {
       "sms": {
@@ -1262,10 +1246,6 @@ An MMS draft can be created without `mms_media_data` (a soft draft). It becomes 
 
 ```json
 {
-  "connector": {
-    "connector_name": "{{connector_name}}",
-    "sender_name": "{{sender_name}}"
-  },
   "campaign_content": {
     "content": {
       "mms": {
@@ -1365,6 +1345,28 @@ The `connector` object is part of the Email request body (not the Email `campaig
     "connector_type": "SENDGRID",
     "connector_name": "Sendgrid1"
   }
+}
+```
+
+## SMS delivery connector
+
+The `connector` object is part of the SMS/MMS request body (not `campaign_content`) and identifies the delivery provider configured in the workspace. `sender_name` is a sibling field on the request body, not nested inside `connector`.
+
+<Note>
+`connector` and `sender_name` are **already confirmed, live fields** — [Get Campaign (V5)](/api/get-campaign-details/get-campaign-v5) already documents them on the SMS read path today, in this same shape (`connector` and `sender_name` as siblings). Per the `patch/mcp-sms` engineering source: on create/update requests, only `connector.connector_name` and `sender_name` are sent — `connector.connector_type` is **not** part of the SMS/MMS request (unlike Email's `connector`, which requires `connector_type`). `connector_type` still appears in the `GET /v5/campaigns/{campaign_id}` response, inferred server-side from `connector_name`.
+</Note>
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `connector.connector_name` | string | The SMS connector configuration name in the MoEngage workspace. |
+| `sender_name` | string | The sender ID or name configured for this connector. |
+
+```json
+{
+  "connector": {
+    "connector_name": "{{connector_name}}"
+  },
+  "sender_name": "{{sender_name}}"
 }
 ```
 

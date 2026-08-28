@@ -256,10 +256,6 @@ components:
 
         Only `channel`, `campaign_delivery_type`, and `created_by` are required. Optional components (`basic_details`, `connector`, `campaign_content`, and so on) can be included in the same request, or added later via `PATCH /v5/campaigns/{campaign_id}`. An MMS draft can be created without `mms_media_data` (a soft draft) — see `MmsContent`.
 
-        <Warning>
-        **Publishing is not supported for SMS or MMS campaigns through this API.** Create and update drafts here; publish from the MoEngage Dashboard. Use `POST /v5/campaigns/{campaign_id}/validate` as a publish-tier dry run.
-        </Warning>
-
         For the component-level schemas with conditional rules:
         - [Campaign content reference](/api/campaigns/campaign-content-reference) — `basic_details` (see [SMS campaign metadata](/api/campaigns/campaign-content-reference#sms-campaign-metadata)), `campaign_content` (see [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content)), `variation_details`, and `connector`.
         - [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference) — `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls` (see [SMS delivery controls](/api/campaigns/audience-scheduling-delivery-reference#sms-delivery-controls)), `conversion_goal_details`, `control_group_details`, and `utm_params`.
@@ -288,6 +284,10 @@ components:
         basic_details: { $ref: '#/components/schemas/SmsBasicDetailsV5' }
         trigger_condition: { $ref: '#/components/schemas/SmsTriggerCondition' }
         connector: { $ref: '#/components/schemas/SmsConnector' }
+        sender_name:
+          type: string
+          description: |
+            The sender ID or name configured for this connector, as configured in your MoEngage workspace. A sibling of `connector`, not nested inside it — matches the shape already returned by `GET /v5/campaigns/{campaign_id}` for SMS campaigns.
         campaign_content: { $ref: '#/components/schemas/SmsCampaignContent' }
         segmentation_details: { $ref: '#/components/schemas/SegmentationDetails' }
         scheduling_details: { $ref: '#/components/schemas/SchedulingDetails' }
@@ -460,6 +460,10 @@ components:
           $ref: '#/components/schemas/SmsBasicDetailsV5'
         connector:
           $ref: '#/components/schemas/SmsConnector'
+        sender_name:
+          type: string
+          description: |
+            The sender ID or name configured for this connector, as configured in your MoEngage workspace. A sibling of `connector`, not nested inside it — matches the shape already returned by `GET /v5/campaigns/{campaign_id}` for SMS campaigns.
         trigger_condition:
           $ref: '#/components/schemas/SmsTriggerCondition'
         campaign_content:
@@ -1547,7 +1551,7 @@ components:
 
         For full `POST /v5/campaigns` request examples that include `campaign_content`, refer to `campaign_delivery_type` on `SmsCampaignCreateV5Request`, `VariationDetails`, and the Create Campaign Draft code samples.
 
-        For SMS and MMS content fields, including `message` versus `custom_template_id`, tracked URLs, and `mms_media_data`, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
+        For SMS and MMS content fields, including `message` versus `custom_template_id` and `mms_media_data`, refer to [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
       properties:
         locales:
           type: array
@@ -3141,19 +3145,16 @@ components:
     SmsConnector:
       type: object
       description: |
-        SMS/MMS connector configuration. Identifies the configured SMS delivery provider and sender for this campaign.
+        SMS/MMS connector configuration. Identifies the configured SMS delivery provider for this campaign. `sender_name` is a separate, sibling field on the request body (not nested inside `connector`) — matching the shape already returned by `GET /v5/campaigns/{campaign_id}` for SMS campaigns.
 
         <Note>
-        Per the `patch/mcp-sms` engineering source: only `connector_name` and `sender_name` are sent on create/update — `connector_type` is not part of this request schema (unlike the Email `Connector` schema above). `connector_type` is still returned in the `GET /v5/campaigns/{campaign_id}` response, inferred server-side from `connector_name`.
+        Per the `patch/mcp-sms` engineering source: only `connector_name` is sent on create/update — `connector_type` is not part of this request schema (unlike the Email `Connector` schema above). `connector_type` is still returned in the `GET /v5/campaigns/{campaign_id}` response, inferred server-side from `connector_name`.
         </Note>
-      required: [connector_name, sender_name]
+      required: [connector_name]
       properties:
         connector_name:
           type: string
           description: The name of the SMS connector configuration as configured in your MoEngage workspace.
-        sender_name:
-          type: string
-          description: The sender ID or name configured for this connector, as configured in your MoEngage workspace.
 
     CampaignAudienceLimit:
       type: object
@@ -3698,13 +3699,11 @@ paths:
       operationId: create_draft_campaign_v5
       summary: Create Campaign Draft (V5)
       description: |
-        Creates a Push or Email campaign draft. Content, audience, and delivery settings can be included at the time of creation, or added later via `PATCH /v5/campaigns/{campaign_id}`.
+        Creates a Push, Email, SMS, or MMS campaign draft. Content, audience, and delivery settings can be included at the time of creation, or added later via `PATCH /v5/campaigns/{campaign_id}`. Refer to the `sms_*` and `mms_*` request examples below and the SMS campaign metadata for SMS/MMS-specific fields.
 
-        This endpoint also creates SMS and MMS campaign drafts (`channel: SMS` / `channel: MMS`) — see the `sms_*` and `mms_*` request examples below, and [SMS campaign metadata](/api/campaigns/campaign-content-reference#sms-campaign-metadata).
-
-        <Warning>
-        **Publishing is not supported for SMS or MMS campaigns through this API.** Create and update drafts here; publish from the MoEngage Dashboard. Use `POST /v5/campaigns/{campaign_id}/validate` as a publish-tier dry run.
-        </Warning>
+        <Note>
+        This API supports creating and updating SMS and MMS campaign drafts, but does not support publishing them. Publish these campaigns from the MoEngage Dashboard. Use `POST /v5/campaigns/{campaign_id}/validate` to validate the campaign before publishing.
+        </Note>
       x-mint:
         content: |
 
@@ -3715,7 +3714,7 @@ paths:
             - iOS (`BASIC` / `STYLIZED_BASIC` / `SIMPLE_IMAGE_CAROUSEL` / `Custom`)
             - Web `BASIC`
             - Email (`html_content` and `custom_template_id`), see [Campaign content reference](/api/campaigns/campaign-content-reference).
-            - SMS (`message`, `custom_template_id`, tracked URLs) and MMS (`message`, `mms_media_data`), see [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
+            - SMS (`message`, `custom_template_id`) and MMS (`message`, `mms_media_data`), see [SMS content](/api/campaigns/campaign-content-reference#sms-content) and [MMS content](/api/campaigns/campaign-content-reference#mms-content).
           - For the full schema of `trigger_condition`, `segmentation_details`, `scheduling_details`, `delivery_controls`, `conversion_goal_details`, `control_group_details`, `utm_params`, `campaign_audience_limit`, `advanced`, and `geofences`, see [Audience and delivery reference](/api/campaigns/audience-scheduling-delivery-reference).
           </Info>
 
@@ -4273,7 +4272,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   campaign_content:
                     content:
                       sms:
@@ -4293,7 +4292,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   campaign_content:
                     content:
                       sms:
@@ -4319,7 +4318,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   trigger_condition:
                     included_filters:
                       filter_operator: "and"
@@ -4358,7 +4357,7 @@ paths:
                     business_event: "{{business_event_name}}"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   campaign_content:
                     content:
                       sms:
@@ -4380,7 +4379,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   campaign_content:
                     locales:
                       - "es-ES"
@@ -4427,7 +4426,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   campaign_content:
                     content:
                       mms:
@@ -4450,7 +4449,7 @@ paths:
                     user_attribute_identifier: "Mobile Number (Standard)"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
                   trigger_condition:
                     included_filters:
                       filter_operator: "and"
@@ -5083,7 +5082,7 @@ paths:
                   updated_by: "{{user_email}}"
                   connector:
                     connector_name: "{{connector_name}}"
-                    sender_name: "{{sender_name}}"
+                  sender_name: "{{sender_name}}"
               sms_update_delivery_controls:
                 summary: SMS - Update delivery_controls
                 value:
