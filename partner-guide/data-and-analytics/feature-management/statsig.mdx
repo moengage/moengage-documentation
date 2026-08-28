@@ -1,0 +1,116 @@
+---
+title: "Statsig"
+description: "Forward feature gate, dynamic config, and experiment exposures from Statsig to MoEngage to enrich user profiles and trigger feature-aware campaigns."
+keywords: "Statsig, feature management, feature gates, experimentation, exposure events, webhook, A/B testing"
+---
+
+## Introduction
+
+[Statsig](https://statsig.com/) is a feature management and experimentation platform that teams use to run feature gates, dynamic configurations, and A/B tests in production. Statsig sends real-time event webhooks for exposures and config changes, so you can react to feature and experiment activity as it happens.
+
+## MoEngage × Statsig
+
+The MoEngage and Statsig integration uses real-time feature and experiment data to enrich user profiles and power personalized engagement. When Statsig forwards exposure events to MoEngage, you can segment users by feature eligibility, run experiment-driven campaigns, and keep feature state consistent across your marketing stack.
+
+### Use Cases
+
+Integrating Statsig with MoEngage helps you address the following use cases:
+
+- **Experiment-driven personalization**: Trigger personalized campaigns based on the experiment group a user falls into, so your messaging varies with the data.
+- **Feature-gated segmentation**: Build dynamic segments of users exposed to specific feature gates, for targeted onboarding, beta testing, or early-access campaigns.
+- **Config-driven journeys**: Use dynamic config exposures to trigger different journey flows based on rules that Statsig evaluates, so messaging matches feature availability.
+- **Real-time feature state sync**: Keep MoEngage user profiles in step with feature gate status, so campaigns respond immediately to feature rollouts and rollbacks.
+
+### Key Features
+
+The Statsig integration provides the following capabilities in MoEngage:
+
+- **Real-time event sync**: Statsig syncs gate, config, and experiment exposures to MoEngage as they occur, so you can trigger timely, feature-aware campaigns.
+- **User profile enrichment**: MoEngage updates user profiles with exposure metadata, including group assignment, rule ID, gate status, and timestamp, which you can then use for segmentation and journey orchestration.
+- **Flexible event filtering**: Choose which event types to forward, so you control the data volume and its relevance.
+- **Signature verification**: HMAC-SHA256 signature validation secures the webhook and confirms that events are authentic.
+
+## Integration
+
+<Info>
+  **Prerequisites**
+
+  Before you begin, ensure you have the following access:
+
+  - Admin access to your Statsig workspace.
+  - Admin access to your MoEngage workspace.
+</Info>
+
+Integrating Statsig with MoEngage is a three-step process:
+
+1. [Generate Authentication Credentials and Request the Integration Endpoint](/partner-guide/data-and-analytics/feature-management/statsig#step-1-generate-authentication-credentials-and-request-the-integration-endpoint)
+2. [Configure the Event Webhook in Statsig](/partner-guide/data-and-analytics/feature-management/statsig#step-2-configure-the-event-webhook-in-statsig)
+3. [Verify Events in MoEngage](/partner-guide/data-and-analytics/feature-management/statsig#step-3-verify-events-in-moengage)
+
+### Step 1: Generate Authentication Credentials and Request the Integration Endpoint
+
+To gather your credentials and request a webhook endpoint, perform the following steps:
+
+1. On the MoEngage UI, navigate to **Settings** \> **Account** \> **APIs**.
+2. Copy the ID under **Workspace ID (earlier App ID)**.
+3. In the **API keys** section, copy the API key on the **Data** tile.
+
+   ![Screenshot to be added: the MoEngage APIs settings page showing the Workspace ID and the Data API key](/images/statsig-screenshot-placeholder.png)
+4. Decide which Statsig user identifier serves as the primary identity that maps to MoEngage profiles. You can use `userID`, `email`, a custom ID, or `stableID`.
+5. Contact [MoEngage Support](https://help.moengage.com/hc/en-us/requests/new) and request a dedicated Statsig webhook endpoint. Include the following details:
+
+   | Detail | Description |
+   | --- | --- |
+   | **Workspace ID** | The ID you copied in step 2. |
+   | **Primary identity mapping** | The Statsig user identifier that resolves MoEngage profiles, such as `email`, `userID`, or `custom_id`. |
+   | **Integration name** | Optional. A descriptive name for the integration, such as `statsig_prod` or `feature_experiments`. |
+
+MoEngage Support provisions a unique webhook URL for your Statsig integration and shares it with you.
+
+<Warning>
+  Choose the primary identity carefully. MoEngage logs every exposure against the identifier you nominate, so an inconsistent choice creates duplicate profiles or merges profiles you did not intend to merge.
+</Warning>
+
+### Step 2: Configure the Event Webhook in Statsig
+
+After MoEngage Support shares your endpoint URL, configure the webhook in Statsig. To configure the webhook, perform the following steps:
+
+1. Log in to the Statsig console and navigate to **Settings** \> **Product Configuration** \> **Integrations**.
+2. Under **Events**, click the **Webhook** tile. The configuration dialog box appears.
+3. Enter a descriptive name for the integration, such as `moengage_integration`.
+4. In the URL box, paste the MoEngage endpoint URL that MoEngage Support provisioned in [Step 1](/partner-guide/data-and-analytics/feature-management/statsig#step-1-generate-authentication-credentials-and-request-the-integration-endpoint).
+5. Click **Enable**.
+
+   ![Screenshot to be added: the Statsig Event Webhook dialog box with the URL box and the Enable button](/images/statsig-screenshot-placeholder.png)
+6. Click the **Event Filtering** tab, which appears after you enable the webhook.
+7. Select **Gate Exposures**, **Config Exposures**, **Experiment Exposures**, and **Custom Events**.
+
+   ![Screenshot to be added: the Event Filtering tab with the selected event types](/images/statsig-screenshot-placeholder.png)
+
+<Note>
+  Do not select **Config Change Events**. These events describe changes to the configuration itself rather than user exposures, so MoEngage cannot map them to a user profile.
+</Note>
+
+### Step 3: Verify Events in MoEngage
+
+To confirm that events reach MoEngage in real time, perform the following steps:
+
+1. On the left navigation menu of the MoEngage UI, click **Segment** \> **Search Users**.
+2. In the **Search Users** box, enter your test user's identity, using the identifier you nominated in Step 1.
+3. Open the user profile and check **Event History** for Statsig events.
+
+   ![Screenshot to be added: a user profile showing Statsig exposure events in the event history](/images/statsig-screenshot-placeholder.png)
+
+Check the following attributes to confirm the events arrived correctly:
+
+| Attribute | What it tells you |
+| --- | --- |
+| `exposure_type` | Whether the event is a gate exposure or an experiment exposure. |
+| `gate` or `config` | The name of the feature or the configuration. |
+| `experimentGroupName` | The variant assigned to the user, for experiment exposures. |
+| `gateValue` | Whether the user passed the gate, either true or false. |
+
+## Related Articles
+
+- [Connected Sources](/partner-guide/integrate-with-us/build-integration/connected-sources)
+- [User Profile](/user-guide/data/user-data/user-profile)
