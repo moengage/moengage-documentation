@@ -100,6 +100,23 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
   - **Create, Manage & Publish** to publish campaigns
 </Note>
 
+## SMS Error Handling
+
+SMS create and update requests return every field-level validation failure in a single response, rather than stopping at the first failure like Push and Email.
+
+| Error | Description | Example Response | Resolution |
+| :--- | :--- | :--- | :--- |
+| **Missing Required Field** | Occurs when a required top-level field (`channel`, `campaign_delivery_type`, `created_by`) is missing from the request. | `{"error": {"code": "VALIDATION_FAILED", "message": "One or more fields failed validation.", "details": [{"target": "created_by", "message": "created_by is required"}]}}` | Include all required fields in the request body. See [Create Campaign](/api/create-campaigns/create-campaign-draft-v5). |
+| **Invalid Campaign Name Length** | Occurs when `basic_details.name` is shorter than 5 or longer than 50 characters. | `{"error": {"code": "VALIDATION_FAILED", "message": "One or more fields failed validation.", "details": [{"target": "basic_details.name", "message": "name must be between 5 and 50 characters"}]}}` | Use a campaign name between 5 and 50 characters. |
+| **Invalid Connector or Sender** | Occurs when `connector.connector_name` or `sender_name` doesn't match a connector configured in the workspace. | `{"error": {"code": "VALIDATION_FAILED", "message": "One or more fields failed validation.", "details": [{"target": "connector.sender_name", "message": "Invalid sender_name for the given connector_name"}]}}` | Verify the connector and sender are configured in **Settings > SMS > Connectors** in the MoEngage dashboard. |
+| **Multiple Validation Errors** | Occurs when more than one field fails validation in the same request. SMS accumulates every failure into one response instead of failing fast on the first. | `{"error": {"code": "VALIDATION_FAILED", "message": "One or more fields failed validation.", "details": [{"target": "basic_details.name", "message": "name must be between 5 and 50 characters"}, {"target": "connector.sender_name", "message": "sender_name is required"}]}}` | Fix every issue listed in `error.details[]`, then resubmit. |
+| **Invalid Credentials** | Applies to all channels, not SMS-specific. Occurs when the request's Basic Auth credentials are missing or invalid. | `401 Unauthorized` | Verify the API key and Workspace ID used for Basic Auth. See [Authentication](#authentication). |
+| **Rate Limit Exceeded** | Applies to all channels, not SMS-specific. Occurs when the create-campaign rate limit is exceeded. | `429 Too Many Requests` | Retry after backing off. See the rate limits listed under [What are the creation rate limits?](#create-campaign). |
+
+<Note>
+Sourced from `sms-mms-api-spec.md` Part A7 (SMS error cases). Exact `message` strings may vary slightly by build — the envelope shape (`error.code`, `error.message`, `error.details[]`) is what's guaranteed.
+</Note>
+
 ## FAQs
 
 ### Create Campaign
