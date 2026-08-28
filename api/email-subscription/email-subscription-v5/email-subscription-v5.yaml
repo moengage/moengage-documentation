@@ -1,0 +1,743 @@
+openapi: 3.0.3
+info:
+  title: MoEngage Subscription Preferences API
+  description: |
+    Server-to-server API for reading and managing a user's Subscription Category preferences directly, without depending on MoEngage-hosted landing-page flows.
+
+    This API provides endpoints for:
+    * **List Subscription Categories**: Fetches the active subscription-category catalog for the workspace.
+    * **Get Subscription Preferences**: Fetches a user's per-category subscription state and global unsubscribe status.
+    * **Update Subscription Preferences**: Updates a user's per-category subscription state and/or global unsubscribe status.
+
+    Users are identified by a `user_identifier_type` / `user_identifier_value` pair (`moe_user_id`, `uid`, or `email`), rather than a path parameter.
+
+    **Transitional authentication note:** This route currently accepts HTTP Basic Auth only. Bearer token support is planned but not yet active on this path; Bearer requests return `401` until the APISIX gateway fronts this route.
+  version: '2.0'
+servers:
+  - url: 'https://api-{dc}.moengage.com'
+    description: MoEngage API Server
+    variables:
+      dc:
+        default: '01'
+        description: 'The ‘dc’ in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ‘dc’ in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
+tags:
+  - name: Subscription Categories
+    description: Fetch the active subscription-category catalog.
+  - name: Subscription Preferences
+    description: Fetch and update a user's per-category subscription state and global unsubscribe status.
+security:
+  - basicAuth: []
+paths:
+  /v5/subscription-categories:
+    get:
+      tags:
+        - Subscription Categories
+      summary: Get Subscription Categories (V5)
+      description: |
+        Returns the active subscription-category catalog for the workspace, served from the existing hourly category cache. No user identifier is required.
+      x-mint:
+        content: |
+          #### Rate Limit
+          Enforced at the API gateway. The limit is 100 requests per minute and 360,000 requests per day, per workspace.
+      operationId: getSubscriptionCategories
+      parameters:
+        - name: MOE-APPKEY
+          in: header
+          required: false
+          description: |
+            Your MoEngage app key. Optional on this route — for Basic Auth, the workspace is already resolved from the Basic Auth username. Send this header only if you want to be explicit.
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: false
+          description: Optional. Filters the catalog to a single channel. Omit to return categories for all channels.
+          schema:
+            type: string
+            enum:
+              - email
+              - sms
+        - name: fields
+          in: query
+          required: false
+          description: |
+            Optional sparse fieldset. A comma-separated allowlist of fields to include per category, e.g. `name,display_name,description,channel,group,status`.
+          schema:
+            type: string
+            example: 'name,display_name,description,channel,group,status'
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    description: Unique identifier for this API response.
+                    example: resp_9f1c2a4e7b3d4f8a9c012e5b6d7a8f90
+                  type:
+                    type: string
+                    example: subscription_category
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionCategory'
+              example:
+                response_id: resp_9f1c2a4e7b3d4f8a9c012e5b6d7a8f90
+                type: subscription_category
+                data:
+                  - name: promotional
+                    display_name: Promotional
+                    description: Offers and promotions
+                    channel: email
+                    group: Marketing
+                    status: active
+                  - name: newsletter
+                    display_name: Newsletter
+                    description: Monthly newsletter
+                    channel: email
+                    group: Updates
+                    status: active
+        '400':
+          description: This response is returned when a query parameter is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: BadArgument
+                  message: 'channel must be one of: email, sms'
+                  target: channel
+                  details: []
+        '401':
+          description: This response is returned when authentication is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Unauthorized
+                  message: Invalid or missing credentials
+                  target: Authorization
+                  details: []
+        '403':
+          description: This response is returned when the credentials lack the required scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Forbidden
+                  message: 'Token is missing required scope read:subscriptions'
+                  target: Authorization
+                  details: []
+        '429':
+          description: This response is returned when the rate limit has been exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: TooManyRequests
+                  message: Rate limit exceeded
+                  target: null
+                  details: []
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: InternalServerError
+                  message: Something went wrong, please retry
+                  target: null
+                  details: []
+  /v5/subscription-preferences:
+    get:
+      tags:
+        - Subscription Preferences
+      summary: Get Subscription Preferences (V5)
+      description: |
+        Fetches a user's per-category subscription state and global unsubscribe status. The user is identified by a `user_identifier_type` / `user_identifier_value` pair rather than a path parameter.
+      x-mint:
+        content: |
+          #### Rate Limit
+          Enforced at the API gateway. The limit is 100 requests per minute and 360,000 requests per day, per workspace.
+      operationId: getSubscriptionPreferences
+      parameters:
+        - name: Accept
+          in: header
+          required: false
+          schema:
+            type: string
+            example: application/json
+        - name: MOE-APPKEY
+          in: header
+          required: false
+          description: |
+            Your MoEngage app key. Optional on this route — for Basic Auth, the workspace is already resolved from the Basic Auth username. Send this header only if you want to be explicit.
+          schema:
+            type: string
+        - name: MOE-PROJECT-CODE
+          in: header
+          required: false
+          description: Optional. Targets a specific project within the workspace.
+          schema:
+            type: string
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          description: Optional client-supplied request ID, useful for tracing.
+          schema:
+            type: string
+            format: uuid
+        - name: user_identifier_type
+          in: query
+          required: true
+          description: The type of identifier supplied in `user_identifier_value`.
+          schema:
+            type: string
+            enum:
+              - moe_user_id
+              - uid
+              - email
+        - name: user_identifier_value
+          in: query
+          required: true
+          description: |
+            The identifier value. For `moe_user_id`, accepts either the `usr_`-prefixed ID or the bare 24-character hex ID.
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: false
+          description: |
+            Optional. Restricts the returned category preferences to a single channel. Per the update endpoint's confirmed behavior, this likely defaults to `email` when omitted — not independently confirmed for this GET endpoint, so verify before publishing.
+          schema:
+            type: string
+            enum:
+              - email
+              - sms
+      responses:
+        '200':
+          description: This response is returned when the request is processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    example: resp_1b2c3d4e5f60708192a3b4c5d6e7f809
+                  type:
+                    type: string
+                    example: subscription_preference
+                  data:
+                    $ref: '#/components/schemas/SubscriptionPreference'
+              example:
+                response_id: resp_1b2c3d4e5f60708192a3b4c5d6e7f809
+                type: subscription_preference
+                data:
+                  user_id: usr_64f0a1b2c3d4e5f600112233
+                  is_globally_unsubscribed: false
+                  categories:
+                    - name: promotional
+                      display_name: Promotional
+                      channel: email
+                      group: Marketing
+                      status: subscribed
+                    - name: product_update
+                      display_name: Product Update
+                      channel: email
+                      group: Updates
+                      status: unsubscribed
+        '400':
+          description: This response is returned when the identifier is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingValue:
+                  summary: Missing Identifier Value
+                  value:
+                    error:
+                      code: BadArgument
+                      message: user_identifier_value is required
+                      target: user_identifier_value
+                      details: []
+                unsupportedType:
+                  summary: Unsupported Identifier Type
+                  value:
+                    error:
+                      code: BadArgument
+                      message: 'user_identifier_type must be one of: moe_user_id, uid, email'
+                      target: user_identifier_type
+                      details: []
+        '401':
+          description: This response is returned when authentication is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Unauthorized
+                  message: Invalid or missing credentials
+                  target: Authorization
+                  details: []
+        '403':
+          description: This response is returned when the credentials lack the required scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Forbidden
+                  message: 'Token is missing required scope read:subscriptions'
+                  target: Authorization
+                  details: []
+        '404':
+          description: This response is returned when the identifier resolves to no user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NotFound
+                  message: No user found for the given identifier
+                  target: user_identifier_value
+                  details: []
+        '409':
+          description: This response is returned when an email identifier matches multiple user profiles and email-based unsubscribe is disabled for the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Conflict
+                  message: Multiple user profiles match this email; cannot resolve unambiguously
+                  target: user_identifier_value
+                  details: []
+        '429':
+          description: This response is returned when the rate limit has been exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: TooManyRequests
+                  message: Rate limit exceeded
+                  target: null
+                  details: []
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: InternalServerError
+                  message: Something went wrong, please retry
+                  target: null
+                  details: []
+    patch:
+      tags:
+        - Subscription Preferences
+      summary: Update Subscription Preferences (V5)
+      description: |
+        Partially updates a user's subscription preferences. The update is processed **asynchronously** by a separate worker, under the same SLA already communicated for this API; a successful call returns `202 Accepted`, not the updated resource.
+
+        `categories` is a sparse map — only the categories present in the request are changed; any category omitted is left unchanged. `is_globally_unsubscribed` is required on every call precisely because it has no neutral default: `true` unsubscribes the user from every category on the channel (and `categories` is ignored), while `false` clears any existing global unsubscribe.
+      x-mint:
+        content: |
+          #### Rate Limit
+          Enforced at the API gateway. The limit is 100 requests per minute and 360,000 requests per day, per workspace.
+      operationId: updateSubscriptionPreferences
+      parameters:
+        - name: Accept
+          in: header
+          required: false
+          schema:
+            type: string
+            example: application/json
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: |
+            A UUID v4 you generate per logical update. Reusing a key with the same request body within the retention window returns the original response without reapplying the update. Reusing a key with a **different** request body returns `409`.
+          schema:
+            type: string
+            format: uuid
+        - name: MOE-APPKEY
+          in: header
+          required: true
+          description: Your MoEngage app key.
+          schema:
+            type: string
+        - name: MOE-PROJECT-CODE
+          in: header
+          required: false
+          description: Optional. Targets a specific project within the workspace.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: The identifier of the user to update and the preference changes to apply.
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_identifier_type
+                - user_identifier_value
+                - is_globally_unsubscribed
+              properties:
+                request_id:
+                  type: string
+                  description: Optional client-supplied request identifier, used for tracing.
+                  example: req_5b6d7a8f90c1e2b4d6f8091a2c3e4f56
+                user_identifier_type:
+                  type: string
+                  enum:
+                    - moe_user_id
+                    - uid
+                    - email
+                  description: The type of identifier supplied in `user_identifier_value`.
+                user_identifier_value:
+                  type: string
+                  description: |
+                    The identifier value. For `moe_user_id`, accepts either the `usr_`-prefixed ID or the bare 24-character hex ID.
+                channel:
+                  type: string
+                  enum:
+                    - email
+                    - sms
+                  description: |
+                    Optional. The channel the `categories` map applies to. If omitted, defaults to `email` — only the email subscription categories are affected; categories on other channels (e.g. SMS) are untouched.
+                is_globally_unsubscribed:
+                  type: boolean
+                  description: |
+                    Required on every call. When `true`, the user is unsubscribed from all categories on this channel, and `categories` is ignored. Send `false` explicitly to clear an existing global unsubscribe — there is no neutral default.
+                categories:
+                  type: object
+                  description: |
+                    Optional sparse map of `category_name` to subscribe state (`true` = subscribed, `false` = unsubscribed). Only the categories present here are changed; any category not included is left unchanged.
+                  additionalProperties:
+                    type: boolean
+                event_attributes:
+                  type: object
+                  description: |
+                    Optional. Up to 5 name/value pairs attached to the subscription-update event this call raises. Any attribute name is accepted (no allowlist). Attribute names must be 50 characters or fewer; values must be 255 characters or fewer.
+                  additionalProperties:
+                    type: string
+            example:
+              user_identifier_type: email
+              user_identifier_value: jane@example.com
+              channel: email
+              is_globally_unsubscribed: false
+              categories:
+                promotional: false
+                newsletter: true
+              event_attributes:
+                source: preference_center
+                campaign_ref: spring_sale
+      responses:
+        '202':
+          description: |
+            This response is returned when the request has been accepted and queued for asynchronous processing. The update is applied by a separate worker under SLA; this response does not confirm the update has been applied yet — poll Get Subscription Preferences to check the applied state.
+
+            TODO(Shilpa): the exact shape of `data` in this response is not documented in the tech doc, the Postman collection, or the KT transcript — confirm with engineering before publishing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    example: resp_7a6b5c4d3e2f19088776655443322110
+                  type:
+                    type: string
+                    example: subscription_preference
+                  data:
+                    type: object
+                    description: Shape not confirmed by source material.
+              example:
+                response_id: resp_7a6b5c4d3e2f19088776655443322110
+                type: subscription_preference
+        '400':
+          description: This response is returned when the request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingValue:
+                  summary: Missing Identifier Value
+                  value:
+                    error:
+                      code: BadArgument
+                      message: user_identifier_value is required
+                      target: user_identifier_value
+                      details: []
+                tooManyAttributes:
+                  summary: Too Many Event Attributes
+                  value:
+                    error:
+                      code: BadArgument
+                      message: A maximum of 5 event_attributes is allowed
+                      target: event_attributes
+                      details: []
+                attributeTooLong:
+                  summary: Attribute Name or Value Too Long
+                  value:
+                    error:
+                      code: BadArgument
+                      message: Invalid event_attributes
+                      target: event_attributes
+                      details:
+                        - code: TooLong
+                          target: event_attributes.source
+                          message: 'Attribute name must be <= 50 chars'
+                        - code: TooLong
+                          target: event_attributes.campaign_ref
+                          message: 'Attribute value must be <= 255 chars'
+                unknownCategory:
+                  summary: Unknown Category Name
+                  value:
+                    error:
+                      code: BadArgument
+                      message: Unknown category name(s)
+                      target: categories
+                      details:
+                        - code: Unknown
+                          target: categories.foo_bar
+                          message: Category does not exist for this workspace/channel
+        '401':
+          description: This response is returned when authentication is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Unauthorized
+                  message: Invalid or missing credentials
+                  target: Authorization
+                  details: []
+        '403':
+          description: This response is returned when the credentials lack the required scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: Forbidden
+                  message: 'Token is missing required scope write:subscriptions'
+                  target: Authorization
+                  details: []
+        '404':
+          description: This response is returned when the identifier resolves to no user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NotFound
+                  message: No user found for the given identifier
+                  target: user_identifier_value
+                  details: []
+        '409':
+          description: This response is returned when an email identifier matches multiple profiles with email-based unsubscribe disabled, or when the `Idempotency-Key` is reused with a different request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ambiguousEmail:
+                  summary: Ambiguous Email Match
+                  value:
+                    error:
+                      code: Conflict
+                      message: Multiple user profiles match this email; cannot update unambiguously
+                      target: user_identifier_value
+                      details: []
+                idempotencyKeyConflict:
+                  summary: Idempotency Key Reused With Different Body
+                  value:
+                    error:
+                      code: Conflict
+                      message: Idempotency-Key was already used with a different request body
+                      target: Idempotency-Key
+                      details: []
+        '413':
+          description: This response is returned when the request payload is too large.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PayloadTooLarge
+                  message: Request entity is too large
+                  target: null
+                  details: []
+        '429':
+          description: This response is returned when the rate limit has been exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: TooManyRequests
+                  message: Rate limit exceeded
+                  target: null
+                  details: []
+        '500':
+          description: This response is returned when the system runs into an unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: InternalServerError
+                  message: Something went wrong, please retry
+                  target: null
+                  details: []
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Authentication is done via Basic Auth. This requires a base64-encoded string of your credentials in the format 'username:password'.
+
+        - **Username**: Your MoEngage app key.
+        - **Password**: Your MoEngage API secret.
+
+        **Transitional note:** This route currently accepts Basic Auth only. Bearer token support (`Authorization: Bearer <token>`) is planned but not yet active here — Bearer requests return `401` until the APISIX gateway fronts this route.
+
+        For more information on authentication and getting your credentials, refer [here](https://www.moengage.com/docs/api/introduction#getting-your-credentials).
+  schemas:
+    SubscriptionCategory:
+      type: object
+      description: A subscription category in the active catalog.
+      properties:
+        name:
+          type: string
+          description: The unique category name.
+          example: promotional
+        display_name:
+          type: string
+          description: The human-readable category name.
+          example: Promotional
+        description:
+          type: string
+          description: A description of the category.
+          example: Offers and promotions
+        channel:
+          type: string
+          enum:
+            - email
+            - sms
+          example: email
+        group:
+          type: string
+          description: The group this category belongs to.
+          example: Marketing
+        status:
+          type: string
+          description: The category's status. This endpoint returns only active categories.
+          example: active
+    SubscriptionCategoryPreference:
+      type: object
+      description: A single category's subscription state for a user.
+      properties:
+        name:
+          type: string
+          example: promotional
+        display_name:
+          type: string
+          example: Promotional
+        channel:
+          type: string
+          enum:
+            - email
+            - sms
+          example: email
+        group:
+          type: string
+          example: Marketing
+        status:
+          type: string
+          enum:
+            - subscribed
+            - unsubscribed
+          example: subscribed
+    SubscriptionPreference:
+      type: object
+      description: A user's subscription preferences.
+      properties:
+        user_id:
+          type: string
+          description: The `usr_`-prefixed MoEngage ID of the resolved user profile.
+          example: usr_64f0a1b2c3d4e5f600112233
+        is_globally_unsubscribed:
+          type: boolean
+          description: Whether the user is globally unsubscribed, irrespective of individual category state.
+          example: false
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionCategoryPreference'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: A machine-readable error code.
+              example: BadArgument
+            message:
+              type: string
+              description: A human-readable error message.
+              example: user_identifier_type is not supported
+            target:
+              type: string
+              nullable: true
+              description: The field or header the error relates to, if any.
+              example: user_identifier_type
+            details:
+              type: array
+              description: Additional, field-level error details.
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: TooLong
+                  target:
+                    type: string
+                    example: event_attributes.source
+                  message:
+                    type: string
+                    example: 'Attribute name must be <= 50 chars'
