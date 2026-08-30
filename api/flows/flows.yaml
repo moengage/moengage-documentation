@@ -119,6 +119,11 @@ paths:
                   creation_start_time: "2025-01-01T00:00:00Z"
                   creation_end_time: "2026-12-31T23:59:59Z"
                   limit: 20
+              byTeams:
+                summary: Filter by team (workspaces with the Flows-teams feature enabled)
+                value:
+                  teams: [Growth, Lifecycle]
+                  limit: 20
               nextPage:
                 summary: Fetch the next page with a cursor
                 value:
@@ -438,6 +443,7 @@ paths:
           schema:
             type: string
             format: uuid
+            example: "3f8c1d2e-9b4a-4c7e-8f21-5d6a0b7e9c34"
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
       requestBody:
         required: true
@@ -481,7 +487,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: The requested action is not a valid transition from the flow's current status.
+          description: >
+            The requested action is not a valid transition from the flow's current status. Any action
+            attempted from a status outside its **Allowed from** row in the status transition table
+            returns `409`. For example, resuming a flow that is not paused, archiving a flow that is
+            still `ACTIVE`, or retiring a flow that is already `STOPPED`.
           content:
             application/json:
               schema:
@@ -1088,7 +1098,9 @@ components:
         status:
           allOf:
             - $ref: '#/components/schemas/FlowStatusEnum'
-          description: Lifecycle status of the flow's active version.
+          description: >
+            Lifecycle status of the flow's active version. A search result always reports the
+            active version's status, even when other versions of the flow are in a different state.
         archived:
           type: boolean
           default: false
