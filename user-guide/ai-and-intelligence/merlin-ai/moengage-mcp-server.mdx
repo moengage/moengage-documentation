@@ -158,12 +158,12 @@ The MoEngage MCP server uses OAuth-based authentication tied to your MoEngage ac
 
 ### Key Authentication Behaviors
 
-- The server inherits the **environment**, **workspace**, and **role** of your active MoEngage session.
-- Authentication tokens are derived from your active MoEngage session.
-- If you **log out** or **switch workspaces**, you are prompted to **re-authenticate**. If the connection is interrupted, re-initiate it from your MCP client.
+- The connection uses the **environment**, **workspace**, and **role** you selected when you authorized it — not your current dashboard session.
+- Authentication tokens are issued by the MCP authorization flow and are scoped to that workspace and environment.
+- To use a different workspace or environment, **re-authenticate** the connection from your MCP client and select it there. If the connection is interrupted, re-initiate it the same way.
 - All actions respect your existing MoEngage role-based permissions — including which tools your role can use. Reading data requires read access; building or editing requires the matching create/manage permission.
 - **Session duration**: 30 days, with a 7-day idle timeout.
-- **Independent from the dashboard**: logging in via MCP does not affect your dashboard session, and vice versa.
+- **Independent from the dashboard**: the MCP session is separate from your dashboard session. Logging in or out of one does not affect the other, and signing in to a different workspace on the dashboard does not switch the workspace your MCP connection uses.
 
 <Note>
   The authorization screen may list a read scope (for example, campaign read) even though the connector exposes many more tools, including write tools. This is a display limitation, not a restriction on what you can do. Which tools actually run is governed by your MoEngage role and by the tools you enable in your client. See [Enable the Tools You Need](#enable-the-tools-you-need).
@@ -214,7 +214,7 @@ The server is designed so that _any_ AI assistant — not just one vendor's — 
 
 ## Available Tools
 
-Create, edit, and test-send are supported for **Push and Email**. Search and analytics work for **Push, Email, SMS, and Webhook**; SMS and Webhook are read-only for campaign creation. **WhatsApp is not supported** — see [Other limitations](#other-limitations).
+Create, edit, and test-send are supported for **Push and Email**. Campaigns on every other channel, including SMS, Webhook, and WhatsApp, are read-only: you can search and read them, but not create or edit them. The `channel` filter on `search_campaigns` is narrower still — see [Other limitations](#other-limitations).
 
 Which tools you can use depends on your MoEngage role. If a tool you expect is missing, [refresh the tools list](#refresh-the-tools-list).
 
@@ -259,7 +259,7 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 
 <Info>
   - Segment filters must use the exact **internal** (platform) names of events and attributes, not the dashboard display name (for example, `moe_city`, not "City"). A display name used as an **event** or **event-attribute** name is accepted at create time, and a user-attribute display name gets through too whenever the catalog check cannot resolve it — in both cases the count later fails with **no error reason**. Resolve names first with `find_events`, `find_user_attributes`, and `find_event_attributes` (see [Catalog Discovery](#catalog-discovery)), and always use the returned `name` field.
-  - Equality depends on the attribute's data type. `equals` is never a valid operator. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`); "is not" is the same operator with `"negate": true`. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes — on a `string` attribute it is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all. Get the exact set for a data type from `discover_schema(kind="component", id="segment_filters")`.
+  - Equality depends on the attribute's data type. `equals` is never a valid operator. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`). For the scalar types, "is not" is the same operator with `"negate": true`. Negating an **array** attribute needs more than `negate` on its own, so confirm the filter with `deep_validate_segment_filters` before creating. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes — on a `string` attribute it is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all. Get the exact set for a data type from `discover_schema(kind="component", id="segment_filters")`.
   - To target users who did **not** perform an event, set `executed: false` on the `actions` filter and pair it with `"execution": {"type": "exactly", "count": 0}` — that combination is required, and `aggregation_attributes` must be omitted. Alternatively, place a positive `actions` filter in `excluded_filters`, which excludes matching users outright.
   - Common create-time errors: `409` (name already taken), `400` (malformed filter, or an operator the API does not accept), `413` (filter too large or too deeply nested). The `400` names no field, so re-check the filter shape rather than retrying variations — or pre-flight with `deep_validate_segment_filters`, which answers `200` with `is_valid: false` and the path of each problem.
 </Info>
@@ -286,7 +286,7 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 
 | Tool | Description |
 | --- | --- |
-| `search_campaigns` | Search campaigns by name, status, ID, channel, delivery type, or date range. Include `DRAFT` in the status filter to see drafts. WhatsApp is not a supported channel filter. |
+| `search_campaigns` | Search campaigns by name, status, ID, channel, delivery type, or date range. Include `DRAFT` in the status filter to see drafts. The `channel` filter accepts Push, Email, SMS, and MMS only; search without it to include WhatsApp and Webhook campaigns. |
 | `get_campaign` / `get_campaign_meta` | Fetch a single campaign's full configuration and content, or just its metadata. |
 
 **Supported status filters:** `ACTIVE`, `DRAFT`, `EXPIRED`, `NOT_SENT`, `PAUSED`, `SCHEDULED`, `SENDING`, `SENT`, `STOPPED`, `UNDER_REVIEW`, `REJECTED`.
@@ -294,7 +294,7 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 ### Campaign Analytics
 
 <Info>
-  Campaign analytics tools enforce a maximum date range of **30 days** per query. Flow analytics tools allow up to **90 days**. The beta behavior, funnel, retention, and session-source analyses use their own, longer windows.
+  Campaign analytics tools enforce a maximum date range of **30 days** per query. Flow analytics tools allow up to **90 days**. The analyze tools use their own windows: behavior, funnel, retention, and session-source analyses allow longer ranges, while `run_user_analysis` is limited to **31 days**.
 </Info>
 
 | Tool | Description |
@@ -305,11 +305,7 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 | `get_click_performance` | Per-URL click breakdown, with total and unique counts. |
 | `get_device_analytics` | Performance by device dimensions — OEM, app version, or dormancy, with multi-dimensional splits. |
 
-### Product Behavior Analytics (Beta)
-
-<Info>
-  These tools are newer and still in beta — names and response shapes may still change. If you don't see them yet, [refresh the tools list](#refresh-the-tools-list).
-</Info>
+### Analyze
 
 | Tool | Description |
 | --- | --- |
@@ -403,7 +399,7 @@ New tools are added to the connector over time. If a newly shipped tool doesn't 
 | --- | --- |
 | Internal names only | `create_custom_segment` has a partial safety-net catalog check that covers `user_attributes` filters only, and it fails open when the catalog is unavailable. Event names and event-attribute names are never checked, so an unresolved bad name can still surface later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`. |
 | Stale events are hidden | `find_events` excludes events inactive for more than 60 days. |
-| Equality depends on the attribute's data type | `equals` is not a valid operator and is rejected with a flat `400` (Bad Request) that names no field. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`); "is not" is the same operator with `"negate": true` — there is no `notEquals`. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes; on a `string` attribute `is` is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all — only `value` (latitude), `value1` (longitude), and `radius`. Get the exact set for an attribute's data type from `discover_schema(kind="component", id="segment_filters")`, and confirm the filter with `deep_validate_segment_filters` before creating. |
+| Equality depends on the attribute's data type | `equals` is not a valid operator and is rejected with a flat `400` (Bad Request) that names no field. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`). For the scalar types, "is not" is the same operator with `"negate": true` — there is no `notEquals`. Negating an **array** attribute needs more than `negate` on its own; get the exact shape from `discover_schema` and confirm it with `deep_validate_segment_filters`. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes; on a `string` attribute `is` is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all — only `value` (latitude), `value1` (longitude), and `radius`. Get the exact set for an attribute's data type from `discover_schema(kind="component", id="segment_filters")`, and confirm the filter with `deep_validate_segment_filters` before creating. |
 | Negative event conditions need `executed: false` plus `exactly 0` | To express "did not do the event", set `executed: false` on the `actions` filter and pair it with `"execution": {"type": "exactly", "count": 0}`; `aggregation_attributes` must be omitted. Alternatively, place a positive `actions` filter in `excluded_filters`. |
 | Segment types vary in MCP support | `create_custom_segment` only creates filter-based (ELASTIC_SEARCH) segments. `list_segments` returns Filter and File segments, but excludes Warehouse, Analytics, and Composite. `get_segment` returns a full filter tree only for Filter segments; File and cohort-import segments return metadata only. `is_user_in_segment` evaluates Filter segments in real time; file-based, funnel, retention, and predictive segments are batch-only. See [Types of Segments](/user-guide/segment/getting-started/types-of-segments) for what each type means. |
 | Counts are cached for 15 minutes | `start_segment_count` returns the cached result (`served_from_cache: true`) when a successful count already exists within the window. |
@@ -433,8 +429,8 @@ Rate limiting can still occur at the platform level.
 ### Other Limitations
 
 - **Publishing** a campaign is not available through the MCP — drafts are published from the MoEngage dashboard.
-- **WhatsApp is not supported.** WhatsApp campaigns cannot be created, searched, or analyzed through the MCP. Use the MoEngage dashboard for WhatsApp campaigns.
-- **SMS and Webhook** are read-only for creation: searchable and analyzable, but not creatable.
+- **Campaign creation is Push and Email only.** SMS, Webhook, and WhatsApp campaigns are searchable and analyzable, but must be created and edited in the MoEngage dashboard.
+- **The campaign `channel` filter accepts Push, Email, SMS, and MMS only.** WhatsApp and Webhook campaigns cannot be filtered by channel — omit the filter to include them in results. WhatsApp is supported elsewhere: flow analytics covers WhatsApp, and WhatsApp appears in segment reachability counts.
 - **Date range** for campaign analytics is limited to **30 days** per query; flow analytics allows up to **90 days**.
 - **Batch size**: `get_campaign_stats` accepts up to **50 campaign IDs** per request.
 - **Content size**: email HTML can be large (10–50 KB); fetch full content deliberately.
@@ -452,10 +448,10 @@ Rate limiting can still occur at the platform level.
 
 <AccordionGroup>
   <Accordion title="Cannot access the MCP server or your data">
-    The server inherits the active session from your MoEngage account.
+    The connection is bound to the workspace and environment you chose when you authorized it, independently of your dashboard session.
 
-    1. Verify you are signed in to the correct MoEngage workspace.
-    2. If you signed out or switched workspaces, re-authenticate the MCP connection to restore access.
+    1. Verify the connection was authorized against the workspace you expect. Changing workspaces on the dashboard does not change it.
+    2. To point the connection at a different workspace, re-authenticate it from your MCP client and select that workspace.
   </Accordion>
 
   <Accordion title="A tool you expected isn't available">
