@@ -21,7 +21,7 @@ An In-App message reaches a user through four stages, from setup in the dashboar
     The user performs a trigger action; the SDK matches cached campaigns by trigger and screen, applies delivery controls, and selects one by priority.
   </Step>
   <Step title="Display and tracking">
-    The SDK fetches the template and assets, displays the message on a correctly integrated device, and tracks shown, clicked, and dismissed events.
+    The SDK fetches the campaign assets, displays the message on a correctly integrated device, and tracks shown, clicked, and dismissed events.
   </Step>
 </Steps>
 
@@ -37,9 +37,9 @@ The trigger criteria determine when a user sees the In-App message. In-App campa
 - **On push click**: Displays the message when the user clicks a linked push notification and opens the app. Use this trigger to continue a push message inside the app, such as opening a detailed offer or landing experience after the push tap. Audience, priority, and delivery controls behave differently for this trigger, as described in the sections below.
 
 <Info>
-  - **Supported actions**: Only actions generated and tracked by the MoEngage SDK on the same device can be used as triggers.
+  - **Supported custom events**: Only custom events generated and tracked by the MoEngage SDK on the same device can be used as triggers.
   - **Unsupported actions**: Events sent through Data API or any other Server-to-Server (S2S) source, and events MoEngage generates internally such as App/Site Opened, Device Uninstall, Device Reinstall, and User Reinstall, cannot trigger In-App messages.
-  - **Multiple campaigns on the same trigger**: For pop-up and full-screen (regular) In-App messages, the SDK selects and displays only one campaign per trigger, based on priority. Nudges are non-intrusive, and multiple nudges can appear together when they are configured for different screen positions or app contexts.
+  - **Multiple campaigns on the same trigger**: The SDK selects and displays only one campaign per trigger, based on priority. In no case can more than one campaign be shown for a single trigger.
 </Info>
 
 #### Integration Requirements for Trigger Actions
@@ -139,14 +139,14 @@ Delivery controls manage how often and how long In-App messages display, so user
 
 - **Limit the maximum number of times a user can see messages from this campaign**: Caps the total displays per user to reduce message fatigue.
 - **Add a minimum delay between two messages of this campaign**: Sets the interval between two displays of the same campaign, so the message does not reappear when a user repeats the trigger action in quick succession. This setting is disabled for nudge templates.
-- **Ignore frequency capping**: Lets this campaign bypass the account-level frequency-capping limit.
+- **Ignore frequency capping**: Lets this campaign bypass the account-level [frequency-capping](#frequency-capping) limit.
 - **Count for frequency capping**: Includes this campaign's displays in the overall frequency-capping count, so you can track the total number of messages delivered to a user.
-- **Ignore global minimum delay**: Lets this campaign bypass the global delay that otherwise prevents users from seeing multiple In-App messages close together.
+- **Ignore global minimum delay**: Lets this campaign bypass the global minimum delay — an account-level setting that enforces a minimum time gap between any two In-App messages, so users are not shown several In-App messages in quick succession.
 - **Auto dismiss message after**: Closes the message automatically after a set duration, even if the user does not act on it.
 
 <Info>
-  - Frequency capping and the per-campaign display limit (**Limit the maximum number of times a user can see messages from this campaign**) are tracked per user, not per device.
-  - The display count is stored against the user, so it persists when the user logs out and logs back in. Earlier, signing out reset these counts and the user was evaluated from the beginning on the next login; this is no longer the case. Plan your caps accordingly, because a returning user resumes from their existing count rather than starting over.
+  - Frequency capping and the per-campaign display limit (**Limit the maximum number of times a user can see messages from this campaign**) are tracked per device, not per user. A user signed in on two devices is counted separately on each.
+  - The count is stored on the device, so it persists across logout and login on the same device rather than resetting.
 </Info>
 
 #### Frequency Capping
@@ -172,9 +172,9 @@ Even when these conditions are met, a message may not display for the following 
 
 **Incomplete SDK integration**
 
+- The SDK is not integrated or initialized correctly for the In-App channel. Follow the [integration steps](#sdk-integration) for your platform.
 - For **On screen load** campaigns, `showInApp()` or `showNudge()` is missing or incorrectly implemented on the target screens.
 - For **On custom event** campaigns, the custom event used as the trigger is not tracked through the SDK.
-- The SDK is not integrated or initialized correctly for the In-App channel.
 
 **Delivery control restrictions**
 
@@ -190,8 +190,7 @@ Even when these conditions are met, a message may not display for the following 
 
 **Device conditions**
 
-- Network connectivity is poor, which can delay or fail the template and image fetch.
-- Device settings restrict the app's network access.
+- Network connectivity is poor, which can delay or fail the campaign asset download (template, HTML, and images).
 
 For the specific reason a campaign failed to display, refer to the error breakdown on the campaign's info page. For more information, refer to [Analyze In-App Campaigns](/user-guide/campaigns-and-channels/in-app-message/analyze/analyze-in-app-campaigns).
 
@@ -203,6 +202,7 @@ The SDK syncs the user's eligible campaigns from the MoEngage server at specific
 - **App foreground after the sync interval**: Each time the app comes to the foreground, whether a fresh launch or a return from the background, the SDK fetches again only if at least the minimum sync interval has passed since the last successful sync. The default interval is 15 minutes, counted only between two app opens. If the app stays in the foreground for more than 15 minutes, it does not sync again during that session.
 - **A fresh app process (after the app is killed)**: If the app is force-closed or terminated and then reopened, the SDK fetches on the next foreground regardless of when it last synced, because the sync state is tracked per app process.
 - **On user logout**: When the current user is cleared and a new user is created, the SDK fetches campaigns for the new user.
+- **On user login**: When a user logs in, the SDK fetches campaigns for the newly identified user.
 
 ## Campaign Delivery Process
 
@@ -219,8 +219,8 @@ The SDK syncs the user's eligible campaigns from the MoEngage server at specific
   <Step title="Trigger action detection">
     The user performs an action that matches a campaign's trigger criteria, and the SDK detects it.
   </Step>
-  <Step title="Template fetch">
-    The SDK makes a real-time call to fetch the campaign template and personalization data, so the message reflects current content.
+  <Step title="Asset fetch">
+    The SDK makes a real-time call to fetch the campaign's assets (template, HTML, and images) and personalization data, so the message reflects current content.
   </Step>
   <Step title="Message display">
     The SDK renders the In-App message using the fetched template.
@@ -260,7 +260,6 @@ Priority only decides the order in which campaigns are considered. Before a sele
 In-App delivery depends on your app being integrated correctly for the channel.
 
 - **Integration steps**: Follow the steps for your platform, including [Android](/developer-guide/android-sdk/in-app-messages/in-app-nativ), [iOS](/developer-guide/ios-sdk/in-app-messages/in-app-nativ), [React Native](/developer-guide/react-native-sdk/in-app-messages/inapp-nativ), and [Flutter](/developer-guide/flutter-sdk/in-app-messages/inapp-nativ). For other platforms, refer to the [Developer Guide](/developer-guide/introduction).
-- **Image and GIF dependency (Android)**: Starting with In-App version 7.0.0, the Android SDK requires the [Glide](https://bumptech.github.io/glide/) library to render images and GIFs. If Glide is missing at runtime, In-App messages that contain images or GIFs fail to render.
 - **Deep links**: In-App messages can send users to a specific screen or URL. Implement deep link handling in your app to support actions that use deep links. For more information, refer to [Create Navigation, Deeplinks, and Rich Landing](/user-guide/campaigns-and-channels/in-app-message/create/create-navigation-deeplinks-and-rich-landing).
 
 ## Supported Features and SDK Versions
@@ -314,7 +313,7 @@ flowchart TD
 
     subgraph DISPLAY["5 · Display and track"]
         direction TB
-        E1("Fetch template and<br/>personalization data") --> E2{"Rendered<br/>successfully?"}
+        E1("Fetch campaign assets and<br/>personalization data") --> E2{"Rendered<br/>successfully?"}
         E2 -->|"No · logged"| STOP3(["No message shown"])
         E2 -->|"Yes"| E3("In-App message<br/>is displayed")
         E3 --> E4("Track shown, clicked,<br/>and dismissed")
