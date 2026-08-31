@@ -2111,101 +2111,121 @@ components:
       properties:
         response_id:
           type: string
-          description: Unique identifier for this API response, useful when correlating with server-side logs.
+          description: >
+            Format: `resp_<X-MOE-Request-Id>` header value
+            (auto-generated UUID if the `X-MOE-Request-Id` header was not part of the request body).
           example: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type:
           type: string
-          description: The type of object returned. Always `offer` for this endpoint.
+          description: The type of object returned. For this endpoint, the value is always `offer`.
           example: offer
         data:
           type: object
-          description: The offering's stored configuration, as it currently exists in your workspace.
+          description: The offering's stored configuration.
           properties:
             id:
               type: string
-              description: Unique ID of the offering, including the `offer_` prefix.
+              description: 'Offering ID assigned by the server. Format: `offer_<OfferingId>`.'
               example: offer_6a766d5d094949363d4d6bf2
             status:
               type: string
-              description: Current lifecycle status of the offering. One of `scheduled`, `active`, `expired`, or `archived`.
+              description: Lifecycle status of the offering. One of `scheduled`, `active`, `expired`, or `archived`.
               example: scheduled
             created_at:
               type: string
               format: date-time
-              description: ISO 8601 UTC timestamp when the offering was created.
+              description: ISO 8601 UTC timestamp when the offering was persisted.
               example: "2026-08-07T23:42:21.556936210Z"
             updated_at:
               type: string
               format: date-time
-              description: ISO 8601 UTC timestamp when the offering was last updated.
+              description: ISO 8601 UTC timestamp of the update.
               example: "2026-08-07T23:42:21.556979662Z"
             updated_by:
               type: string
-              description: Email of the user who last updated the offering.
+              format: email
+              description: Email address of the team member making this update.
               example: bekif.bekiyev@moengage.com
             created_by:
               type: string
-              description: Email of the user who created the offering.
+              format: email
+              description: Email address of the user creating this offering.
               example: marketing-team@example.com
             name:
               type: string
-              description: Display name of the offering, unique within the workspace.
+              description: >
+                Unique display name for this offering within the workspace. Names are
+                case-sensitive and must be unique.
+                Allowed characters: alphanumeric characters and underscores (_).
               example: personalized_offer
             description:
               type: string
-              description: Free-text description of the offering's purpose.
+              description: >
+                Optional free-text description of the offering's purpose, targeting rationale,
+                or expected user experience. Visible in the MoEngage UI offering list.
               example: Configured using personalization template
             priority:
               type: integer
-              description: Static priority score from 1 (lowest) to 100 (highest), used when the Decision Policy ranks by Offering Priority.
+              description: >
+                Static priority score for offer ranking. Lower number means lower priority
+                (1 is lowest priority, 100 is highest). This score is used when the Decision
+                Policy ranking strategy is set to Offering Priority.
               example: 90
             delivery:
               type: string
-              description: Delivery mode of the offering. `scheduled` means it is served within its scheduling window.
+              description: >
+                Controls when the offering is eligible for delivery.
+                `scheduled` — the offering is served within its scheduling window.
               example: scheduled
             tags:
               type: array
               items:
                 type: string
-              description: IDs of the tags applied to the offering.
+              description: >
+                Tags that provide context about the Offering's nature or theme. Each tag ID must already exist in the
+                workspace — the service returns `400 INVALID_TAG_ID` for any unknown tag ID.
               example: [tag_697211b32ccd4a79028b3689]
             scheduling:
               allOf:
                 - $ref: '#/components/schemas/OfferSchedulingCreate'
-              description: The offering's delivery window — its start time, expiry time, and timezone.
+              description: Scheduling window that determines when an offering is eligible for delivery.
             segment_info:
               allOf:
                 - $ref: '#/components/schemas/OfferSegmentInfo'
-              description: Targeting configuration that determines which users are eligible for the offering.
+              description: Segment targeting configuration that controls which users are eligible to receive this offering.
             offer_content:
               allOf:
                 - $ref: '#/components/schemas/OfferContent'
-              description: The content payload delivered to the end user.
+              description: The core content payload delivered to the end-user.
             variation_meta:
               allOf:
                 - $ref: '#/components/schemas/OfferVariationMeta'
-              description: A/B variation configuration for the offering's content.
+              description: Configuration for A/B testing content variations.
             capping_rules:
               allOf:
                 - $ref: '#/components/schemas/OfferCappingRules'
-              description: Frequency-capping rules that limit how often the offering is delivered.
+              description: Frequency capping configuration that limits how often this offering is delivered.
             is_global_control_enabled:
               type: boolean
-              description: Whether the global control group is enabled for the offering.
+              description: >
+                Whether the global control group is enabled.
               example: true
             imp_track_hours:
               type: integer
-              description: Attribution window, in hours.
+              description: >
+                The attribution window in hours.
               example: 36
             offering_attribute_configuration:
               type: array
+              description: >
+                Custom attributes assigned to this offering. These attributes are used in
+                Decision Policy using the Custom formula ranking strategy.
               items:
                 $ref: '#/components/schemas/OfferAttributeConfigurationRequest'
-              description: Custom offering attributes used by the Custom formula ranking strategy in the Decision Policy.
             conversion:
               allOf:
                 - $ref: '#/components/schemas/ConversionDto'
-              description: Conversion goals tracked to measure the offering's effectiveness.
+              description: List of conversion goals to track.
       example:
         response_id: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type: offer
