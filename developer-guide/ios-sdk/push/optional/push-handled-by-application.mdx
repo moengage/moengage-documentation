@@ -1,6 +1,7 @@
 ---
 title: "Push Handled by Application"
 description: "Handle push notification display and tracking yourself using the MoEngage iOS SDK messaging APIs."
+keywords: "iOS push self handled, logNotificationReceived, logNotificationClicked, isPushFromMoEngage, notification service extension, NSE impression tracking"
 ---
 
 <Info>
@@ -8,75 +9,213 @@ description: "Handle push notification display and tracking yourself using the M
 
   - **General Messaging:** Supported from version 9.13.0
   - **Background Updates (Self handled):** Supported from version 10.10.0
+  - **Typed task callbacks:** Supported from version 11.0.0
 </Info>
+
+When your application displays push notifications itself instead of handing them to the MoEngage SDK, the SDK cannot track impressions and clicks automatically. Use the APIs on this page to report those events so campaign analytics stay accurate.
+
+## Prerequisites
+
+- A Notification Service Extension added to your project, with an App Group shared between the app and the extension. For setup steps, see [Implement Notification Service Extension (NSE)](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial#step-1-implement-notification-service-extension-nse).
+- AppDelegate swizzling disabled, so your own delegate methods receive the notification callbacks. See [App Delegate Method Swizzling](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial#app-delegate-method-swizzling).
 
 ## Track Notification Received
 
-Call SDK's **_logNotificationReceived(withPayload: )_** function to track notification received impression as shown below.
+Call `logNotificationReceived(withPayload:)` from your Notification Service Extension to track the received impression. The extension is the only place your code runs when a notification is delivered, so an impression logged anywhere else is either late or missed entirely.
 
 <CodeGroup>
 
-```swift Swift wrap
-MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload:notification.request.content.userInfo) {
-    // updated content in contentHandler here 
+```swift NotificationService.swift wrap
+import UserNotifications
+import MoEngageSDK
+import MoEngageRichNotification
+
+class NotificationService: UNNotificationServiceExtension {
+
+    var contentHandler: ((UNNotificationContent) -> Void)?
+    var bestAttemptContent: UNMutableNotificationContent?
+
+    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+        self.contentHandler = contentHandler
+        self.bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
+
+        // Use the same App Group ID that you set on MoEngageSDKConfig in the app target.
+        MoEngageSDKRichNotification.setAppGroupID("group.com.yourcompany.appname")
+
+        let payload = request.content.userInfo
+
+        // Skip notifications sent by other providers.
+        guard MoEngageSDKMessaging.sharedInstance.isPushFromMoEngage(withPayload: payload) else {
+            contentHandler(self.bestAttemptContent ?? request.content)
+            return
+        }
+
+        MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload: payload)
+            .onSuccess { _ in
+                contentHandler(self.bestAttemptContent ?? request.content)
+            }
+            .onFailure { failure in
+                // Deliver the notification even if the impression was not logged.
+                print("MoEngage : impression not logged : \(failure.message)")
+                contentHandler(self.bestAttemptContent ?? request.content)
+            }
+    }
+
+    override func serviceExtensionTimeWillExpire() {
+        // Called when the extension runs out of time. Deliver the best attempt so far.
+        if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
+            contentHandler(bestAttemptContent)
+        }
+    }
 }
 ```
 
 
-```objective-c Objective C wrap
-[[MoEngageSDKMessaging sharedInstance] logNotificationReceivedWithPayload:notification.request.content.userInfo completion: ^(void) {
-    // updated content in contentHandler here
-}];
+```objective-c NotificationService.m wrap
+#import <UserNotifications/UserNotifications.h>
+@import MoEngageSDK;
+@import MoEngageRichNotification;
+
+@interface NotificationService ()
+@property (nonatomic, strong) void (^contentHandler)(UNNotificationContent *contentToDeliver);
+@property (nonatomic, strong) UNMutableNotificationContent *bestAttemptContent;
+@end
+
+@implementation NotificationService
+
+- (void)didReceiveNotificationRequest:(UNNotificationRequest *)request withContentHandler:(void (^)(UNNotificationContent * _Nonnull))contentHandler {
+    self.contentHandler = contentHandler;
+    self.bestAttemptContent = [request.content mutableCopy];
+
+    // Use the same App Group ID that you set on MoEngageSDKConfig in the app target.
+    [MoEngageSDKRichNotification setAppGroupID:@"group.com.yourcompany.appname"];
+
+    NSDictionary *payload = request.content.userInfo;
+
+    // Skip notifications sent by other providers.
+    if (![[MoEngageSDKMessaging sharedInstance] isPushFromMoEngageWithPayload:payload]) {
+        contentHandler(self.bestAttemptContent);
+        return;
+    }
+
+    MoEngageLogNotificationTask *task = [[MoEngageSDKMessaging sharedInstance] logNotificationReceivedWithPayload:payload];
+    [task onSuccess:^(id _Nonnull result) {
+        contentHandler(self.bestAttemptContent);
+    }];
+    [task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+        // Deliver the notification even if the impression was not logged.
+        NSLog(@"MoEngage : impression not logged : %@", failure.message);
+        contentHandler(self.bestAttemptContent);
+    }];
+}
+
+- (void)serviceExtensionTimeWillExpire {
+    // Called when the extension runs out of time. Deliver the best attempt so far.
+    self.contentHandler(self.bestAttemptContent);
+}
+
+@end
 ```
 
 </CodeGroup>
 
 ## Track Notification Click
 
-To track the notification clicked event using the payload, call the SDK's **_logNotificationClicked_** function, as shown below.
-
-<CodeGroup>
-
-```swift Swift wrap
-MoEngageSDKMessaging.sharedInstance.logNotificationClicked(withPayload: notification.request.content.userInfo)
-```
-
-
-```objective-c Objective C wrap
-[[MoEngageSDKMessaging sharedInstance] logNotificationClickedWithPayload:notification.request.content.userInfo];
-```
-
-</CodeGroup>
-
-To accurately track clicks or dismissals, use the **_logNotificationClicked(withResponse: )_** method.
-
-<CodeGroup>
-
-```swift Swift wrap
-MoEngageSDKMessaging.sharedInstance.logNotificationClicked(withResponse: UNNotificationResponse)
-```
-
-</CodeGroup>
+Call `logNotificationClicked(withResponse:)` from `userNotificationCenter(_:didReceive:withCompletionHandler:)` in your app target. The `UNNotificationResponse` carries the action identifier, so this variant distinguishes a click from a dismissal. Use `logNotificationClicked(withPayload:)` only when you have the payload but not the response.
 
 <Note>
-  **Note**
-
-  To use above functions, Appdelegate swizzling should be disabled. To see how to disable swizzling, please see the [link](https://www.moengage.com/docs/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial#app-delegate-method-swizzling).
+  Both `logNotificationClicked` variants are annotated `@available(iOSApplicationExtension, unavailable)`. They do not compile inside a Notification Service Extension or any other app extension, so clicks must be tracked from the app target.
 </Note>
 
-## Validate if the notification belongs to MoEngage
+<CodeGroup>
 
-Call SDK's **_isPushFromMoEngage(withPayload:)_** function to validate if the notification belongs to MoEngage as shown below:
+```swift AppDelegate.swift wrap
+import UIKit
+import UserNotifications
+import MoEngageSDK
+
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let payload = response.notification.request.content.userInfo
+
+        // Skip notifications sent by other providers.
+        guard MoEngageSDKMessaging.sharedInstance.isPushFromMoEngage(withPayload: payload) else {
+            completionHandler()
+            return
+        }
+
+        // Tracks a click or a dismissal, based on the action identifier in the response.
+        MoEngageSDKMessaging.sharedInstance.logNotificationClicked(withResponse: response)
+
+        // Handle the deep link or in-app navigation yourself.
+        // self.handleNotificationAction(payload)
+
+        completionHandler()
+    }
+}
+```
+
+
+```objective-c AppDelegate.m wrap
+#import "AppDelegate.h"
+#import <UIKit/UIKit.h>
+#import <UserNotifications/UserNotifications.h>
+@import MoEngageSDK;
+
+@interface AppDelegate () <UNUserNotificationCenterDelegate>
+@end
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+    return YES;
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)(void))completionHandler {
+    NSDictionary *payload = response.notification.request.content.userInfo;
+
+    // Skip notifications sent by other providers.
+    if (![[MoEngageSDKMessaging sharedInstance] isPushFromMoEngageWithPayload:payload]) {
+        completionHandler();
+        return;
+    }
+
+    // Tracks a click or a dismissal, based on the action identifier in the response.
+    [[MoEngageSDKMessaging sharedInstance] logNotificationClickedWithResponse:response];
+
+    // Handle the deep link or in-app navigation yourself.
+    // [self handleNotificationAction:payload];
+
+    completionHandler();
+}
+
+@end
+```
+
+</CodeGroup>
+
+## Validate if the Notification Belongs to MoEngage
+
+Call `isPushFromMoEngage(withPayload:)` before you report an event or apply MoEngage-specific handling, so notifications from other providers are left alone. The snippets above use it as a guard in both the extension and the app target. Call it on its own when you only need the check:
 
 <CodeGroup>
 
 ```swift Swift wrap
- let isPushFromMoEngage = MoEngageSDKMessaging.sharedInstance.isPushFromMoEngage(withPayload: notification.request.content.userInfo))
+let payload = request.content.userInfo
+let isPushFromMoEngage = MoEngageSDKMessaging.sharedInstance.isPushFromMoEngage(withPayload: payload)
 ```
 
 
 ```objective-c Objective C wrap
-BOOL isPushFromMoEngage = [[MoEngageSDKMessaging sharedInstance] isPushFromMoEngageWithPayload:notification.request.content.userInfo];
+NSDictionary *payload = request.content.userInfo;
+BOOL isPushFromMoEngage = [[MoEngageSDKMessaging sharedInstance] isPushFromMoEngageWithPayload:payload];
 ```
 
 </CodeGroup>
@@ -90,65 +229,95 @@ BOOL isPushFromMoEngage = [[MoEngageSDKMessaging sharedInstance] isPushFromMoEng
   - **Payload Identifier:** The SDK identifies these payloads by checking for `nt: sh_b` inside the `moeFeatures` dictionary.
 </Note>
 
-The **Background Update** template allows you to send silent data payloads to your application. Because these notifications do not display a UI, the MoEngage SDK provides a specific helper method to identify them so you can execute custom background logic.
+The **Background Update** template sends silent data payloads to your application. Because these notifications do not display a UI, the MoEngage SDK provides a specific helper method to identify them so you can run custom background logic.
 
-For more information on the payload structure and available keys, refer to [Background Update Templates](https://www.moengage.com/docs/user-guide/campaigns-and-channels/mobile-push/create/push-templates#background-update).
+For more information on the payload structure and available keys, refer to [Push Template Types](/user-guide/campaigns-and-channels/mobile-push/create/push-templates#push-template-types).
 
 <Info>
   **Implementation Note**
 
-  Background updates must be handled in the `didReceiveRemoteNotification` fetch completion handler. You must also call `logNotificationReceived` manually to ensure these silent events are recorded in your analytics.
+  Handle background updates in the `didReceiveRemoteNotification` fetch completion handler in your app target, not in the Notification Service Extension. Silent payloads do not reach the extension. Call `logNotificationReceived` manually so these events are recorded in your analytics.
 </Info>
 
 <CodeGroup>
 
-```swift Swift wrap
-func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+```swift AppDelegate.swift wrap
+import UIKit
+import UserNotifications
+import MoEngageSDK
 
-// 1. Check if it's a MoEngage Background Update payload
-if MoEngageSDKMessaging.sharedInstance.isSelfHandledBackgroundNotification(payload: userInfo) {
-    
-    // 2. Log notification received impression manually
-    MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload: userInfo) {
-        
-        // 3. Execute your custom background logic here (e.g., sync data, logout)
-        // self.handleCustomBackgroundLogic(userInfo)
-        
-        // 4. Always call the completion handler
-        completionHandler(.newData)
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+
+        // 1. Check if it is a MoEngage Background Update payload.
+        if MoEngageSDKMessaging.sharedInstance.isSelfHandledBackgroundNotification(payload: userInfo) {
+
+            // 2. Log the notification received impression manually.
+            MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload: userInfo)
+                .onSuccess { _ in
+                    // 3. Run your custom background logic here, for example sync data or log out.
+                    // self.handleCustomBackgroundLogic(userInfo)
+
+                    // 4. Always call the completion handler.
+                    completionHandler(.newData)
+                }
+                .onFailure { _ in
+                    completionHandler(.failed)
+                }
+        } else {
+            // Forward standard MoEngage or other push notifications.
+            MoEngageSDKMessaging.sharedInstance.didReceieveNotification(inApplication: application, withInfo: userInfo)
+            completionHandler(.noData)
+        }
     }
-} else {
-    // Handle standard MoEngage or other push notifications
-    MoEngageSDKMessaging.sharedInstance.didReceieveNotification(inApplication: application, withInfo: userInfo)
-}
-
-
 }
 ```
 
 
-```objective-c Objective C wrap
+```objective-c AppDelegate.m wrap
+#import "AppDelegate.h"
+#import <UIKit/UIKit.h>
+#import <UserNotifications/UserNotifications.h>
+@import MoEngageSDK;
+
+@implementation AppDelegate
+
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
 
-// 1. Check if it's a MoEngage Background Update payload
-if ([[MoEngageSDKMessaging sharedInstance] isSelfHandledBackgroundNotificationWithPayload:userInfo]) {
-    
-    // 2. Log notification received impression manually
-    [[MoEngageSDKMessaging sharedInstance] logNotificationReceivedWithPayload:userInfo completion:^{
-        
-        // 3. Execute your custom background logic here (e.g., sync data, logout)
-        // [self handleCustomBackgroundLogic:userInfo];
-        
-        // 4. Always call the completion handler
-        completionHandler(UIBackgroundFetchResultNewData);
-    }];
-} else {
-    // Handle standard MoEngage or other push notifications
-    [[MoEngageSDKMessaging sharedInstance] didReceieveNotificationInApplication:application withInfo:userInfo];
+    // 1. Check if it is a MoEngage Background Update payload.
+    if ([[MoEngageSDKMessaging sharedInstance] isSelfHandledBackgroundNotificationWithPayload:userInfo]) {
+
+        // 2. Log the notification received impression manually.
+        MoEngageLogNotificationTask *task = [[MoEngageSDKMessaging sharedInstance] logNotificationReceivedWithPayload:userInfo];
+        [task onSuccess:^(id _Nonnull result) {
+            // 3. Run your custom background logic here, for example sync data or log out.
+            // [self handleCustomBackgroundLogic:userInfo];
+
+            // 4. Always call the completion handler.
+            completionHandler(UIBackgroundFetchResultNewData);
+        }];
+        [task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+            completionHandler(UIBackgroundFetchResultFailed);
+        }];
+    } else {
+        // Forward standard MoEngage or other push notifications.
+        [[MoEngageSDKMessaging sharedInstance] didReceieveNotificationInApplication:application withInfo:userInfo];
+        completionHandler(UIBackgroundFetchResultNoData);
+    }
 }
 
-
-}
+@end
 ```
 
 </CodeGroup>
+
+## Observe Tracking Success or Failure
+
+Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `logNotificationReceived(withPayload:)`, `logNotificationClicked(withPayload:)`, and `logNotificationClicked(withResponse:)` return a `MoEngageLogNotificationTask` instead of `Void`. Attach `.onSuccess` or `.onFailure`, or await the async `result()` method, to observe the outcome of an individual call. Both handlers are invoked on the main thread. The return value is marked `@discardableResult`, so direct calls that ignore it compile unchanged.
+
+A success callback means the event was accepted into local batch storage, not that it reached MoEngage servers. A failure callback provides a `MoEngageRequestFailure` with a `reason` and a `message`. For `logNotificationReceived(withPayload:)`, the reason is `.duplicateImpression` when the same payload was already tracked in an earlier call, and `.sdkNotInitialized` when no initialized SDK instance matches the workspace in the payload.
+
+<Warning>
+  `logNotificationReceived(withPayload:completion:)` is deprecated. Replace it with `logNotificationReceived(withPayload:)` and attach `.onSuccess` to run the work you previously did in the completion block. Also attach `.onFailure`, otherwise a failed call leaves any completion handler in that block uncalled.
+</Warning>
