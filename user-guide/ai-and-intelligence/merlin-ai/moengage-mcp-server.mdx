@@ -131,10 +131,10 @@ The MoEngage MCP server uses OAuth-based authentication tied to your MoEngage ac
     In the **Work email** box, type your email address and click **Continue**. MoEngage redirects you to the login page for your last-used workspace's data center.
   </Step>
   <Step title="Verify your identity">
-    On the **User Authentication** page, open your authenticator app, find the 6-digit code for MoEngage, and type it in the verification box. Click **Continue**.
+    On the **User authentication** page, open your authenticator app, find the 6-digit code for MoEngage, and type it in the verification box. Click **Continue**.
   </Step>
   <Step title="Select a workspace">
-    On the **Select Workspace** page, choose the workspace and environment you want to connect to.
+    On the **Login to a different workspace** page, choose the workspace and environment you want to connect to. The environment options are **Live** and **Test**.
   </Step>
   <Step title="Complete workspace authentication">
     Complete authentication using the workspace's configured login method (password, Google, or SSO). You then see an authorization prompt. The screen shows:
@@ -247,19 +247,21 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 
 | Tool | Description |
 | --- | --- |
-| `create_custom_segment` | Creates a filter-based (ELASTIC_SEARCH) custom segment from `included_filters` / `excluded_filters`. The segment `name` must be unique, under 200 characters, and contain no HTML (`All Users` is reserved). Names inside filters are not validated at create time by default — a wrong name is accepted, and the segment count fails later with no error reason. |
+| `create_custom_segment` | Creates a filter-based (ELASTIC_SEARCH) custom segment from `included_filters` / `excluded_filters`. The segment `name` must be unique, at most 200 characters, and contain no HTML (`All Users` is reserved). Names inside filters are only partially validated at create time: a user-attribute display name, or a wrongly-cased internal name, is rejected up front when the catalog is reachable, but event names and event-attribute names are never checked — a wrong one is accepted, and the segment count fails later with no error reason. |
 | `list_segments` | Browse existing segments, paginated (`page`, `page_size`, optional `name` filter). Returns Filter and File type segments only, as metadata (`id`, `name`, `type`, `source`, timestamps); Warehouse, Analytics, and Composite are excluded. |
 | `get_segment` | Read a single segment's full filter definition by ID, in the same format `create_custom_segment` accepts. File-based and cohort-import segments return metadata only, with no filter tree. |
 | `start_segment_count` / `poll_segment_count` | Kick off an async user count for a segment (with an optional `callback_url` webhook), then poll for the result — includes channel-level reachability, with per-channel and per-platform breakdowns available. Results are cached for 15 minutes; jobs typically finish in under 30 seconds. |
 | `get_value_suggestions` | Gets up to 5,000 distinct stored values (`string`, `double`, or array/object variants) for a user or event attribute, useful for checking real values before writing an equality filter. For `array_object` attributes, `node_attribute_name` / `node_data_type` resolve values for a child field. |
 | `describe_segment_filters` | Turns a filter set into a plain-English sentence to confirm intent before creating a segment or query. Its `filter_operator` also accepts `difference`, unlike `create_custom_segment`. |
 | `deep_validate_segment_filters` | Semantically validates a filter set (attribute existence, data types, operators) against the workspace's live catalog. **Always returns HTTP 200** — check the `is_valid` field in the response, not the status code; on failure, `errors` gives the dot-notation path of each problem. |
-| `create_recent_query` / `get_recent_query` / `get_recent_query_filters` | Count an audience **without creating a segment**: run an ad-hoc audience query (optionally restricted to specific `platforms`, or linked to an existing segment via `cs_id`), poll its result (`status`: `success` or `failure`), and read back its filters. Identical requests are deduplicated for 15 minutes; reachability is computed for all four channels regardless of the `reachability` parameter's contents. |
+| `create_recent_query` / `get_recent_query` / `get_recent_query_filters` | Count an audience **without creating a segment**: run an ad-hoc audience query (optionally restricted to specific `platforms`, or linked to an existing segment via `cs_id`), poll its result, and read back its filters. `status` is `received`, `running`, or `retry_wait` while the query is in flight, then `success` (with `user_count`) or `failure` — on failure, `failure_reason` carries the reason. Pass `reachability` to choose which of push, email, SMS, and WhatsApp to count: a channel you omit is skipped, and only the requested channels appear in `reachability_count`. |
 | `is_user_in_segment` | Check in real time whether a specific user is in up to 10 segments. `segment_eligibility: false` means the segment type doesn't support real-time evaluation (batch-only) — it is not a "no". |
 
 <Info>
-  - Segment filters must use the exact **internal** (platform) names of events and attributes, not the dashboard display name (for example, `moe_city`, not "City"). A display name is often accepted at create time, but the count later fails with **no error reason**. Resolve names first with `find_events`, `find_user_attributes`, and `find_event_attributes` (see [Catalog Discovery](#catalog-discovery)), and always use the returned `name` field.
-  - To target users who did **not** perform an event, don't set `executed: false` on an `actions` filter — it is silently ignored. Place a positive `actions` filter in `excluded_filters` instead, or use `"execution": {"type": "atmost", "count": 0}`. Common create-time errors: `409` (name already taken), `400` (malformed filter, or the operator `equals` instead of `is`), `413` (filter too large or too deeply nested).
+  - Segment filters must use the exact **internal** (platform) names of events and attributes, not the dashboard display name (for example, `moe_city`, not "City"). A display name used as an **event** or **event-attribute** name is accepted at create time, and a user-attribute display name gets through too whenever the catalog check cannot resolve it — in both cases the count later fails with **no error reason**. Resolve names first with `find_events`, `find_user_attributes`, and `find_event_attributes` (see [Catalog Discovery](#catalog-discovery)), and always use the returned `name` field.
+  - Equality depends on the attribute's data type. `equals` is never a valid operator. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`); "is not" is the same operator with `"negate": true`. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes — on a `string` attribute it is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all. Get the exact set for a data type from `discover_schema(kind="component", id="segment_filters")`.
+  - To target users who did **not** perform an event, set `executed: false` on the `actions` filter and pair it with `"execution": {"type": "exactly", "count": 0}` — that combination is required, and `aggregation_attributes` must be omitted. Alternatively, place a positive `actions` filter in `excluded_filters`, which excludes matching users outright.
+  - Common create-time errors: `409` (name already taken), `400` (malformed filter, or an operator the API does not accept), `413` (filter too large or too deeply nested). The `400` names no field, so re-check the filter shape rather than retrying variations — or pre-flight with `deep_validate_segment_filters`, which answers `200` with `is_valid: false` and the path of each problem.
 </Info>
 
 ### Flows
@@ -268,8 +270,8 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 | --- | --- |
 | `search_flows` | Find flows by name, status, or other criteria. |
 | `get_flow` / `get_flow_version` | Read a flow's configuration, or a specific version of it. |
-| `get_flow_analytics` | The flow-level health view — how the flow is performing overall. |
-| `get_flow_channel_analytics` | Channel-scoped analytics for a flow — how Email, Push, SMS, and other channels performed within it. |
+| `get_flow_analytics` | The flow-level health view — how the flow is performing overall. Flow Analytics is in beta. |
+| `get_flow_channel_analytics` | Channel-scoped analytics for a flow — how Email, Push, SMS, and other channels performed within it. Flow Analytics is in beta. |
 | `update_flow_status` | Pause, resume, stop, retire, archive, or unarchive a flow. Stop and retire are irreversible. |
 
 ### Dashboards
@@ -292,7 +294,7 @@ Which tools you can use depends on your MoEngage role. If a tool you expect is m
 ### Campaign Analytics
 
 <Info>
-  Campaign analytics tools enforce a maximum date range of **30 days**. Flow analytics tools allow up to **90 days**.
+  Campaign analytics tools enforce a maximum date range of **30 days** per query. Flow analytics tools allow up to **90 days**. The beta behavior, funnel, retention, and session-source analyses use their own, longer windows.
 </Info>
 
 | Tool | Description |
@@ -399,11 +401,10 @@ New tools are added to the connector over time. If a newly shipped tool doesn't 
 
 | Behavior | Details |
 | --- | --- |
-| Internal names only | Filters usually accept display names at create time. `create_custom_segment` has a partial safety-net catalog check, but it fails open when the catalog is unavailable, so an unresolved bad name can still surface later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`. |
+| Internal names only | `create_custom_segment` has a partial safety-net catalog check that covers `user_attributes` filters only, and it fails open when the catalog is unavailable. Event names and event-attribute names are never checked, so an unresolved bad name can still surface later as a count job that fails with no error reason. Always resolve names via `find_events` / `find_user_attributes` / `find_event_attributes` first, and validate with `deep_validate_segment_filters`. |
 | Stale events are hidden | `find_events` excludes events inactive for more than 60 days. |
-| Text equality uses the `is` operator | The operator `equals` on a `user_attributes` filter is rejected with a generic `400` (Bad Request) error. |
-| Negative event conditions require a specific pattern | `executed: false` on an `actions` filter is silently ignored. Express "did not do the event" with a positive filter in `excluded_filters`, or with `"execution": {"type": "atmost", "count": 0}`. |
-| Identical recent queries are deduplicated | An identical `create_recent_query` request within 15 minutes returns the same `rq_id` instead of running a new query. |
+| Equality depends on the attribute's data type | `equals` is not a valid operator and is rejected with a flat `400` (Bad Request) that names no field. For `string`, `double`, `array_string`, and `array_double` attributes, equality is `"operator": "in"` with a **list** value (for example, `"value": ["Mumbai"]`); "is not" is the same operator with `"negate": true` — there is no `notEquals`. `is` is the equality operator for `bool` attributes and for date parts on `datetime` attributes; on a `string` attribute `is` is reserved for the is-empty check (`"value": ""`), so don't use it for text equality. `geopoint` attributes take no operator at all — only `value` (latitude), `value1` (longitude), and `radius`. Get the exact set for an attribute's data type from `discover_schema(kind="component", id="segment_filters")`, and confirm the filter with `deep_validate_segment_filters` before creating. |
+| Negative event conditions need `executed: false` plus `exactly 0` | To express "did not do the event", set `executed: false` on the `actions` filter and pair it with `"execution": {"type": "exactly", "count": 0}`; `aggregation_attributes` must be omitted. Alternatively, place a positive `actions` filter in `excluded_filters`. |
 | Segment types vary in MCP support | `create_custom_segment` only creates filter-based (ELASTIC_SEARCH) segments. `list_segments` returns Filter and File segments, but excludes Warehouse, Analytics, and Composite. `get_segment` returns a full filter tree only for Filter segments; File and cohort-import segments return metadata only. `is_user_in_segment` evaluates Filter segments in real time; file-based, funnel, retention, and predictive segments are batch-only. See [Types of Segments](/user-guide/segment/getting-started/types-of-segments) for what each type means. |
 | Counts are cached for 15 minutes | `start_segment_count` returns the cached result (`served_from_cache: true`) when a successful count already exists within the window. |
 | Validation returns HTTP 200 either way | For `deep_validate_segment_filters`, check `is_valid` in the response body. |
@@ -420,7 +421,6 @@ The segmentation tools do not enforce rate limits of their own; the limits below
 | Values returned by `get_value_suggestions` | 5,000 distinct values |
 | Segments returned per `list_segments` page | 1 to 100 (default 10) |
 | Segment count result cache | 15 minutes |
-| `create_recent_query` deduplication window | 15 minutes (an identical request returns the same `rq_id`) |
 | Filter payload size | Oversized or overly deep filters are rejected with a `413` (Payload Too Large) error |
 | Filter nesting depth | One level of `nested_filters` |
 
@@ -475,7 +475,7 @@ Rate limiting can still occur at the platform level.
   </Accordion>
 
   <Accordion title="A segment or query is not created">
-    Check the response for a specific error code: `409` means the name is already taken, `400` means the filter structure is malformed, and `413` means the filter is too large or deeply nested. A `400` on a filter that otherwise appears correct is often the operator: use `is`, not `equals`, for text equality. See the common-errors note under [Segments](#segments).
+    Check the response for a specific error code: `409` means the name is already taken, `400` means the filter structure or one of its operators is invalid, and `413` means the filter is too large or deeply nested. The `400` carries no field-level detail. A `400` on a filter that otherwise appears correct is usually the operator, and the right one depends on the attribute's data type: for a text (`string`) attribute, equality is `"operator": "in"` with a list value — not `equals`, and not `is` (`is` is for `bool` attributes and for the is-empty check). Run `deep_validate_segment_filters` first: it answers `200` with `is_valid: false` and the path of each problem, instead of a flat `400`. See the common-errors note under [Segments](#segments).
   </Accordion>
 
   <Accordion title="is_user_in_segment returned segment_eligibility: false">
