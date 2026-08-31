@@ -279,24 +279,19 @@ div[class*="scroll-mt"][class*="peer"] {
   }
 }
 
-/* Circular: real cuts for the weights the site asks for.
+/* Circular: heading weight cuts.
 
-   docs.json registers one source per role, so the family arrives with a single
-   face and every font-weight above 400 is synthesized by the browser. These
-   declarations extend the SAME family name docs.json uses (`circular`), which is
-   what --font-family-body-custom / --font-family-headings-custom resolve to, so
-   they reach every element.
+   docs.json registers one font source per role, so the family loads with a
+   single 400 face and the browser synthesizes anything heavier. These rules
+   extend the same family name docs.json uses (`circular`), which both
+   --font-family-body-custom and --font-family-headings-custom resolve to, so
+   they apply site-wide.
 
-   Only 600 and 700 are declared, and deliberately so. Mintlify computes headings
-   and sidebar section rows to font-semibold (600) - the cuts these exist for -
-   but it also styles top-level table-of-contents links at font-medium (500).
-   With a lone 400 face the browser rendered that 500 as Regular, since it does
-   not synthesize below ~600, so those links matched their nested siblings.
-   Anything that claims 500, including a Book face at 450, hands them a heavier
-   real cut and silently bolds the TOC. Leaving 450 and 500 unclaimed sends a
-   requested 500 down to Regular and preserves the previous rendering. Measured,
-   not assumed: with Book at 450 present, Chrome resolved a requested 500 up to
-   450, not down to 400. */
+   Declare 600 and 700 only. Mintlify styles top-level table-of-contents links
+   at font-medium (500), and Chrome resolves a requested 500 up to a 450 face
+   where one exists, so any face claiming 450 or 500 gives those links a heavier
+   cut and bolds the TOC. Leaving both undeclared keeps a requested 500 on
+   Regular. */
 @font-face {
   font-family: circular;
   src: url("https://app-cdn.moengage.com/images/Fonts/CircularXXWeb-Medium.woff2") format("woff2");
@@ -310,22 +305,18 @@ div[class*="scroll-mt"][class*="peer"] {
   font-display: swap;
 }
 
+/* Heading scale.
 
-/* Heading scale - Option B (geometric).
+   Page title at 32px, then a ratio of ~1.148 per level down to a 14px floor.
 
-   Page title top size drops 36px -> 32px and the levels below step down on a
-   single ratio of ~1.148 from the 14px floor, so each gap is proportionally
-   equal rather than equal in pixels. Lvl 2, 4 and 5 land exactly on Tailwind's
-   existing text-2xl / text-lg / text-base steps, leaving only Lvl 1 and Lvl 3 as
-   new values.
+   #page-title is Mintlify's ID hook and outranks the Tailwind
+   text-3xl/sm:text-4xl utilities on that element. Tailwind Typography sizes
+   headings inside .prose through :where(), which contributes no specificity, so
+   `.prose hN` overrides it without !important.
 
-   Selectors: #page-title is Mintlify's ID hook and outranks the Tailwind
-   text-3xl/sm:text-4xl utilities on that h1. Body headings are sized by Tailwind
-   Typography inside .prose via :where(), which contributes no specificity, so a
-   plain `.prose hN` wins without !important. Only font-size is set: prose
-   line-heights and margins are em-based and rescale on their own. The page
-   title's line-height is the exception - text-4xl pins it to 40px - so it is
-   restated as the ratio it had before (40/36). */
+   font-size is the only property set: prose line-heights and margins are
+   em-based and rescale with it. The page title is the exception, because
+   text-4xl pins its line-height to 40px. */
 #page-title {
   font-size: 2rem; /* 32px */
   line-height: 1.1111;
