@@ -1521,6 +1521,344 @@ components:
         conversion:
           $ref: '#/components/schemas/ConversionDto'
 
+    OfferSchedulingResponse:
+      description: |
+        Scheduling window that determines when an offering is eligible for delivery.
+      type: object
+      properties:
+        start_datetime:
+          type: string
+          format: date-time
+          description: >
+            ISO 8601 UTC datetime when the offering becomes eligible for delivery.
+            MUST use the UTC "Z" suffix format.
+          example: "2026-06-15T09:00:00Z"
+        expiry_datetime:
+          type: string
+          format: date-time
+          description: >
+            ISO 8601 UTC datetime when the offering expires and stops being served.
+            MUST use the UTC "Z" suffix format.
+          example: "2026-09-30T23:59:59Z"
+        timezone:
+          type: string
+          description: >
+            IANA timezone name.
+          example: Asia/Kolkata, America/New_York, UTC
+
+    ContentBlockResponse:
+      description: |
+        This field indicates the type of the offering content payload.
+
+        `json` — Serialised JSON string containing the offering content
+        payload.
+
+        `content_block` — The ID of a content block stored in the
+        MoEngage Content Block library.
+
+        `template` — value is a JSON object of the personalized template's field values, and
+        meta.templateId carries the template id (from GET /v1/offers/templates).
+      type: object
+      properties:
+        type:
+          type: string
+          description: >
+            Format of the content payload. Determines how `value` is interpreted.
+            `json` — serialised JSON string. `content_block` — Content Block library reference ID.
+            `template` — object of template field key-value pairs.
+          enum: [json, content_block, template]
+        value:
+          description: |
+            Content payload. Interpretation depends on `type`:
+
+            - **`json`** — value must be a **serialised JSON string** (not an inline JSON object).
+              The entire payload is encoded as a string. Example: `"{\"discount\": \"10%\"}"`.
+              Passing a raw JSON object instead of a string returns `400 INVALID_TYPE`.
+            - **`content_block`** — value is the reference ID string of a Content Block from the
+              MoEngage Content Block library.
+            - **`template`** — value is a JSON **object** (not a string) whose keys are the field
+              names defined by the template schema.
+          oneOf:
+            - type: string
+              description: For `json` and `content_block` types. For `json`, must be a serialised JSON string — not an inline object.
+            - type: object
+              description: For `template` type — a map of template field names to their values.
+              additionalProperties: true
+        meta:
+          type: object
+          description: >
+            Key-value metadata attached to this content block.
+          additionalProperties: true
+          example:
+            templateId: app_small
+
+    OfferContentResponse:
+      description: |
+        The core content payload delivered to the end-user. This object supports two mutually exclusive structures depending on whether your offering uses content variations or experimentation.
+
+        **Mutually Exclusive:** Do not provide both `content_1` and `locales` in the same request payload. Doing so will result in a validation error.
+
+        ### 1. Flat Format (No Content Variations)
+
+        Use this structure for simple offerings that do not require A/B testing or localization.
+
+        * **Payload Structure:** Send a single `content_1` object at the root level.
+        * **Behavior:** The exact same content block is served universally to all eligible users.
+
+        ### 2. Nested Format (Multiple Content Variations)
+
+        Use this structure when `variation_meta.type` is configured as either **SMV** (Static Multi-Variant) or **DMV** (Dynamic Multi-Variant).
+
+        * **Payload Structure:** Send a structured `locales` map object.
+        * **Single-Locale Targeting:** For single-locale offerings, you **must** use `"0"` as the literal locale key string.
+        * **Variations Mapping:** Inside each locale, the nested `variations` map keys must exactly match the variation IDs defined in `variation_meta.variantsPerLocale` and `smv_distribution.split`.
+      type: object
+      properties:
+        content_1:
+          $ref: '#/components/schemas/ContentBlockResponse'
+          description: >
+            Primary content block for single variation offerings.
+        locales:
+          type: object
+          description: >
+            Use "0" as the locale key
+          additionalProperties:
+            type: object
+            description: Content container for a single locale.
+            properties:
+              variations:
+                type: object
+                description: >
+                  Each key is a variation of the content payload. The key name **must**
+                  match a key in `variation_meta.smv_distribution.split`.
+                additionalProperties:
+                  type: object
+                  properties:
+                    content_1:
+                      $ref: '#/components/schemas/ContentBlockResponse'
+
+    OfferVariationMetaResponse:
+      description: |
+        Configuration for A/B testing content variations.
+
+        * `SMV`: Fixed percentage splits across up to 5 variations.
+        * `DMV`: The system automatically learns which variant performs best over time and shifts traffic toward the winner.
+        * `Offer Control Group`: A configurable percentage of eligible users to be held out as a pure control group.
+
+        #### Lifecycle & Mutation Rules
+
+        `variation_meta` can be edited later via `PATCH /v5/offers/{offer_id}`, subject to status-based rules. Field mutability depends on both the offering status and the variation type. Attempting to modify a locked field returns a `400 IMMUTABLE_FIELD` error.
+
+        | Offering Status | Variation Type | Editable Fields | Locked Fields |
+        | :--- | :--- | :--- | :--- |
+        | **`scheduled`** | Any | Entire object (`type`, `variantsPerLocale`, `smv_distribution`, `control_group`) | None |
+        | **`active`** | **SMV** | `smv_distribution.split` percentages, `control_group.percentage` | `type`, Variant key names |
+        | **`active`** | **DMV** | `control_group.percentage` | `type`, `variantsPerLocale`, `smv_distribution` |
+        | **`expired`** | Any | None | All fields are locked |
+      type: object
+      properties:
+        type:
+          type: string
+          description: >
+            Variation strategy type.
+            `SMV` — fixed percentage split.
+            `DMV` - adaptive traffic allocation.
+          enum: [SMV, DMV]
+        variantsPerLocale:
+          type: array
+          description: >
+            Ordered list of variations.
+          items:
+            type: string
+          example: [Variant_A, Variant_B]
+        smv_distribution:
+          type: object
+          description: >
+            Variation percentage allocation.
+          properties:
+            split:
+              type: object
+              description: >
+                Map of variations to integer percentage allocation.
+              additionalProperties:
+                type: integer
+                minimum: 1
+                maximum: 100
+              example:
+                Variation_1: 70
+                Variation_2: 30
+        control_group:
+          type: object
+          description: >
+            A percentage of eligible users that are held out as a pure control and do not receive the offering.
+            This operates independently of the workspace-level GCG.
+          properties:
+            is_enabled:
+              type: boolean
+              description: Whether the offering-level control group holdout is active.
+              example: false
+            percentage:
+              type: integer
+              description: >
+                Percentage of eligible users to hold out.
+              minimum: 1
+              maximum: 99
+              example: 10
+
+    OfferCappingRuleResponse:
+      description: A single frequency capping rule (either overall or per-user).
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether this capping rule is enforced. When false, all other fields are ignored.
+          example: true
+        limit_value:
+          type: integer
+          description: >
+            Maximum number of deliveries allowed within one limit_schedule period.
+            For overall capping, this is the total across all users.
+            For user_level capping, this is per individual user.
+          minimum: 1
+          example: 3
+        limit_schedule:
+          type: string
+          description: >
+            Time window for the capping counter.
+          enum: [DAILY, WEEKLY, MONTHLY]
+          example: WEEKLY
+
+    OfferCappingRulesResponse:
+      description: |
+        Frequency capping configuration that limits how often this offering is delivered.
+        Two independent capping rules can be configured and enabled simultaneously.
+
+        `overall`: Limits the TOTAL number of times the offering is delivered across
+        **ALL users in the target segment** within the capping schedule period.
+
+        `user_level`: Limits the number of times any SINGLE user can receive the
+        offering within the capping schedule period.
+      type: object
+      properties:
+        overall:
+          $ref: '#/components/schemas/OfferCappingRuleResponse'
+          description: Total delivery cap across all users within the target segment.
+        user_level:
+          $ref: '#/components/schemas/OfferCappingRuleResponse'
+          description: Per-user delivery cap for individual users.
+
+    ConversionGoalResponse:
+      description: A single conversion goal that tracks a specific user action.
+      type: object
+      properties:
+        goal_name:
+          type: string
+          description: >
+            Display name for this conversion goal.
+          example: Add to Cart
+        action:
+          type: string
+          description: >
+            MoEngage event name associated with the conversion goal.
+          example: add_to_cart
+        filter_type:
+          type: string
+          description: >
+            How the conversion event is matched. "ACTIONS" matches by event name and
+            optional attribute-level filters.
+          example: ACTIONS
+        attributes:
+          $ref: '#/components/schemas/ConversionAttributesDto'
+          description: >
+            Optional attribute-level filters to narrow which occurrences of the action
+            count as a conversion (e.g. only purchase events where category = "Electronics").
+        is_revenue_tracking:
+          type: boolean
+          description: >
+            When true, the conversion also records the monetary value from the event.
+          default: false
+        revenue_amount:
+          type: string
+          description: >
+            Name of the event attribute containing the transaction revenue value.
+            Should be used only when `is_revenue_tracking` is true. The attribute must be a
+            numeric field on the tracked event.
+          example: order_value
+        revenue_currency:
+          type: string
+          description: >
+            ISO 4217 three-letter currency code for revenue tracking
+            (e.g. "USD", "EUR", "GBP", "INR"). Should be used only when `is_revenue_tracking` is true.
+          example: USD
+
+    ConversionDtoResponse:
+      description: |
+        List of conversion goals to track.
+
+        **Status constraint:** `conversion` can only be set or updated while the offering status is `scheduled`. Attempting to update it on an `active` or `expired` offering returns a `400 IMMUTABLE_FIELD` error.
+      type: object
+      properties:
+        primary:
+          $ref: '#/components/schemas/ConversionGoalResponse'
+          description: >
+            Primary conversion goal.
+        secondary:
+          type: array
+          description: >
+            Additional conversion goals tracked alongside the primary goal.
+          items:
+            $ref: '#/components/schemas/ConversionGoalResponse'
+
+    OfferAttributeConfigurationResponse:
+      description: |
+        Assignment of a custom offering attribute and its value(s) to this offering.
+      type: object
+      properties:
+        offering_attribute_id:
+          type: string
+          description: >
+            ID of the Offering Attribute.
+        offering_attribute_name:
+          type: string
+          description: >
+            Display name of the referenced Offering Attribute.
+          example: Product Category
+        type:
+          type: string
+          description: >
+            Attribute type of the referenced Offering Attribute.
+          enum: [FIXED, DYNAMIC]
+          example: FIXED
+        selected_values:
+          type: array
+          description: >
+            Selected option value(s) for this attribute. For `DYNAMIC` attributes, at most one
+            value is allowed per assignment. For `FIXED` attributes, multiple values are allowed
+            up to the attribute definition's `max_inputs_allowed` limit.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: >
+                  ID of the option(s) defined as part of the Offering Attribute definition.
+                nullable: true
+              value:
+                type: string
+                description: >
+                  Option value string. It must match an existing option name in the Offering Attribute definition.
+                example: Electronics
+              score:
+                type: integer
+                description: >
+                  Priority score for this option to be used in a Decision Policy using the Custom Formula ranking strategy.
+                  Set to `null` for `DYNAMIC` attributes.
+                  Set to a value between 1-100 for `FIXED` attributes.
+                minimum: 1
+                maximum: 100
+                nullable: true
+                example: 85
+
     OfferSchedulingCreate:
       description: |
         Scheduling window that determines when an offering is eligible for delivery.
@@ -2145,7 +2483,7 @@ components:
               type: string
               format: email
               description: Email address of the team member making this update.
-              example: bekif.bekiyev@moengage.com
+              example: marketing.team@example.com
             created_by:
               type: string
               format: email
@@ -2187,7 +2525,7 @@ components:
               example: [tag_697211b32ccd4a79028b3689]
             scheduling:
               allOf:
-                - $ref: '#/components/schemas/OfferSchedulingCreate'
+                - $ref: '#/components/schemas/OfferSchedulingResponse'
               description: Scheduling window that determines when an offering is eligible for delivery.
             segment_info:
               allOf:
@@ -2195,15 +2533,15 @@ components:
               description: Segment targeting configuration that controls which users are eligible to receive this offering.
             offer_content:
               allOf:
-                - $ref: '#/components/schemas/OfferContent'
+                - $ref: '#/components/schemas/OfferContentResponse'
               description: The core content payload delivered to the end-user.
             variation_meta:
               allOf:
-                - $ref: '#/components/schemas/OfferVariationMeta'
+                - $ref: '#/components/schemas/OfferVariationMetaResponse'
               description: Configuration for A/B testing content variations.
             capping_rules:
               allOf:
-                - $ref: '#/components/schemas/OfferCappingRules'
+                - $ref: '#/components/schemas/OfferCappingRulesResponse'
               description: Frequency capping configuration that limits how often this offering is delivered.
             is_global_control_enabled:
               type: boolean
@@ -2221,10 +2559,10 @@ components:
                 Custom attributes assigned to this offering. These attributes are used in
                 Decision Policy using the Custom formula ranking strategy.
               items:
-                $ref: '#/components/schemas/OfferAttributeConfigurationRequest'
+                $ref: '#/components/schemas/OfferAttributeConfigurationResponse'
             conversion:
               allOf:
-                - $ref: '#/components/schemas/ConversionDto'
+                - $ref: '#/components/schemas/ConversionDtoResponse'
               description: List of conversion goals to track.
       example:
         response_id: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
@@ -2234,8 +2572,8 @@ components:
           status: scheduled
           created_at: "2026-08-07T23:42:21.556936210Z"
           updated_at: "2026-08-07T23:42:21.556979662Z"
-          updated_by: bekif.bekiyev@moengage.com
-          created_by: bekif.bekiyev@moengage.com
+          updated_by: marketing.team@example.com
+          created_by: marketing.team@example.com
           name: personalized_offer
           description: Configured using personalization template
           priority: 90
