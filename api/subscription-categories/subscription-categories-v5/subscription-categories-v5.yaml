@@ -64,14 +64,6 @@ paths:
             enum:
               - email
               - sms
-        - name: fields
-          in: query
-          required: false
-          description: |
-            Optional sparse fieldset. A comma-separated allowlist of fields to include per category, e.g. `name,display_name,description,channel,group,status`.
-          schema:
-            type: string
-            example: 'name,display_name,description,channel,group,status'
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -118,7 +110,6 @@ paths:
                   code: BadArgument
                   message: 'channel must be one of: email, sms'
                   target: channel
-                  details: []
         '401':
           description: This response is returned when authentication is missing or invalid.
           content:
@@ -130,7 +121,6 @@ paths:
                   code: Unauthorized
                   message: Invalid or missing credentials
                   target: Authorization
-                  details: []
         '403':
           description: This response is returned when the credentials lack the required scope.
           content:
@@ -142,7 +132,6 @@ paths:
                   code: Forbidden
                   message: 'Token is missing required scope read:subscriptions'
                   target: Authorization
-                  details: []
         '429':
           description: This response is returned when the rate limit has been exceeded.
           content:
@@ -154,7 +143,6 @@ paths:
                   code: TooManyRequests
                   message: Rate limit exceeded
                   target: null
-                  details: []
         '500':
           description: This response is returned when the system runs into an unexpected error.
           content:
@@ -166,7 +154,6 @@ paths:
                   code: InternalServerError
                   message: Something went wrong, please retry
                   target: null
-                  details: []
   /v5/subscription-preferences:
     get:
       tags:
@@ -200,13 +187,6 @@ paths:
             This is the project ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at Settings > Account > Portfolio > Project ID. Note: This parameter is mandatory for workspaces with the [Portfolio](/user-guide/settings/account/portfolio/portfolio) feature enabled.
           schema:
             type: string
-        - name: X-MOE-Request-Id
-          in: header
-          required: false
-          description: Optional client-supplied request ID, useful for tracing.
-          schema:
-            type: string
-            format: uuid
         - name: user_identifier_type
           in: query
           required: true
@@ -244,9 +224,11 @@ paths:
                 properties:
                   response_id:
                     type: string
+                    description: Unique identifier for this API response.
                     example: resp_1b2c3d4e5f60708192a3b4c5d6e7f809
                   type:
                     type: string
+                    description: The resource type returned in `data`.
                     example: subscription_preference
                   data:
                     $ref: '#/components/schemas/SubscriptionPreference'
@@ -281,7 +263,6 @@ paths:
                       code: BadArgument
                       message: user_identifier_value is required
                       target: user_identifier_value
-                      details: []
                 unsupportedType:
                   summary: Unsupported Identifier Type
                   value:
@@ -289,7 +270,6 @@ paths:
                       code: BadArgument
                       message: 'user_identifier_type must be one of: moe_user_id, uid, email'
                       target: user_identifier_type
-                      details: []
         '401':
           description: This response is returned when authentication is missing or invalid.
           content:
@@ -301,7 +281,6 @@ paths:
                   code: Unauthorized
                   message: Invalid or missing credentials
                   target: Authorization
-                  details: []
         '403':
           description: This response is returned when the credentials lack the required scope.
           content:
@@ -313,7 +292,6 @@ paths:
                   code: Forbidden
                   message: 'Token is missing required scope read:subscriptions'
                   target: Authorization
-                  details: []
         '404':
           description: This response is returned when the identifier resolves to no user.
           content:
@@ -325,7 +303,6 @@ paths:
                   code: NotFound
                   message: No user found for the given identifier
                   target: user_identifier_value
-                  details: []
         '409':
           description: This response is returned when an email identifier matches multiple user profiles and email-based unsubscribe is disabled for the workspace.
           content:
@@ -337,7 +314,6 @@ paths:
                   code: Conflict
                   message: Multiple user profiles match this email; cannot resolve unambiguously
                   target: user_identifier_value
-                  details: []
         '429':
           description: This response is returned when the rate limit has been exceeded.
           content:
@@ -349,7 +325,6 @@ paths:
                   code: TooManyRequests
                   message: Rate limit exceeded
                   target: null
-                  details: []
         '500':
           description: This response is returned when the system runs into an unexpected error.
           content:
@@ -361,7 +336,6 @@ paths:
                   code: InternalServerError
                   message: Something went wrong, please retry
                   target: null
-                  details: []
     patch:
       tags:
         - Subscription Preferences
@@ -469,8 +443,6 @@ paths:
         '202':
           description: |
             This response is returned when the request has been accepted and queued for asynchronous processing. The update is applied by a separate worker under SLA; this response does not confirm the update has been applied yet — poll Get Subscription Preferences to check the applied state.
-
-            TODO(Shilpa): the exact shape of `data` in this response is not documented in the tech doc, the Postman collection, or the KT transcript — confirm with engineering before publishing.
           content:
             application/json:
               schema:
@@ -478,16 +450,24 @@ paths:
                 properties:
                   response_id:
                     type: string
-                    example: resp_7a6b5c4d3e2f19088776655443322110
+                    description: Unique identifier for this API response.
+                    example: resp_e474cbaf-2178-4e3a-816e-7575e1dc639b
                   type:
                     type: string
+                    description: The resource type returned in `data`.
                     example: subscription_preference
                   data:
                     type: object
-                    description: Shape not confirmed by source material.
+                    properties:
+                      message:
+                        type: string
+                        description: A human-readable confirmation that the update was accepted for processing.
+                        example: Your request has been accepted and is being processed.
               example:
-                response_id: resp_7a6b5c4d3e2f19088776655443322110
+                response_id: resp_e474cbaf-2178-4e3a-816e-7575e1dc639b
                 type: subscription_preference
+                data:
+                  message: Your request has been accepted and is being processed.
         '400':
           description: This response is returned when the request body is invalid.
           content:
@@ -502,7 +482,6 @@ paths:
                       code: BadArgument
                       message: user_identifier_value is required
                       target: user_identifier_value
-                      details: []
                 tooManyAttributes:
                   summary: Too Many Event Attributes
                   value:
@@ -510,7 +489,6 @@ paths:
                       code: BadArgument
                       message: A maximum of 5 event_attributes is allowed
                       target: event_attributes
-                      details: []
                 attributeTooLong:
                   summary: Attribute Name or Value Too Long
                   value:
@@ -518,13 +496,6 @@ paths:
                       code: BadArgument
                       message: Invalid event_attributes
                       target: event_attributes
-                      details:
-                        - code: TooLong
-                          target: event_attributes.source
-                          message: 'Attribute name must be <= 50 chars'
-                        - code: TooLong
-                          target: event_attributes.campaign_ref
-                          message: 'Attribute value must be <= 255 chars'
                 unknownCategory:
                   summary: Unknown Category Name
                   value:
@@ -532,10 +503,6 @@ paths:
                       code: BadArgument
                       message: Unknown category name(s)
                       target: categories
-                      details:
-                        - code: Unknown
-                          target: categories.foo_bar
-                          message: Category does not exist for this workspace/channel
         '401':
           description: This response is returned when authentication is missing or invalid.
           content:
@@ -547,7 +514,6 @@ paths:
                   code: Unauthorized
                   message: Invalid or missing credentials
                   target: Authorization
-                  details: []
         '403':
           description: This response is returned when the credentials lack the required scope.
           content:
@@ -559,7 +525,6 @@ paths:
                   code: Forbidden
                   message: 'Token is missing required scope write:subscriptions'
                   target: Authorization
-                  details: []
         '404':
           description: This response is returned when the identifier resolves to no user.
           content:
@@ -571,7 +536,6 @@ paths:
                   code: NotFound
                   message: No user found for the given identifier
                   target: user_identifier_value
-                  details: []
         '409':
           description: This response is returned when an email identifier matches multiple profiles with email-based unsubscribe disabled, or when the `Idempotency-Key` is reused with a different request body.
           content:
@@ -586,7 +550,6 @@ paths:
                       code: Conflict
                       message: Multiple user profiles match this email; cannot update unambiguously
                       target: user_identifier_value
-                      details: []
                 idempotencyKeyConflict:
                   summary: Idempotency Key Reused With Different Body
                   value:
@@ -594,7 +557,6 @@ paths:
                       code: Conflict
                       message: Idempotency-Key was already used with a different request body
                       target: Idempotency-Key
-                      details: []
         '413':
           description: This response is returned when the request payload is too large.
           content:
@@ -606,7 +568,6 @@ paths:
                   code: PayloadTooLarge
                   message: Request entity is too large
                   target: null
-                  details: []
         '429':
           description: This response is returned when the rate limit has been exceeded.
           content:
@@ -618,7 +579,6 @@ paths:
                   code: TooManyRequests
                   message: Rate limit exceeded
                   target: null
-                  details: []
         '500':
           description: This response is returned when the system runs into an unexpected error.
           content:
@@ -630,7 +590,6 @@ paths:
                   code: InternalServerError
                   message: Something went wrong, please retry
                   target: null
-                  details: []
 components:
   securitySchemes:
     basicAuth:
@@ -682,24 +641,29 @@ components:
       properties:
         name:
           type: string
+          description: The unique category name.
           example: promotional
         display_name:
           type: string
+          description: The human-readable category name.
           example: Promotional
         channel:
           type: string
           enum:
             - email
             - sms
+          description: The channel the category applies to.
           example: email
         group:
           type: string
+          description: The group this category belongs to.
           example: Marketing
         status:
           type: string
           enum:
             - subscribed
             - unsubscribed
+          description: The user's subscription state for this category.
           example: subscribed
     SubscriptionPreference:
       type: object
@@ -715,6 +679,7 @@ components:
           example: false
         categories:
           type: array
+          description: The user's subscription state for each category in the active catalog.
           items:
             $ref: '#/components/schemas/SubscriptionCategoryPreference'
     ErrorResponse:
@@ -736,18 +701,3 @@ components:
               nullable: true
               description: The field or header the error relates to, if any.
               example: user_identifier_type
-            details:
-              type: array
-              description: Additional, field-level error details.
-              items:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: TooLong
-                  target:
-                    type: string
-                    example: event_attributes.source
-                  message:
-                    type: string
-                    example: 'Attribute name must be <= 50 chars'
