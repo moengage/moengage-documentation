@@ -681,15 +681,8 @@ paths:
           external: true
           internal: true
         tool_description: |
-          Retrieve a single offering's full configuration by ID. The response returns every
-          field accepted by create_offering — content, targeting, scheduling, variation, and
-          capping rules — along with the server-assigned fields id, status, created_at,
-          updated_at, and updated_by.
-
-          This tool is a thin pass-through to GET /v5/offers/{offer_id}: it takes the same
-          input (offer_id) and returns the same response shape, with no additional
-          transformation or filtering. Use list_offerings first to find the offering ID if
-          you don't already have it.
+          Retrieve the full configuration of a single offering by ID.
+          This tool is a thin pass-through to GET /v5/offers/{offer_id}.
         param_overrides:
           offer_id:
             description: |
@@ -2449,13 +2442,11 @@ components:
       properties:
         response_id:
           type: string
-          description: >
-            Format: `resp_<X-MOE-Request-Id>` header value
-            (auto-generated UUID if the `X-MOE-Request-Id` header was not part of the request body).
+          description: Unique identifier for this API response.
           example: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type:
           type: string
-          description: The type of object returned. For this endpoint, the value is always `offer`.
+          description: Type of object returned.
           example: offer
         data:
           type: object
@@ -2467,7 +2458,7 @@ components:
               example: offer_6a766d5d094949363d4d6bf2
             status:
               type: string
-              description: Lifecycle status of the offering. One of `scheduled`, `active`, `expired`, or `archived`.
+              description: Current status of the offering.
               example: scheduled
             created_at:
               type: string
@@ -2504,24 +2495,17 @@ components:
               example: Configured using personalization template
             priority:
               type: integer
-              description: >
-                Static priority score for offer ranking. Lower number means lower priority
-                (1 is lowest priority, 100 is highest). This score is used when the Decision
-                Policy ranking strategy is set to Offering Priority.
+              description: Static priority score configured for the offering.
               example: 90
             delivery:
               type: string
-              description: >
-                Controls when the offering is eligible for delivery.
-                `scheduled` — the offering is served within its scheduling window.
+              description: Delivery mode configured for the offering.
               example: scheduled
             tags:
               type: array
               items:
                 type: string
-              description: >
-                Tags that provide context about the Offering's nature or theme. Each tag ID must already exist in the
-                workspace — the service returns `400 INVALID_TAG_ID` for any unknown tag ID.
+              description: Tags associated with the offering.
               example: [tag_697211b32ccd4a79028b3689]
             scheduling:
               allOf:
@@ -2534,36 +2518,32 @@ components:
             offer_content:
               allOf:
                 - $ref: '#/components/schemas/OfferContentResponse'
-              description: The core content payload delivered to the end-user.
+              description: Content configuration stored for the offering.
             variation_meta:
               allOf:
                 - $ref: '#/components/schemas/OfferVariationMetaResponse'
-              description: Configuration for A/B testing content variations.
+              description: Variation configuration stored for the offering.
             capping_rules:
               allOf:
                 - $ref: '#/components/schemas/OfferCappingRulesResponse'
-              description: Frequency capping configuration that limits how often this offering is delivered.
+              description: Capping rules configured for the offering.
             is_global_control_enabled:
               type: boolean
-              description: >
-                Whether the global control group is enabled.
+              description: Whether global control is enabled for the offering.
               example: true
             imp_track_hours:
               type: integer
-              description: >
-                The attribution window in hours.
+              description: Impression tracking window in hours.
               example: 36
             offering_attribute_configuration:
               type: array
-              description: >
-                Custom attributes assigned to this offering. These attributes are used in
-                Decision Policy using the Custom formula ranking strategy.
+              description: Offering attribute configuration stored for the offering.
               items:
                 $ref: '#/components/schemas/OfferAttributeConfigurationResponse'
             conversion:
               allOf:
                 - $ref: '#/components/schemas/ConversionDtoResponse'
-              description: List of conversion goals to track.
+              description: Conversion configuration stored for the offering.
       example:
         response_id: resp_ae8b2dff-f73c-43f5-bd92-341a0e4ab33b
         type: offer
@@ -2604,7 +2584,10 @@ components:
                     attributes:
                       filter_operator: and
                       filters: []
-          # offer_content follows the same structure as the Create Offering request body — see Create Offering.
+          offer_content:
+            content_1:
+              type: json
+              value: '{"headline":"Save 20% today","cta_text":"Claim offer","image_url":"https://cdn.example.com/banner.png","cta_url":"https://example.com/offer/summer"}'
           variation_meta:
             type: SMV
             variantsPerLocale:
@@ -2625,6 +2608,9 @@ components:
               limit_value: 1
               limit_schedule: DAILY
           is_global_control_enabled: true
+          imp_track_hours: 36
+          offering_attribute_configuration: []
+          conversion: {}
 
 
   responses:
