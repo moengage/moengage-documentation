@@ -26,10 +26,16 @@ div[class*="scroll-mt"][class*="peer"] {
   padding-right: 0 !important;
 }
 
-/* Navbar left inset (max-w-8xl or mx-auto markup) */
-#navbar div[class*="max-w-8xl"],
-#navbar > div[class*="mx-auto"] {
-  padding-left: 1.75rem !important;
+/* Navbar left inset (max-w-8xl or mx-auto markup).
+   Desktop only. The inset exists to line the navbar up with #sidebar's 1.75rem
+   margin below. Under lg there is no sidebar, and the 1.75rem stacked on top of
+   Mintlify's own mx-4 on the nav row, leaving the wordmark 44px from the screen
+   edge instead of 16px. */
+@media (min-width: 1024px) {
+  #navbar div[class*="max-w-8xl"],
+  #navbar > div[class*="mx-auto"] {
+    padding-left: 1.75rem !important;
+  }
 }
 /* Nav row: no extra left padding so container inset is the only one */
 #navbar div[class*="h-16"][class*="lg:px-12"],
@@ -180,11 +186,13 @@ div[class*="scroll-mt"][class*="peer"] {
 }
 
 /* AI assistant entry: show "Ask Merlin AI" instead of default "Ask AI" */
-#assistant-entry span {
+/* Scope to the label span only. Mintlify added a second span for the
+   Cmd+I shortcut hint; an unscoped `span` relabels that one too. */
+#assistant-entry > span:first-of-type {
   font-size: 0 !important;
   line-height: 0 !important;
 }
-#assistant-entry span::before {
+#assistant-entry > span:first-of-type::before {
   content: "Ask Merlin AI";
   font-size: 0.875rem;
   line-height: 1.5rem;
@@ -207,13 +215,14 @@ div[class*="scroll-mt"][class*="peer"] {
 }
 
 /* Chat assistant panel header: show "Merlin AI" */
-.chat-assistant-sheet-header span.font-semibold {
+/* Target the title span structurally; Mintlify changed its weight class
+   from font-semibold to font-medium, so don't key off the utility class. */
+.chat-assistant-sheet-header > div:first-child > span {
   font-size: 0 !important;
 }
-.chat-assistant-sheet-header span.font-semibold::before {
+.chat-assistant-sheet-header > div:first-child > span::before {
   content: "Merlin AI";
   font-size: 0.875rem;
-  font-weight: 600;
 }
 .chat-assistant-sheet-header svg.size-5.text-primary.dark\:text-primary-light {
   display: none !important;
@@ -229,14 +238,46 @@ div[class*="scroll-mt"][class*="peer"] {
   vertical-align: middle;
 }
 
-/* Sidebar: bold expandable group/section rows (native <button>s with an
-   aria-expanded attribute, which reveal nested pages) so they read as section
-   headers instead of blending in with plain page links (<a>) at the same
-   weight. Leaf links and the already-bold top-level group titles are
-   unaffected. #sidebar-content (desktop) and #mobile-nav (mobile overlay) are
-   Mintlify's sidebar hooks; scoping to them excludes the page context menu,
-   which also uses aria-expanded buttons. */
+/* Sidebar: keep the expandable group/section rows at the same weight as the
+   plain page links, so the nav reads flat. These are the native <button>s
+   carrying aria-expanded that reveal nested pages. #sidebar-content (desktop)
+   and #mobile-nav (mobile overlay) are Mintlify's sidebar hooks; scoping to
+   them excludes the page context menu, which also uses aria-expanded
+   buttons. */
 #sidebar-content button[aria-expanded],
 #mobile-nav button[aria-expanded] {
-  font-weight: 600;
+  font-weight: 400;
+}
+
+/* Footer, multi-column layout.
+
+   From md up, Mintlify lays the wordmark, the link columns and the social icons
+   out on a single row, and hard-codes an inline grid-template-columns for however
+   many columns are configured. In the md-to-lg band that row leaves the grid only
+   ~308px, so three columns come out ~81px each while their labels need 112-130px.
+   The columns are whitespace-nowrap, and md:items-center makes each item
+   shrink-to-fit rather than stretch, so md:truncate never engages and the text
+   simply overflows its column and collides with the neighbour.
+
+   Fix: stack that row until there is genuinely room for it (lg and up), which
+   hands the grid the full content width. Also left-align the icons, since
+   justify-end reads as stranded once the row is stacked. */
+@media (max-width: 1023px) {
+  footer div[class*="md:flex-row"][class*="min-h-19"] {
+    flex-direction: column;
+  }
+  footer div[class*="flex-wrap"][class*="justify-end"] {
+    justify-content: flex-start;
+  }
+}
+
+/* Under md the wordmark and the icons additionally share a row, and at 375px the
+   wordmark takes ~168px of the ~311px available, so the icons wrapped to a second
+   line. Stack them under the wordmark, left-aligned with the link columns. */
+@media (max-width: 767px) {
+  footer div[class*="md:flex-col"][class*="items-center"] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
 }

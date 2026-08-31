@@ -1,0 +1,49 @@
+{/* PGP encryption setup for encrypted file imports (S3/SFTP). Reused on the File
+Import and Auxiliary Data pages, inline at the "Is your file encrypted?" step. */}
+
+PGP (Pretty Good Privacy) lets you encrypt sensitive files before importing them. MoEngage supports PGP encryption for S3 and SFTP file imports.
+
+**Prerequisites:**
+
+- **PGP key pair**: A public key (to encrypt the file) and a private key (to decrypt it). Never share the private key.
+- **Signing key pair**: A public key (to sign the file, required for MoEngage SFTP integration) and a private key (used internally to verify the signature).
+
+The following steps use [GnuPG](https://www.gnupg.org/index.html), a free implementation of the PGP standard.
+
+**Step 1. Generate a key pair.** Generate a PGP key pair using a tool such as GnuPG (`gpg --full-generate-key`), selecting RSA and a 1024-bit key size.
+
+<Info>
+  - MoEngage supports file encryption using RSA keys of up to 1024 bits in length. Larger RSA keys, such as 4096-bit, are not supported and fail during decryption. Generate your key pair with a smaller RSA key size.
+  - Turn off compression during encryption.
+</Info>
+
+**Step 2. Encrypt the file.** Encrypt the file with your public key, then upload it to your S3 or SFTP folder. The `--sign` option signs the file while encrypting it.
+
+```bash
+gpg --encrypt --sign --armor --compress-algo none -r demo@example.com
+```
+
+**Step 3. Add the keys in the MoEngage UI.** Enter your private key in the **Decryption Key** field and your passphrase in the **Key Passphrase** field during import setup.
+
+**Step 4. Decrypt a file.** Decryption requires your private key and its passphrase. In your PGP software, select the encrypted file and enter your passphrase to produce the unencrypted file. Python users can use the [python-gnupg](https://pypi.org/project/python-gnupg/) package:
+
+```python
+import gnupg, os
+gpg = gnupg.GPG(gnupghome=os.path.expanduser('~'))
+gpg.encoding = 'utf-8'
+import_result = gpg.import_keys(key_data)
+gpg.trust_keys(import_result.fingerprints, "TRUST_ULTIMATE")
+with open(encrypted_file_path, 'rb') as file:
+    status = gpg.decrypt_file(file, passphrase="", output="/path/to/decrypted/file")
+print(status.ok)
+```
+
+**Step 5. Verify the file's signature (optional).** If you signed the file, add the public signing key on the MoEngage dashboard. MoEngage verifies the signature on the file in your S3 or SFTP folder. When verifying programmatically, a matched signature populates `status.signature_id`:
+
+```python
+if status.signature_id:  # populated when the signature is verified, otherwise None
+    print("signature verified")
+else:
+    print("not verified")
+```
+

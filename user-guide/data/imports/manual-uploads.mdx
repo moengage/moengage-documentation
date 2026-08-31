@@ -1,0 +1,183 @@
+---
+title: "Manual Uploads"
+description: "Upload a CSV directly in the MoEngage dashboard to import users or events. One-time uploads with no periodic scheduling."
+keywords: "manual upload, CSV import, user import, event import, file segment, array support, import users, import events"
+---
+
+import DatetimeFormats from '/snippets/imports-datetime-formats.mdx';
+import ArraySupport from '/snippets/imports-array-support.mdx';
+import ReachabilityNote from '/snippets/imports-reachability-note.mdx';
+import PortfolioRouting from '/snippets/imports-portfolio-routing.mdx';
+import UniversalImportFaqs from '/snippets/imports-faq-universal.mdx';
+import DataArchival from '/snippets/imports-data-archival.mdx';
+
+Manual uploads let you import users or events by uploading a CSV directly in the MoEngage dashboard, useful for migrating from another platform, mass-updating attributes, or one-off historical loads without setting up a connection.
+
+<Note>
+  Manual uploads differ from automated file and warehouse imports in a few ways:
+
+  - **CSV only**: JSON is not supported.
+  - **No periodic scheduling**: You can run an upload immediately or at a specific date and time, but not on a recurring schedule.
+  - **No Object/JSON (complex) types**: Mapping is done column by column in the dashboard.
+</Note>
+
+Users and events have different entry points and workflows. Select the entity you're importing.
+
+<Tabs>
+  <Tab title="Users">
+    User uploads let you create new user profiles or update attributes of existing users. Updating existing users never creates new users, it only updates those already in MoEngage.
+
+    **Entry point:** **Segment** > **User Imports** > **Import Users**.
+
+    ### Step 1: Upload Your CSV
+
+    Choose the user list type and upload your file:
+
+    - **Registered Users**: Users with a registered account. Your file must include a column with a unique user identifier, mapped to the **ID** attribute.
+    - **Anonymous Users**: Users who have not signed up but whom you can recognize by an identifier (email, mobile number, and so on), mapped to the **Anonymous ID** attribute.
+
+    Download a sample file to see the expected format. Browse or drag-and-drop your CSV, specify whether the file contains headers, and optionally select **update existing users only**. Click **Next**.
+
+    <Info>
+      If an identifier already exists in MoEngage, the existing user is updated with the new attributes. If it does not exist, MoEngage creates a new user with that identifier.
+    </Info>
+
+    ### Step 2: Configure Columns
+
+    Map each CSV column to a MoEngage user attribute (or create a new one). You see the top 3 rows (excluding the header) and all columns.
+
+    - **Configure the identifier**: For registered users, mark one column as **ID**. For anonymous users, mark a column as **Anonymous ID**.
+    - **Add new attributes**: Click **+** and enter a unique attribute name.
+    - **Values with commas**: Enclose any value containing a comma in double quotes, for example, `"221B, Baker Street, London"`, otherwise only the text before the comma is imported.
+    - **Skip columns**: Click **Skip the column** to exclude it. Toggle **Show Skipped Columns** to hide or re-include skipped columns.
+
+    <Info>
+      Column names are case-sensitive and must match the attribute name on the dashboard exactly. Do not use `moe_` as a prefix for events, event attributes, or user attributes, it is a reserved system prefix, and using it may result in periodic blacklisting without prior communication.
+    </Info>
+
+    ### Save as a File Segment
+
+    Turn on **Save as File Segment** and enter a name to create a segment from the imported users, usable in campaigns.
+
+    - **Existing segment**: Users are added in append mode, new users are added, none are removed.
+    - **New segment**: Choose the update mode: **Replace** (each import fully replaces the segment's users) or **Append** (each import adds users, none removed).
+
+    <Warning>
+      Do not use `/` or Unicode characters in the file segment name, or the import will fail.
+    </Warning>
+
+    ### Step 3: Schedule the Upload
+
+    Define when to run the import:
+
+    - **As soon as possible**: Starts when you click **Done**.
+    - **At specific date and time**: Runs at your selected start date and time.
+
+    After your first import, a **Past Imports** section shows previous imports and their status. You receive an email with the upload details once processing completes.
+
+    <ReachabilityNote />
+  </Tab>
+  <Tab title="Events">
+    Event uploads let you import historical events, migrate event data during a platform switch, or batch-upload a large volume of events.
+
+    **Entry point:** **Data** > **Data Imports** > **Events** tab > **Import** > **Events** > **Upload CSV**.
+
+    <Info>
+      A CSV file can upload only one event at a time. You cannot upload multiple events in a single file.
+    </Info>
+
+    ### Step 1: Source and Format
+
+    1. **Import name**: Enter a name for the import.
+    2. **Select event**: Select the event to upload, or click **Create new event**, enter an **Event name**, and click **Create**.
+    3. **Select file**: Drag-and-drop or upload a CSV (less than 150 MB). Download a sample file to see the expected format. Each column represents an event attribute.
+    4. **File preview**: Click **Preview file** to preview the first five rows.
+    5. Click **Next**.
+
+    ### Step 2: Import Configuration and Action
+
+    **Required Mapping**: Map the mandatory MoEngage attributes, **User Identifier** and **Event time**, to columns in your CSV. When mapping Event time, select the date-time format and time zone.
+
+    **Map Columns**: Map the remaining CSV columns to MoEngage event attributes:
+
+    1. Select an attribute from the list, or click **Create new attribute**, enter an **Attribute name** and **Data type**, and click **Create**.
+    2. Select the **Data type** for each attribute.
+    3. Select **Skip column** to exclude a column. Already-mapped mandatory fields are disabled.
+
+    **Send Import Status**: Select up to **10 email recipients** to receive the import status, then click **Next**.
+
+    ### Step 3: Schedule the Upload
+
+    - **As soon as possible**: Starts when you click **Schedule Import**.
+    - **At specific date and time**: Runs at your selected start date, start time, and time zone.
+
+    Click **Schedule Import** to import the event data.
+
+    ### View Imported Event Data
+
+    Imported events are listed under **Data** > **Data Imports** > **Events**. Click **Actions** to **View** the import details (and **Export file** to your email), or **Duplicate** the import to re-upload a CSV for the same event.
+
+    Import statuses: **Successful**, **Processing**, **Archived**, and **Failed**.
+  </Tab>
+</Tabs>
+
+# Reference
+
+The following applies to both user and event uploads.
+
+## Supported Data Types
+
+String, Numeric, Boolean, Datetime, and Array (String, Double, Float, Int).
+
+| Type | Description | Value in Mapping File |
+| --- | --- | --- |
+| String | Any string value (for example, `ABC`, `ABC123`). | `"type": "string"` |
+| Double | Any decimal value (for example, `3.14159`, `-123.1`). | `"type": "double"` |
+| Boolean | `true` or `false`. | `"type": "bool"` |
+| Date Time | Any date-time value (for example, `2019/02/22 17:54:14.933`). | `"type": "datetime"` |
+
+## Array Support
+
+<ArraySupport />
+
+## Supported Datetime Formats
+
+<DatetimeFormats />
+
+## Portfolio Support (Project-Level Routing)
+
+<PortfolioRouting />
+
+## Language and Empty Values
+
+MoEngage handles languages and empty values as follows:
+
+- **Language**: You can import data in any language using UTF-8 decodable characters.
+- **Empty values**: Empty values are still imported. MoEngage creates or updates the attribute with an empty value.
+
+## Limits
+
+Manual uploads have the following limits:
+
+<DataArchival />
+
+- **File size**: Less than 150 MB per CSV.
+- **Rows**: A single CSV file supports up to your hourly row limit. Files exceeding your hourly row limit are rejected. A file with fewer than 5 rows may cause errors, add dummy rows if needed.
+- **Columns/Attributes**: 100 columns for users; 100 columns per event.
+
+## What Is Not Supported
+
+Manual uploads do not support the following:
+
+- Attribute type _list_ and other complex types (JSON, dictionaries, and so on).
+- Newline formats other than `\n`, such as `Ctrl+M` and `\r`, are not supported.
+- JSON files.
+
+# Manage Your Imports
+
+To monitor your imports, understand import statuses, or trigger a run manually or via API, see [How Imports Work](/user-guide/data/imports/overview-imports#how-imports-work) on the Imports Overview.
+
+# Frequently Asked Questions
+
+<UniversalImportFaqs />
+
