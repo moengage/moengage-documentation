@@ -1,0 +1,88 @@
+---
+title: "Messaging API Overview"
+description: "Use the Messaging API to trigger email messages against reusable campaign shells."
+---
+
+The Messaging API allows you to create reusable email campaign shells and trigger messages against them. Use these endpoints to manage campaign shells and fire messages with recipient-specific data at scale.
+
+## Endpoints
+
+The Messaging API consists of the following operations:
+
+- **[Shell Creation](/api/messaging/shell-creation)**: Create, validate, update, and manage reusable email campaign shells via the v5 Campaigns API with the `API_TRIGGERED` delivery type.
+- **[Trigger](/api/messaging/trigger)**: Fire email messages against a published campaign shell with recipient-specific data.
+
+## FAQs
+
+### Shell Creation
+
+<AccordionGroup>
+  <Accordion title="What is a campaign shell?">
+    A shell is a reusable email campaign template created once and triggered many times. It holds content structure (with placeholders), email settings, and delivery controls. Recipients and per-send values are supplied with each trigger request.
+  </Accordion>
+  <Accordion title="How do I create a shell?">
+    Use the [Shell Creation](/api/messaging/shell-creation) endpoints via the v5 Campaigns API with `campaign_delivery_type: API_TRIGGERED`. The shell is created in DRAFT status, validated, then published to ACTIVE.
+  </Accordion>
+  <Accordion title="Can I edit a shell after publishing?">
+    Yes. Editing an ACTIVE shell triggers a version change. New triggers use the updated content; in-flight messages are unaffected.
+  </Accordion>
+  <Accordion title="What are placeholders?">
+    Placeholders are template variables in the shell content using double-brace syntax (e.g., `{{order_id}}`, `{{customer_name}}`). When triggered, you provide values that replace these placeholders per recipient.
+  </Accordion>
+  <Accordion title="Can I use fully resolved content instead of placeholders?">
+    Yes. You can provide fully resolved values (e.g., pre-rendered HTML) in the trigger request instead of using placeholders. Both forms can be mixed in the same trigger.
+  </Accordion>
+</AccordionGroup>
+
+### Trigger
+
+<AccordionGroup>
+  <Accordion title="What does the 202 response mean?">
+    202 Accepted means the trigger request is valid and enqueued for async dispatch. It does not guarantee delivery. Actual send happens 5–15 minutes later.
+  </Accordion>
+  <Accordion title="What is an Idempotency-Key?">
+    An Idempotency-Key (UUID v4) enables safe retries. If you replay the same key with the same request body within the retention window, the API returns the original response without re-enqueueing.
+  </Accordion>
+  <Accordion title="Can I trigger multiple recipients in one request?">
+    Yes. You can pass a flat list of 100–1000 recipients per trigger (depending on configuration). All recipients receive the same message content with their own personalised attributes.
+  </Accordion>
+  <Accordion title="What identifier types are supported?">
+    The Trigger API supports three identifier types: ID (MoEngage internal unique ID), MOENGAGE_ID, and MULTI_ID (email, mobile, external ID, or custom attributes resolved via Unified Identity).
+  </Accordion>
+  <Accordion title="What happens if a recipient is in Do-Not-Disturb (DND)?">
+    If the shell's `bypass_dnd` setting is false, recipients in DND are dropped and not sent. If true, the message is sent regardless of DND status.
+  </Accordion>
+  <Accordion title="What is the frequency cap and how does it work?">
+    The frequency cap defines a minimum time between messages to the same recipient. If `ignore_frequency_capping` is false on the shell, the workspace's frequency-cap rules are applied. If true, the cap is bypassed.
+  </Accordion>
+  <Accordion title="How are personalisation values resolved?">
+    Placeholder tokens (e.g., `{{order_id}}`) are resolved per recipient using the same engine as existing campaigns, including user attributes, Content API, and recommendations. Fully resolved values are used as-is.
+  </Accordion>
+  <Accordion title="What happens if I exceed the rate limit?">
+    Over-limit requests return 429 with a `Retry-After` header. The request is rejected (not queued). Retry after the specified seconds.
+  </Accordion>
+  <Accordion title="What happens if a recipient cannot be resolved?">
+    Unresolvable recipients are queued but dropped during dispatch with no retry. Per-recipient outcomes flow through the existing events pipeline.
+  </Accordion>
+</AccordionGroup>
+
+### General
+
+<AccordionGroup>
+  <Accordion title="Which channels does the Messaging API support?">
+    Phase 1 supports email only. Push support is planned for a later phase.
+  </Accordion>
+  <Accordion title="What is the payload size limit?">
+    The general payload limit is ~1 MB; email payloads are capped at ~500 KB. HTML is recommended to be under 102 KB to avoid clipping.
+  </Accordion>
+  <Accordion title="What is the dispatch SLA?">
+    Dispatch targets 5–15 minutes from acceptance (accept-to-dispatch). Device/inbox delivery depends on the email provider and recipient inbox.
+  </Accordion>
+  <Accordion title="Can I get delivery and engagement events?">
+    Yes. Delivery outcomes (sent, bounce, complaint, etc.) flow through the existing events pipeline and are available via analytics and Streams endpoints.
+  </Accordion>
+</AccordionGroup>
+
+## Postman Collections
+
+We have made it easy for you to test the APIs. Postman collections for the Messaging API are available in the [MoEngage API workspace](https://www.postman.com/moengage-dev/workspace/api-docs).

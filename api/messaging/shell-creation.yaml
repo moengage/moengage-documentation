@@ -1,0 +1,359 @@
+openapi: 3.0.0
+info:
+  title: Messaging API - Shell Creation
+  version: 1.0.0
+  description: Create and manage reusable email campaign shells for the Messaging API
+servers:
+  - url: https://api.moengage.com
+paths:
+  /v5/campaigns:
+    post:
+      summary: Create Campaign Shell
+      operationId: createShell
+      tags:
+        - Shell Creation
+      description: Create a new email campaign shell with API_TRIGGERED delivery type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request_id
+                - channel
+                - campaign_delivery_type
+                - basic_details
+                - campaign_content
+                - connector
+                - delivery_controls
+              properties:
+                request_id:
+                  type: string
+                  description: Unique request identifier
+                  example: shell-req-001
+                channel:
+                  type: string
+                  enum: [EMAIL]
+                  description: Channel type; EMAIL for Phase 1
+                campaign_delivery_type:
+                  type: string
+                  enum: [API_TRIGGERED]
+                  description: Delivery type; must be API_TRIGGERED
+                basic_details:
+                  type: object
+                  required:
+                    - name
+                    - content_type
+                    - subscription_category
+                  properties:
+                    name:
+                      type: string
+                      description: Shell name
+                      example: Order Confirmation
+                    content_type:
+                      type: string
+                      enum: [PROMOTIONAL, TRANSACTIONAL]
+                      description: Compliance classification
+                    subscription_category:
+                      type: string
+                      description: Consent/compliance category
+                      example: transactional_updates
+                campaign_content:
+                  type: object
+                  required:
+                    - content
+                  properties:
+                    content:
+                      type: object
+                      required:
+                        - email
+                      properties:
+                        email:
+                          type: object
+                          required:
+                            - subject
+                            - html_content
+                            - sender_name
+                            - from_address
+                          properties:
+                            subject:
+                              type: string
+                              description: Email subject; supports {{placeholders}}
+                              example: Order {{order_id}} confirmed
+                            preview_text:
+                              type: string
+                              description: Email preview text in client
+                            text_content:
+                              type: string
+                              description: Plain text alternative; supports {{placeholders}}
+                            html_content:
+                              type: string
+                              description: HTML body; supports {{placeholders}}
+                              example: <p>Hi {{customer_name}}, your order is confirmed.</p>
+                            sender_name:
+                              type: string
+                              description: Display name in From header
+                              example: Acme Store
+                            from_address:
+                              type: string
+                              format: email
+                              description: Email address in From header
+                              example: orders@acme.example.com
+                            reply_to_address:
+                              type: string
+                              format: email
+                              description: Reply-To email address
+                connector:
+                  type: object
+                  required:
+                    - connector_type
+                    - connector_name
+                  properties:
+                    connector_type:
+                      type: string
+                      description: Email connector type
+                      example: AMAZON_SES
+                    connector_name:
+                      type: string
+                      description: Connector name configured in workspace
+                      example: primary-ses
+                delivery_controls:
+                  type: object
+                  required:
+                    - ignore_frequency_capping
+                    - bypass_dnd
+                  properties:
+                    ignore_frequency_capping:
+                      type: boolean
+                      description: If false, apply workspace frequency cap rules
+                      example: false
+                    bypass_dnd:
+                      type: boolean
+                      description: If false, recipients in DND are dropped
+                      example: false
+                    minimum_delay_between_two_notification_in_hour:
+                      type: number
+                      description: Minimum hours between sends to same recipient
+                      example: 0
+      responses:
+        "201":
+          description: Shell created successfully in DRAFT status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                  type:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      campaign_id:
+                        type: string
+                      status:
+                        type: string
+                        enum: [DRAFT]
+                      created_at:
+                        type: string
+                        format: date-time
+              example:
+                response_id: resp_9b1e77a2
+                type: campaign
+                data:
+                  campaign_id: camp_665f0a
+                  status: DRAFT
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            target:
+                              type: string
+                            message:
+                              type: string
+        "409":
+          description: Idempotency key conflict
+        "422":
+          description: Unprocessable entity
+
+  /v5/campaigns/{campaign_id}/validate:
+    post:
+      summary: Validate Shell
+      operationId: validateShell
+      tags:
+        - Shell Creation
+      description: Validate a shell for publish-readiness
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shell is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      campaign_id:
+                        type: string
+                      is_valid:
+                        type: boolean
+        "400":
+          description: Validation failed
+        "404":
+          description: Shell not found
+
+  /v5/campaigns/{campaign_id}/status:
+    patch:
+      summary: Update Shell Status
+      operationId: updateShellStatus
+      tags:
+        - Shell Creation
+      description: Transition shell status (DRAFT → ACTIVE → STOPPED)
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, STOPPED]
+                  description: Target status
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      campaign_id:
+                        type: string
+                      status:
+                        type: string
+        "404":
+          description: Shell not found
+        "422":
+          description: Invalid status transition
+
+  /v5/campaigns/{campaign_id}:
+    get:
+      summary: Get Shell
+      operationId: getShell
+      tags:
+        - Shell Creation
+      description: Retrieve shell details
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shell retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                  data:
+                    type: object
+        "404":
+          description: Shell not found
+
+    patch:
+      summary: Update Shell
+      operationId: updateShell
+      tags:
+        - Shell Creation
+      description: Edit shell (DRAFT only)
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_content:
+                  type: object
+                delivery_controls:
+                  type: object
+      responses:
+        "200":
+          description: Shell updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                  data:
+                    type: object
+        "404":
+          description: Shell not found
+        "422":
+          description: Cannot edit ACTIVE shell
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-MOE-Tenant-ID
+
+security:
+  - bearerAuth: []
+  - apiKey: []
