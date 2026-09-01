@@ -56,6 +56,10 @@ On receiving a Data API request in MoEngage, the `customer_id` is used to verify
   - Any string of more than one characters is allowed for `customer_id` except the following values - ['unknown', 'guest', 'null', '0', '1', 'true', 'false', 'user_attribute_unique_id', '(empty)', 'na', 'n/a', '', 'dummy_seller_code', 'user_id', 'id', 'customer_id', 'uid', 'userid', 'none', '-2', '-1', '2']
 </Note>
 
+<Warning>
+The `type` field of each element is case-sensitive and must be lowercase (`customer`, `event`, or `device`). If records are not processed and no user, event, or device is created, verify that the `type` value is lowercase. A value with different casing, such as `Customer`, is not accepted.
+</Warning>
+
 For example, a user created using the following request is visible in the dashboard user profile as displayed.
 
 ### Sample Request Body
@@ -153,6 +157,40 @@ The following status codes and associated error messages are returned when the r
 | 415        | Unsupported Media Type        | Unsupported Media Type                                                             | Unsupported media type.                                                                                                                                      |
 | 429        | Rate Limit Exceeded           | Rate Limits for User / Event exceeded                                              | You have exceeded the rate limits (number of users or events per minute) defined for your MoEngage account.                                                  |
 | 5xx        | Server Error                  | Any other exception                                                                | This response is returned when the system runs into an unexpected error. We recommend that you retry every 2 seconds for a maximum of 5 times in such cases. |
+
+## Monitor Your Usage
+
+Rate-limited endpoints return the following headers on every response, so your integration can track remaining capacity in real time rather than waiting for a `429`:
+
+```http
+x-ratelimit-limit: 100
+x-ratelimit-remaining: 95
+x-ratelimit-reset: 30
+```
+<img alt="monitor_your_usage.png"  src="/images/monitor_your_usage.png" width="50%" />
+
+| Header | Description |
+| --- | --- |
+| `x-ratelimit-limit` | The maximum number of requests allowed within the current 60-second window (w=60). |
+| `x-ratelimit-remaining` | The number of requests still available in the current 60-second window before the limit is reached. |
+| `x-ratelimit-reset` | The UTC epoch timestamp at which the current window resets. Since the window is 60 seconds (w=60), this value will always be within 60 seconds of the current time.|
+
+<Note>
+  A few high-throughput endpoints (such as the Push API) signal throttling with an `x-envoy-ratelimited: true` header instead. Check the specific endpoint's reference page for the headers it returns.
+</Note>
+
+### When You Hit a Limit
+
+When a request is rejected with `HTTP 429`:
+
+1. Stop sending further requests to that endpoint until the window resets (`x-ratelimit-reset`).
+2. Retry with exponential backoff rather than retrying immediately.
+3. Batch where the endpoint supports it — for example, send multiple user updates in a single Track User request instead of one call per user.
+
+If your integration consistently approaches a limit through legitimate, well-batched usage, contact your CSM or the Support team to request an increase.
+
+
+
 
 ## User Attributes
 
@@ -265,7 +303,7 @@ The Data API is designed to handle high volumes of data across our customer base
     Please use the [Get User API](/api/user/get-user) to export the users.
   </Accordion>
   <Accordion title="Can I use this API to delete users from MoEngage?">
-    Please use the [Delete User API](/api/user/delete-users-in-bulk) to delete existing users in MoEngage.
+    Please use the [Delete User API](/api/user/delete-users) to delete existing users in MoEngage.
   </Accordion>
 </AccordionGroup>
 

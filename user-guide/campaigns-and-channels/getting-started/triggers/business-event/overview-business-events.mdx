@@ -20,6 +20,8 @@ Business events help businesses create events within MoEngage that are based on 
 Business events are supported on the following channels: Push, SMS & RCS, and Email.
 </Info>
 
+You can trigger both campaigns and Flows from a business event. To build a business event-triggered flow, see [Business Event-Triggered Campaigns](/user-guide/campaigns-and-channels/getting-started/triggers/business-event/business-event-triggered-campaigns).
+
 ## The Challenge with Manual Campaign Creation
 
 Consider an e-commerce brand where thousands of products go out of stock and are restocked daily. If ten products are back in stock and the brand wants to notify customers who asked to be informed, marketers typically do the following for each product:
@@ -75,6 +77,54 @@ By automating campaigns based on business logic instead of just user actions, th
 - Send an update when a blogger or a person the user follows is online or hosting a live session.
 - Send updates when new videos or posts are uploaded in preferred channels.
 - Recommend trending content to users who have previously shown interest in similar content.
+
+# Limits and Supported Attributes
+
+Keep the following in mind when you set up business events:
+
+- **Business events per workspace**: You can create a maximum of 50 business events per workspace.
+- **Supported attribute data types**: Event attributes support integer, float, string, date, and array data types.
+- **No deduplication**: MoEngage does not deduplicate business events. You can trigger the same business event any number of times, and every trigger runs independently. Repeatedly triggering the same business event is a supported use case.
+
+For the full API details, refer to the [Business Events API reference](/api/business-events/business-events-overview).
+
+## Trigger Rate Limits
+
+Rate limits count the **campaign and flow triggers** that a business event starts, not the number of times you trigger the business event itself. A business event that is attached to several campaigns and flows produces one trigger for each of them, and each trigger counts towards its own limit.
+
+| What the business event runs | Limit |
+| --- | --- |
+| Campaigns | 10 triggers per 5 minutes, 50 triggers per hour, and 200 triggers per day |
+| Flows | 3 triggers per hour, and 10 triggers per day |
+
+MoEngage measures these limits over a **sliding window**, not a fixed clock period. The window always looks back from the current moment across the preceding five minutes, hour, or day, depending on the limit. Capacity therefore returns gradually as older triggers age out of the window. An hourly limit does not reset at the top of the hour.
+
+### What Happens When You Exceed a Limit
+
+A trigger that exceeds a limit still returns a `200` response. MoEngage creates the campaign on the dashboard in a stopped state and does not send it. Check the campaign list when you expect a message that did not go out.
+
+<Note>
+  A `200` response confirms the trigger was received, not that the campaign was sent — a throttled trigger also returns `200`. Verify the campaign's state to confirm delivery rather than relying on the response code.
+</Note>
+
+### Example: One Business Event Attached to Campaigns and a Flow
+
+Suppose a `BackInStock` business event is attached to two campaigns and one flow. Triggering that business event once produces:
+
+- Two campaign triggers, one for each campaign.
+- One flow trigger.
+
+If you trigger `BackInStock` 25 times within an hour, the campaigns accumulate 50 triggers, which reaches the campaign limit of 50 per hour. The flow accumulates 25 triggers, so it passes its limit of 3 per hour after the third trigger.
+
+Spacing matters as well as volume. If those 25 triggers arrive close together, the campaigns reach the limit of 10 triggers per 5 minutes after the fifth business event trigger, well before the hourly limit applies. Because the window slides, capacity frees up as the earliest triggers fall outside it rather than at a fixed reset time.
+
+## Delivery Timing for Business Event-Triggered Campaigns
+
+A business event-triggered campaign follows the same delivery SLA as a one-time campaign.
+
+## Entry Timing for Business Event-Triggered Flows
+
+A business event-triggered flow enters users in bulk and can process millions of users in a single run. Because of this scale, users may take up to 60 minutes to enter the flow after the business event is triggered. Account for this when you plan time-sensitive communication.
 
 # Next Steps
 

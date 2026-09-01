@@ -4,15 +4,11 @@ description: "Use the MoEngage Campaigns API to create, update, test, and manage
 icon: "file-magnifying-glass"
 ---
 
+import ApiAuthentication from '/snippets/api-authentication.mdx';
+
 The Campaigns API (V5) lets you build campaigns incrementally rather than submitting a complete payload in a single request. Create a campaign in draft state, then add content, audience segments, trigger conditions, and scheduling across subsequent calls. Once the campaign is ready, validate its configuration, send test messages, and publish it.
 
-<Note>
-**Publish is in beta**
-
-The publish action is currently in beta. Campaigns created as V5 drafts cannot be published yet via this API. Calling the publish action returns a `4xx` error. You can publish the v5 drafts via MoEngage dashboard. For more details, reach out to your MoEngage Customer Success Manager (CSM).
-</Note>
-
-Include an `Idempotency-Key` (UUID v4) on all POST and PATCH requests to ensure safe retries. The `X-MOE-Tenant-ID` header (your Workspace ID) is optional — when omitted, the workspace is resolved from the Basic Auth credentials in the `Authorization` header.
+Include an `Idempotency-Key` (UUID v4) on all POST and PATCH requests to ensure safe retries.
 
 ## Supported channels and delivery types
 
@@ -53,9 +49,6 @@ SMS campaign creation and update are not supported in V5. Use the MoEngage dashb
   <Step title="Test">
     Send a test message to specific users before going live. V5 supports two modes: **inline mode**, where you supply `channel` and `campaign_content` directly in the request without saving a draft, and **draft mode**, where you pass a `draft_id` to load content from a saved draft. Draft mode is new in V5.
   </Step>
-  <Step title="Publish">
-    Transition the draft to `ACTIVE` by sending `{ "status": "PUBLISH" }` in a `PATCH /v5/campaigns/{campaign_id}` request. There is no separate publish endpoint. Publishing is a status transition sent through the Update Campaign endpoint.
-  </Step>
   <Step title="Manage">
     Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
   </Step>
@@ -63,10 +56,14 @@ SMS campaign creation and update are not supported in V5. Use the MoEngage dashb
 
 <Note>
 If you are migrating from V1, here is what is new in V5:
-- **Draft state:** Campaigns now start as drafts, giving you full control over when to go live. Publish explicitly using `PATCH /v5/campaigns/{campaign_id}` with `{ "status": "PUBLISH" }`.
-- **Validate endpoint:** V5 adds a dedicated validate step to check your campaign before publishing. There is no equivalent in V1.
-- **Updated authentication header:** The `MOE-APPKEY` header is replaced by `X-MOE-Tenant-ID` for passing your Workspace ID.
+- **Draft state:** Campaigns now start as drafts. Build the campaign incrementally, then validate and test before launching via V1.
+- **Validate endpoint:** V5 adds a dedicated validate step to check your campaign configuration. There is no equivalent in V1.
+- **Authentication header:** The `MOE-APPKEY` header (your Workspace ID) is optional, since Basic Auth already carries your Workspace ID as the username.
 </Note>
+
+<Warning>
+**Campaign publishing is not yet supported in V5.** To publish campaigns, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim. 
+</Warning>
 
 ## Campaign versioning
 
@@ -80,16 +77,27 @@ The Campaigns API consists of the following endpoints to manage your campaign li
 
 * [Create Campaign](/api/create-campaigns/create-campaign-draft-v5): Initializes a new Push or Email campaign in a `DRAFT` state using minimal required fields.
 * [Get Campaign](/api/get-campaign-details/get-campaign-v5): Retrieves a single campaign in its full deparsed form, displaying its current state and configuration.
-* [Update Campaign](/api/update-campaigns/update-campaign-v5): Updates specific components of an existing draft or triggers the formal `PUBLISH` action to launch the campaign.
+* [Update Campaign](/api/update-campaigns/update-campaign-v5): Updates specific components of an existing draft.
 * [Validate Campaign](/api/create-campaigns/validate-campaign-v5): Safely runs a full publish-time validation check without modifying the draft or changing its state.
 * [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5): Applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that have already been published.
-* [Search Campaigns](/api/get-campaign-details/search-campaigns-v5): Searches for campaigns using granular filters, with the ability to explicitly include or exclude campaigns in draft state.
+* [Search Campaigns](/api/get-campaign-details/search-campaigns): Searches for campaigns using granular filters, with the ability to explicitly include or exclude campaigns in draft state.
 * [Get Campaign Meta](/api/get-campaign-details/get-campaign-meta-v5): Fetches lightweight metadata, including daily cached reachability estimates for scheduled campaigns.
-* [Test Campaign](/api/test-campaigns/test-campaign-v5): Sends a test push or email to up to 10 users. Supports **inline mode** (pass `channel` and `campaign_content` directly) and **draft mode** (pass `draft_id` to load content from a saved draft). Draft mode is new in V5.
-* [Personalized Preview](/api/personalized-preview/personalized-preview-v5): Returns a resolved preview of personalized campaign content for a specific user without sending a message.
+* [Test Campaign](/api/test-campaigns/test-campaign): Sends a test push or email to up to 10 users. Supports **inline mode** (pass `channel` and `campaign_content` directly) and **draft mode** (pass `draft_id` to load content from a saved draft). Draft mode is new in V5.
+* Personalized Preview: Returns a resolved preview of personalized campaign content for a specific user without sending a message. (Documentation temporarily unavailable while this endpoint is being revised.)
 
 <Note>
 Get Child Campaigns and Update Global Control Group are not yet available in V5. Continue to use the V1 Campaigns API for these operations.
+</Note>
+
+## Authentication
+
+<ApiAuthentication />
+
+<Note>
+  When creating an API key for this API, ensure the **Campaigns** checkbox is selected under **Select APIs for access**. The key permissions you select determine your access level:
+  - **View** for read endpoints
+  - **Create & Manage** to create and update campaigns
+  - **Create, Manage & Publish** to publish campaigns
 </Note>
 
 ## FAQs
@@ -174,9 +182,6 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
 ### Update Campaign
 
 <AccordionGroup>
-  <Accordion title="Can I update campaign components and publish in the same request?">
-    No. Component updates and the publish action are mutually exclusive. To update components, send the fields you want to change without a `status` key. To publish, send only `{ "status": "PUBLISH" }`. Combining both in a single request returns a `400 Bad Request` error.
-  </Accordion>
   <Accordion title="Which fields cannot be edited once a campaign is Active?">
     - **Active:** You cannot edit `trigger_condition`, `segmentation_details`, `conversion_goal_details`, the scheduling type, or the scheduling start date.
     - **Scheduled:** All fields can be edited except the scheduling type.
@@ -188,11 +193,8 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
   <Accordion title="Do I need to send the full campaign payload when updating?">
     No. Send only the components you want to update. However, if you are updating a field within a nested object, you must send the complete parent object. For example, to update the title of a push notification, include the full `campaign_content` object in the request body.
   </Accordion>
-  <Accordion title="What API scopes are required to update or publish a campaign?">
-    Component-level updates require the `campaigns:create_manage` scope. Publishing a campaign (sending `{ "status": "PUBLISH" }`) requires the `campaigns:create_manage_publish` scope. The publish action is currently in beta and returns a `4xx` error regardless of scope.
-  </Accordion>
-  <Accordion title="Is there a separate publish endpoint?">
-    No. Publishing is a status transition sent through the Update Campaign endpoint. Send `{ "status": "PUBLISH" }` as the request body in a `PATCH /v5/campaigns/{campaign_id}` request. The Update Campaign Status endpoint (`POST /v5/campaigns/{campaign_id}/status`) is a different endpoint that handles post-publish transitions, STOP, PAUSE, and RESUME, and does not accept `PUBLISH`. The publish action is currently in beta and not yet available.
+  <Accordion title="What API scopes are required to update a campaign?">
+    Component-level updates require the `campaigns:create_manage` scope.
   </Accordion>
   <Accordion title="Can I update the segmentation audience when the campaign is Active?">
     No. The `segmentation_details` field cannot be updated for campaigns in `ACTIVE` state. To change the audience, stop the campaign and create a new one. See [Which fields cannot be edited once a campaign is Active?](#update-campaign) for the full list of non-editable fields by campaign state.
@@ -243,7 +245,7 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
 
   </Accordion>
   <Accordion title="Can I use this endpoint to publish a campaign?">
-    No. This endpoint only applies lifecycle transitions to campaigns that are already published. To publish a campaign, use `PATCH /v5/campaigns/{campaign_id}` with the body `{ "status": "PUBLISH" }`.
+    No. This endpoint only applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that are already live. Campaign publishing is not yet supported in V5. To publish campaigns, use the V1 API in the interim.
   </Accordion>
   <Accordion title="Can I stop a Periodic or Event-triggered campaign?">
     `STOP` is not valid for Periodic or Event-triggered campaigns. Use `PAUSE` to temporarily halt a running Periodic or Event-triggered campaign and `RESUME` to restart it. Attempting to `STOP` a Periodic campaign returns a `422 Unprocessable Entity` error.
@@ -252,7 +254,7 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
     Yes. `STOP` is valid for One-time campaigns in `SCHEDULED`, `ACTIVE`, `PAUSED`, and `SENDING` states. If the campaign is in `SENDING` state, the action halts any remaining sends. Messages already dispatched before the stop is processed are still delivered.
   </Accordion>
   <Accordion title="Which campaign types and channels does this endpoint support?">
-    - **Push:** Periodic, Event-triggered, Device-triggered, and Location-triggered campaigns.
+    - **Push:** Periodic and Event-triggered campaigns.
     - **Email:** Periodic and Event-triggered campaigns.
     - **Both channels:** Stopping a Scheduled One-time campaign.
   </Accordion>
@@ -381,3 +383,7 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
     No. The Personalized Preview endpoint only accepts inline content passed in `campaign_content`. It does not load content from a saved draft. To send a test message from a saved draft, use the Test Campaign endpoint with `draft_id`.
   </Accordion>
 </AccordionGroup>
+
+## Postman Collections
+
+We have made it easy for you to test the APIs. Click [here](https://www.postman.com/moengage-dev/api-docs/collection/uhg5p67/moengage-campaign-apis) to view the Postman collection.

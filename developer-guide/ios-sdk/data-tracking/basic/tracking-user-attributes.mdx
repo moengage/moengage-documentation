@@ -1,7 +1,10 @@
 ---
 title: "Tracking user attributes"
 description: "Track user attributes and set unique identifiers for cross-platform identification in the iOS SDK."
+keywords: "UserAttributeLevel, MoEngageUserAttributeLevelProject, MoEngageUserAttributeLevelPortfolio, project-level attribute, portfolio-level attribute, attribute level, setUserAttribute level"
 ---
+
+import IdentifyUserNetworkFailure from '/snippets/identify-user-network-failure.mdx';
 
 User Attributes are pieces of information you know about a user. They could be demographics like age or gender, account-specific like plan, or whether a user has seen a particular A/B test variation. User attributes are a customer identity you can reference throughout the customer’s lifetime.
 
@@ -72,7 +75,14 @@ If you call `identifyUser()` multiple times with different identifier names, the
   - If you call the _IdentifyUser_ function without logging out, then the existing logged-in user's ID is updated.
 </Info>
 
-Refer to our help [document](https://www.moengage.com/docs/user-guide/data/user-data/unified-identity-identity-resolution) to learn more about the feature.
+Refer to our help [document](/user-guide/data/user-data/unified-identity-identity-resolution) to learn more about the feature.
+
+<IdentifyUserNetworkFailure />
+
+For more information, refer to:
+
+- [Enable/Disable SDK](/developer-guide/ios-sdk/compliance/compliance#enabledisable-sdk)
+- [Opt-Out of Data Tracking](/developer-guide/ios-sdk/compliance/compliance#opt-out-of-data-tracking)
 
 ## Logout
 
@@ -90,6 +100,48 @@ MoEngageSDKAnalytics.sharedInstance.resetUser()
 ```
 
 </CodeGroup>
+
+<Warning>
+  - Logout is asynchronous. Identify the next user, set user attributes, and track events only after logout completes.
+  - Data sent while logout is still in progress is lost or misattributed. Depending on timing, the SDK either records it against the previous user or discards it while clearing that user's data. Use the [logout callback](#logout-callback) to sequence these calls.
+</Warning>
+
+Logout clears the user's attributes and identities, then starts a new anonymous user with a new session. The SDK retains the device identifier and push token, so logout does not unregister the device for push. Call `resetUser()` only when the user logs out. Each call creates a new anonymous user and re-registers the device.
+
+### Logout Callback
+
+To receive a callback when logout is complete, observe the task returned by `resetUser()`:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.resetUser()
+    .onSuccess { _ in
+        // Process your logout completion here
+    }
+    .onFailure { failure in
+        print("Logout failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+
+```objective-c Objective C wrap
+MoEngageResetUserTask *task = [[MoEngageSDKAnalytics sharedInstance] resetUser];
+
+[task onSuccess:^(id _Nonnull result) {
+    // Process your logout completion here
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Logout failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+<Note>
+  Starting with iOS SDK [11.00.0](/release-notes/sdks/ios#22nd-july-2026), `resetUser()` returns a typed task object ([`MoEngageResetUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageResetUserTask.html)) instead of `Void`. Observe the outcome through `.onSuccess` / `.onFailure` or the async `result()` method. On SDK versions below 11.00.0, the equivalent is `resetUser(withCompletionBlock:)`; that variant is deprecated from 11.00.0 in favour of the typed task above.
+</Note>
 
 # Default User Attributes
 
@@ -149,6 +201,10 @@ NSArray *myArray = @[@"Bengaluru", @"Delhi", @"Chennai"];
 
 </CodeGroup>
 
+<Note>
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `setUserAttribute(_:withAttributeName:level:forAppID:)` requires the `value` parameter to conform to `Sendable` for Swift concurrency safety (`Any` → `any Sendable`). The literal values used in these examples (strings, arrays, dictionaries of these) already conform to `Sendable`, so they compile unchanged. Under the Swift 6 language mode or strict concurrency, non-`Sendable` values need to be updated.
+</Note>
+
 For the full list of validation rules, refer to [Validations and restrictions](#validations-and-restrictions).
 
 ## JSON Attributes
@@ -185,7 +241,7 @@ In a [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled works
 
 ## Set Portfolio-Level Attributes
 
-To set a user attribute at the portfolio level, use the API shown below.
+To set a user attribute at the portfolio level, use the API shown below. The `level` parameter accepts `.project` (Objective-C: `MoEngageUserAttributeLevelProject`) to scope the attribute to the current project, or `.portfolio` (Objective-C: `MoEngageUserAttributeLevelPortfolio`) to share it across all projects in the portfolio. When you omit the `level` parameter, the attribute defaults to project level.
 
 <CodeGroup>
 

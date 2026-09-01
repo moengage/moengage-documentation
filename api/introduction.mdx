@@ -4,13 +4,9 @@ description: "Explore MoEngage REST APIs for managing user data, campaigns, segm
 icon: "rocket"
 ---
 
-<Note>
-  **Beta**
+The MoEngage REST APIs let you manage user data, campaigns, segments, content, and integrations without the dashboard. Every endpoint uses standard HTTP methods, Basic Authentication, and JSON request and response bodies.
 
-  We are refining the new API docs. While exploring them, you may encounter minor issues. We appreciate your patience as we finalize the content.
-
-  The [existing API docs](https://developers.moengage.com/hc/en-us/categories/4404541620756-API) will be accessible until the transition is complete.
-</Note>
+This reference covers the available API categories, along with the data centers, base URLs, authentication, rate limits, and error handling that apply across them.
 
 ## API Categories
 
@@ -91,8 +87,11 @@ If you have data privacy requirements to store user data in a specific geographi
 - **US region**: Sign up with DC-01 or DC-04
 - **EU region**: Sign up with DC-02
 - **India region**: Sign up with DC-03
-- **Singapore region**: Sign up with DC-05
 - **Indonesia region**: Sign up with DC-06
+
+<Note>
+  DC-05 (Singapore) is not available for new sign-ups. Existing DC-05 workspaces remain operational and continue to use `https://api-05.moengage.com` for API requests. For data residency requirements in Singapore, contact your Customer Success Manager.
+</Note>
 
 <Warning>
   After data is captured in a workspace, it cannot be migrated to a different data center. Always use the REST API endpoint matching your registered data center.
@@ -126,7 +125,7 @@ All MoEngage API requests require Basic Authentication. To authenticate, you mus
 
 ```http
 Authorization: Basic {base64_encoded_credentials}
-MOE-APPKEY: {your_workspace_id}
+MOE-APPKEY: {your_workspace_id} # This header is mandatory for the File Import and Test Connection APIs. It is not required for API Endpoints under Data.
 Content-Type: application/json
 ```
 <Note>
@@ -169,38 +168,15 @@ Different APIs require different API keys from your dashboard:
 
 ## Rate Limits
 
-Rate limits vary by API. Headers are included in responses to help you manage usage.
+MoEngage enforces per-workspace rate limits and payload caps on its REST APIs. Requests that exceed a rate limit receive an `HTTP 429` response; oversized payloads receive `HTTP 413` (or `400`). Rate-limited responses include `x-ratelimit-limit`, `x-ratelimit-remaining`, and `x-ratelimit-reset` headers so you can track remaining capacity in real time.
 
-| API | Rate Limit |
-| --- | --- |
-| **Campaigns API** | 5 requests/min, 25 requests/hour, 100 requests/day |
-| **Catalog API** | 100 requests/min or 1,000 requests/hour |
-| **Campaign Stats API** | 100 requests/min/workspace |
-| **Custom Segments (Filter)** | 50 requests/min, 200 requests/hour, 1,000 requests/day |
-| **Custom Segments (File)** | 10 operations/hour, 100 operations/day |
-
-### Rate Limit Response Headers
-
-```http
-x-ratelimit-limit: 100
-x-ratelimit-remaining: 95
-x-ratelimit-reset: 1699574400
-```
-
-### Payload Size Limits
-
-| API | Max Payload Size |
-| --- | --- |
-| Catalog API | 5 MB |
-| Recommendations API | 1 MB |
-| Bulk Import API | 100 KB |
-| Custom Segments (File) | 150 MB per file |
+For the full per-endpoint breakdown — rate limits, payload size caps, monitoring headers, and how to request an increase — see [Rate Limits](/api/rate-limits).
 
 ---
 
 ## Error Handling
 
-All APIs return consistent error responses.
+Most MoEngage APIs return errors in the standard format below.
 
 ### Standard Error Format
 
@@ -214,6 +190,10 @@ All APIs return consistent error responses.
   }
 }
 ```
+
+<Note>
+  Newer v5 APIs, such as [Flows](/api/flows/flows-overview), use a different error envelope: `{ response_id, error: { code, message, target, details } }`. Refer to the specific API's reference for its exact error shape.
+</Note>
 
 ### HTTP Status Codes
 
@@ -299,8 +279,9 @@ All APIs return consistent error responses.
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/recommendations/{recommendations_id}` | Get recommendations |
-| `POST` | `/recommendations/{recommendations_id}/items` | Get recommendation items |
+| `GET` | `/recommendations` | List all recommendations |
+| `GET` | `/recommendations/{recommendation_id}` | Get the details of a recommendation |
+| `POST` | `/recommendations/{recommendation_id}/items` | Get recommended items for a user |
 
 #### Coupons
 

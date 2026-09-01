@@ -1,0 +1,132 @@
+---
+title: "Seen"
+description: "Integrate MoEngage with Seen to automate personalized video generation and distribute unique video player links and email thumbnails to your users."
+---
+
+# Introduction
+
+[Seen](https://seen.io/) is a personalization video platform that allows companies to create and build videos around their customers to deliver a more engaging experience. With Seen, you can design a video around your data, personalize it at scale in the cloud, then distribute it where it works best.
+
+<Note>
+  This integration is built and maintained by Seen. For assistance, reach out to your Customer Success Manager at Seen.
+</Note>
+
+# Use Cases
+
+Seen offers automated video personalization across the entire customer journey. Common uses include onboarding, loyalty, sign-ups and conversion, and win-back and anti-churn.
+
+# Integration
+
+<Info>
+  **Prerequisites**
+
+  - A Project must be created and published in the Seen Platform before you set up the integration.
+  - Ensure MoEngage Connectors and Flows are available for your account.
+</Info>
+
+In the following example, you send user data to Seen for video generation, and receive a unique video player link and a personalized email thumbnail back in MoEngage for distribution. This example uses a Connector step in a MoEngage Flow to send data to Seen, and a Seen webhook to post the result back to MoEngage as a custom event — ready to use across email, SMS, push, and more.
+
+If you have multiple video campaigns with Seen, repeat the process to connect MoEngage with each one.
+
+## Step 1: Send Data to Seen
+
+1. Navigate to **Engage** → **Flows** and create a new blank Flow in MoEngage.
+2. Give your Flow a name, add a **Connector** step to the canvas, and configure it as follows:
+   | Field | Value |
+   | --- | --- |
+   | Webhook URL | `https://next.seen.io/v1/projects/{project_id}/data` — find your Project endpoint in the **Run** tab of your Seen Project. |
+   | HTTP Method | POST |
+   | Body type | JSON |
+3. Use the payload below as a starting point. Adjust the fields to match the personalizations in your Seen Project.
+   ```json wrap
+   {
+     "user_id": "{{UserAttribute['ID']|default('MOE_NOT_SEND')}}",
+     "first_name": "{{UserAttribute['First Name']|default('MOE_NOT_SEND')}}"
+   }
+   ```
+4. Add the following request headers:
+   | Header | Value |
+   | --- | --- |
+   | Authorization | `Bearer {token}` |
+   | Content-Type | `application/json` |
+   | You can create an API token in your Seen Platform account under **Settings** → **API** → **OAuth2**. |  |
+5. Test the Connector with a specific user using the **Test** section at the bottom of the Connector step.
+6. If everything works as intended, activate the Flow.
+
+## Step 2: Set Up Your Webhook in Seen Platform
+
+1. Navigate to your Project in the Seen Platform.
+2. Open the **Run** tab and click **Add Webhook**.
+3. Configure your webhook to post the result back to MoEngage (see Step 3 for the full configuration).
+
+## Step 3: Receive Data Back from Seen
+
+First, create an authorization configuration in MoEngage so Seen can authenticate its callback.
+
+1. In MoEngage, navigate to **Settings** → **Advanced Settings** → **Authorization Configuration**.
+2. Click **\+ Add Auth Config** and fill in the following fields:
+   | Field | Value |
+   | --- | --- |
+   | Name | Seen API |
+   | Token type | JWT |
+   | API URL | `https://next.seen.io/oauth2/token` |
+   | Method | POST |
+   | Body type | FORM |
+   | grant\_type | `client_credentials` |
+   | client\_id | `<YOUR_SEEN_CLIENT_ID>` |
+   | client\_secret | `<YOUR_SEEN_CLIENT_SECRET>` |
+   | Find your Client ID and Client Secret under **Settings** → **API** → **OAuth2** in your Seen workspace. |  |
+3. Click **Send test & continue**.
+4. In the **Access token** field, select `access_token`.
+5. Click **Decode Access Token**. In the expiry field that appears, enter `access_token.exp` (Unix Epoch).
+6. Set **Preferred prefix** to `Bearer`.
+7. Click **Save**.
+
+Next, configure the webhook in the Seen Platform webhook editor to POST back to MoEngage:
+
+| Field | Value |
+| --- | --- |
+| URL | `https://api-01.moengage.com/v1/event/{YOUR_MOENGAGE_WORKSPACE_ID}` |
+| Authentication | Basic Auth (Username = MoEngage Workspace ID, Password = MoEngage Data API Key) |
+| Content-Type | `application/json` |
+
+<Note>
+  Replace `01` in the URL with your workspace's data center number.
+</Note>
+
+1. Use the payload below as a starting point for the Seen webhook body. Replace **Player link** and **Email thumbnail link** with the dynamic output references available in the Seen webhook editor:
+   <CodeGroup>
+   ```json JSON wrap
+   {
+     "type": "event",
+     "customer_id": "user_id",
+     "actions": [
+       {
+         "action": "seen_video_generated",
+         "attributes": {
+           "seen_campaign": "onboarding",
+           "seen_player_link": "Player link",
+           "seen_email_thumbnail_link": "Email thumbnail link"
+         }
+       }
+     ]
+   }
+   ```
+   </CodeGroup>
+2. Click **Create** to save the webhook.
+
+## Step 4: Verify the Integration
+
+1. In MoEngage, navigate to **Segment** → **Search Users** and open your test user's **Event Activity**.
+2. Confirm that a `seen_video_generated` event appears with the following attributes populated:
+   | Attribute | Description |
+   | --- | --- |
+   | `seen_player_link` | A link to the user's personalized Seen video. |
+   | `seen_email_thumbnail_link` | A personalized video thumbnail for use in email. |
+
+Once confirmed, you can reference these attributes in any MoEngage campaign:
+
+```text wrap
+{{EventAttribute['seen_player_link']|default('MOE_NOT_SEND')}}
+{{EventAttribute['seen_email_thumbnail_link']|default('MOE_NOT_SEND')}}
+```

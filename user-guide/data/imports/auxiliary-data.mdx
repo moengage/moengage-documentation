@@ -1,0 +1,183 @@
+---
+title: "Auxiliary Data"
+description: "Import temporary supplementary data into MoEngage via S3, SFTP, or CSV for campaign personalization. Uses a primary-key mapping model with configurable retention."
+keywords: "auxiliary data, aux data, temporary data, personalization, primary key, retention, expiry, PGP encryption, aux_data_"
+---
+
+import UniversalImportFaqs from '/snippets/imports-faq-universal.mdx';
+import PgpEncryption from '/snippets/imports-pgp-encryption.mdx';
+
+# Overview
+
+Auxiliary Data lets you import supplementary user information that is only relevant for a specific timeframe and does not need permanent storage, for example, limited-time offers and discounts, weekly contest points, or externally generated recommendations. You import it via file, use it to personalize campaigns for its lifetime, and let it expire automatically.
+
+<Info>
+  To enable Auxiliary Data for your account, contact your MoEngage Customer Success Manager (CSM) or the MoEngage Support team.
+</Info>
+
+Auxiliary Data uses a materially different model from every other import type:
+
+- **Primary-key mapping only**: You select one column as the primary key. Every other column passes through automatically; there is no per-column mapping.
+- **All values are stored as String**: Auxiliary Data is force-typecast to the String datatype. Object, JSON, and Array types are not supported.
+- **Configurable expiry**: Each import has a retention period, after which the data expires.
+
+<Note>
+  Auxiliary Data is available for file-based sources only (S3, SFTP, and CSV). It is not available for data warehouse imports.
+</Note>
+
+## Use Cases
+
+Auxiliary Data supports the following use cases:
+
+- **Dynamic personalization**: Upload coupon details, transaction data, survey data, or contest data to tailor communication.
+- **Targeted engagement**: Upload customer segments via file without storing them as permanent primary data.
+- **Auto-refresh recurring campaigns**: Periodically upload changing campaign content for automatic triggering.
+- **Custom recommendations**: Upload recommendations from in-house or external engines.
+- **Legacy data integration**: Ingest data from legacy platforms without complex integrations.
+
+## Supported Sources
+
+Auxiliary Data can be imported via **S3**, **SFTP**, and **CSV** (manual upload). For file preparation, see [Naming Conventions](#file-preparation) below.
+
+# Import Auxiliary Data
+
+**Entry point:** **Data** > **Data Imports** > **Import** > **Auxiliary Data**. Select your source (S3, SFTP, or CSV) and click **Continue**.
+
+<Info>
+  MoEngage keeps historical logs of Auxiliary CSV files imported in the last 60 days. Files uploaded earlier no longer appear in the import logs, but their data is retained for the configured retention period.
+</Info>
+
+## Step 1: Configure Source and Format
+
+Enter an **Import name**, then provide your source details:
+
+<Tabs>
+  <Tab title="S3">
+    | Field | Description |
+    | --- | --- |
+    | S3 bucket name | The name of your S3 bucket. |
+    | S3 access key | The Access Key ID MoEngage uses to connect to your bucket. |
+    | S3 secret key | The Secret Access Key for that Access Key ID. |
+    | Region | The region your bucket is hosted in. |
+    | Folder Path | The path of the folder containing your files. |
+
+    For more information, see [Set Up a File Import](/user-guide/data/imports/setting-up-a-file-import).
+  </Tab>
+  <Tab title="SFTP">
+    | Field | Description |
+    | --- | --- |
+    | Username | The username MoEngage uses to connect to your SFTP server. |
+    | Password | The password for that username. |
+    | Folder URL | The path of the folder containing your files. |
+
+    For more information, see [Set Up a File Import](/user-guide/data/imports/setting-up-a-file-import).
+  </Tab>
+  <Tab title="CSV">
+    Upload a CSV file directly from your computer. The primary-key mapping, String typecasting, and retention model are the same as for S3 and SFTP.
+  </Tab>
+</Tabs>
+
+**File encryption**: For encrypted files, select **Is your file encrypted?** and provide your **Decryption Key** (private PGP key), **Signing Key** (public PGP key), and **Key passphrase** (used to encrypt your private key).
+
+<Accordion title="Set up PGP encryption">
+  <PgpEncryption />
+</Accordion>
+
+**File name configuration**: Specify the prefix and date-time format in your file name, separated by `_`. The prefix should use letters, numerals, and underscores. The default prefix is `aux_data_`, for example, `aux_data_20220131.csv`. Enter the prefix and time format, click **Fetch Files**, select a file to preview its top 5 rows, then click **Next**.
+
+<Info>
+  - File names must follow the [Naming Conventions](#file-preparation).
+  - Column names must not contain spaces.
+</Info>
+
+## Step 2: Map Your Data to MoEngage Attributes
+
+Select the column that contains a unique value in each row as the **Primary key** from the dropdown. Every other column passes through automatically.
+
+<Warning>
+  All Auxiliary Data is force-typecast to the **String** datatype.
+</Warning>
+
+<Note>
+  MoEngage captures the column schema when you create the import, based on the selected file. Subsequent periodic runs ingest only these columns and do not re-read the file's structure. Any column added to the file after the import is created is ignored. To use new columns, create a new Auxiliary Data import.
+</Note>
+
+Optionally, turn on **Send import status** and select up to **10 email recipients**. Click **Next**.
+
+## Step 3: Import Schedule and Frequency
+
+Choose when and how often the import runs:
+
+- **One Time**: Run as soon as possible, or at a fixed timezone, start date, and send time.
+- **Periodic**: Run on a recurring schedule. Set the timezone, start date, and send time, then choose the periodicity:
+
+| Periodicity | Repeat rules |
+| --- | --- |
+| Hourly | Repeat every N hours. |
+| Daily | **Repeat every**, the number of days between runs. |
+| Weekly | **Repeat every**, the number of weeks between runs. **Repeat on**, the days of the week to run (for example, Monday, Wednesday, Friday). |
+| Monthly | **Repeat every**, the number of months between runs. **Repeat on**, either **Days of the month** (specific dates; if a date doesn't exist in a shorter month, the run falls on the last day) or **Days of the week**. |
+
+### Data Action (Retention/Expiry)
+
+Set the **Aux data expiry**, the retention period after which the data expires. Available values: 1, 2, 7, 15, 30 days, 2 months, 3 months, … up to 1 year, and Infinite retention.
+
+- **One Time**: Choose any retention period.
+- **Periodic**: Set the retention period **longer than the import periodicity**. For example, with a daily import and a 30-day retention, data imported on day 1 has 29 days of retention left when day 2's data arrives.
+
+Click **Done** to run the import.
+
+**Editing the retention period**: Edit an import's retention period from its Actions (three-dot) menu > **Edit**, but only while (1) the data has not yet expired and (2) the periodic import has not yet run and processed in MoEngage.
+
+<Info>
+  Auxiliary Data is available for Email, SMS, Push, WhatsApp, In-App, Cards, Connectors, and Web Personalization.
+</Info>
+
+# Actions on an Auxiliary Data Import
+
+From the Actions icon at the end of an import's row:
+
+- **View Details**: See past imports, scheduled date and time, file name, status, and successful/failed upload counts.
+- **Edit**: Edit all fields except the import and segment names.
+- **Duplicate**: Duplicate the import.
+
+# File Preparation
+
+Prepare your files to meet the following requirements:
+
+- **File type**: CSV. Column names must not contain spaces.
+- **Naming**: `<prefix>_<date time format>.csv`, default prefix `aux_data_`. For supported date-time formats, see [Supported Datetime Formats](/user-guide/data/imports/setting-up-a-file-import#supported-datetime-formats).
+
+# Limits
+
+Auxiliary Data imports have the following limits:
+
+- **File size**: Auxiliary Data follows the file-size limit of its source, less than 500 MB per file for S3/SFTP, and less than 150 MB per CSV for manual upload.
+- **Rows**: A single file supports up to your hourly row limit. Files exceeding your hourly row limit are rejected.
+
+**Rate limits**: Auxiliary Data has its own independent rate-limit bucket:
+
+| Import Type | Hourly | Daily |
+| --- | --- | --- |
+| Auxiliary Data | 1.5M/hr | 25M/day |
+
+# Import Failure Policy
+
+A failed run is retried automatically up to a maximum retry count. After the last retry, MoEngage marks the run **FAILED**, and it requires a manual re-trigger. The schedule itself continues independently, so a failed run does not block future scheduled runs.
+
+# Next Steps
+
+After your import succeeds, use the data to personalize your campaigns:
+
+- [Personalize Email Campaigns with Auxiliary Data](/user-guide/campaigns-and-channels/email/create/personalize-email-content)
+- [Personalize SMS Campaigns with Auxiliary Data](/user-guide/campaigns-and-channels/sms-mms-and-rcs/sms/personalize-sms-campaign)
+- [Personalize Push Campaigns with Auxiliary Data](/user-guide/campaigns-and-channels/mobile-push/create/personalize-push-campaigns)
+
+# Manage Your Imports
+
+To monitor your imports, understand import statuses, or trigger a run manually or via API, see [How Imports Work](/user-guide/data/imports/overview-imports#how-imports-work) on the Imports Overview.
+
+# Frequently Asked Questions
+
+<UniversalImportFaqs />
+
