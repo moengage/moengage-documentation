@@ -7,9 +7,9 @@ keywords: ["Messaging API", "API_TRIGGERED", "campaign shell", "trigger email AP
 
 import ApiAuthentication from '/snippets/api-authentication.mdx';
 
-The Messaging API sends email to individual recipients that your application specifies. It uses a two-operation model: create a reusable campaign shell, then trigger messages against that shell.
+The Messaging API sends email to individual recipients that your application specifies. It defines two operations: create a reusable campaign shell, then trigger messages against that shell.
 
-A shell defines the content structure and the campaign settings. Each trigger request supplies the recipient and the values for that send, so one shell serves every message of a given type.
+A shell defines the content structure and the campaign settings. Each trigger request specifies the recipient and the values for that send. A single shell therefore supports repeated trigger requests for one message type.
 
 ## Prerequisites
 
@@ -25,14 +25,14 @@ A shell defines the content structure and the campaign settings. Each trigger re
   </Step>
 </Steps>
 
-## How It Works
+## Operations
 
 | Operation | Description | Frequency |
 | :--- | :--- | :--- |
-| Create a shell | Create an Email campaign with `campaign_delivery_type: API_TRIGGERED`, carrying the content structure, connector, and delivery controls. Publish the shell to make it triggerable. | Once per message type |
+| Create a shell | Create an Email campaign with `campaign_delivery_type: API_TRIGGERED` that defines the content structure, connector, and delivery controls. Publish the shell to make it triggerable. | Once per message type |
 | Trigger a message | Call the trigger endpoint with the shell's `campaign_id`, the recipients, and the values for that send. | Once per send |
 
-This separation has two consequences:
+The following rules apply:
 
 - A trigger request targets an existing published shell. A trigger request never creates a campaign.
 - Editing a shell creates a new shell version. Trigger requests do not, so send volume does not affect the shell version.
@@ -94,7 +94,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 
 <AccordionGroup>
   <Accordion title="What is a campaign shell?">
-    A shell is a reusable email campaign. It holds the content structure with placeholders, the email settings, and the delivery controls. Each trigger request supplies the recipients and the per-send values, so the same shell serves every message of its type.
+    A shell is a reusable email campaign. It defines the content structure with placeholders, the email settings, and the delivery controls. Each trigger request specifies the recipients and the per-send values.
   </Accordion>
   <Accordion title="How do I create a shell?">
     Create it through the Campaigns V5 API with `campaign_delivery_type: API_TRIGGERED`. The shell starts in `DRAFT` status. Validate it, then publish it to make it triggerable. See [Create Campaign](/api/create-campaigns/create-campaign-draft-v5).
@@ -109,7 +109,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
     Yes. A shell moves through `SCHEDULED`, `ACTIVE`, and `STOPPED`. It has no pause or resume state. After you stop a shell, MoEngage rejects trigger requests against it.
   </Accordion>
   <Accordion title="What are placeholders?">
-    Placeholders are named slots in the shell content that each trigger request populates. The shell defines the structure and the trigger request supplies the values.
+    Placeholders are named fields in the shell content that each trigger request populates. The shell defines the structure and the trigger request specifies the values.
   </Accordion>
   <Accordion title="Can I supply fully resolved content instead of placeholders?">
     Yes. A trigger request can carry a final value, such as HTML that your application has already rendered, instead of a token for MoEngage to resolve. A single request can combine both forms. See [Content for API-triggered shells](/api/campaigns/campaign-content-reference#content-for-api-triggered-shells).
@@ -123,10 +123,10 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
     `202 Accepted` means the request is valid and enqueued for asynchronous dispatch, and it returns a message instance ID. It is not a delivery guarantee. MoEngage sends the message after the acknowledgement, and inbox delivery depends on your email provider.
   </Accordion>
   <Accordion title="What is the Idempotency-Key header?">
-    An `Idempotency-Key` (UUID v4) makes retries safe. Replaying the same key with the same request body within the retention window returns the original response and sends no additional message. Reusing the same key with a different body returns `409 CONFLICT`.
+    An `Idempotency-Key` (UUID v4) prevents a retried request from sending a duplicate message. Replaying the same key with the same request body within the retention window returns the original response and sends no additional message. Reusing the same key with a different body returns `409 CONFLICT`.
   </Accordion>
   <Accordion title="Can I trigger multiple recipients in one request?">
-    Yes. A request carries a flat list of recipients of a single identifier type, up to a maximum per request. A request above the maximum returns `422 RECIPIENT_LIMIT_EXCEEDED`. Every recipient in a request receives the same message, with personalization resolved for each recipient.
+    Yes. A request carries a flat list of recipients of a single identifier type, up to the maximum permitted per request. A request that exceeds the maximum returns `422 RECIPIENT_LIMIT_EXCEEDED`. Every recipient receives the same message, with personalization resolved per recipient.
   </Accordion>
   <Accordion title="Can I mix identifier types in one request?">
     No. Each request declares one `identifier_type`, and every entry in `recipients` must match that type. A request with mixed types returns `400 VALIDATION_FAILED`.
@@ -158,10 +158,10 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
     Email only. Use the [Push API](/api/push/push-overview) to send push notifications to individual users.
   </Accordion>
   <Accordion title="Can I get delivery and engagement reports?">
-    No. Campaign reporting and per-message delivery callbacks are not available for API-triggered campaigns. Use the reporting that your email provider offers. See [Limitations](#limitations).
+    No. Campaign reporting and per-message delivery callbacks are not available for API-triggered campaigns. Use your email provider's reporting. See [Limitations](#limitations).
   </Accordion>
   <Accordion title="Is there a size limit on the request payload?">
-    Yes. A request above the maximum payload size returns `413 PAYLOAD_TOO_LARGE`. Keep HTML bodies under 102 KB, because several email clients clip larger messages.
+    Yes. A request that exceeds the maximum payload size returns `413 PAYLOAD_TOO_LARGE`. Keep HTML bodies under 102 KB, because several email clients clip larger messages.
   </Accordion>
   <Accordion title="Does the Messaging API affect my existing integrations?">
     No. Existing Push API and Campaigns API integrations continue to work without modification, and migration is not required.
