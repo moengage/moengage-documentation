@@ -1,0 +1,46 @@
+---
+title: "Why Does My Segment Query Fail With a Query Length Error?"
+description: "Troubleshoot a MoEngage segment query or campaign that fails because the segment definition exceeds the maximum query length, and learn how to reduce the size of the query."
+keywords: "segment query failed, queryString length less than or equal to 262144, maximum query length, 256 KB query limit, query too complex, an unexpected error occurred while executing this query, reduce segment complexity"
+---
+
+## Problem
+
+A segment query fails instead of returning a user count, and the campaigns that use the segment fail along with it. Depending on where the query fails, you see one of the following:
+
+- A failure reason that names a length constraint, such as `'queryString' failed to satisfy constraint: Member must have length less than or equal to 262144`.
+- A generic failure reason stating that an unexpected error occurred while executing the query, with no cause named.
+- The segment stays in a running state and never returns a count.
+
+The segment may fail even though it is within every documented segmentation limit — for example, a segment that combines 10 custom segments with OR, which is the maximum number of custom segments allowed in one definition.
+
+## Instructions
+
+A segment definition is serialized into a single query before it runs, and that serialized query has a maximum length of 256 KB (262,144 characters). MoEngage evaluates the query as a whole, so the limit applies to the fully expanded definition — including the definitions of every custom segment referenced inside it, not just the conditions you see on screen.
+
+This is a separate limit from the [nesting limit](/user-guide/segment/advanced-concepts/segment-nesting). A segment can be well within 6 levels of nesting and still exceed the query length, and a segment can exceed the nesting limit while being far shorter than 256 KB. Staying inside one limit does not keep you inside the other.
+
+Query length grows fastest in these patterns:
+
+- **Many custom segments combined with OR.** Each referenced custom segment expands into its own full definition inside the parent query.
+- **Custom segments used in the exclusion block.** Excluded custom segments expand the same way as included ones, so an exclusion list of several custom segments adds as much length as an inclusion list of the same size.
+- **Filters with a large number of selected values.** A single filter that matches hundreds of values — mobile numbers, product IDs, city names — can contribute more length than several ordinary conditions combined.
+
+To bring the query under the limit, apply the options below in order of how much length they remove:
+
+1. **Replace a list of OR'd custom segments with one segment.** Where several custom segments differ only by the value of one attribute, rebuild them as a single segment with one filter matching all of those values. Ten segments that each match one language become one segment whose language filter lists ten values.
+2. **Move long value lists into a file segment.** Upload the identifiers as a [file segment](/user-guide/segment/create-segments/file-segments) and reference that instead of listing the values in a filter. File segments are also not counted toward the nesting or custom segment limits.
+3. **Flatten redundant references.** Where a custom segment is referenced only to add one or two conditions, inline those conditions into the parent query and drop the reference.
+4. **Split the segment and the campaign.** Where the definition covers audiences that do not need to be evaluated together, create two or more segments and run a campaign for each.
+
+<Warning>
+  Simplifying nesting can make the query length problem worse. The logical rules on the [Segment Nesting](/user-guide/segment/advanced-concepts/segment-nesting) page reduce nesting depth by distributing conditions — for example, `(X AND Y) OR Z` becomes `(X OR Z) AND (Y OR Z)` — which repeats terms and produces a longer query. When you flatten nesting on a segment that is already large, check that the query still runs.
+</Warning>
+
+After you edit the segment, run the query from the **Create Segment** page and confirm it returns a count before you rely on it in a campaign. Campaigns that reference a failing segment fail at send time, so a segment that has started failing can affect several live campaigns at once.
+
+## Example
+
+A segment is defined as ten custom segments combined with OR — one per preferred language, each already filtered to the same audience. The definition is within the limit of 10 custom segments per definition and is only 2 levels deep, but each of the ten references expands into its own full definition, so the serialized query exceeds 256 KB and fails with the `length less than or equal to 262144` error. Every recurring campaign that targets the segment fails with it.
+
+Rebuilding the definition as a single segment — the shared audience filter AND preferred language is any of the ten values — replaces ten expanded definitions with one filter holding ten values. The query returns a count, and the campaigns resume.
