@@ -9,7 +9,7 @@ import ApiAuthentication from '/snippets/api-authentication.mdx';
 
 The Messaging API sends email to individual recipients that your application specifies. It uses a two-operation model: create a reusable campaign shell, then trigger messages against that shell.
 
-A shell defines the content structure and the campaign settings. Each trigger request supplies the recipient and the values for that send. One shell therefore serves every message of a given type, instead of one campaign per message.
+A shell defines the content structure and the campaign settings. Each trigger request supplies the recipient and the values for that send, so one shell serves every message of a given type.
 
 ## Prerequisites
 
@@ -32,18 +32,18 @@ A shell defines the content structure and the campaign settings. Each trigger re
 | Create a shell | Create an Email campaign with `campaign_delivery_type: API_TRIGGERED`, carrying the content structure, connector, and delivery controls. Publish the shell to make it triggerable. | Once per message type |
 | Trigger a message | Call the trigger endpoint with the shell's `campaign_id`, the recipients, and the values for that send. | Once per send |
 
-Two constraints follow from this separation:
+This separation has two consequences:
 
-- A trigger request fires against an existing published shell. A trigger request never creates a campaign.
+- A trigger request targets an existing published shell. A trigger request never creates a campaign.
 - Editing a shell creates a new shell version. Trigger requests do not, so send volume does not affect the shell version.
 
 The trigger endpoint is asynchronous. A `202 Accepted` response confirms that the request is valid and enqueued, and returns a message instance ID. It is not a delivery guarantee. Dispatch occurs after the acknowledgement, and inbox delivery depends on your email provider.
 
-The endpoint is deterministic. MoEngage sends the message as specified or rejects the request. There is no channel or vendor fallback, and a request that exceeds a limit is rejected rather than queued.
+MoEngage sends the message as specified or rejects the request. There is no channel or vendor fallback, and a request that exceeds a limit is rejected rather than queued.
 
 ## Endpoints
 
-Shell creation uses the existing Campaigns API. The Messaging API adds no separate create-campaign endpoint.
+Shell creation uses the Campaigns API. The Messaging API adds no separate create-campaign endpoint.
 
 | Operation | Endpoint |
 | :--- | :--- |
@@ -72,7 +72,7 @@ A request that exceeds the limit returns `429` with a `Retry-After` header. MoEn
 
 Contact your Customer Success Manager to raise the limit for your workspace.
 
-Shell creation is a campaign creation call and counts against the `POST /v5/campaigns` limit. Triggering a message against a published shell does not, because the request creates no campaign. See [Rate Limits](/api/rate-limits#messaging).
+Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a message against a published shell does not, because the request creates no campaign. See [Rate Limits](/api/rate-limits#messaging).
 
 ## Limitations
 
@@ -109,7 +109,7 @@ Shell creation is a campaign creation call and counts against the `POST /v5/camp
     Yes. A shell moves through `SCHEDULED`, `ACTIVE`, and `STOPPED`. It has no pause or resume state. After you stop a shell, MoEngage rejects trigger requests against it.
   </Accordion>
   <Accordion title="What are placeholders?">
-    Placeholders are named slots in the shell content that each trigger request populates. The shell defines the structure and the trigger request supplies the values, so a single shell serves every variant of a message.
+    Placeholders are named slots in the shell content that each trigger request populates. The shell defines the structure and the trigger request supplies the values.
   </Accordion>
   <Accordion title="Can I supply fully resolved content instead of placeholders?">
     Yes. A trigger request can carry a final value, such as HTML that your application has already rendered, instead of a token for MoEngage to resolve. A single request can combine both forms. See [Content for API-triggered shells](/api/campaigns/campaign-content-reference#content-for-api-triggered-shells).
@@ -126,7 +126,7 @@ Shell creation is a campaign creation call and counts against the `POST /v5/camp
     An `Idempotency-Key` (UUID v4) makes retries safe. Replaying the same key with the same request body within the retention window returns the original response and sends no additional message. Reusing the same key with a different body returns `409 CONFLICT`.
   </Accordion>
   <Accordion title="Can I trigger multiple recipients in one request?">
-    Yes. A request carries a flat list of recipients of a single identifier type, up to a maximum per request. A request above the maximum returns `422 RECIPIENT_LIMIT_EXCEEDED`. Every recipient in a request receives the same message, personalized individually.
+    Yes. A request carries a flat list of recipients of a single identifier type, up to a maximum per request. A request above the maximum returns `422 RECIPIENT_LIMIT_EXCEEDED`. Every recipient in a request receives the same message, with personalization resolved for each recipient.
   </Accordion>
   <Accordion title="Can I mix identifier types in one request?">
     No. Each request declares one `identifier_type`, and every entry in `recipients` must match that type. A request with mixed types returns `400 VALIDATION_FAILED`.
@@ -141,7 +141,7 @@ Shell creation is a campaign creation call and counts against the `POST /v5/camp
     MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
   </Accordion>
   <Accordion title="What happens when I exceed the rate limit?">
-    The request returns `429` with a `Retry-After` header, and MoEngage rejects rather than queues it. Retry after the interval that the header specifies.
+    The request returns `429` with a `Retry-After` header. MoEngage rejects the request and does not queue it. Retry after the interval that the header specifies.
   </Accordion>
   <Accordion title="What happens when MoEngage cannot resolve a recipient?">
     MoEngage drops the message for that recipient and does not retry it, because a retry cannot change the outcome. The other recipients in the same request are unaffected.
@@ -164,7 +164,7 @@ Shell creation is a campaign creation call and counts against the `POST /v5/camp
     Yes. A request above the maximum payload size returns `413 PAYLOAD_TOO_LARGE`. Keep HTML bodies under 102 KB, because several email clients clip larger messages.
   </Accordion>
   <Accordion title="Does the Messaging API affect my existing integrations?">
-    No. The Messaging API is additive. Existing Push API and Campaigns API integrations continue to work without modification, and migration is not required.
+    No. Existing Push API and Campaigns API integrations continue to work without modification, and migration is not required.
   </Accordion>
 </AccordionGroup>
 
