@@ -12,7 +12,7 @@ For in-apps that the SDK renders, see [In-App NATIV](/developer-guide/android-sd
 
 # Prerequisites
 
-- Integrate the MoEngage in-app module. See [In-App NATIV](/developer-guide/android-sdk/in-app-messages/in-app-nativ#prerequisites).
+- Integrate the MoEngage in-app module, `com.moengage:inapp`. See [In-App NATIV](/developer-guide/android-sdk/in-app-messages/in-app-nativ#prerequisites).
 - Initialize the SDK before you call any API on this page. Every fetch and tracking API throws `SdkNotInitializedException` if the SDK is not initialized.
 - Create a self-handled in-app campaign on the MoEngage dashboard and define the payload your application parses.
 
@@ -25,6 +25,10 @@ For in-apps that the SDK renders, see [In-App NATIV](/developer-guide/android-sd
 Call [_getSelfHandledInApp()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/get-self-handled-in-app.html) to request one campaign. The SDK invokes `onSuccess` with a [_SelfHandledCampaignData_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaign-data/index.html) instance when a campaign is available, and passes `null` when no campaign is eligible.
 
 Call this method from the _onStart()_ of your activity or the _onResume()_ of your fragment. The method is asynchronous and returns immediately.
+
+<Info>
+  The SDK serves campaigns from its local list of eligible campaigns. For the cadence at which the SDK refreshes that list, see [Display InApp](/developer-guide/android-sdk/in-app-messages/in-app-nativ#display-inapp).
+</Info>
 
 <CodeGroup>
 
@@ -59,6 +63,8 @@ MoEInAppHelper.getInstance().getSelfHandledInApp(
 </CodeGroup>
 
 To target a specific workspace, use the overload that accepts a `workspaceId` as the second parameter.
+
+Refer to the documentation of the [_SelfHandledCampaign_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaign/index.html) model to know more about the fields and data present, including `dismissInterval`, the interval in seconds after which your application dismisses the in-app.
 
 ## Handle Event-Triggered Campaigns
 
@@ -172,30 +178,56 @@ Each context then holds relevant campaigns without reaching the five-campaign li
 
 # Track Statistics
 
-Your application controls when a self-handled in-app appears, receives a click, or is dismissed, so report each action to the SDK. Pass the `SelfHandledCampaignData` object that the SDK delivered in the callback.
+Your application controls when a self-handled in-app appears, receives a click, or is dismissed, so report each action to the SDK. Pass the `SelfHandledCampaignData` object that the SDK delivered in the callback. When you render several campaigns from `getSelfHandledInApps()`, report each campaign separately.
+
+Each method returns a `MoETask` that resolves to a [_SelfHandledCampaignTrackingResult_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.result/-self-handled-campaign-tracking-result/index.html).
+
+## Impression
+
+Call [_selfHandledShown()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/self-handled-shown.html) when the in-app becomes visible on screen.
 
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-// call whenever in-app is shown
 MoEInAppHelper.getInstance().selfHandledShown(context, data)
-// call whenever in-app is clicked
-MoEInAppHelper.getInstance().selfHandledClicked(context, data)
-// call whenever in-app is dismissed
-MoEInAppHelper.getInstance().selfHandledDismissed(context, data)
 ```
 
 ```java Java
-// call whenever in-app is shown
 MoEInAppHelper.getInstance().selfHandledShown(context, data);
-// call whenever in-app is clicked
-MoEInAppHelper.getInstance().selfHandledClicked(context, data);
-// call whenever in-app is dismissed
-MoEInAppHelper.getInstance().selfHandledDismissed(context, data);
 ```
 
 </CodeGroup>
 
-Each method returns a `MoETask` that resolves to a [_SelfHandledCampaignTrackingResult_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.result/-self-handled-campaign-tracking-result/index.html).
+## Click
+
+Call [_selfHandledClicked()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/self-handled-clicked.html) when the user clicks the in-app.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+MoEInAppHelper.getInstance().selfHandledClicked(context, data)
+```
+
+```java Java
+MoEInAppHelper.getInstance().selfHandledClicked(context, data);
+```
+
+</CodeGroup>
+
+## Dismiss
+
+Call [_selfHandledDismissed()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/self-handled-dismissed.html) when the user closes the in-app, and when your application dismisses it after `dismissInterval` elapses.
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+MoEInAppHelper.getInstance().selfHandledDismissed(context, data)
+```
+
+```java Java
+MoEInAppHelper.getInstance().selfHandledDismissed(context, data);
+```
+
+</CodeGroup>
 
 For the full API surface, see the [MoEInAppHelper reference](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/index.html).
