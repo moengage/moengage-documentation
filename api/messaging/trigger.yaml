@@ -2,7 +2,10 @@ openapi: 3.0.0
 info:
   title: Messaging API - Trigger
   version: 1.0.0
-  description: Trigger email messages against a published campaign shell
+  description: |
+    Trigger email messages against a published `API_TRIGGERED` campaign shell.
+
+    Create the shell once through the [Campaigns V5 API](/api/campaigns/campaign-draft-overview), then trigger messages against its `campaign_id`. See the [Messaging API Overview](/api/messaging/messaging-api-overview).
 servers:
   - url: 'https://api-{dc}.moengage.com/'
     description: MoEngage Messaging API Server
@@ -18,24 +21,26 @@ paths:
       tags:
         - Trigger
       description: |
-        Fire a message against a published `API_TRIGGERED` campaign shell.
+        Trigger a message against a published `API_TRIGGERED` campaign shell.
 
-        A `202 Accepted` response means the request was valid and enqueued. It confirms acceptance, not delivery. Dispatch happens asynchronously, and inbox delivery depends on your email provider.
+        A `202 Accepted` response means the request is valid and enqueued. It confirms acceptance, not delivery. Dispatch occurs asynchronously, and inbox delivery depends on your email provider.
 
         This API is in early access and supports Email only. Contact your Customer Success Manager to enable it for your workspace.
 
         #### Rate Limit
 
-        The default rate limit is 5,000 requests per minute per workspace. The limit is counted per API request, not per recipient, so the effective send rate is the request rate multiplied by the number of recipients in each request.
+        The default rate limit is 5,000 requests per minute per workspace. MoEngage counts the limit per API request, not per recipient, so the effective send rate is the request rate multiplied by the number of recipients in each request.
 
-        Over-limit requests are rejected with `429` and are never queued. To raise the limit, contact your Customer Success Manager.
+        MoEngage rejects requests above the limit with `429` and does not queue them. Contact your Customer Success Manager to raise the limit.
+
+        Every response carries the `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
       parameters:
         - name: campaign_id
           in: path
           required: true
           schema:
             type: string
-          description: Published API_TRIGGERED shell ID
+          description: The ID of a published API_TRIGGERED shell.
           example: camp_665f0a
         - name: Idempotency-Key
           in: header
@@ -43,7 +48,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: Unique request key for idempotent retries
+          description: A unique request key (UUID v4) that makes retries safe.
           example: 550e8400-e29b-41d4-a716-446655440000
       requestBody:
         required: true
@@ -58,22 +63,22 @@ paths:
                 identifier_type:
                   type: string
                   enum: [ID, MOENGAGE_ID, MULTI_ID]
-                  description: Type of recipient identifier
+                  description: The type of recipient identifier. Every entry in `recipients` must match this type.
                 recipients:
                   type: array
                   minItems: 1
                   maxItems: 1000
                   items:
                     type: string
-                  description: Flat list of recipient identifiers; all must match identifier_type
+                  description: A flat list of recipient identifiers of the type declared in `identifier_type`.
                   example: ["customer@example.com", "another@example.com"]
                 locale_name:
                   type: string
-                  description: Optional locale variant for shell rendering
+                  description: The locale variant of the shell to render. Optional.
                   example: en_US
                 personalized_attributes:
                   type: object
-                  description: Key-value pairs for placeholder resolution. Can contain fully resolved values or tokens.
+                  description: Values for the shell's placeholders. A value can be fully resolved or can contain personalization tokens that MoEngage resolves for each recipient.
                   additionalProperties:
                     oneOf:
                       - type: string
@@ -84,20 +89,11 @@ paths:
                     order_total: "99.99"
       responses:
         "202":
-          description: Accepted and enqueued for async dispatch
+          description: Accepted and enqueued for asynchronous dispatch.
           headers:
-            X-RateLimit-Limit:
-              schema:
-                type: integer
-              description: Request limit per minute
-            X-RateLimit-Remaining:
-              schema:
-                type: integer
-              description: Remaining requests this minute
-            X-RateLimit-Reset:
-              schema:
-                type: integer
-              description: Seconds until rate limit resets
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
@@ -117,7 +113,7 @@ paths:
                     properties:
                       msg_id:
                         type: string
-                        description: Message instance ID for tracking
+                        description: The message instance ID, used to trace this request.
                       campaign_id:
                         type: string
                       accepted:
@@ -134,13 +130,19 @@ paths:
                   recipient_count: 2
 
         "200":
-          description: Idempotency replay (same key + body replayed within retention window)
+          description: Idempotency replay. The same key and body were replayed within the retention window, and MoEngage returns the original response without sending an additional message.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   response_id:
+                    type: string
+                  type:
                     type: string
                   data:
                     type: object
@@ -151,157 +153,199 @@ paths:
                         type: string
                       accepted:
                         type: boolean
+              example:
+                response_id: resp_9b1e77a2
+                type: message
+                data:
+                  msg_id: msg_7f3c9a
+                  campaign_id: camp_665f0a
+                  accepted: true
 
         "400":
-          description: Validation failed
+          description: Validation failed. The request violates the schema, mixes identifier types, or contains an unknown field.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [VALIDATION_FAILED]
-                      message:
-                        type: string
-                      details:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            target:
-                              type: string
-                            message:
-                              type: string
-                  response_id:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
               example:
                 error:
                   code: VALIDATION_FAILED
                   message: Request validation failed
+                  target: recipients
                   details:
-                    - target: recipients
+                    - code: REQUIRED
+                      target: recipients
                       message: recipients must not be empty
+                response_id: resp_9b1e77a2
 
         "404":
-          description: Shell not found or not triggerable
+          description: The shell does not exist for this workspace, or it is not an ACTIVE API_TRIGGERED campaign. MoEngage returns 404 rather than 403 so that campaign IDs in other workspaces are not disclosed.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [NOT_FOUND]
-                      message:
-                        type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Campaign not found
+                  target: campaign_id
+                response_id: resp_9b1e77a2
 
         "409":
-          description: Idempotency key reused with different body
+          description: The Idempotency-Key was reused with a different request body.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [CONFLICT]
-                      message:
-                        type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: CONFLICT
+                  message: Idempotency-Key was reused with a different body
+                  target: Idempotency-Key
+                response_id: resp_9b1e77a2
 
         "413":
-          description: Payload exceeds maximum size
+          description: The payload exceeds the maximum size.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [PAYLOAD_TOO_LARGE]
-                      message:
-                        type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PAYLOAD_TOO_LARGE
+                  message: Payload exceeds the permitted maximum
+                response_id: resp_9b1e77a2
 
         "422":
-          description: Unprocessable entity (recipient limit exceeded, unknown placeholder, etc.)
+          description: The request is well formed but cannot be processed. The recipient list exceeds the maximum, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [RECIPIENT_LIMIT_EXCEEDED, UNKNOWN_PLACEHOLDER, UNKNOWN_LOCALE, CAMPAIGN_NOT_TRIGGERABLE]
-                      message:
-                        type: string
-                      details:
-                        type: array
-                        items:
-                          type: object
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: RECIPIENT_LIMIT_EXCEEDED
+                  message: recipients exceed the permitted maximum
+                  target: recipients
+                  details:
+                    - code: MAX_EXCEEDED
+                      target: recipients
+                      message: recipients exceed the permitted maximum
+                response_id: resp_9b1e77a2
 
         "429":
-          description: Rate limit exceeded
+          description: The request exceeds the per-workspace rate limit. MoEngage rejects the request and does not queue it. Retry after the interval in the Retry-After header.
           headers:
-            X-RateLimit-Limit:
-              schema:
-                type: integer
-            X-RateLimit-Remaining:
-              schema:
-                type: integer
-            X-RateLimit-Reset:
-              schema:
-                type: integer
-            Retry-After:
-              schema:
-                type: integer
-              description: Seconds to wait before retrying
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        enum: [RATE_LIMITED]
-                      message:
-                        type: string
-                  retry_after:
-                    type: integer
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace
+                response_id: resp_9b1e77a2
 
         "500":
-          description: Server error; safe to retry with same Idempotency-Key
+          description: Server error. The request is safe to retry with the same Idempotency-Key.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: An unexpected error occurred
+                response_id: resp_9b1e77a2
 
 components:
+  headers:
+    XRateLimitLimit:
+      description: The request limit per minute for your workspace.
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: The requests remaining in the current window.
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: The seconds until the current rate-limit window resets.
+      schema:
+        type: integer
+    RetryAfter:
+      description: The seconds to wait before retrying the request.
+      schema:
+        type: integer
+
+  schemas:
+    ErrorResponse:
+      type: object
+      description: The standard error envelope returned by this endpoint.
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: |
+                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, `RATE_LIMITED`, or `INTERNAL_ERROR`.
+            message:
+              type: string
+              description: A human-readable description of the error.
+            target:
+              type: string
+              description: The request field or header that caused the error, when a single field is responsible.
+            details:
+              type: array
+              description: The field-level causes of the error, when more than one applies.
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+        response_id:
+          type: string
+          description: The identifier for this response, used to correlate the request and response.
+
+    ErrorDetail:
+      type: object
+      description: A single field-level cause of an error.
+      properties:
+        code:
+          type: string
+          description: The machine-readable code for this cause.
+        target:
+          type: string
+          description: The request field that caused this error.
+        message:
+          type: string
+          description: A human-readable description of this cause.
+
   securitySchemes:
     BasicAuth:
       type: http
