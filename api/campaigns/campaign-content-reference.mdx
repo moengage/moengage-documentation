@@ -1148,6 +1148,71 @@ Personalization on a shell uses the same syntax and the same sources as any othe
 
 Reference images and attachments by URL. The trigger path accepts no file upload.
 
+#### API-triggered content variants
+
+A shell can combine both sources of personalization. MoEngage resolves user attributes from the recipient profile, and each trigger request provides the values for the shell's placeholders.
+
+<Tabs>
+<Tab title="Shell content">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order {{order_id}} is confirmed",
+        "sender_name": "Example Store",
+        "preview_text": "Thanks for your purchase",
+        "from_address": "orders@example.com",
+        "reply_to_address": "support@example.com",
+        "html_content": "<!DOCTYPE html><html><body><p>Hello {{UserAttribute['First Name']}}, order {{order_id}} ships on {{ship_date}}.</p></body></html>"
+      }
+    }
+  }
+}
+```
+
+`{{UserAttribute['First Name']}}` resolves from the recipient profile. `{{order_id}}` and `{{ship_date}}` are shell placeholders, and each trigger request provides their values.
+
+</Tab>
+<Tab title="Matching trigger request">
+
+```json
+{
+  "identifier_type": "MULTI_ID",
+  "recipients": ["customer@example.com"],
+  "personalized_attributes": {
+    "order_id": "ORD-10294",
+    "ship_date": "12 March"
+  }
+}
+```
+
+Every key in `personalized_attributes` must match a placeholder declared on the shell. An undeclared key returns `422 UNKNOWN_PLACEHOLDER`. See [Trigger Message](/api/trigger/trigger-message).
+
+</Tab>
+<Tab title="Pre-rendered HTML">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order is confirmed",
+        "sender_name": "Example Store",
+        "from_address": "orders@example.com",
+        "html_content": "{{html_body}}"
+      }
+    }
+  }
+}
+```
+
+When your application renders the full body itself, define the HTML as a single placeholder and pass the rendered markup as its value. MoEngage sends the value unchanged.
+
+</Tab>
+</Tabs>
+
 ### Email attachments
 
 Each entry in `attachments` is `{ file_type, url }`.
