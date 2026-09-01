@@ -19,6 +19,7 @@ info:
     - DEVICE_TRIGGERED (Push only)
     - LOCATION_TRIGGERED (Push only)
     - BROADCAST_LIVE_ACTIVITY (Push iOS only)
+    - API_TRIGGERED (Email only, early access)
 
     **Campaign lifecycle:**
 
@@ -221,11 +222,13 @@ components:
           type: string
           enum: [EMAIL]
           description: The campaign channel. One of `PUSH` or `EMAIL`.
-        campaign_delivery_type: 
+        campaign_delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, API_TRIGGERED]
           description: |
             The delivery type of the campaign.
+
+            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the Messaging API and is in early access. The shell holds content structure and settings only, and each trigger request supplies the recipient and the values for that send. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and `delivery_controls` is limited to frequency capping, DND, and minimum delay. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
 
             For full request payloads per delivery type, see the code examples on this page.
         created_by: 
@@ -327,8 +330,11 @@ components:
           description: Must be `EMAIL` for an Email update.
         campaign_delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
-          description: The delivery type of the campaign being updated.
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, API_TRIGGERED]
+          description: |
+            The delivery type of the campaign being updated.
+
+            Editing an `API_TRIGGERED` shell is a version change. Firing a trigger request against the shell is not, so trigger traffic never bumps the shell version.
         updated_by:
           type: string
           format: email
@@ -397,13 +403,15 @@ components:
 
             | Action | Supported delivery types | Valid source states |
             | :--- | :--- | :--- |
-            | `STOP` | `ONE_TIME` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
+            | `STOP` | `ONE_TIME`, `API_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
             | `PAUSE` | `PERIODIC`, `EVENT_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `SENDING` |
             | `RESUME` | `PERIODIC`, `EVENT_TRIGGERED` | `PAUSED` |
 
             <Note>
              `STOP` cannot be used on Periodic campaigns. `PAUSE` and `RESUME` cannot be used on One-time campaigns.
             </Note>
+
+            An `API_TRIGGERED` shell moves through `SCHEDULED`, `ACTIVE`, and `STOPPED` only. It has no pause or resume state. Stopping a shell makes it non-triggerable, and subsequent trigger requests are rejected.
 
 
     SearchV5Request:
@@ -512,9 +520,11 @@ components:
           type: array
           items:
             type: string
-            enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED]
+            enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, API_TRIGGERED]
           description: |
             Include campaigns with any of these delivery types.
+
+            Filter on `API_TRIGGERED` to list your Messaging API shells.
 
             In V1, this field was `delivery_type`. In V5, it is `campaign_delivery_type`.
           example: ["ONE_TIME", "PERIODIC"]
@@ -624,7 +634,7 @@ components:
               example: "2024-12-31T23:59:59"
         delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, API_TRIGGERED]
           description: |
             Filter campaigns by delivery type.
 
@@ -2922,9 +2932,9 @@ components:
           description: The communication channel.
         campaign_delivery_type: 
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
           description: The delivery type of the campaign.
-        created_by: 
+        created_by:
           type: string
           format: email
           description: The email ID of the user who created the campaign.
@@ -3067,9 +3077,9 @@ components:
           description: The email ID of the user who created the campaign.
         campaign_delivery_type: 
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
           description: The delivery type of the campaign.
-        campaign_name: 
+        campaign_name:
           type: string
           description: The name of the campaign.
           example: "Summer Sale Campaign"
@@ -3519,6 +3529,34 @@ paths:
                     delivery_type: "AT_FIXED_TIME"
                     start_time: "{{start_time}}"
                     expiry_time: "{{expiry_time}}"
+              email_api_triggered:
+                summary: Email - API_TRIGGERED (Messaging API shell)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "API_TRIGGERED"
+                  created_by: "{{user_email}}"
+                  basic_details:
+                    name: "{{campaign_name}}"
+                    content_type: "PROMOTIONAL"
+                    user_attribute_identifier: "Email (Standard)"
+                    subscription_category: "{{subscription_category}}"
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "{{email_subject}}"
+                        preview_text: "{{preview_text}}"
+                        sender_name: "{{sender_name}}"
+                        from_address: "{{from_email}}"
+                        reply_to_address: "{{reply_to_email}}"
+                        html_content: "{{html_body}}"
+                  delivery_controls:
+                    ignore_frequency_capping: false
+                    bypass_dnd: false
+                    minimum_delay_between_two_notification_in_hour: 0
               push_event_triggered:
                 summary: Push - EVENT_TRIGGERED
                 value:

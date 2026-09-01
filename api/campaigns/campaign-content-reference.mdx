@@ -1,7 +1,7 @@
 ---
 title: "Campaign content reference"
 description: "Reference for basic_details and campaign_content per channel, platform, and template type. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale"]
+keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale", "API_TRIGGERED", "Messaging API"]
 icon: "layout-template"
 ---
 
@@ -1127,6 +1127,26 @@ When `custom_template_id` is provided, `subject`, `preview_text`, and `sender_na
 
 </Tab>
 </Tabs>
+
+### Content for API-triggered shells
+
+An `API_TRIGGERED` campaign stores the message skeleton rather than a finished message. The fields in `campaign_content.content.email` work exactly as they do for any other Email campaign, with one difference in how you fill them: where a normal campaign carries final copy, a shell carries placeholders that each trigger request fills in.
+
+The division of responsibility is fixed:
+
+- **The shell owns structure.** Subject, sender, HTML body, and template reference all live on the shell. A trigger request cannot change them.
+- **The trigger owns values.** Each request supplies the values for the shell's placeholders, along with the recipient.
+
+A value supplied by a trigger request can take either form, and a single request can mix the two:
+
+| Form | Behavior |
+| :--- | :--- |
+| Fully resolved | The caller sends the final value, and MoEngage uses it as-is. Use this when your system has already rendered the content. |
+| Personalization token | The caller sends a value that itself contains personalization tokens. MoEngage resolves them for the recipient at send time. |
+
+Personalization on a shell uses the same syntax and the same sources as any other campaign, including user attributes, content blocks, and the Content API. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
+
+Images and attachments are referenced by URL only. There is no file upload on the trigger path.
 
 ### Email attachments
 

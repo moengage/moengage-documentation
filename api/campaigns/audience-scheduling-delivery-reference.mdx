@@ -1,7 +1,7 @@
 ---
 title: "Audience and delivery reference"
 description: "Reference for trigger_condition, segmentation_details, scheduling_details, delivery_controls, conversion_goal_details, control_group_details, utm_params, campaign_audience_limit, advanced, and geofences. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping"]
+keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping", "API_TRIGGERED", "Messaging API"]
 icon: "users-viewfinder"
 ---
 
@@ -71,6 +71,7 @@ Everything below is reference material covering every supported delivery type, f
 
 | Section | Location in request body |
 | :--- | :--- |
+| [API-triggered campaigns](#api-triggered-campaigns) | Component restrictions for `API_TRIGGERED` |
 | [Trigger conditions](#trigger-conditions) | `trigger_condition` |
 | [Filter primitives](#filter-primitives) | `included_filters.filters[]`, `excluded_filters.filters[]`, `trigger_condition.*_filters.filters[]` |
 | [Campaign audience](#campaign-audience) | `segmentation_details` |
@@ -84,6 +85,35 @@ Everything below is reference material covering every supported delivery type, f
 | [Geofence targeting](#geofence-targeting) | `basic_details.geofences` |
 | [Validation rules](#validation-rules) | Cross-cutting rules enforced at validate time |
 | [Updating an existing campaign](#updating-an-existing-campaign) | Per-state restrictions for `PATCH /v5/campaigns/{campaign_id}` |
+
+## API-triggered campaigns
+
+An `API_TRIGGERED` campaign is a reusable shell for the Messaging API. It has no audience and no schedule of its own: each trigger request names the recipient and supplies the content values for that send. This changes which components the campaign accepts.
+
+| Component | Status for `API_TRIGGERED` | Reason |
+| :--- | :--- | :--- |
+| `segmentation_details` | **Not permitted** | The recipient identifier arrives with each trigger request. The shell stores a user-level audience rather than a materialized segment, so there is no segment to define at creation time. |
+| `scheduling_details` | **Not permitted** | The campaign is fired on demand. |
+| `trigger_condition` | **Not permitted** | The trigger request is the trigger. |
+| `campaign_audience_limit` | **Not permitted** | Audience caps are not supported. |
+| `delivery_controls` | **Partially supported** | See the field list below. |
+| `conversion_goal_details` | Supported | Unchanged. |
+| `control_group_details` | Supported | Control group evaluation for individual triggers is planned for a later release. |
+| `utm_params` | Supported | Unchanged. |
+
+Within `delivery_controls`, only three fields apply:
+
+| Field | Behavior |
+| :--- | :--- |
+| `ignore_frequency_capping` | Frequency capping is evaluated per recipient at send time. |
+| `bypass_dnd` | A recipient in DND is dropped. The message is not deferred or queued for later. |
+| `minimum_delay_between_two_notification_in_hour` | Enforced per recipient. |
+
+`campaign_throttle_rpm` and `limit_send_config` are not permitted. Throttling and maximum-send limits do not apply, because delivery pacing is governed by the per-request rate limit on the trigger endpoint rather than by the size of a known audience.
+
+<Note>
+`API_TRIGGERED` is available for Email only and is in early access. Contact your Customer Success Manager to enable it for your workspace.
+</Note>
 
 ## Trigger conditions
 
@@ -283,6 +313,7 @@ The `intelligent_delay_optimization` object defines the window within which MoEn
 | `LOCATION_TRIGGERED` (Push) | **Required**. | — | **Required**. See [Geofence targeting](#geofence-targeting). |
 | `ONE_TIME` (Push, Email) | Not applicable. | — | — |
 | `PERIODIC` (Push, Email) | Not applicable. | — | — |
+| `API_TRIGGERED` (Email) | Not permitted. See [API-triggered campaigns](#api-triggered-campaigns). | — | — |
 
 ## Filter primitives
 
@@ -864,6 +895,8 @@ The `delivery_controls` object carries throttling, frequency capping, DND behavi
   }
 }
 ```
+
+For `API_TRIGGERED` campaigns, only `ignore_frequency_capping`, `bypass_dnd`, and `minimum_delay_between_two_notification_in_hour` are permitted. See [API-triggered campaigns](#api-triggered-campaigns).
 
 ## Conversion goal tracking
 
