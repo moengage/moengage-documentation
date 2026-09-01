@@ -7,9 +7,45 @@ description: "Maintain your email suppression list in MoEngage by importing boun
 
 _Suppression Updates_ helps maintain your global email subscription list. You can use this feature to ensure that users who should not be contacted are restricted from receiving emails. This is essential for maintaining compliance and protecting your sender reputation.
 
+Suppression blocks promotional and marketing campaigns only. Transactional campaigns — sent from delivery channels or via Inform — still reach suppressed users. Bounce is the one exception: it blocks all campaign types, including transactional.
+
 <Info>
   If you use MoEngage Managed Email, reachability updates are automatically propagated to SendGrid. However, if you integrate your own SendGrid account, this automatic sync is not supported; you must manage suppression updates directly within your SendGrid dashboard.
 </Info>
+
+# Unsubscribe vs. Suppression
+
+Unsubscribe and suppression are related but distinct concepts. Confusing the two can lead to incorrect suppression management and compliance risk.
+
+**Unsubscribe** is a user action. When a user unsubscribes, MoEngage sets the standard unsubscription attribute on their profile to `True`. This is one of several reasons a user can end up suppressed.
+
+**Suppression** is a platform-side outcome. MoEngage suppresses a user, that is, stops sending them non-transactional campaigns. when any of the following is true for their profile:
+
+- Any of the BUC attributes (Bounce, Unsubscribe, or Complaint) is set to `True`
+- Frequency Capping (FC) limits are reached
+- Do Not Disturb (DND) settings apply
+- The user has opted out of a Subscription Category
+- Double Opt-In (DOI) is unconfirmed
+
+| Aspect | Unsubscribe | Suppression |
+|---|---|---|
+| **Trigger** | User action — the user clicks unsubscribe, setting the Unsubscribe attribute (one of the three BUC attributes) to `True` on their profile | Platform action — occurs when any BUC attribute, FC, DND, Subscription Category, or DOI condition is met |
+| **Scope** | Sets an attribute on the user profile | Blocks promotional/marketing campaigns only. Campaigns tagged as transactional, or sent via Inform, still reach the user. Bounce is the one exception — it blocks all campaign types, including transactional |
+| **Reversibility** | Reversible — the attribute can be reset via resubscribe flows | Reversible depending on the trigger, but removing the suppression condition does not restore explicit consent (see compliance note below) |
+| **Who controls it** | The end user, directly | MoEngage based on profile attributes. Brands can influence these attributes using the methods below |
+
+## How Brands Manage Suppression
+
+There is no single "suppression list" in MoEngage email. Suppression is determined by attributes on the user's profile, which brands can update in two ways:
+
+1. **Data ecosystem updates** — User Import or the Server-to-Server (S2S) Data API. These overwrite the relevant standard attributes directly but do not generate events. (Exception: updates made through the user's profile page in the dashboard go through email APIs and do generate events.)
+2. **Email-based updates** — the Suppression Management section in email settings, or the Resubscribe API, Subscription Category API, or Double Opt-In API. These update the corresponding standard attributes and generate events against the user's profile, giving you a traceable record of the consent change.
+
+If you need an audit trail of consent changes, use the email-based methods.
+
+<Note>
+  Suppression is not the same as a suppression list. MoEngage email doesn't maintain a suppression list natively. The one exception is for senders/connectors configured with SendGrid Unsubscribe Management. In that setup, any user whose email triggers a feedback-loop event (unsubscribe, bounce, or spam complaint) is added to a suppression list on SendGrid's side. Subsequent send calls from MoEngage to SendGrid for that email address are dropped there.
+</Note>
 
 # Use Cases
 
@@ -86,6 +122,10 @@ To ensure your subscription list is imported correctly, your CSV file must follo
   </tbody>
 </table>
 
+<Warning>
+  Removing a suppression condition (for example, re-adding a previously unsubscribed user through Bulk Import) does not restore that user's consent. Suppression and consent are tracked separately — clearing the suppression flag only makes the user eligible for sends again; it doesn't mean they've re-opted in. Confirm you have valid consent before resuming sends to a previously suppressed or unsubscribed user.
+</Warning>
+
 ## Upload the Subscription Update File
 
 - If self-serve for email onboarding is enabled for your workspace, you can manage the suppression as described [here](/user-guide/campaigns-and-channels/email/getting-started-with-email/self-service-for-email-onboarding#manage-email-suppression).
@@ -126,6 +166,9 @@ To maintain system stability and prevent excessive load on the Suppression Manag
   <Accordion title="Can I use the Bulk Import file to resubscribe users?">
     Yes. You can make a user reachable again by setting their attribute values to false. A user is considered "suppressed" if any of these are set to true.
     To resubscribe, upload a CSV where the **Bounce**, **Unsubscribe**, and **Complaint** columns are all set to false for that user.
+    <Warning>
+     **Compliance note on resubscribing users:** Removing a user from the suppression list (setting Unsubscribe to false) only lifts MoEngage's send-block — it does not restore consent. Before resuming marketing emails to a previously unsubscribed user, confirm you have valid, up-to-date consent as required under applicable regulations (e.g., CAN-SPAM, GDPR, CCPA). Re-adding a user without fresh consent can result in compliance violations even though MoEngage will technically deliver the email.
+    </Warning>
   </Accordion>
 
   <Accordion title="What happens if I leave a cell blank (empty) in the CSV file?">
