@@ -90,26 +90,36 @@ Everything below is reference material covering every supported delivery type, f
 
 An `API_TRIGGERED` campaign is a reusable shell for the [Messaging API](/api/messaging/messaging-api-overview). It has no audience and no schedule: each trigger request specifies the recipient and the content values for that send. This changes which components the campaign accepts.
 
-| Component | Status for `API_TRIGGERED` | Reason |
-| :--- | :--- | :--- |
-| `segmentation_details` | **Not permitted** | Each trigger request specifies the recipient identifier. The shell stores a user-level audience rather than a materialized segment, so there is no segment to define at creation time. |
-| `scheduling_details` | **Not permitted** | The campaign is triggered on demand. |
-| `trigger_condition` | **Not permitted** | The trigger request initiates the send. |
-| `campaign_audience_limit` | **Not permitted** | Audience caps are not supported. |
-| `delivery_controls` | **Partially supported** | See the field list below. |
-| `conversion_goal_details` | Supported | Behaves as for other delivery types. |
-| `control_group_details` | Supported | MoEngage does not evaluate control groups for individual trigger requests. |
-| `utm_params` | Supported | Behaves as for other delivery types. |
+### Supported components
 
-Within `delivery_controls`, only three fields apply:
-
-| Field | Behavior |
+| Component | Supported fields |
 | :--- | :--- |
-| `ignore_frequency_capping` | MoEngage evaluates frequency capping per recipient at send time. |
-| `bypass_dnd` | MoEngage drops the message for a recipient in DND and does not defer or queue it. |
-| `minimum_delay_between_two_notification_in_hour` | MoEngage enforces the delay per recipient. |
+| Top level | `request_id`, `channel` (`EMAIL` only), `created_by`, `updated_by`, `campaign_delivery_type`, `version_note` (update), `approvers` |
+| `basic_details` | `name`, `team`, `tags`, `user_attribute_identifier`, `content_type`, `subscription_category`, `send_only_double_opt_in_users`, `deduplication_attribute` |
+| `campaign_content` | `locales`, `variation_details`, `content` |
+| `connector` | `connector_type`, `connector_name` |
+| `control_group_details` | `is_global_control_group_enabled`, `is_campaign_control_group_enabled`, `campaign_control_group_percentage` |
+| `conversion_goal_details` | `attribution_window_in_hours`, `goals[]` |
+| `delivery_controls` | `ignore_frequency_capping`, `count_for_frequency_capping` |
+| `utm_params` | All fields |
 
-`campaign_throttle_rpm` and `limit_send_config` are not permitted. Throttling and maximum-send limits do not apply, because the per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size.
+### Unsupported components
+
+| Component or field | Behavior |
+| :--- | :--- |
+| `segmentation_details` | Not supported. The server forces an All Users audience on the shell, and each trigger request names the actual recipients. |
+| `scheduling_details` | Not supported, except that a redundant `delivery_type: ASAP` is tolerated and ignored. No other field applies. |
+| `trigger_condition` | Not supported. The trigger request initiates the send. |
+| `campaign_audience_limit` | Not supported when `is_campaign_audience_limit_enabled` is `true`. |
+| `basic_details.business_event` | Not supported. |
+| `delivery_controls.campaign_throttle_rpm` | Not supported, and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size. |
+| `delivery_controls.bypass_dnd` | Not supported when `true`. DND always applies, and MoEngage drops the message for a recipient in DND rather than deferring or queueing it. |
+| `delivery_controls.minimum_delay_between_two_notification_in_hour` | Not supported when non-zero. |
+| `delivery_controls.limit_send_config` | Not supported when `enabled` is `true`. |
+
+### Status actions
+
+An `API_TRIGGERED` shell supports `PUBLISH`, `PAUSE`, and `RESUME`. It does not support `STOP`. Use `PAUSE` to make a published shell stop accepting trigger requests, and `RESUME` to make it triggerable again. `PUBLISH` on `PATCH /v5/campaigns/{campaign_id}/status` applies to `API_TRIGGERED` campaigns only; publishing every other delivery type through V5 is not yet supported.
 
 <Note>
 `API_TRIGGERED` is available for Email only and is in early access. Contact your Customer Success Manager to enable it for your workspace.
@@ -896,7 +906,7 @@ The `delivery_controls` object carries throttling, frequency capping, DND behavi
 }
 ```
 
-For `API_TRIGGERED` campaigns, only `ignore_frequency_capping`, `bypass_dnd`, and `minimum_delay_between_two_notification_in_hour` are permitted. See [API-triggered campaigns](#api-triggered-campaigns).
+For `API_TRIGGERED` campaigns, only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. See [API-triggered campaigns](#api-triggered-campaigns).
 
 ## Conversion goal tracking
 

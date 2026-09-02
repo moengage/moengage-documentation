@@ -5,7 +5,7 @@ info:
   description: |
     The Campaigns V5 API manages the draft campaign lifecycle — draft creation, incremental updates, validation, test sends, and post-publish management.
 
-    **Note:** Campaign publishing is not yet supported in V5. To publish campaigns, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
+    **Note:** Campaign publishing is not yet supported in V5, except for `API_TRIGGERED` campaigns, which publish through `PATCH /v5/campaigns/{campaign_id}/status`. To publish every other delivery type, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
 
     **Supported channels:**
     - Push (Android, iOS, Web)
@@ -228,7 +228,7 @@ components:
           description: |
             The delivery type of the campaign.
 
-            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview) and is in early access. The shell defines the content structure and the campaign settings, and each trigger request specifies the recipient and the values for that send. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and `delivery_controls` is limited to frequency capping, DND, and minimum delay. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview) and is in early access. The shell defines the content structure and the campaign settings, and each trigger request specifies the recipient and the values for that send. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and within `delivery_controls` only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns) for the full field list.
 
             For full request payloads per delivery type, see the code examples on this page.
         created_by: 
@@ -381,7 +381,7 @@ components:
         status:
           type: string
           description: |
-            Reserved for future use. Campaign publishing is not yet supported in V5. Do not set this field.
+            Reserved for future use. Do not set this field. To publish an `API_TRIGGERED` campaign, use the `PUBLISH` action on `PATCH /v5/campaigns/{campaign_id}/status`.
 
 
     CampaignStatusV5Request:
@@ -395,23 +395,26 @@ components:
             A client-supplied identifier for this status change request, echoed back as `response_id` so you can correlate the request and response. This is not a deduplication key — to make a request idempotent, use the `Idempotency-Key` header. Replaying the same `Idempotency-Key` returns the original response.
         action:
           type: string
-          enum: [STOP, PAUSE, RESUME]
+          enum: [PUBLISH, STOP, PAUSE, RESUME]
           description: |
-            Lifecycle action for an already published or scheduled campaign.
+            Lifecycle action for a campaign.
 
             Each action applies only to specific delivery types and requires the campaign to be in a valid source state:
 
             | Action | Supported delivery types | Valid source states |
             | :--- | :--- | :--- |
-            | `STOP` | `ONE_TIME`, `API_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
-            | `PAUSE` | `PERIODIC`, `EVENT_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `SENDING` |
-            | `RESUME` | `PERIODIC`, `EVENT_TRIGGERED` | `PAUSED` |
+            | `PUBLISH` | `API_TRIGGERED` | `DRAFT` |
+            | `STOP` | `ONE_TIME` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
+            | `PAUSE` | `PERIODIC`, `EVENT_TRIGGERED`, `API_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `SENDING` |
+            | `RESUME` | `PERIODIC`, `EVENT_TRIGGERED`, `API_TRIGGERED` | `PAUSED` |
 
             <Note>
              `STOP` cannot be used on Periodic campaigns. `PAUSE` and `RESUME` cannot be used on One-time campaigns.
             </Note>
 
-            An `API_TRIGGERED` shell moves through `SCHEDULED`, `ACTIVE`, and `STOPPED` only. It has no pause or resume state. After you stop a shell, MoEngage rejects trigger requests against it.
+            `PUBLISH` applies to `API_TRIGGERED` campaigns only. For every other delivery type, campaign publishing is not yet supported in V5.
+
+            An `API_TRIGGERED` shell supports `PUBLISH`, `PAUSE`, and `RESUME`. It does not support `STOP`. Use `PAUSE` to make a published shell stop accepting trigger requests, and `RESUME` to make it triggerable again.
 
 
     SearchV5Request:
@@ -3555,8 +3558,7 @@ paths:
                         html_content: "{{html_body}}"
                   delivery_controls:
                     ignore_frequency_capping: false
-                    bypass_dnd: false
-                    minimum_delay_between_two_notification_in_hour: 0
+                    count_for_frequency_capping: true
               push_event_triggered:
                 summary: Push - EVENT_TRIGGERED
                 value:
@@ -4707,7 +4709,7 @@ paths:
       x-mint:
         content: |
           <Note>
-          This endpoint only handles post-publish lifecycle transitions (STOP, PAUSE, RESUME) for campaigns that are already live. Campaign publishing is not yet supported in V5.
+          For every delivery type except `API_TRIGGERED`, this endpoint only handles post-publish lifecycle transitions (STOP, PAUSE, RESUME) for campaigns that are already live, and campaign publishing is not yet supported in V5. `API_TRIGGERED` campaigns also publish through this endpoint, using the `PUBLISH` action.
           </Note>
 
           <Note>

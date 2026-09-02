@@ -49,7 +49,7 @@ Shell creation uses the Campaigns API. The Messaging API adds no separate create
 | :--- | :--- |
 | Create a shell | [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) with `campaign_delivery_type: API_TRIGGERED` |
 | Validate a shell | [Validate Campaign](/api/create-campaigns/validate-campaign-v5) |
-| Publish or stop a shell | [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5) |
+| Publish, pause, or resume a shell | [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5) |
 | Edit a shell | [Update Campaign](/api/update-campaigns/update-campaign-v5) |
 | Read a shell | [Get Campaign](/api/get-campaign-details/get-campaign-v5) |
 | Trigger a message | [Trigger Message](/api/trigger/trigger-message) |
@@ -81,12 +81,16 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
 | Campaign reports | Not supported for API-triggered campaigns. |
 | Delivery and engagement callbacks | Not supported. Your application receives no per-message outcome notification. |
-| Control groups | Not evaluated for API-triggered campaigns. |
-| A/B testing | Not supported for API-triggered campaigns. |
-| Segment and filter targeting | Not supported. Each trigger request names its recipients. |
-| Scheduling | Not supported. Per-call scheduling and send-time optimization do not apply. |
-| Throttling and maximum-send caps | Not supported. The per-request rate limit governs delivery pacing. |
+| Segment and filter targeting | Not supported. The server forces an All Users audience on the shell, and each trigger request names the actual recipients. |
+| Scheduling | Not supported. A redundant `delivery_type: ASAP` is tolerated and ignored, and no other scheduling field applies. |
+| Throttling | Not supported. `campaign_throttle_rpm` does not apply and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing. |
+| Maximum-send caps | Not supported. `campaign_audience_limit` and `limit_send_config` do not apply. |
+| DND bypass | Not supported. `bypass_dnd: true` is rejected, so DND always applies. |
+| Minimum delay between messages | Not supported with a non-zero value. |
+| Stopping a shell | The `STOP` status action is not supported. Use `PAUSE` instead. |
 | File uploads | Not supported. Reference images and attachments by URL. |
+
+For the full list of supported and unsupported fields, see [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
 
 ## FAQs
 
@@ -105,8 +109,8 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
   <Accordion title="Can I edit a shell after publishing it?">
     Yes. Editing a published shell creates a new shell version, and subsequent trigger requests use the updated content.
   </Accordion>
-  <Accordion title="Can I stop a shell?">
-    Yes. A shell moves through `SCHEDULED`, `ACTIVE`, and `STOPPED`. It has no pause or resume state. After you stop a shell, MoEngage rejects trigger requests against it.
+  <Accordion title="How do I stop a shell from accepting trigger requests?">
+    Pause it. A shell supports the `PUBLISH`, `PAUSE`, and `RESUME` status actions and does not support `STOP`. After you pause a shell, MoEngage rejects trigger requests against it. Resume the shell to make it triggerable again. See [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5).
   </Accordion>
   <Accordion title="What are placeholders?">
     Placeholders are named fields in the shell content that each trigger request populates. The shell defines the structure and the trigger request specifies the values.
@@ -132,10 +136,10 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
     No. Each request declares one `identifier_type`, and every entry in `recipients` must match that type. A request with mixed types returns `400 VALIDATION_FAILED`.
   </Accordion>
   <Accordion title="What happens when a recipient is in Do Not Disturb?">
-    When the shell sets `bypass_dnd` to `false`, MoEngage drops the message for a recipient in DND and does not defer or queue it. When the shell sets `bypass_dnd` to `true`, MoEngage sends the message regardless of DND status.
+    MoEngage drops the message for that recipient and does not defer or queue it. DND always applies to an API-triggered campaign, because `bypass_dnd: true` is not supported.
   </Accordion>
   <Accordion title="How does frequency capping apply?">
-    When the shell sets `ignore_frequency_capping` to `false`, MoEngage evaluates your workspace frequency-cap rules for each recipient at send time and drops the message for recipients who have reached their cap. When the shell sets it to `true`, MoEngage bypasses the cap. The `minimum_delay_between_two_notification_in_hour` field is a separate control that enforces a minimum interval between two messages from the same shell to the same recipient.
+    When the shell sets `ignore_frequency_capping` to `false`, MoEngage evaluates your workspace frequency-cap rules for each recipient at send time and drops the message for recipients who have reached their cap. When the shell sets it to `true`, MoEngage bypasses the cap. Use `count_for_frequency_capping` to control whether a send counts toward a recipient's cap. The `minimum_delay_between_two_notification_in_hour` field is not supported with a non-zero value.
   </Accordion>
   <Accordion title="How does MoEngage resolve personalization values?">
     MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
