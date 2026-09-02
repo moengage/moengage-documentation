@@ -48,7 +48,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: A unique request key (UUID v4) that prevents a retried request from sending a duplicate message.
+          description: A unique key for this request (UUID v4). The endpoint accepts the header but does not deduplicate on it, so sending the same key a second time sends the message a second time. Track sent requests in your own application rather than relying on this header.
           example: 550e8400-e29b-41d4-a716-446655440000
       requestBody:
         required: true
@@ -136,44 +136,6 @@ paths:
                   accepted: true
                   recipient_count: 2
 
-        "200":
-          description: Idempotency replay. The same key and body were replayed within the retention window, and MoEngage returns the original response without sending an additional message.
-          headers:
-            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
-            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
-            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  response_id:
-                    type: string
-                    description: The identifier for this response, used to correlate the request and response.
-                  type:
-                    type: string
-                    description: The type of object returned in `data`. Always `message` for this endpoint.
-                  data:
-                    type: object
-                    description: The message instance from the original request, replayed unchanged.
-                    properties:
-                      msg_id:
-                        type: string
-                        description: The message instance ID returned by the original request. A replay does not mint a new ID.
-                      campaign_id:
-                        type: string
-                        description: The ID of the shell the message was triggered against.
-                      accepted:
-                        type: boolean
-                        description: Whether MoEngage accepted the original request. A replay does not enqueue an additional message.
-              example:
-                response_id: resp_9b1e77a2
-                type: message
-                data:
-                  msg_id: msg_7f3c9a
-                  campaign_id: camp_665f0a
-                  accepted: true
-
         "400":
           description: Validation failed. The request violates the schema, mixes identifier types, or contains an unknown field.
           headers:
@@ -210,23 +172,6 @@ paths:
                   code: NOT_FOUND
                   message: Campaign not found
                   target: campaign_id
-                response_id: resp_9b1e77a2
-
-        "409":
-          description: The Idempotency-Key was reused with a different request body.
-          headers:
-            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
-            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
-            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: CONFLICT
-                  message: Idempotency-Key was reused with a different body
-                  target: Idempotency-Key
                 response_id: resp_9b1e77a2
 
         "413":
@@ -284,7 +229,7 @@ paths:
                 response_id: resp_9b1e77a2
 
         "500":
-          description: Server error. The request is safe to retry with the same Idempotency-Key.
+          description: Server error. Retrying the request may send the message more than once, because this endpoint does not deduplicate retries.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -330,7 +275,7 @@ components:
             code:
               type: string
               description: |
-                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, `RATE_LIMITED`, or `INTERNAL_ERROR`.
+                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, `RATE_LIMITED`, or `INTERNAL_ERROR`.
             message:
               type: string
               description: A human-readable description of the error.
