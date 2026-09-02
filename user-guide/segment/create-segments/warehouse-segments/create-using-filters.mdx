@@ -1,0 +1,202 @@
+---
+title: "Create a Warehouse Segment Using Filters"
+description: "Build an audience from your data warehouse using dropdown filters instead of SQL, with attributes and events mapped from your warehouse tables."
+keywords: ["warehouse segment", "filter builder", "no sql segment", "bigquery", "databricks", "warehouse audience"]
+---
+
+The filter builder lets you build audiences from data in your warehouse using the same dropdown filters you use for regular MoEngage segments. You pick attributes and events from a list rather than writing a SQL query, so you do not need to involve your analytics team to create or change a segment.
+
+MoEngage builds the SQL for you and runs it against your warehouse. Your data stays where it is. This is one of two ways to build a warehouse segment — for a comparison with the SQL method, refer to [Warehouse Segments - Overview](/user-guide/segment/create-segments/warehouse-segments).
+
+<Info>
+  **Prerequisites**
+
+  - A connected data warehouse. For more information, refer to [Connect Your Data Warehouse](/user-guide/segment/create-segments/warehouse-segments/connect-your-warehouse).
+  - Your warehouse tables mapped to MoEngage users, events, and attributes. Your data or engineering team does this once in [Warehouse Schema](/user-guide/data/warehouse-schemas). Only mapped columns appear in the dropdowns.
+</Info>
+
+<Note>
+  The filter builder supports **BigQuery** and **Databricks**. Support for Snowflake and Redshift is planned for a later release.
+</Note>
+
+# Build a Segment
+
+<Steps>
+  <Step title="Select your source">
+    Go to warehouse segments and select the **Simplified Builder** tab, then choose your warehouse connection from the **Source** dropdown. Selecting a source loads the attributes and events mapped from that connection.
+  </Step>
+  <Step title="Add your filters">
+    Use the **User Property** and **User Behaviour** sections to define your audience. Combine filters with AND and OR conditions, and nest them as needed.
+  </Step>
+  <Step title="Check the count">
+    Click **Show count**. MoEngage runs the query against your warehouse and reports how many users match.
+  </Step>
+  <Step title="Save the segment">
+    Give the segment a name and description and save it. Saved segments appear on the All Segments page with the type **Filter - external**.
+  </Step>
+</Steps>
+
+# Filter on User Properties
+
+The **User Property** section lists the attributes mapped from your user master table — every column your data team mapped, under the display name they gave it.
+
+Columns that were skipped during mapping do not appear here. If an attribute you expect is missing, ask your data team to map it in [Warehouse Schema](/user-guide/data/warehouse-schemas).
+
+# Filter on User Behaviour
+
+The **User Behaviour** section uses the same **Has Executed** and **Has Not Executed** pattern as regular segments. Warehouse events appear alongside your other events.
+
+After selecting an event, add a **With Attribute** filter to filter on the event attributes mapped from that event table.
+
+## Event Occurrence Operators
+
+Set how many times a user performed the event:
+
+| Operator | What it matches |
+| --- | --- |
+| **exactly** | The user performed the event exactly n times. |
+| **at least** | The user performed the event n or more times. |
+| **at most** | The user performed the event n or fewer times. |
+| **for the first time** | The user's first occurrence of the event falls inside the date range, with no occurrence before it. |
+| **for the last time** | The user's most recent occurrence of the event falls inside the date range. |
+
+<Note>
+  **for the first time** and **for the last time** are bounded by the **Max event look-back** window set on your warehouse connection — 60 days by default. An event that first occurred before that window looks like a first occurrence inside it.
+</Note>
+
+# Operators by Data Type
+
+Available operators depend on the MoEngage data type your team mapped the column to.
+
+| Data type | Operators |
+| --- | --- |
+| **String** | is, is not, contains, contains spaces, does not contain, starts with, does not start with, ends with, does not end with, exists, does not exist, is empty, is not empty |
+| **Boolean** | is, is not, exists, does not exist |
+| **Numeric** | is equal to, is not equal to, is between, is not between, is less than, is greater than, exists, does not exist |
+| **Array (numeric)** | (any of / all of) is equal to, is not equal to, (any of / all of) is between, is not between, (any of / all of) is less than, (any of / all of) is greater than, exists, does not exist |
+| **Array (string)** | (any of / all of) is, is not, (any of / all of) contains, (any of / all of) contains spaces, does not contain, (any of / all of) starts with, does not start with, (any of / all of) ends with, does not end with, exists, does not exist, (any of / all of) is empty, is not empty |
+| **Date / time** | on, is between, before, after, in the next, in the last, is today, exists, does not exist |
+| **Time of the day** | is, is between, in the following |
+| **Day of the week** | is, is between, in the next, in the last, is today, in the following |
+| **Day of the month** | is, is between, in the next, in the last, is today, in the following |
+| **Month of the year** | is, is between, in the next, in the last, is this month, in the following |
+
+You can also compare one attribute against another, and use special date filters, as you can in rule-based segments. For more information, refer to [Filters in Segmentation](/user-guide/segment/advanced-concepts/filters-in-segmentation).
+
+{/* TODO: Confirm whether the median operator is supported, and add it to the table if so. */}
+
+# Understand the Segment Count
+
+**Show count** reports two numbers, and they are usually different:
+
+| | What it means |
+| --- | --- |
+| **Rows returned** | How many rows your warehouse matched. |
+| **User count** | How many of those users MoEngage could resolve to an existing user. |
+
+If your warehouse matches 1,000 rows but only 90 of those users exist in MoEngage, the segment contains 90 users. The gap is normal — it reflects users in your warehouse that MoEngage has never seen. Reachability is calculated on the resolved user count, so of those 90 users, only the ones reachable on a given channel receive a campaign.
+
+The user count is not fixed. The same segment can resolve to more users later as those users become known to MoEngage.
+
+## When Queries Run
+
+MoEngage queries your warehouse at three points: when you click **Show count**, when you run the segment from its detail page, and automatically at campaign run time for any campaign using the segment.
+
+<Warning>
+  These queries run on your data warehouse directly, so you incur the compute costs your warehouse charges for them. Checking counts repeatedly while building a segment runs a query each time.
+</Warning>
+
+# After You Save the Segment
+
+A saved segment behaves like any other custom segment on the All Segments page. You can view it, edit it, duplicate it, archive it, and create a campaign from it.
+
+The segment detail page shows its type, source connection, creation date, last run time, user count, reachability, and edit history. Running the segment from this page refreshes the user count.
+
+The **Recent Query** view lists your recent segment runs.
+
+{/* TODO: Confirm which query metrics appear here — runtime, data scanned, and rows fetched may or may not be shown. */}
+
+To export the users in a segment, use the standard segment export, which exports MoEngage attributes. MoEngage cannot resolve warehouse attribute values during export, so warehouse columns are not included.
+
+# Limitations
+
+The filter builder does not support:
+
+- **Aggregation operations** on warehouse data, including change and percentage-change aggregations. Use the [SQL editor](/user-guide/segment/create-segments/warehouse-segments/create-using-sql) instead.
+- **Exclusion conditions.** You cannot subtract one query from another inside the builder. Save each audience as a custom segment and combine them with an exclusion on the standard segment builder.
+- **All Users segments.** Every warehouse segment needs at least one filter.
+- **Value suggestions.** Attribute value dropdowns stay empty — type values manually.
+- **Analyse.** Warehouse segments cannot be used as the audience for an analysis.
+- **Waterfall analysis.**
+- **Affinity segments and custom segments** as filters inside a warehouse segment.
+- **Object and object array attributes**, and boolean or date arrays.
+
+Two further constraints apply:
+
+- A segment reads from one warehouse connection. To combine data across connections, save a segment per connection and combine them as custom segments.
+
+{/* TODO: The spec lists a 1,000 distinct value cap for filtering, which contradicts value suggestions being unsupported. Confirm which applies before adding it back. */}
+
+# When a Segment Breaks
+
+A warehouse segment depends on the warehouse tables behind it staying as they were mapped. If a column is renamed, a table is dropped, or a data type changes, the segment stops working.
+
+<Warning>
+  You are not notified when this happens. A broken segment fails the next time it runs, which may be at campaign run time.
+</Warning>
+
+If a segment stops returning a count, ask your data team to check the mapping in [Warehouse Schema](/user-guide/data/warehouse-schemas). Once it is corrected, run the segment again.
+
+# Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="Why is my segment smaller than the number of rows returned?">
+    MoEngage only targets users it already knows. A row in your warehouse becomes a segment member only if its user identifier matches a customer ID in MoEngage. Rows for users MoEngage has never seen are skipped.
+
+    Mapping a warehouse schema does not import users. To bring new users into MoEngage, use [Imports](/user-guide/data/imports/overview/overview-imports).
+  </Accordion>
+
+  <Accordion title="I added a column in my warehouse but cannot find it in the dropdown.">
+    Two things have to happen first.
+
+    MoEngage refreshes warehouse metadata every 6 hours, so a column added just now may not be visible yet. Your data team can use **Force refresh** on the schema to pick it up sooner.
+
+    Then the column has to be mapped. Unmapped and skipped columns never appear in the segment builder, even after a refresh.
+  </Accordion>
+
+  <Accordion title="Why are the attribute value dropdowns empty?">
+    Value suggestions are not available for warehouse attributes. Listing the distinct values of a column means scanning the whole table in your warehouse, which is slow and costly, so MoEngage does not do it automatically.
+
+    Type the value you want to filter on. It must match what is stored in your warehouse, including capitalisation.
+  </Accordion>
+
+  <Accordion title="Can I combine warehouse data with data already in MoEngage?">
+    Not inside a single warehouse segment — one segment reads from one connection.
+
+    Save the warehouse segment first, then use it as a custom segment on the standard segment builder, where you can combine it with MoEngage attributes and events.
+  </Accordion>
+
+  <Accordion title="Does the segment refresh on its own?">
+    A segment used in a campaign refreshes automatically at campaign run time, so the campaign targets a current audience.
+
+    Elsewhere, the count you see is from the last run. Run the segment from its detail page to refresh it.
+  </Accordion>
+
+  <Accordion title="How far back does event data go?">
+    As far back as the **Max event look-back** window set on your warehouse connection, which defaults to 60 days. Events older than that are not visible to any filter, including **for the first time**.
+
+    Your data team sets this in **Settings** > **Data** > **Warehouse Schema**. Longer windows scan more data and cost more to query.
+  </Accordion>
+
+  <Accordion title="My segment worked last week and is failing now.">
+    Something in the underlying warehouse table most likely changed — a renamed or dropped column, a changed data type, or a deleted schema. MoEngage does not warn you when this happens, so a working segment can start failing without notice.
+
+    Ask your data team to review the mapping in [Warehouse Schema](/user-guide/data/warehouse-schemas). Once it is corrected, run the segment again.
+  </Accordion>
+
+  <Accordion title="Why can I not run an analysis on a warehouse segment?">
+    Analysis needs event data stored inside MoEngage. A warehouse segment resolves to a list of users at run time and carries no warehouse event history with it, so there is nothing for an analysis to read.
+
+    You can still target the segment with campaigns and see campaign performance as normal.
+  </Accordion>
+</AccordionGroup>
