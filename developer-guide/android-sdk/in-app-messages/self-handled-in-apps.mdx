@@ -22,13 +22,9 @@ For in-apps that the SDK renders, see [In-App NATIV](/developer-guide/android-sd
 
 # Fetch a Single Self-Handled Campaign
 
-Call [_getSelfHandledInApp()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/get-self-handled-in-app.html) to request one campaign. The SDK invokes `onSuccess` with a [_SelfHandledCampaignData_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaign-data/index.html) instance when a campaign is available, and passes `null` when no campaign is eligible.
+Call [_getSelfHandledInApp()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/get-self-handled-in-app.html) to request one campaign. The SDK invokes `onSuccess` with a [_SelfHandledCampaignData_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaign-data/index.html) instance when a campaign is available, and with `null` when no campaign is available.
 
 Call this method from the _onStart()_ of your activity or the _onResume()_ of your fragment. The method is asynchronous and returns immediately.
-
-<Info>
-  The SDK serves campaigns from its local list of eligible campaigns. For the cadence at which the SDK refreshes that list, see [Display InApp](/developer-guide/android-sdk/in-app-messages/in-app-nativ#display-inapp).
-</Info>
 
 <CodeGroup>
 
@@ -68,7 +64,7 @@ Refer to the documentation of the [_SelfHandledCampaign_](https://moengage.githu
 
 ## Handle Event-Triggered Campaigns
 
-`getSelfHandledInApp()` returns campaigns whose trigger condition is a screen launch. To receive campaigns triggered by an event, implement [_SelfHandledAvailableListener_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-self-handled-available-listener/index.html) and register it with [_setSelfHandledListener()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/set-self-handled-listener.html). The SDK invokes `onSelfHandledAvailable()` on the main thread once the campaign is available.
+To receive campaigns that an event triggers, implement [_SelfHandledAvailableListener_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.listeners/-self-handled-available-listener/index.html) and register it with [_setSelfHandledListener()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/set-self-handled-listener.html). The SDK invokes `onSelfHandledAvailable()` on the main thread once the campaign is available.
 
 <CodeGroup>
 
@@ -97,11 +93,12 @@ Register the listener before the trigger event is tracked. Register it in the _o
 # Fetch Multiple Self-Handled Campaigns
 
 <Info>
-  - This feature requires a minimum catalog version **4.5.0**.
-  - Event-triggered multiple self-handled in-apps are not supported.
+  Event-triggered multiple self-handled in-apps are not supported. To receive event-triggered campaigns, register a listener as described in [Handle Event-Triggered Campaigns](#handle-event-triggered-campaigns).
 </Info>
 
 Call [_getSelfHandledInApps()_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp/-mo-e-in-app-helper/get-self-handled-in-apps.html) to fetch several campaigns in one request. The SDK returns up to five campaigns, ordered by the campaign priority set at campaign creation.
+
+The multiple-campaign APIs are available from in-app version **8.6.0**. The `onSuccess` and `onFailure` overloads shown below require in-app version **9.10.0**.
 
 The SDK invokes `onSuccess` with a [_SelfHandledCampaignsData_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaigns-data/index.html) instance. Its `campaigns` property holds the list of [_SelfHandledCampaignData_](https://moengage.github.io/android-api-reference/inapp/com.moengage.inapp.model/-self-handled-campaign-data/index.html) objects. Track statistics for each object in the list separately.
 
@@ -143,26 +140,12 @@ Set the in-app contexts with [_setInAppContext()_](/developer-guide/android-sdk/
 
 ## Campaign Selection Logic
 
-The SDK applies the following rules:
+The SDK selects campaigns in this order:
 
-- **Default limit:** The SDK fetches five campaigns.
-- **Priority-based selection:** The SDK sorts campaigns by priority, then by last updated time when priorities conflict.
-- **Exclusion criteria:** The SDK excludes campaigns based on frequency capping, eligibility criteria, campaign status, and priority limits.
-
-The selection algorithm runs in this order:
-
-1. Filter campaigns by user eligibility and targeting criteria.
-2. Sort by campaign priority (P0, P1, P2, and so on).
-3. Sort campaigns of equal priority by most recent update timestamp.
-4. Return the top five campaigns.
-
-For example, six campaigns carry the following priorities, publish times, and contexts:
-
-- Context 1: Campaign 1 (P0, T2), Campaign 2 (P1, T3), Campaign 3 (P2, T6)
-- Context 2: Campaign 4 (P0, T1), Campaign 5 (P1, T5)
-- Context 3: Campaign 6 (P0, T4)
-
-The SDK delivers these campaigns in this order: Campaign 4, Campaign 1, Campaign 6, Campaign 2, Campaign 5.
+1. Filter campaigns by user eligibility and targeting criteria. The SDK excludes campaigns based on frequency capping, eligibility criteria, campaign status, and priority limits.
+2. Sort by the campaign priority set at campaign creation (P0, P1, P2, and so on).
+3. Break ties between campaigns of equal priority by last updated time.
+4. Return the first five campaigns.
 
 ## Best Practices for Campaign Organization
 
@@ -189,11 +172,11 @@ Call [_selfHandledShown()_](https://moengage.github.io/android-api-reference/ina
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-MoEInAppHelper.getInstance().selfHandledShown(context, data)
+MoEInAppHelper.getInstance().selfHandledShown(context, campaignData)
 ```
 
 ```java Java
-MoEInAppHelper.getInstance().selfHandledShown(context, data);
+MoEInAppHelper.getInstance().selfHandledShown(context, campaignData);
 ```
 
 </CodeGroup>
@@ -205,11 +188,11 @@ Call [_selfHandledClicked()_](https://moengage.github.io/android-api-reference/i
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-MoEInAppHelper.getInstance().selfHandledClicked(context, data)
+MoEInAppHelper.getInstance().selfHandledClicked(context, campaignData)
 ```
 
 ```java Java
-MoEInAppHelper.getInstance().selfHandledClicked(context, data);
+MoEInAppHelper.getInstance().selfHandledClicked(context, campaignData);
 ```
 
 </CodeGroup>
@@ -221,11 +204,11 @@ Call [_selfHandledDismissed()_](https://moengage.github.io/android-api-reference
 <CodeGroup>
 
 ```kotlin Kotlin wrap
-MoEInAppHelper.getInstance().selfHandledDismissed(context, data)
+MoEInAppHelper.getInstance().selfHandledDismissed(context, campaignData)
 ```
 
 ```java Java
-MoEInAppHelper.getInstance().selfHandledDismissed(context, data);
+MoEInAppHelper.getInstance().selfHandledDismissed(context, campaignData);
 ```
 
 </CodeGroup>
