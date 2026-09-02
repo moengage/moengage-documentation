@@ -79,7 +79,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Capability | Status |
 | :--- | :--- |
 | Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
-| Idempotent retries | Not supported. The `Idempotency-Key` header is accepted but has no deduplicating effect, so retrying an accepted request sends the message again. |
+| Idempotent retries | Not supported. The optional `Idempotency-Key` header is accepted but has no deduplicating effect, so retrying an accepted request sends the message again. |
 | Campaign reports | Not supported for API-triggered campaigns. |
 | Delivery and engagement callbacks | Not supported. Your application receives no per-message outcome notification. |
 | Double opt-in | Not supported. |
@@ -89,8 +89,8 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Brand deduplication | Not supported. |
 | Sender address personalization | Not supported. Neither the from address nor the reply-to address accepts personalization. |
 | Reply-to unsubscribe and list unsubscribe | Not supported. |
-| Segment and filter targeting | Not supported. MoEngage replaces any audience you send with All Users, and each trigger request names the actual recipients. |
-| Scheduling | Not supported. A redundant `delivery_type: ASAP` is accepted and has no effect, and no other `scheduling_details` value is accepted. |
+| Segment and filter targeting | Not supported. A create request that includes `segmentation_details` is rejected, and the shell stores an All Users audience. Each trigger request names the actual recipients. |
+| Scheduling | Not supported. `scheduling_details` is optional, and `delivery_type: ASAP` is accepted with no effect. Any other value is rejected. |
 | Throttling | Not supported. `campaign_throttle_rpm` does not apply and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing. |
 | Maximum-send caps | Not supported. `campaign_audience_limit` and `limit_send_config` do not apply. |
 | DND bypass | Not supported. `bypass_dnd: true` is rejected, so DND always applies. |
@@ -145,7 +145,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     `202 Accepted` means the request is valid and enqueued for asynchronous dispatch, and it returns a message instance ID. It is not a delivery guarantee. MoEngage sends the message after the acknowledgement, and inbox delivery depends on your email provider.
   </Accordion>
   <Accordion title="Are trigger requests idempotent?">
-    No. The endpoint accepts the required `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
+    No. The endpoint accepts an optional `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
   </Accordion>
   <Accordion title="Can I trigger multiple recipients in one request?">
     Yes. A request carries a flat list of recipients of a single identifier type, up to the maximum permitted per request. A request that exceeds the maximum returns `422 RECIPIENT_LIMIT_EXCEEDED`. Every recipient receives the same message, with personalization resolved per recipient.

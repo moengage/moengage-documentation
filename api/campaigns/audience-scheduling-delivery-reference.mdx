@@ -103,28 +103,30 @@ An `API_TRIGGERED` campaign is a reusable shell for the [Messaging API](/api/mes
 | `delivery_controls` | `ignore_frequency_capping`, `count_for_frequency_capping` |
 | `utm_params` | All fields |
 
-### Overridden and ignored components
+### Audience and scheduling
 
-Two components behave differently from the rest. MoEngage accepts them without an error and then disregards what you sent, so a request that appears to succeed does not configure what the payload describes.
+A shell has no audience of its own. Do not send `segmentation_details`: MoEngage rejects a create request that includes it, and stores an All Users audience on the shell instead. Each trigger request names the actual recipients.
 
-| Component | Behavior |
-| :--- | :--- |
-| `segmentation_details` | **Overridden.** MoEngage replaces any audience you send with All Users, and the shell stores All Users regardless of the payload. The audience you send has no effect, and each trigger request names the actual recipients. |
-| `scheduling_details` | **Ignored.** A redundant `delivery_type: ASAP` is accepted and has no effect. No other value or field within `scheduling_details` is accepted. |
+`scheduling_details` is optional. When you send it, `delivery_type` must be `ASAP`, which is accepted and has no effect. MoEngage rejects any other value, and no other field within `scheduling_details` applies.
 
 ### Unsupported components
 
-The following are not supported for API-triggered email campaigns.
+The following are not supported for API-triggered email campaigns. MoEngage rejects a create request that includes them with `400 VALIDATION_FAILED`.
 
-| Component or field | Condition |
-| :--- | :--- |
-| `trigger_condition` | Always. The trigger request initiates the send. |
-| `campaign_audience_limit` | When `is_campaign_audience_limit_enabled` is `true`. |
-| `basic_details.business_event` | Always. |
-| `delivery_controls.campaign_throttle_rpm` | Always, and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size. |
-| `delivery_controls.bypass_dnd` | When `true`. DND always applies, and MoEngage drops the message for a recipient in DND rather than deferring or queueing it. |
-| `delivery_controls.minimum_delay_between_two_notification_in_hour` | When non-zero. |
-| `delivery_controls.limit_send_config` | When `enabled` is `true`. |
+| Component or field | Condition | Error message |
+| :--- | :--- | :--- |
+| `channel` other than `EMAIL` | Always | `API_TRIGGERED delivery type is supported only for the EMAIL channel` |
+| `segmentation_details` | Always | `segmentation_details is not supported for API_TRIGGERED campaigns` |
+| `scheduling_details.delivery_type` other than `ASAP` | Any other value | `Only ASAP delivery_type is supported for API_TRIGGERED campaigns` |
+| `campaign_audience_limit` | When `is_campaign_audience_limit_enabled` is `true` | `campaign_audience_limit is not allowed for API_TRIGGERED campaigns` |
+| `delivery_controls.campaign_throttle_rpm` | Always, and no default RPM is applied | `campaign_throttle_rpm is not valid for this campaign type` |
+| `trigger_condition` | Always. The trigger request initiates the send. | |
+| `basic_details.business_event` | Always | |
+| `delivery_controls.bypass_dnd` | When `true`. DND always applies, and MoEngage drops the message for a recipient in DND rather than deferring or queueing it. | |
+| `delivery_controls.minimum_delay_between_two_notification_in_hour` | When non-zero | |
+| `delivery_controls.limit_send_config` | When `enabled` is `true` | |
+
+The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size.
 
 ### Unsupported email features
 
@@ -141,7 +143,7 @@ Beyond the components above, the following email capabilities do not apply to an
 | Reply-to address personalization | Not supported. `reply_to_address` accepts a fixed value only. |
 | Reply-to unsubscribe and list unsubscribe | Not supported. |
 | Campaign reports | Not supported. |
-| Idempotent trigger retries | Not supported. The trigger endpoint accepts the `Idempotency-Key` header but does not deduplicate on it. |
+| Idempotent trigger retries | Not supported. The trigger endpoint accepts an optional `Idempotency-Key` header but does not deduplicate on it. |
 
 ### Test sends
 
