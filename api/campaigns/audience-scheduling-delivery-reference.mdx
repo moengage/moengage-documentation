@@ -15,7 +15,7 @@ The OpenAPI spec at `/api/campaigns/campaign-draft.yaml` is the authoritative so
 
 ## Quick start
 
-The minimum audience configuration is either `segmentation_details.is_all_user_campaign: true` or a single filter under `segmentation_details.included_filters`. The minimum schedule is `scheduling_details.delivery_type: ASAP`. Event-triggered campaigns also require `trigger_condition`.
+The minimum audience configuration is either `segmentation_details.is_all_user_campaign: true` or a single filter under `segmentation_details.included_filters`. The minimum schedule is `scheduling_details.delivery_type: ASAP`. Event-triggered campaigns also require `trigger_condition`. Neither component applies to `API_TRIGGERED` campaigns; see [API-triggered campaigns](#api-triggered-campaigns).
 
 <CodeGroup>
 
@@ -103,19 +103,28 @@ An `API_TRIGGERED` campaign is a reusable shell for the [Messaging API](/api/mes
 | `delivery_controls` | `ignore_frequency_capping`, `count_for_frequency_capping` |
 | `utm_params` | All fields |
 
+### Overridden and ignored components
+
+Two components behave differently from the rest. MoEngage accepts them without an error and then disregards what you sent, so a request that appears to succeed does not configure what the payload describes.
+
+| Component | Behavior |
+| :--- | :--- |
+| `segmentation_details` | **Overridden.** MoEngage replaces any audience you send with All Users, and the shell stores All Users regardless of the payload. The audience you send has no effect, and each trigger request names the actual recipients. |
+| `scheduling_details` | **Ignored.** A redundant `delivery_type: ASAP` is accepted and has no effect. No other value or field within `scheduling_details` is accepted. |
+
 ### Unsupported components
 
-| Component or field | Behavior |
+The following are not supported for API-triggered email campaigns.
+
+| Component or field | Condition |
 | :--- | :--- |
-| `segmentation_details` | Not supported. The server forces an All Users audience on the shell, and each trigger request names the actual recipients. |
-| `scheduling_details` | Not supported, except that a redundant `delivery_type: ASAP` is tolerated and ignored. No other field applies. |
-| `trigger_condition` | Not supported. The trigger request initiates the send. |
-| `campaign_audience_limit` | Not supported when `is_campaign_audience_limit_enabled` is `true`. |
-| `basic_details.business_event` | Not supported. |
-| `delivery_controls.campaign_throttle_rpm` | Not supported, and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size. |
-| `delivery_controls.bypass_dnd` | Not supported when `true`. DND always applies, and MoEngage drops the message for a recipient in DND rather than deferring or queueing it. |
-| `delivery_controls.minimum_delay_between_two_notification_in_hour` | Not supported when non-zero. |
-| `delivery_controls.limit_send_config` | Not supported when `enabled` is `true`. |
+| `trigger_condition` | Always. The trigger request initiates the send. |
+| `campaign_audience_limit` | When `is_campaign_audience_limit_enabled` is `true`. |
+| `basic_details.business_event` | Always. |
+| `delivery_controls.campaign_throttle_rpm` | Always, and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size. |
+| `delivery_controls.bypass_dnd` | When `true`. DND always applies, and MoEngage drops the message for a recipient in DND rather than deferring or queueing it. |
+| `delivery_controls.minimum_delay_between_two_notification_in_hour` | When non-zero. |
+| `delivery_controls.limit_send_config` | When `enabled` is `true`. |
 
 ### Status actions
 
@@ -323,7 +332,7 @@ The `intelligent_delay_optimization` object defines the window within which MoEn
 | `LOCATION_TRIGGERED` (Push) | **Required**. | — | **Required**. See [Geofence targeting](#geofence-targeting). |
 | `ONE_TIME` (Push, Email) | Not applicable. | — | — |
 | `PERIODIC` (Push, Email) | Not applicable. | — | — |
-| `API_TRIGGERED` (Email) | Not permitted. See [API-triggered campaigns](#api-triggered-campaigns). | — | — |
+| `API_TRIGGERED` (Email) | Not permitted. See [API-triggered campaigns](#api-triggered-campaigns). | Not permitted. | — |
 
 ## Filter primitives
 
