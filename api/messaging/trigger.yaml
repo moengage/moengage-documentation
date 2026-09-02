@@ -29,7 +29,7 @@ paths:
 
         #### Rate Limit
 
-        The default rate limit is 5,000 requests per minute per workspace. MoEngage counts the limit per API request, not per recipient, so the effective send rate is the request rate multiplied by the number of recipients in each request.
+        The default rate limit is 5,000 requests per minute per workspace. A request targets one recipient, so the limit is also the maximum number of messages you can trigger per minute.
 
         MoEngage rejects requests above the limit with `429` and does not queue them. Contact your Customer Success Manager to raise the limit.
 
@@ -63,16 +63,16 @@ paths:
                 identifier_type:
                   type: string
                   enum: [ID, MOENGAGE_ID, MULTI_ID]
-                  description: The type of recipient identifier. Every entry in `recipients` must match this type.
+                  description: The type of the identifier in `recipients`.
                 recipients:
                   type: array
                   minItems: 1
-                  maxItems: 1000
+                  maxItems: 1
                   items:
                     type: string
-                    description: A single recipient identifier, matching the type declared in `identifier_type`. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
-                  description: A flat list of recipient identifiers of the type declared in `identifier_type`. Every recipient receives the same message, with personalization resolved per recipient.
-                  example: ["customer@example.com", "another@example.com"]
+                    description: The recipient identifier, matching the type declared in `identifier_type`. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
+                  description: The recipient of this message, as a list holding exactly one identifier. A request targets one recipient. Call the endpoint again for each additional recipient.
+                  example: ["customer@example.com"]
                 locale_name:
                   type: string
                   description: The locale variant of the shell to render. Optional.
@@ -126,7 +126,7 @@ paths:
                         description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance, not delivery.
                       recipient_count:
                         type: integer
-                        description: The number of recipients accepted from the `recipients` list.
+                        description: The number of recipients accepted. A request targets one recipient, so this is `1`.
               example:
                 response_id: resp_9b1e77a2
                 type: message
@@ -134,7 +134,7 @@ paths:
                   msg_id: msg_7f3c9a
                   campaign_id: camp_665f0a
                   accepted: true
-                  recipient_count: 2
+                  recipient_count: 1
 
         "400":
           description: Validation failed. The request violates the schema, mixes identifier types, or contains an unknown field.
@@ -191,7 +191,7 @@ paths:
                 response_id: resp_9b1e77a2
 
         "422":
-          description: The request is well formed but cannot be processed. The recipient list exceeds the maximum, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
+          description: The request is well formed but cannot be processed. `recipients` holds more than one identifier, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -203,12 +203,12 @@ paths:
               example:
                 error:
                   code: RECIPIENT_LIMIT_EXCEEDED
-                  message: recipients exceed the permitted maximum
+                  message: recipients accepts exactly one identifier
                   target: recipients
                   details:
                     - code: MAX_EXCEEDED
                       target: recipients
-                      message: recipients exceed the permitted maximum
+                      message: recipients accepts exactly one identifier
                 response_id: resp_9b1e77a2
 
         "429":
@@ -275,7 +275,7 @@ components:
             code:
               type: string
               description: |
-                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, `RATE_LIMITED`, or `INTERNAL_ERROR`.
+                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, or `RATE_LIMITED`.
             message:
               type: string
               description: A human-readable description of the error.
