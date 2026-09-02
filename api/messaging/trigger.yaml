@@ -70,7 +70,8 @@ paths:
                   maxItems: 1000
                   items:
                     type: string
-                  description: A flat list of recipient identifiers of the type declared in `identifier_type`.
+                    description: A single recipient identifier, matching the type declared in `identifier_type`. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
+                  description: A flat list of recipient identifiers of the type declared in `identifier_type`. Every recipient receives the same message, with personalization resolved per recipient.
                   example: ["customer@example.com", "another@example.com"]
                 locale_name:
                   type: string
@@ -101,10 +102,13 @@ paths:
                 properties:
                   response_id:
                     type: string
+                    description: The identifier for this response, used to correlate the request and response.
                   type:
                     type: string
+                    description: The type of object returned in `data`. Always `message` for this endpoint.
                   data:
                     type: object
+                    description: The accepted message instance.
                     required:
                       - msg_id
                       - campaign_id
@@ -116,10 +120,13 @@ paths:
                         description: The message instance ID, used to trace this request.
                       campaign_id:
                         type: string
+                        description: The ID of the shell the message was triggered against.
                       accepted:
                         type: boolean
+                        description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance, not delivery.
                       recipient_count:
                         type: integer
+                        description: The number of recipients accepted from the `recipients` list.
               example:
                 response_id: resp_9b1e77a2
                 type: message
@@ -142,17 +149,23 @@ paths:
                 properties:
                   response_id:
                     type: string
+                    description: The identifier for this response, used to correlate the request and response.
                   type:
                     type: string
+                    description: The type of object returned in `data`. Always `message` for this endpoint.
                   data:
                     type: object
+                    description: The message instance from the original request, replayed unchanged.
                     properties:
                       msg_id:
                         type: string
+                        description: The message instance ID returned by the original request. A replay does not mint a new ID.
                       campaign_id:
                         type: string
+                        description: The ID of the shell the message was triggered against.
                       accepted:
                         type: boolean
+                        description: Whether MoEngage accepted the original request. A replay does not enqueue an additional message.
               example:
                 response_id: resp_9b1e77a2
                 type: message
@@ -312,6 +325,7 @@ components:
       properties:
         error:
           type: object
+          description: The error that caused the request to fail.
           properties:
             code:
               type: string
