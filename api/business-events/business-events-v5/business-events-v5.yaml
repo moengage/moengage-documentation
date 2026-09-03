@@ -128,7 +128,7 @@ paths:
                     type: business-event
                     data:
                       triggered_status: PARTIAL_SUCCESS
-                      message: The business event has been triggered
+                      message: The business event has been triggered for some of the attached campaigns and flows
                       summary:
                         total: 4
                         triggered: 3
@@ -144,7 +144,7 @@ paths:
                     type: business-event
                     data:
                       triggered_status: FAILURE
-                      message: The business event has been triggered
+                      message: The business event was not triggered
                       summary:
                         total: 4
                         triggered: 0
@@ -407,6 +407,12 @@ components:
         and returned unchanged as `response_id` in the body. When you omit this header, MoEngage
         generates a 12-character hexadecimal identifier instead. Quote it when contacting
         MoEngage Support.
+
+
+        On [Trigger Business Event (V5)](/api/business-events/trigger-business-event-v5), the body
+        field `moe_request_id` takes precedence: when you send both, `response_id` echoes
+        `moe_request_id`, and this header is returned only in the `X-MOE-Request-Id` response
+        header.
       example: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
     Limit:
       name: limit
@@ -452,8 +458,11 @@ components:
         moe_request_id:
           type: string
           format: uuid
-          description: |
-            Optional request id echoed back as `response_id` and used for tracing.
+          description: >
+            Optional request id, returned unchanged as `response_id` and used for tracing. This
+            field takes precedence over the `X-MOE-Request-Id` header — when you send both,
+            `response_id` echoes this value, and the header value is returned only in the
+            `X-MOE-Request-Id` response header.
           example: 550e8400-e29b-41d4-a716-446655440000
     BusinessEventTriggerData:
       type: object
@@ -479,6 +488,9 @@ components:
           example: SUCCESS
         message:
           type: string
+          description: >
+            Human-readable summary of the outcome, worded to match `triggered_status`. Branch on
+            `triggered_status` and `summary` rather than on this text.
           example: The business event has been triggered
         summary:
           type: object
@@ -536,7 +548,10 @@ components:
       properties:
         response_id:
           type: string
-          description: Echo of the caller-supplied `moe_request_id`, returned unchanged. When you omit it, MoEngage generates a 12-character hexadecimal identifier.
+          description: >
+            Echo of the caller-supplied `moe_request_id`, returned unchanged. When you omit
+            `moe_request_id`, it echoes the `X-MOE-Request-Id` header instead; when you send
+            neither, MoEngage generates a 12-character hexadecimal identifier.
           example: 5f3e2a1b9c8d
         type:
           type: string
