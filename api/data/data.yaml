@@ -45,10 +45,11 @@ paths:
           <Note>
           - For more information about trackable user attributes, reserved keys, and general data information, refer to the [Data Overview](https://www.moengage.com/docs/api/data/data-overview).
           - If you have [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled for your workspace, you must pass `project_code` in the API endpoint. This identifies which project a user or event belongs to. For more information, refer to [Portfolio: Data Ingestion and Management](/user-guide/data/key-concepts/portfolio-data-ingestion-and-management).
+          - [Unsetting Attributes](/user-guide/data/user-data/unset-user-attributes) is an Early Access feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
           </Note>
 
           #### Rate Limit
-          A single API request contains one or more user updates. Maintain a rate limit of 10,000 user updates per minute.     
+          A single API request contains one or more user updates. Maintain a rate limit of 10,000 user updates per minute.
           
       description: "This API adds or updates users and user properties in MoEngage. You can create a new user, create new user property, or update existing user properties of users."
       
@@ -116,6 +117,17 @@ paths:
                     platforms:
                       - platform: "iOS"
                         active: "true"
+              Unsetting Attributes:
+                summary: Clear Attributes
+                value:
+                  type: "customer"
+                  customer_id: "user123"
+                  unset_attributes:
+                    - type: "equals"
+                      attr: "first_name"
+                      case_sensitive: false
+                    - type: "prefix"
+                      attr: "temp_"
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -3937,6 +3949,41 @@ components:
           description: "List of dictionaries with the associated platforms out of ANDROID, iOS, and web and their status."
           items:
             $ref: '#/components/schemas/PlatformObject'
+        unset_attributes:
+          type: array
+          description: |
+            Use this field to clear one or more existing user attributes, matched either by exact name or by pattern. Attributes matched by any rule in the array are removed from the user profile.
+
+            ```json
+             {
+               "customer_id": "user123",
+               "unset_attributes": [
+                 { "type": "equals", "attr": "first_name", "case_sensitive": false },
+                 { "type": "prefix", "attr": "temp_" }
+               ]
+             }
+            ```
+            * System/reserved attributes are protected and can't be unset this way.
+          items:
+            $ref: '#/components/schemas/UnsetAttributeRule'
+    UnsetAttributeRule:
+      type: object
+      required:
+        - type
+        - attr
+      properties:
+        type:
+          type: string
+          enum: [equals, prefix, suffix, contains]
+          description: 'This field specifies how `attr` is matched against existing user attribute names.'
+        attr:
+          type: string
+          description: 'This field specifies the attribute name (for `equals`) or the pattern (for `prefix`, `suffix`, `contains`) to match against.'
+        case_sensitive:
+          type: boolean
+          default: true
+          description: 'This field specifies whether the match is case-sensitive. Optional, defaults to true.'
+
     IdentifierObject:
       type: object
       properties:
