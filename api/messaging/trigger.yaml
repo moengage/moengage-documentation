@@ -62,8 +62,15 @@ paths:
               properties:
                 identifier_type:
                   type: string
-                  enum: [ID, MOENGAGE_ID, MULTI_ID]
-                  description: The type of the identifier in `recipients`.
+                  description: |
+                    The identifier used to resolve the recipient. Accepts one of:
+
+                    - `ID`, the unique user ID. Always active in every workspace.
+                    - `MOENGAGE_ID`, the MoEngage-generated user ID.
+                    - The name of any user attribute activated as an identifier in your workspace, for example `ABC_ID`. Send the attribute name itself, not a generic value.
+
+                    A workspace can activate up to five identifiers, configured under Unified Identity. To find the names available to you, see [Unified Identity](/user-guide/data/user-data/unified-identity-identity-resolution).
+                  example: ID
                 recipients:
                   type: array
                   minItems: 1
@@ -72,7 +79,7 @@ paths:
                     type: string
                     description: The recipient identifier, matching the type declared in `identifier_type`. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
                   description: The recipient of this message, as a list holding exactly one identifier. A request targets one recipient. Call the endpoint again for each additional recipient.
-                  example: ["customer@example.com"]
+                  example: ["U-10294"]
                 locale_name:
                   type: string
                   description: The locale variant of the shell to render. Optional.
@@ -88,6 +95,40 @@ paths:
                     first_name: Alice
                     order_id: ORD-12345
                     order_total: "99.99"
+            examples:
+              unique_id:
+                summary: Target by unique user ID
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              moengage_id:
+                summary: Target by MoEngage ID
+                value:
+                  identifier_type: "MOENGAGE_ID"
+                  recipients: ["64a1b2c3d4e5f6a7b8c9d0e4"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              custom_identifier:
+                summary: Target by a custom identifier attribute
+                value:
+                  identifier_type: "ABC_ID"
+                  recipients: ["John123"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              with_locale:
+                summary: Select a locale variant
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  locale_name: "en_US"
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
       responses:
         "202":
           description: Accepted and enqueued for asynchronous dispatch.
