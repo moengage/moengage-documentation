@@ -27,8 +27,8 @@ info:
     2. **Update** - Patch individual components as you refine the setup. Each submitted component is validated in full before the draft is updated.
     3. **Validate** - Check whether a draft would pass publish-time validation without committing any changes.
     4. **Test** - Send a test message to specific users from either a saved draft or inline content before going live.
-    5. **Manage** - Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
-
+    5. **Manage** - Pause, resume, or stop a live campaign. `API_TRIGGERED` campaigns support `STOP` only. 
+    
     **Campaign versioning** is optional per workspace:
     - When enabled, publishing an update to a live campaign creates a new document with an incremented `version_number`.
     - `campaign_id` is the stable identifier across all versions; each version has its own raw `id` (ObjectId).
@@ -228,7 +228,7 @@ components:
           description: |
             The delivery type of the campaign.
 
-            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview) and is in early access. The shell defines the content structure and the campaign settings, and each trigger request specifies the recipient and the values for that send. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and within `delivery_controls` only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns) for the full field list.
+            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview) and is in early access. The shell defines the content structure and the campaign settings, and each trigger request specifies the recipient and the values for that send. It supports `campaign_content.locales`, `campaign_content.variation_details`, `control_group_details`, `conversion_goal_details`, and `utm_params`. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and within `delivery_controls` only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns) for the full field list.
 
             For full request payloads per delivery type, see the code examples on this page.
         created_by: 
@@ -3214,7 +3214,7 @@ components:
         action:
           type: string
           description: The action that was applied (matches the requested action).
-          enum: [STOP, PAUSE, RESUME]
+          enum: [PUBLISH, STOP, PAUSE, RESUME]
 
     CampaignSearchResponseData:
       type: object
@@ -3969,6 +3969,10 @@ paths:
       x-mint:
         content: |
           <Note>
+          **`API_TRIGGERED` campaigns:** the response carries the standard campaign shape, so components that do not apply to a shell may still appear. `segmentation_details` reflects the All Users audience the server stores rather than an audience you configured, and `scheduling_details`, `trigger_condition`, `campaign_audience_limit`, and the unsupported `delivery_controls` fields carry no meaning for a shell. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+          </Note>
+
+          <Note>
           **SMS campaigns:** SMS campaigns are returned by this endpoint; the response `channel` field will be `SMS`. The `connector` and `sender_name` fields carry SMS-specific details. SMS campaigns can be retrieved but must be created and managed through the MoEngage dashboard or V1 APIs in the interim.
           </Note>
 
@@ -4161,7 +4165,11 @@ paths:
       x-mint:
         content: |
           <Note>
-          **Campaign publishing is not yet available in V5.** This endpoint only supports updating draft components. To publish campaigns, use the V1 API at `PATCH /core-services/v1/campaigns/{campaign_id}` in the interim. Publishing via V5 will be available in a future release.
+          **Campaign publishing is not yet available in V5, except for `API_TRIGGERED` campaigns.** This endpoint only supports updating draft components. An `API_TRIGGERED` campaign publishes through the `PUBLISH` action on `PATCH /v5/campaigns/{campaign_id}/status`. To publish every other delivery type, use the V1 API at `PATCH /core-services/v1/campaigns/{campaign_id}` in the interim.
+          </Note>
+
+          <Note>
+          **`API_TRIGGERED` campaigns accept a reduced component set.** Patching `segmentation_details`, `scheduling_details`, `trigger_condition`, `campaign_audience_limit`, `basic_details.business_event`, `send_only_double_opt_in_users`, or `deduplication_attribute` is rejected. Within `delivery_controls`, only `ignore_frequency_capping` and `count_for_frequency_capping` are supported: `bypass_dnd` set to `true`, `campaign_throttle_rpm`, a non-zero `minimum_delay_between_two_notification_in_hour`, and an enabled `limit_send_config` are all rejected. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
           </Note>
 
           Send a `PATCH` request without a `status` key in the body.
@@ -4752,6 +4760,11 @@ paths:
             schema:
               $ref: '#/components/schemas/CampaignStatusV5Request'
             examples:
+              publish_api_triggered:
+                summary: Publish an API-triggered campaign
+                value:
+                  request_id: "{{request_id}}"
+                  action: "PUBLISH"
               stop_campaign:
                 summary: Stop a campaign
                 value:
@@ -4778,12 +4791,23 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CampaignStatusTransitionData' }
-              example:
-                response_id: "abc-601"
-                type: "campaign"
-                data:
-                  id: "64a1b2c3d4e5f6a7b8c9d0e1"
-                  action: "STOP"
+              examples:
+                published:
+                  summary: API-triggered campaign published
+                  value:
+                    response_id: "abc-600"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      action: "PUBLISH"
+                stopped:
+                  summary: Campaign stopped
+                  value:
+                    response_id: "abc-601"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      action: "STOP"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
