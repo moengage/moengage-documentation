@@ -48,7 +48,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: An optional unique key for this request (UUID v4). The endpoint accepts the header but does not deduplicate on it, so sending the same key a second time sends the message a second time. Track sent requests in your own application rather than relying on this header.
+          description: A unique key for this request (UUID v4), returned as `response_id` so you can correlate the request and the response. Deduplication is not enforced in this early-access release, so sending the same key a second time sends the message a second time. Send the header on every request so that no integration change is needed once deduplication is enforced.
           example: 550e8400-e29b-41d4-a716-446655440000
       requestBody:
         required: true
@@ -102,7 +102,7 @@ paths:
                 properties:
                   response_id:
                     type: string
-                    description: The identifier for this response, used to correlate the request and response.
+                    description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
                   type:
                     type: string
                     description: The type of object returned in `data`. Always `message` for this endpoint.
@@ -128,7 +128,7 @@ paths:
                         type: integer
                         description: The number of recipients accepted. A request targets one recipient, so this is `1`.
               example:
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
                 type: message
                 data:
                   msg_id: msg_7f3c9a
@@ -155,7 +155,7 @@ paths:
                     - code: REQUIRED
                       target: recipients
                       message: recipients must not be empty
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "404":
           description: The shell does not exist for this workspace, or it is not an ACTIVE API_TRIGGERED campaign. MoEngage returns 404 rather than 403 so that campaign IDs in other workspaces are not disclosed.
@@ -172,7 +172,7 @@ paths:
                   code: NOT_FOUND
                   message: Campaign not found
                   target: campaign_id
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "422":
           description: The request is well formed but cannot be processed. `recipients` holds more than one identifier, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
@@ -193,7 +193,7 @@ paths:
                     - code: MAX_EXCEEDED
                       target: recipients
                       message: recipients accepts exactly one identifier
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "429":
           description: The request exceeds the per-workspace rate limit. MoEngage rejects the request and does not queue it. Retry after the interval in the Retry-After header.
@@ -210,7 +210,7 @@ paths:
                 error:
                   code: RATE_LIMITED
                   message: Rate limit exceeded for this workspace
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "500":
           description: Server error. Retrying the request may send the message more than once, because this endpoint does not deduplicate retries.
@@ -226,7 +226,7 @@ paths:
                 error:
                   code: INTERNAL_ERROR
                   message: An unexpected error occurred
-                response_id: resp_9b1e77a2
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
 components:
   headers:
@@ -277,7 +277,7 @@ components:
                 $ref: '#/components/schemas/ErrorDetail'
         response_id:
           type: string
-          description: The identifier for this response, used to correlate the request and response.
+          description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
 
     ErrorDetail:
       type: object
