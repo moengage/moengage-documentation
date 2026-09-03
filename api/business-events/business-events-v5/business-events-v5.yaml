@@ -157,6 +157,8 @@ paths:
           $ref: '#/components/responses/TriggerBadRequest'
         '401':
           $ref: '#/components/responses/TriggerUnauthorized'
+        '403':
+          $ref: '#/components/responses/TriggerForbidden'
         '429':
           $ref: '#/components/responses/TriggerRateLimited'
         '500':
@@ -589,22 +591,21 @@ components:
               example: event_attributes.new_price
             details:
               type: array
-              description: Field-level breakdown of what failed validation.
+              description: Field-level breakdown of what failed validation. Returned for validation errors only; absent on 401, 403, and 429.
               items:
                 type: object
-                required:
-                  - field
-                  - issue
-                  - message
                 properties:
-                  field:
+                  code:
                     type: string
-                    example: event_attributes.new_price
-                  issue:
-                    type: string
+                    description: Machine-readable UPPER_SNAKE_CASE code for this specific violation. More granular than the top-level `code`.
                     example: INVALID_TYPE
+                  target:
+                    type: string
+                    description: The specific parameter or field this violation applies to.
+                    example: event_attributes.new_price
                   message:
                     type: string
+                    description: Human-readable description of this violation.
                     example: Expected number, got string.
     BusinessEventV5:
       type: object
@@ -816,9 +817,10 @@ components:
                 error:
                   code: VALIDATION_FAILED
                   message: Wrong business event attribute passed in api request
+                  target: event_attributes.product_id
                   details:
-                    - field: product_id
-                      issue: INVALID_VALUE
+                    - code: INVALID_VALUE
+                      target: event_attributes.product_id
                       message: Wrong business event attribute passed in api request
             unknownEventName:
               summary: The business event is not registered in the workspace
@@ -827,9 +829,10 @@ components:
                 error:
                   code: VALIDATION_FAILED
                   message: Business event does not exists
+                  target: event_name
                   details:
-                    - field: event_name
-                      issue: INVALID_VALUE
+                    - code: INVALID_VALUE
+                      target: event_name
                       message: Business event does not exists
     TriggerRateLimited:
       description: This response is returned when the number of requests has exceeded the rate limit.
@@ -858,6 +861,22 @@ components:
             error:
               code: AUTHENTICATION_REQUIRED
               message: Workspace ID and API key are missing from the Authorization header.
+    TriggerForbidden:
+      description: >
+        Missing required scope. Your credentials authenticated successfully, but the API key does
+        not carry the scope needed to trigger business events. Check the key's scopes — rotating
+        or re-sending the same key will not help. Create a key with the required access in the
+        MoEngage dashboard at **Settings** > **Account** > **API keys**.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TriggerErrorResponse'
+          example:
+            response_id: 5f3e2a1b9c8d
+            error:
+              code: FORBIDDEN
+              message: This API key does not have the scope required to trigger business events.
+              target: Authorization
     TriggerInternalServerError:
       description: This response is returned when the system runs into an unexpected error.
       content:
