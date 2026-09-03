@@ -47,7 +47,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Locale ID. Use either `name` or `id`, not both.
+          description: Locale ID — a bare 24-character hexadecimal ObjectId, with no resource prefix. Pass it exactly as returned in `data[].id`. Use either `name` or `id`, not both.
           example: 65f1a2b3c4d5e6f7a8b9c0d1
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -66,7 +66,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LocaleListResponse'
               example:
-                response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+                response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
                 type: locales
                 data:
                   - id: 65f1a2b3c4d5e6f7a8b9c0d1
@@ -134,8 +134,9 @@ components:
         format: uuid
       description: >
         Client-supplied trace ID (UUID v4). Echoed back in the `X-MOE-Request-Id` response header
-        and returned as `response_id` in the body, prefixed with `resp_`. MoEngage generates one
-        when you omit this header. Quote it when contacting MoEngage Support.
+        and returned unchanged as `response_id` in the body. When you omit this header, MoEngage
+        generates a 12-character hexadecimal identifier instead. Quote it when contacting
+        MoEngage Support.
       example: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
 
   schemas:
@@ -145,6 +146,9 @@ components:
       required:
         - id
         - name
+        - created_at
+        - updated_at
+        - campaign_count
       properties:
         id:
           type: string
@@ -183,8 +187,8 @@ components:
       properties:
         response_id:
           type: string
-          description: Unique identifier for this response, formatted `resp_<X-MOE-Request-Id>`. Echoes the `X-MOE-Request-Id` header you sent, if any. Quote it when contacting MoEngage Support.
-          example: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+          description: Unique identifier for this response. Echoes the `X-MOE-Request-Id` header you sent, returned unchanged. When you omit it, MoEngage generates a 12-character hexadecimal identifier. Quote it when contacting MoEngage Support.
+          example: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
         type:
           type: string
           description: The resource type contained in `data`. Always `locales` for this endpoint.
@@ -216,6 +220,9 @@ components:
 
     ErrorResponse:
       type: object
+      required:
+        - error
+        - response_id
       properties:
         error:
           type: object
@@ -252,8 +259,8 @@ components:
                     example: The 'id' parameter cannot be combined with 'name'.
         response_id:
           type: string
-          description: Unique identifier for this response, formatted `resp_<X-MOE-Request-Id>`. Quote it when contacting MoEngage Support.
-          example: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+          description: Unique identifier for this response. Quote it when contacting MoEngage Support.
+          example: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
 
   responses:
     BadRequest:
@@ -271,7 +278,7 @@ components:
                 - code: INVALID_PARAMETER_COMBINATION
                   target: id
                   message: The 'id' parameter cannot be combined with 'name'.
-            response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+            response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
     Unauthorized:
       description: Missing or invalid authentication
       content:
@@ -283,7 +290,7 @@ components:
               code: UNAUTHORIZED
               message: Missing or invalid authentication credentials.
               target: Authorization
-            response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+            response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
     Forbidden:
       description: Missing required scope
       content:
@@ -295,7 +302,7 @@ components:
               code: FORBIDDEN
               message: This API key does not have the scope required to read locales.
               target: Authorization
-            response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+            response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
     RateLimited:
       description: Rate limited
       headers:
@@ -312,7 +319,7 @@ components:
             error:
               code: RATE_LIMIT_EXCEEDED
               message: Workspace rate limit exceeded. Retry after 30 seconds.
-            response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+            response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
     InternalServerError:
       description: Internal server error
       content:
@@ -323,4 +330,4 @@ components:
             error:
               code: INTERNAL_ERROR
               message: An unexpected error occurred while processing the request. Retry the request, and quote `response_id` if you contact MoEngage Support.
-            response_id: resp_9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
+            response_id: 9f2c1b7a-4d3e-4a08-b5c6-1e7d02f43a91
