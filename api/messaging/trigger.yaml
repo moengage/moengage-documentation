@@ -131,7 +131,10 @@ paths:
                     order_id: "ORD-12345"
       responses:
         "202":
-          description: Accepted and enqueued for asynchronous dispatch.
+          description: |
+            Accepted and enqueued for asynchronous dispatch.
+
+            **An invalid recipient is silently dropped.** MoEngage does not resolve recipients at the request level, so a `202` never confirms that the identifier matches a user. If the identifier matches no user, MoEngage discards the message during dispatch without returning an error, without a `4xx`, and without any notification to your application. The message simply never arrives. A recipient dropped by frequency capping or suppression behaves the same way.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -164,10 +167,10 @@ paths:
                         description: The ID of the shell the message was triggered against.
                       accepted:
                         type: boolean
-                        description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance, not delivery.
+                        description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance only. It does not confirm that the recipient resolves to a user, or that the message is delivered.
                       recipient_count:
                         type: integer
-                        description: The number of recipients accepted. A request targets one recipient, so this is `1`.
+                        description: The number of recipients accepted from the request. A request targets one recipient, so this is `1`. This counts what was accepted, not what resolved to a user.
               example:
                 response_id: 550e8400-e29b-41d4-a716-446655440000
                 type: message
