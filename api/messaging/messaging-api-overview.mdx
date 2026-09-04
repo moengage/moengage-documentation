@@ -29,6 +29,8 @@ A shell defines the content structure and the campaign settings. Each trigger re
 | Create a shell | Create an Email campaign with `campaign_delivery_type: API_TRIGGERED` that defines the content structure, connector, and delivery controls. Publish the shell to make it triggerable. | Once per message type |
 | Trigger a message | Call the trigger endpoint with the shell's `campaign_id`, the recipient, and the values for that send. | Once per recipient |
 
+The `campaign_id` that the trigger endpoint needs is the `data.id` value returned when you create or publish the shell. Those responses have no field named `campaign_id`.
+
 The following rules apply:
 
 - A trigger request targets an existing published shell. A trigger request never creates a campaign.
@@ -81,7 +83,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | :--- | :--- |
 | Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
 | Idempotent retries | Not enforced in this release. The `Idempotency-Key` header is accepted but MoEngage does not deduplicate on it, so retrying an accepted request sends the message again. Send the header on every request so that no integration change is needed once deduplication is enforced. |
-| Campaign reports | Supported. Delivery and engagement events and campaign stats are reported as for any other delivery type. Messages dropped during dispatch are not reported, so a drop is indistinguishable from a send that produced no engagement. |
+| Campaign reports | Partially supported. Sent, delivered, opened, and clicked events and campaign stats are reported as for any other delivery type. Drop events are not: a message discarded for an unresolvable recipient, suppression, or an unsubscribe does not appear in reports, so a drop is indistinguishable from a send that produced no engagement. |
 | Recipient validation at request time | Not performed. Recipients are not resolved at the request level, so an invalid recipient is accepted with a `202` and silently dropped during dispatch. |
 | Double opt-in | Not supported. A create request that includes `send_only_double_opt_in_users` is rejected. |
 | Google annotations | Not supported. |
@@ -94,7 +96,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Scheduling | Not supported. `scheduling_details` is optional, and `delivery_type: ASAP` is accepted with no effect. Any other value is rejected. |
 | Throttling | Not supported. `campaign_throttle_rpm` does not apply and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing. |
 | Maximum-send caps | Not supported. `campaign_audience_limit` and `limit_send_config` do not apply. |
-| Do Not Disturb | Not evaluated. MoEngage sends the message regardless of the recipient's DND state, and a create request that sets `bypass_dnd` to `true` is rejected because the flag has no effect. |
+| Do Not Disturb | Not evaluated. MoEngage sends the message regardless of the recipient's DND state. `bypass_dnd` is a shell field rather than a trigger field: setting it to `true` on the shell is rejected at create time, and it has no meaning in a trigger payload, where an unrecognised field returns `400 VALIDATION_FAILED`. |
 | Test sends | Test Campaign is not supported. A draft-mode test against a shell returns an error, and an inline-mode test returns no error but does not exercise the shell. Publish the shell and trigger it against a recipient you control instead. |
 | Attachments and images | Supported by URL reference only. File upload is not supported. |
 
@@ -146,7 +148,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
   <Accordion title="Are trigger requests idempotent?">
     Not in this release. MoEngage accepts the `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
 
-    Send the header on every request, so that once deduplication is enforced the same key is honored without any change on your side. To correlate a request with its response and its events, use `X-MOE-REQUEST-ID` instead.
+    Send the header on every request, so that once deduplication is enforced the same key is honored without any change on your side. To correlate a request with its response and its events, use `X-MOE-Request-Id` instead.
   </Accordion>
   <Accordion title="Which identifier types can I use, and where do I find them?">
     `identifier_type` accepts `ID` for the unique user ID, `MOENGAGE_ID` for the MoEngage-generated ID, or the name of any user attribute your workspace has activated as an identifier.
@@ -154,6 +156,8 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     For a custom identifier, send the attribute name itself. If your workspace has activated an attribute named `CRM_ID`, send `"identifier_type": "CRM_ID"` with the attribute value in `recipients`. There is no generic value for this case, so the name always comes from your own workspace configuration.
 
     A workspace can activate up to five identifiers, and `ID` is always active. Find the names available to you under [Unified Identity](/user-guide/data/user-data/unified-identity-identity-resolution), which is also where an admin activates a new one.
+
+    A custom identifier must be activated before you use it, and the value you send must match the activated attribute name exactly. An identifier type that is not activated returns `422`.
   </Accordion>
   <Accordion title="Can I trigger more than one recipient in a single request?">
     No. `recipients` accepts exactly one identifier, and a request holding more returns `422 RECIPIENT_LIMIT_EXCEEDED`. Call the endpoint once per recipient, within the rate limit.
@@ -168,7 +172,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
   </Accordion>
   <Accordion title="How do I correlate a trigger request with its events?">
-    Send a UUID in the `X-MOE-REQUEST-ID` header. MoEngage stores the value as `moe_event_id` on the delivery and engagement events for that message, and returns it as `response_id`, so it links the request, the response, and the events. When you omit the header, MoEngage generates the value, and `response_id` still appears on every response, including errors.
+    Send a UUID in the `X-MOE-Request-Id` header. MoEngage stores the value as `moe_event_id` on the delivery and engagement events for that message, and returns it as `response_id`, so it links the request, the response, and the events. When you omit the header, MoEngage generates the value, and `response_id` still appears on every response, including errors.
   </Accordion>
   <Accordion title="What does an error response look like?">
     Every error carries `error.code`, `error.message`, and `error.target`, naming the field or header responsible. When more than one field fails validation, `error.details[]` lists each failure with its own `target` and `message`. A single-field failure has no `details[]`.
