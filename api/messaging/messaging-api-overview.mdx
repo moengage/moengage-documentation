@@ -37,7 +37,7 @@ The following rules apply:
 - A trigger request targets an existing published shell. A trigger request never creates a campaign.
 - Editing a shell creates a new shell version. Trigger requests do not, so send volume does not affect the shell version.
 
-The trigger endpoint is asynchronous. A `202 Accepted` response confirms that the request is valid and enqueued, and returns a message instance ID. It is not a delivery guarantee. Dispatch occurs after the acknowledgement, and inbox delivery depends on your email provider.
+The trigger endpoint is asynchronous. A `202 Accepted` response confirms that the request is valid and enqueued, and returns the campaign ID and the accepted recipient count. It is not a delivery guarantee. Dispatch occurs after the acknowledgement, and inbox delivery depends on your email provider.
 
 <Warning>
 **An invalid recipient is silently dropped.** MoEngage does not resolve recipients at the request level, so a `202` never confirms that the identifier matches a user. If the identifier matches no user, MoEngage discards the message during dispatch without returning an error and without notifying your application. Nothing distinguishes this from a successful send on your side, so validate identifiers before you trigger.
@@ -83,7 +83,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Capability | Status |
 | :--- | :--- |
 | Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
-| Idempotent retries | Not enforced in this early-access release. The `Idempotency-Key` header is accepted and returned as `response_id`, but MoEngage does not deduplicate on it, so retrying an accepted request sends the message again. Send the header on every request so that no integration change is needed once deduplication is enforced. |
+| Idempotent retries | Not enforced in this early-access release. The `Idempotency-Key` header is accepted but MoEngage does not deduplicate on it, so retrying an accepted request sends the message again. Send the header on every request so that no integration change is needed once deduplication is enforced. |
 | Campaign reports | Supported. Delivery and engagement events and campaign stats are reported as for any other delivery type. Messages dropped during dispatch are not reported, so a drop is indistinguishable from a send that produced no engagement. |
 | Recipient validation at request time | Not performed. Recipients are not resolved at the request level, so an invalid recipient is accepted with a `202` and silently dropped during dispatch. |
 | Double opt-in | Not supported. A create request that includes `send_only_double_opt_in_users` is rejected. |
@@ -144,12 +144,12 @@ For the full list of supported and unsupported fields, see [API-triggered campai
 
 <AccordionGroup>
   <Accordion title="What does the 202 response mean?">
-    `202 Accepted` means the request is valid and enqueued for asynchronous dispatch, and it returns a message instance ID. It is neither a delivery guarantee nor confirmation that the recipient exists: MoEngage does not resolve recipients at the request level, and an invalid recipient is silently dropped later during dispatch. The message is sent after the acknowledgement, and inbox delivery depends on your email provider.
+    `202 Accepted` means the request is valid and enqueued for asynchronous dispatch, and returns the campaign ID and the accepted recipient count. It is neither a delivery guarantee nor confirmation that the recipient exists: MoEngage does not resolve recipients at the request level, and an invalid recipient is silently dropped later during dispatch. The message is sent after the acknowledgement, and inbox delivery depends on your email provider.
   </Accordion>
   <Accordion title="Are trigger requests idempotent?">
-    Not in this early-access release. MoEngage accepts the `Idempotency-Key` header and returns it as `response_id`, but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
+    Not in this early-access release. MoEngage accepts the `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
 
-    Send the header on every request. It is the correlation id between your request and the response, and once deduplication is enforced the same key is honored without any change on your side.
+    Send the header on every request, so that once deduplication is enforced the same key is honored without any change on your side. To correlate a request with its response and its events, use `X-MOE-REQUEST-ID` instead.
   </Accordion>
   <Accordion title="Which identifier types can I use, and where do I find them?">
     `identifier_type` accepts `ID` for the unique user ID, `MOENGAGE_ID` for the MoEngage-generated ID, or the name of any user attribute your workspace has activated as an identifier.
@@ -169,6 +169,9 @@ For the full list of supported and unsupported fields, see [API-triggered campai
   </Accordion>
   <Accordion title="How does MoEngage resolve personalization values?">
     MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
+  </Accordion>
+  <Accordion title="How do I correlate a trigger request with its events?">
+    Send a UUID in the `X-MOE-REQUEST-ID` header. MoEngage stores the value as `moe_event_id` on the delivery and engagement events for that message, and returns it as `response_id`, so it links the request, the response, and the events. When you omit the header, MoEngage generates the value, and `response_id` still appears on every response, including errors.
   </Accordion>
   <Accordion title="What does an error response look like?">
     Every error carries `error.code`, `error.message`, and `error.target`, naming the field or header responsible. When more than one field fails validation, `error.details[]` lists each failure with its own `target` and `message`. A single-field failure has no `details[]`.

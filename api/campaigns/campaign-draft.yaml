@@ -4973,13 +4973,22 @@ paths:
             type: string
           description: The ID of a published API_TRIGGERED shell.
           example: camp_665f0a
+        - name: X-MOE-REQUEST-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: |
+            A caller-supplied correlation ID (UUID). MoEngage stores the value as `moe_event_id` on the delivery and engagement events for this message, and returns it as `response_id`, so it is the only way to trace a trigger request through to its events in the event stream. When you omit the header, MoEngage generates a value.
+          example: 3f8b2c14-7d5a-42e1-9c6b-8a1f0e4d2b73
         - name: Idempotency-Key
           in: header
           required: false
           schema:
             type: string
             format: uuid
-          description: A unique key for this request (UUID v4), returned as `response_id` so you can correlate the request and the response. Deduplication is not enforced in this early-access release, so sending the same key a second time sends the message a second time. Send the header on every request so that no integration change is needed once deduplication is enforced.
+          description: A unique key for this request (UUID v4). Deduplication is not enforced in this early-access release, so sending the same key a second time sends the message a second time. Send the header on every request so that no integration change is needed once deduplication is enforced.
           example: 550e8400-e29b-41d4-a716-446655440000
       requestBody:
         required: true
@@ -5029,7 +5038,7 @@ paths:
                     order_id: ORD-12345
                     order_total: "99.99"
             examples:
-              unique_id:
+              ID:
                 summary: Target by unique user ID
                 value:
                   identifier_type: "ID"
@@ -5037,7 +5046,7 @@ paths:
                   personalized_attributes:
                     first_name: "Alice"
                     order_id: "ORD-12345"
-              moengage_id:
+              MOENGAGE_ID:
                 summary: Target by MoEngage ID
                 value:
                   identifier_type: "MOENGAGE_ID"
@@ -5045,16 +5054,16 @@ paths:
                   personalized_attributes:
                     first_name: "Alice"
                     order_id: "ORD-12345"
-              custom_identifier:
-                summary: Target by a custom identifier attribute
+              ABC_ID:
+                summary: Target by a custom identifier attribute, named as your workspace activated it
                 value:
                   identifier_type: "ABC_ID"
                   recipients: ["John123"]
                   personalized_attributes:
                     first_name: "Alice"
                     order_id: "ORD-12345"
-              with_locale:
-                summary: Select a locale variant
+              ID with locale_name:
+                summary: Any identifier type, selecting a locale variant
                 value:
                   identifier_type: "ID"
                   recipients: ["U-10294"]
@@ -5079,38 +5088,28 @@ paths:
                 properties:
                   response_id:
                     type: string
-                    description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
+                    description: The correlation ID for this request. Returns the `X-MOE-REQUEST-ID` you sent, or a MoEngage-generated UUID when you omit that header. Present on every response, including errors.
                   type:
                     type: string
                     description: The type of object returned in `data`. Always `message` for this endpoint.
                   data:
                     type: object
-                    description: The accepted message instance.
+                    description: The accepted request.
                     required:
-                      - msg_id
                       - campaign_id
-                      - accepted
                       - recipient_count
                     properties:
-                      msg_id:
-                        type: string
-                        description: The message instance ID, used to trace this request.
                       campaign_id:
                         type: string
                         description: The ID of the shell the message was triggered against.
-                      accepted:
-                        type: boolean
-                        description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance only. It does not confirm that the recipient resolves to a user, or that the message is delivered.
                       recipient_count:
                         type: integer
                         description: The number of recipients accepted from the request. A request targets one recipient, so this is `1`. This counts what was accepted, not what resolved to a user.
               example:
-                response_id: 550e8400-e29b-41d4-a716-446655440000
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
                 type: message
                 data:
-                  msg_id: msg_7f3c9a
-                  campaign_id: camp_665f0a
-                  accepted: true
+                  campaign_id: 6a9a8b9100919e1be1bb3f6e
                   recipient_count: 1
 
         "400":
@@ -5151,7 +5150,10 @@ paths:
                     response_id: b8465cf0-8b26-4401-af15-54bc9d8a2d6c
 
         "404":
-          description: The shell does not exist for this workspace, or it is not an ACTIVE API_TRIGGERED campaign. MoEngage returns 404 rather than 403 so that campaign IDs in other workspaces are not disclosed.
+          description: |
+            No campaign exists with this `campaign_id` in your workspace. MoEngage returns `404` rather than `403` for a campaign owned by another workspace, so that campaign IDs are not disclosed.
+
+            A campaign that exists but is not an API-triggered campaign returns `422 CAMPAIGN_NOT_TRIGGERABLE` instead.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -5163,12 +5165,41 @@ paths:
               example:
                 error:
                   code: NOT_FOUND
-                  message: Campaign not found
+                  message: Campaign not found.
                   target: campaign_id
                 response_id: 550e8400-e29b-41d4-a716-446655440000
 
+        "401":
+          description: Authentication failed. The Workspace ID or API key is missing or incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Invalid or missing credentials.
+                  target: Authorization
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+
+        "403":
+          description: The credentials are valid, but the API key is not scoped to the Campaigns API. Add the **Campaigns** scope to the key under **Settings** > **Account** > **API keys**.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: The API key is not authorized for this resource.
+                  target: Authorization
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+
         "422":
-          description: The request is well formed but cannot be processed. `recipients` holds more than one identifier, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
+          description: |
+            The request is well formed but cannot be processed. The campaign exists but is not an API-triggered campaign, `recipients` holds more than one identifier, or a placeholder or locale is not declared on the shell.
+
+            A `campaign_id` that does not exist at all returns `404 NOT_FOUND` instead.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -5177,16 +5208,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TriggerErrorResponse'
-              example:
-                error:
-                  code: RECIPIENT_LIMIT_EXCEEDED
-                  message: recipients accepts exactly one identifier
-                  target: recipients
-                  details:
-                    - code: MAX_EXCEEDED
-                      target: recipients
+              examples:
+                campaign_not_triggerable:
+                  summary: Campaign exists but is not an API-triggered campaign
+                  value:
+                    error:
+                      code: CAMPAIGN_NOT_TRIGGERABLE
+                      message: Campaign is not an API-triggered campaign.
+                      target: campaign_id
+                    response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+                recipient_limit_exceeded:
+                  summary: More than one recipient
+                  value:
+                    error:
+                      code: RECIPIENT_LIMIT_EXCEEDED
                       message: recipients accepts exactly one identifier
-                response_id: 550e8400-e29b-41d4-a716-446655440000
+                      target: recipients
+                      details:
+                        - code: MAX_EXCEEDED
+                          target: recipients
+                          message: recipients accepts exactly one identifier
+                    response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "429":
           description: The request exceeds the per-workspace rate limit. MoEngage rejects the request and does not queue it. Retry after the interval in the Retry-After header.
