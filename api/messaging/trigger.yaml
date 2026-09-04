@@ -77,7 +77,9 @@ paths:
                   maxItems: 1
                   items:
                     type: string
-                    description: The recipient identifier, matching the type declared in `identifier_type`. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
+                    minLength: 1
+                    maxLength: 256
+                    description: The recipient identifier, matching the type declared in `identifier_type`. Must be between 1 and 256 characters. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
                   description: The recipient of this message, as a list holding exactly one identifier. A request targets one recipient. Call the endpoint again for each additional recipient.
                   example: ["U-10294"]
                 locale_name:
@@ -181,7 +183,8 @@ paths:
                   recipient_count: 1
 
         "400":
-          description: Validation failed. The request violates the schema or contains an unknown field.
+          description: |
+            Validation failed. The request violates the schema, contains an unknown field, or carries a recipient identifier that is empty or longer than 256 characters.
           headers:
             X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
             X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
@@ -190,16 +193,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: VALIDATION_FAILED
-                  message: Request validation failed
-                  target: recipients
-                  details:
-                    - code: REQUIRED
-                      target: recipients
-                      message: recipients must not be empty
-                response_id: 550e8400-e29b-41d4-a716-446655440000
+              examples:
+                recipient_too_long:
+                  summary: Recipient identifier over 256 characters
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_long
+                          target: recipients.0
+                          message: String should have at most 256 characters
+                    response_id: a47bf280-0cfd-4326-9445-07de27a7f739
+                recipient_empty:
+                  summary: Recipient identifier is an empty string
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_short
+                          target: recipients.0
+                          message: String should have at least 1 character
+                    response_id: b8465cf0-8b26-4401-af15-54bc9d8a2d6c
 
         "404":
           description: The shell does not exist for this workspace, or it is not an ACTIVE API_TRIGGERED campaign. MoEngage returns 404 rather than 403 so that campaign IDs in other workspaces are not disclosed.
@@ -329,10 +347,12 @@ components:
       properties:
         code:
           type: string
-          description: The machine-readable code for this cause.
+          description: The machine-readable code for this cause, for example `string_too_long` or `string_too_short`.
+          example: string_too_long
         target:
           type: string
-          description: The request field that caused this error.
+          description: The request field that caused this error. An entry in an array is identified by index, for example `recipients.0`.
+          example: recipients.0
         message:
           type: string
           description: A human-readable description of this cause.
