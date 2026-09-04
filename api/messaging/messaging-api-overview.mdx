@@ -117,7 +117,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     A shell does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, because it has no audience and no schedule. Within `delivery_controls`, only `ignore_frequency_capping` and `count_for_frequency_capping` apply. See [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
   </Accordion>
   <Accordion title="Can I edit a shell after publishing it?">
-    Yes. Editing a published shell creates a new shell version, and subsequent trigger requests use the updated content.
+    Yes. Editing a published shell creates a new shell version. The updated content does not take effect instantly, so verify the change before you rely on it in production traffic rather than triggering immediately after publishing.
   </Accordion>
   <Accordion title="How do I stop a shell from accepting trigger requests?">
     Stop it with the `STOP` status action. After you stop a shell, MoEngage rejects trigger requests against it. A shell supports `PUBLISH` and `STOP` only, so it has no paused state and cannot be resumed. See [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5).
@@ -142,8 +142,21 @@ For the full list of supported and unsupported fields, see [API-triggered campai
 ### Triggering Messages
 
 <AccordionGroup>
-  <Accordion title="What does the 202 response mean?">
-    `202 Accepted` means the request is valid and enqueued for asynchronous dispatch, and returns the campaign ID and the accepted recipient count. It is neither a delivery guarantee nor confirmation that the recipient exists: MoEngage does not resolve recipients at the request level, and an invalid recipient is silently dropped later during dispatch. The message is sent after the acknowledgement, and inbox delivery depends on your email provider.
+  <Accordion title="What does a successful trigger response look like?">
+    `202 Accepted` means the request is valid and enqueued for asynchronous dispatch. It is neither a delivery guarantee nor confirmation that the recipient exists: MoEngage does not resolve recipients at the request level, and an invalid recipient is silently dropped later during dispatch.
+
+    ```json
+    {
+      "response_id": "e0a49aa4-46ee-496b-a041-9e3343ce564e",
+      "type": "message",
+      "data": {
+        "campaign_id": "6a9a8b9100919e1be1bb3f6e",
+        "recipient_count": 1
+      }
+    }
+    ```
+
+    `response_id` is the correlation ID for the request, `data.campaign_id` is the shell you triggered, and `data.recipient_count` is the number of recipients accepted. No per-message ID is returned. The message is sent after the acknowledgement, and inbox delivery depends on your email provider.
   </Accordion>
   <Accordion title="Are trigger requests idempotent?">
     Not in this release. MoEngage accepts the `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
@@ -166,7 +179,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     MoEngage sends the message. DND is not evaluated for an API-triggered campaign, so a recipient in a DND window still receives the email. Apply your own suppression before calling the endpoint if you need DND respected.
   </Accordion>
   <Accordion title="How does frequency capping apply?">
-    When the shell sets `ignore_frequency_capping` to `false`, MoEngage evaluates your workspace frequency-cap rules for each recipient at send time and drops the message for recipients who have reached their cap. When the shell sets it to `true`, MoEngage bypasses the cap. Use `count_for_frequency_capping` to control whether a send counts toward a recipient's cap. The `minimum_delay_between_two_notification_in_hour` field is not supported with a non-zero value.
+    When the shell sets `ignore_frequency_capping` to `false`, MoEngage evaluates your workspace frequency-cap rules for each recipient at send time and drops the message for recipients who have reached their cap. When the shell sets it to `true`, MoEngage bypasses the cap. Use `count_for_frequency_capping` to control whether a send counts toward a recipient's cap. The `minimum_delay_between_two_notification_in_hour` field is measured in hours, and `0` or omitting it are the only accepted values.
   </Accordion>
   <Accordion title="How does MoEngage resolve personalization values?">
     MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
@@ -195,7 +208,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     Email only. Use the [Push API](/api/push/push-overview) to send push notifications to individual users.
   </Accordion>
   <Accordion title="Can I get delivery and engagement reports?">
-    Yes. Delivery and engagement events and campaign stats are reported as they are for any other delivery type. The one gap is drops: a message discarded during dispatch, such as one for an unresolvable recipient, is not reported. See [Limitations](#limitations).
+    Partially. Sent, delivered, opened, and clicked events and campaign stats are reported as they are for any other delivery type. Drop events are not: a message discarded for an unresolvable recipient, suppression, or an unsubscribe does not appear in reports. See [Limitations](#limitations).
   </Accordion>
   <Accordion title="Is there a size limit on the request payload?">
     No limit is enforced, and the endpoint does not reject a request on size. Keep HTML bodies under 102 KB as a guideline, because several email clients clip larger messages.
