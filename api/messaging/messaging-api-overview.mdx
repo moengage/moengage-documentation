@@ -84,8 +84,7 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | :--- | :--- |
 | Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
 | Idempotent retries | Not enforced in this early-access release. The `Idempotency-Key` header is accepted and returned as `response_id`, but MoEngage does not deduplicate on it, so retrying an accepted request sends the message again. Send the header on every request so that no integration change is needed once deduplication is enforced. |
-| Campaign reports | Not supported for API-triggered campaigns. |
-| Delivery and engagement callbacks | Not supported. Your application receives no per-message outcome notification, so a recipient dropped during dispatch is not reported back. |
+| Campaign reports | Supported. Delivery and engagement events and campaign stats are reported as for any other delivery type. Messages dropped during dispatch are not reported, so a drop is indistinguishable from a send that produced no engagement. |
 | Recipient validation at request time | Not performed. Recipients are not resolved at the request level, so an invalid recipient is accepted with a `202` and silently dropped during dispatch. |
 | Double opt-in | Not supported. A create request that includes `send_only_double_opt_in_users` is rejected. |
 | Google annotations | Not supported. |
@@ -99,10 +98,8 @@ Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a mes
 | Throttling | Not supported. `campaign_throttle_rpm` does not apply and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing. |
 | Maximum-send caps | Not supported. `campaign_audience_limit` and `limit_send_config` do not apply. |
 | Do Not Disturb | Not evaluated. MoEngage sends the message regardless of the recipient's DND state, and a create request that sets `bypass_dnd` to `true` is rejected because the flag has no effect. |
-| Minimum delay between messages | Not supported with a non-zero value. |
-| Pausing a shell | The `PAUSE` and `RESUME` status actions are not supported. Stop the shell instead. |
 | Test sends | Test Campaign is not supported. A draft-mode test against a shell returns an error, and an inline-mode test returns no error but does not exercise the shell. Publish the shell and trigger it against a recipient you control instead. |
-| File uploads | Not supported. Reference images and attachments by URL. |
+| File upload | Not supported. Attachments and images are supported, but you add them by referencing a publicly accessible URL rather than uploading a file. |
 
 For the full list of supported and unsupported fields, see [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
 
@@ -194,7 +191,7 @@ For the full list of supported and unsupported fields, see [API-triggered campai
     Email only. Use the [Push API](/api/push/push-overview) to send push notifications to individual users.
   </Accordion>
   <Accordion title="Can I get delivery and engagement reports?">
-    No. Campaign reporting and per-message delivery callbacks are not available for API-triggered campaigns. Use your email provider's reporting. See [Limitations](#limitations).
+    Yes. Delivery and engagement events and campaign stats are reported as they are for any other delivery type. The one gap is drops: a message discarded during dispatch, such as one for an unresolvable recipient, is not reported. See [Limitations](#limitations).
   </Accordion>
   <Accordion title="Is there a size limit on the request payload?">
     No limit is enforced, and the endpoint does not reject a request on size. Keep HTML bodies under 102 KB as a guideline, because several email clients clip larger messages.
