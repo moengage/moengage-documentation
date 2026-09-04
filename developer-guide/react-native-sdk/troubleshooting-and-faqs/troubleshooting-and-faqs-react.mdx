@@ -1,6 +1,7 @@
 ---
 title: "Troubleshooting and FAQs - React Native"
-description: "Find answers to common MoEngage React Native SDK issues with push, callbacks, and in-app messages."
+description: "Find answers to common MoEngage React Native SDK issues with push, callbacks, in-app messages, and iOS build configuration."
+keywords: ["Unsupported Swift Architecture", "framework not found", "arm64", "ONLY_ACTIVE_ARCH", "MoEngageKMMConditionEvaluator", "MoEngageInitializer", "undeclared identifier", "Podfile post_install", "EXCLUDED_ARCHS"]
 ---
 
 import MoeDebuggerActivityFaq from '/snippets/moe-debugger-activity-hybrid-faq.mdx';
@@ -32,3 +33,81 @@ Sample code for inapp/nudge callbacks - [GitHub](https://github.com/moengage/Rea
 # Android - What is MoEDebuggerActivity?
 
 <MoeDebuggerActivityFaq sdk="React Native" />
+
+# iOS - Why does the build fail with "Unsupported Swift Architecture" or "framework not found"?
+
+Errors such as `Unsupported Swift Architecture`, `framework 'MoEngageKMMConditionEvaluator' not found`, and `framework 'MoEngageRichNotification' not found` usually mean that your Xcode project excludes the `arm64` architecture or builds for architectures that the MoEngage iOS SDK doesn't ship.
+
+First, check the `post_install` hook in your `Podfile` for lines that set `EXCLUDED_ARCHS` or `ONLY_ACTIVE_ARCH`. This hook runs on every `pod install` and overrides the values you set in Xcode. To apply the correct settings to all Pods targets, use the following hook:
+
+<CodeGroup>
+
+```ruby Podfile
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = ''
+    end
+  end
+end
+```
+
+</CodeGroup>
+
+Next, open `ios/YourApp.xcworkspace` in Xcode, not the `.xcodeproj`. In the **Project Navigator**, select your app project and apply the following settings to every target, including the app target and the notification service and content extensions. Then select the **Pods** project and repeat these settings for its targets:
+
+- **Excluded Architectures (`EXCLUDED_ARCHS`)**: Remove `arm64` from this list. iPhone and iPad devices and Apple silicon simulators require `arm64`, and MoEngage iOS SDK v10.x.x and above ship only `arm64` slices.
+- **Build Active Architecture Only (`ONLY_ACTIVE_ARCH`)**: Set this to **Yes** so that Xcode builds only for the architecture of the selected device or simulator.
+- **Architectures (`ARCHS`)**: Set this to `ARCHS_STANDARD`, or add `arm64` to the list.
+
+After you change these settings, select **Product > Clean Build Folder** in Xcode, run `pod install` from the `ios` directory, and build again.
+
+<Warning>
+  Don't set `MoEngageKMMConditionEvaluator` to **Do Not Embed**. This clears the framework-not-found error, but the framework evaluates trigger conditions for trigger-based in-app messages and push campaigns. Without it, those campaigns aren't displayed.
+</Warning>
+
+If the build fails on `arm64` in your CI pipeline but succeeds in Xcode on your machine, check the Xcode version on the build agent. Build agents often run an older version. Update the agent to a current stable version of Xcode, and at minimum to the version you build with locally.
+
+Refer to [Configuring Project for Architecture Compatibility](/developer-guide/ios-sdk/sdk-integration/basic/Configuring-Project-for-Architecture-Compatibility) for the full architecture configuration procedure, including Intel-based Mac limitations.
+
+# iOS - Why does the build fail with "Use of undeclared identifier 'MoEngageInitializer'"?
+
+This error occurs when the MoEngage import in `ios/YourApp/AppDelegate.m` or `AppDelegate.mm` is inside or after the `#if RCT_NEW_ARCH_ENABLED` block. If your app doesn't use the React Native new architecture, this condition is false and the compiler skips the import, so `MoEngageInitializer` is never declared.
+
+Move the import above the `#if RCT_NEW_ARCH_ENABLED` block:
+
+<CodeGroup>
+
+```objectivec AppDelegate.mm
+#import "AppDelegate.h"
+#import <ReactNativeMoEngage/MoEngageInitializer.h>
+#import <MoEngageSDK/MoEngageSDK.h>
+
+#if RCT_NEW_ARCH_ENABLED
+// React Native new architecture imports
+#endif
+```
+
+</CodeGroup>
+
+# iOS - Why is the ReactNativeMoEngage header not found after a plugin upgrade?
+
+Errors such as `'ReactNativeMoEngage/MoEngageInitializer.h' file not found` after a plugin upgrade have two common causes:
+
+- **The header name changed across plugin versions.** Older plugin versions use `MOReactInitializer.h` and current versions use `MoEngageInitializer.h`. Update the import in `ios/YourApp/AppDelegate.m` or `AppDelegate.mm` to match the version you installed. Refer to [iOS initialization](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/manual-initialization/ios) for the current import and initialization code.
+- **The target can't resolve the header path.** In **Build Settings** for the `ReactNativeMoEngage` target, check that `$(inherited)` is present in both **Header Search Paths** and **Library Search Paths** so that the target picks up the paths generated by CocoaPods. Also check that the `ReactNativeMoEngage` pod is listed in the `Pods` project after you run `pod install`. If the pod is missing, the install didn't link the plugin.
+
+To re-link the plugin after upgrading, run the following commands from your project root:
+
+<CodeGroup>
+
+```shellscript Shell
+rm -rf ios/Pods ios/Podfile.lock
+npm install
+cd ios && pod install --repo-update
+```
+
+</CodeGroup>
+
+Then clean the build folder in Xcode and build again.
