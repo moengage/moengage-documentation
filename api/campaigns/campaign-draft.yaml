@@ -51,6 +51,23 @@ security:
   - BasicAuth: []
 
 components:
+  headers:
+    XRateLimitLimit:
+      description: The request limit per minute for your workspace.
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: The requests remaining in the current window.
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: The seconds until the current rate-limit window resets.
+      schema:
+        type: integer
+    RetryAfter:
+      description: The seconds to wait before retrying the request.
+      schema:
+        type: integer
   securitySchemes:
     BasicAuth:
       type: http
@@ -3268,6 +3285,53 @@ components:
           description: Human-readable summary of the test send operation.
           example: "Test campaign processed"
 
+    TriggerErrorResponse:
+      type: object
+      description: The standard error envelope returned by this endpoint.
+      properties:
+        error:
+          type: object
+          description: The error that caused the request to fail.
+          required:
+            - code
+            - message
+            - target
+          properties:
+            code:
+              type: string
+              description: |
+                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, or `RATE_LIMITED`.
+            message:
+              type: string
+              description: A human-readable description of the error.
+            target:
+              type: string
+              description: The request field or header that caused the error. Always present.
+            details:
+              type: array
+              description: The individual field failures, each with its own `target` and `message`. Present only when more than one field failed validation.
+              items:
+                $ref: '#/components/schemas/TriggerErrorDetail'
+        response_id:
+          type: string
+          description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
+
+    TriggerErrorDetail:
+      type: object
+      description: A single field-level cause of an error.
+      properties:
+        code:
+          type: string
+          description: The machine-readable code for this cause, for example `string_too_long` or `string_too_short`.
+          example: string_too_long
+        target:
+          type: string
+          description: The request field that caused this error. An entry in an array is identified by index, for example `recipients.0`.
+          example: recipients.0
+        message:
+          type: string
+          description: A human-readable description of this cause.
+
   responses:
     V5ValidationError:
       description: Request failed schema or component validation.
@@ -4877,6 +4941,284 @@ paths:
                   details: []
         '500':
           $ref: '#/components/responses/V5InternalError'
+
+  /v5/campaigns/{campaign_id}/send:
+    post:
+      summary: Trigger Message
+      operationId: triggerMessage
+      tags:
+        - Trigger
+      description: |
+        Trigger a message against a published `API_TRIGGERED` campaign shell.
+
+        Create a shell through the [Campaigns V5 API](/api/campaigns/campaign-draft-overview), then trigger messages against its `campaign_id`. A shell is reusable and supports repeated trigger requests. See the [Messaging API Overview](/api/messaging/messaging-api-overview).
+
+        <Info>
+          This API is in early access and supports Email only. Contact your Customer Success Manager to enable it for your workspace.
+        </Info>
+
+        #### Rate Limit
+
+        The default rate limit is 5,000 requests per minute per workspace. A request targets one recipient, so the limit is also the maximum number of messages you can trigger per minute.
+
+        MoEngage rejects requests above the limit with `429` and does not queue them. Contact your Customer Success Manager to raise the limit.
+
+        Every response carries the `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of a published API_TRIGGERED shell.
+          example: camp_665f0a
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: A unique key for this request (UUID v4), returned as `response_id` so you can correlate the request and the response. Deduplication is not enforced in this early-access release, so sending the same key a second time sends the message a second time. Send the header on every request so that no integration change is needed once deduplication is enforced.
+          example: 550e8400-e29b-41d4-a716-446655440000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - identifier_type
+                - recipients
+              properties:
+                identifier_type:
+                  type: string
+                  description: |
+                    The identifier used to resolve the recipient. Accepts one of:
+
+                    - `ID`, the unique user ID. Always active in every workspace.
+                    - `MOENGAGE_ID`, the MoEngage-generated user ID.
+                    - The name of any user attribute activated as an identifier in your workspace, for example `ABC_ID`. Send the attribute name itself, not a generic value.
+
+                    A workspace can activate up to five identifiers, configured under Unified Identity. To find the names available to you, see [Unified Identity](/user-guide/data/user-data/unified-identity-identity-resolution).
+                  example: ID
+                recipients:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 256
+                    description: The recipient identifier, matching the type declared in `identifier_type`. Must be between 1 and 256 characters. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
+                  description: The recipient of this message, as a list holding exactly one identifier. A request targets one recipient. Call the endpoint again for each additional recipient.
+                  example: ["U-10294"]
+                locale_name:
+                  type: string
+                  description: The locale variant of the shell to render. Optional.
+                  example: en_US
+                personalized_attributes:
+                  type: object
+                  description: Values for the shell's placeholders. A value can be fully resolved or can contain personalization tokens that MoEngage resolves for each recipient.
+                  additionalProperties:
+                    oneOf:
+                      - type: string
+                      - type: number
+                  example:
+                    first_name: Alice
+                    order_id: ORD-12345
+                    order_total: "99.99"
+            examples:
+              unique_id:
+                summary: Target by unique user ID
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              moengage_id:
+                summary: Target by MoEngage ID
+                value:
+                  identifier_type: "MOENGAGE_ID"
+                  recipients: ["64a1b2c3d4e5f6a7b8c9d0e4"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              custom_identifier:
+                summary: Target by a custom identifier attribute
+                value:
+                  identifier_type: "ABC_ID"
+                  recipients: ["John123"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              with_locale:
+                summary: Select a locale variant
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  locale_name: "en_US"
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+      responses:
+        "202":
+          description: |
+            Accepted and enqueued for asynchronous dispatch.
+
+            **An invalid recipient is silently dropped.** MoEngage does not resolve recipients at the request level, so a `202` never confirms that the identifier matches a user. If the identifier matches no user, MoEngage discards the message during dispatch without returning an error, without a `4xx`, and without any notification to your application. The message simply never arrives. A recipient dropped by frequency capping or suppression behaves the same way.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
+                  type:
+                    type: string
+                    description: The type of object returned in `data`. Always `message` for this endpoint.
+                  data:
+                    type: object
+                    description: The accepted message instance.
+                    required:
+                      - msg_id
+                      - campaign_id
+                      - accepted
+                      - recipient_count
+                    properties:
+                      msg_id:
+                        type: string
+                        description: The message instance ID, used to trace this request.
+                      campaign_id:
+                        type: string
+                        description: The ID of the shell the message was triggered against.
+                      accepted:
+                        type: boolean
+                        description: Whether MoEngage accepted the request and enqueued it. This confirms acceptance only. It does not confirm that the recipient resolves to a user, or that the message is delivered.
+                      recipient_count:
+                        type: integer
+                        description: The number of recipients accepted from the request. A request targets one recipient, so this is `1`. This counts what was accepted, not what resolved to a user.
+              example:
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+                type: message
+                data:
+                  msg_id: msg_7f3c9a
+                  campaign_id: camp_665f0a
+                  accepted: true
+                  recipient_count: 1
+
+        "400":
+          description: |
+            Validation failed. The request violates the schema, contains an unknown field, or carries a recipient identifier that is empty or longer than 256 characters.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              examples:
+                recipient_too_long:
+                  summary: Recipient identifier over 256 characters
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_long
+                          target: recipients.0
+                          message: String should have at most 256 characters
+                    response_id: a47bf280-0cfd-4326-9445-07de27a7f739
+                recipient_empty:
+                  summary: Recipient identifier is an empty string
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_short
+                          target: recipients.0
+                          message: String should have at least 1 character
+                    response_id: b8465cf0-8b26-4401-af15-54bc9d8a2d6c
+
+        "404":
+          description: The shell does not exist for this workspace, or it is not an ACTIVE API_TRIGGERED campaign. MoEngage returns 404 rather than 403 so that campaign IDs in other workspaces are not disclosed.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Campaign not found
+                  target: campaign_id
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "422":
+          description: The request is well formed but cannot be processed. `recipients` holds more than one identifier, a placeholder or locale is not declared on the shell, or the shell is not triggerable.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: RECIPIENT_LIMIT_EXCEEDED
+                  message: recipients accepts exactly one identifier
+                  target: recipients
+                  details:
+                    - code: MAX_EXCEEDED
+                      target: recipients
+                      message: recipients accepts exactly one identifier
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "429":
+          description: The request exceeds the per-workspace rate limit. MoEngage rejects the request and does not queue it. Retry after the interval in the Retry-After header.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "500":
+          description: Server error. Retrying the request may send the message more than once, because this endpoint does not deduplicate retries.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: An unexpected error occurred
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
   /v5/campaigns/search:
     post:
