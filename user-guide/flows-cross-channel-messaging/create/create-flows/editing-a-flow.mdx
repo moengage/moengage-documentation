@@ -23,7 +23,9 @@ This improves operational efficiencies when experimenting and optimizing custome
 
 When a published flow is edited, a new version is created. For example, on adding or deleting a stage or changing the Flows settings (like conversion tracking and control group), a new version of the flow is created regardless of whether the changes are saved.
 
-When you are done with all the changes, you can publish the newly created version. When published, the new users that satisfy the entry condition will enter the latest published version while the already existing users in the previous flow will continue to move ahead within that version only.
+When you are done with all the changes, you can publish the newly created version. When published, the new users that satisfy the entry condition will enter the latest published version.
+
+For users who are already active in the previous version, you decide what happens at the time you publish. You can either let them finish the version they are in, or move them into the new version. For more information, refer to [Publishing a new version](/user-guide/flows-cross-channel-messaging/create/create-flows/editing-a-flow#publishing-a-new-version).
 
 When a new version is created for the Flow, the following happens:
 
@@ -36,7 +38,7 @@ When a new version is created for the Flow, the following happens:
   | --- | --- |
   | View changes | Lets you view the version logs. |
   | Delete | It lets you delete the saved version. Once deleted, the version cannot be recovered. |
-  | Publish | Let's you publish the draft version and [retire](/user-guide/flows-cross-channel-messaging/create/create-flows/status-of-flows#retiring-a-flow) the currently active version of the Flow.  <br />**Note:** If the previous version is in [paused status](/user-guide/flows-cross-channel-messaging/create/create-flows/status-of-flows#pause%2Fresume), publishing the draft version will stop the previous version. |
+  | Publish | Lets you publish the draft version. MoEngage [retires](/user-guide/flows-cross-channel-messaging/create/create-flows/status-of-flows#retiring-a-flow) the currently active version only when the version you publish becomes active. If you schedule the new version, the current version stays active until the scheduled time.  <br />**Note:** If the previous version is in [paused status](/user-guide/flows-cross-channel-messaging/create/create-flows/status-of-flows#pause%2Fresume), publishing the draft version will stop the previous version. |
   | Save | Allows you to save the changes to the current version of the Flow. |
   | Duplicate | It lets you duplicate the current version of the Flow.  <br />**Note**: A duplicate flow of the current version will be created. However, the duplicated Flow will not contain all the versions of the Flow being duplicated. The duplicate Flow will only have the information contained in the current flow version being duplicated. |
 
@@ -65,12 +67,151 @@ The following actions will lead to the creation of a new version:
 | Controls (Wait for/till, Goto, Intelligent Path Optimizer (IPO), A/B Split) | <ul><li>Changing the settings of Wait Till/For stage</li><li>Changing the Goto Destination</li><li>Switching A/B split to IPO</li><li>Changing the User distribution between AB Split branches</li><li>Adding or deleting a branch of AB split/IPO</li><li>Changing the Metric maximized by Merlin AI</li></ul> |
 
 <Info>
-      - Versioning is not applicable for the following flow statuses: Stopped, Retired, Completed, and Draft, and also for the 'One-time' time-based Entry flows.
+      - Versioning is not applicable for the following flow statuses: Stopped, Retired, Completed, and Draft, and also for the 'One-time' time-based Entry flows. To bring back an earlier version of an active flow, refer to [Restoring a previous version](/user-guide/flows-cross-channel-messaging/create/create-flows/editing-a-flow#restoring-a-previous-version).
       - The Entry Type cannot be changed for a published Flow.
       - Changing the control group settings or the User Entry Limit condition in a Scheduled Flow will not create a new version.
       - For active and paused flows, the Flow's schedule settings cannot be edited except for the 'End Date' for periodic times.
       - Changes to flow name, flow status, DND, and FC settings, and changes in the content of existing action campaigns, do not lead to creating new versions of the Flow.
 </Info>
+
+## Publishing a New Version
+
+When you publish a new version, MoEngage asks what should happen to the users who are still active in the previous version.
+
+<Info>
+  Creating a version requires Create access in the Campaigns module. Publishing it, and with it choosing what happens to the active users, requires Publish access. Anyone with View access can see the version's stats.
+</Info>
+
+To publish a new version, perform the following steps:
+
+1. On the flow canvas, click **Actions**, and then click **Publish**.
+
+   ![Flow canvas with the Actions menu open and the Publish option highlighted](/images/flows-versioning-publish-action.png)
+
+2. In the **Publish new version** dialog box, select one of the following options:
+
+   | Option | What happens |
+   | --- | --- |
+   | Let them continue on the previous version | MoEngage marks the previous version **Completed** after all active users exit. |
+   | Move them to this version as soon as possible | Active users move to this version immediately, or after any pending delays in their current stage. Users with no matching stage exit the flow. |
+
+3. Click **Publish**.
+
+   ![Publish new version dialog box showing the two options for handling active users on the previous version](/images/flows-versioning-publish-dialog.png)
+
+There is no default selection, so you must choose one of the two options before you can publish. The choice applies only when the new version becomes active, not at the moment you publish it.
+
+<Note>
+  The choice affects only the version published immediately before this one. If you publish Version 3, it applies to the active trips in Version 2 and not to any earlier version.
+</Note>
+
+If you schedule the version, the dialog box states the date and time it goes live, and the current version stays active until then. The dialog box also lists the resulting status of each version, so you can confirm which version retires and which becomes active before you publish.
+
+### How Users Move Between Versions
+
+When you choose to move active users, where each user lands depends on the change you made. Users at a wait stage, at a condition stage with **Keep Evaluating For** turned on, or at an action stage where DND is not ignored move only after their pending delay ends.
+
+| Change you made | Where active users go |
+| --- | --- |
+| Added a stage | Users who have not yet reached the new stage pass through it. Users who are already past that point continue downwards in the new version. |
+| Deleted a stage | Users at or just above the deleted stage move to the new child of the stage they are in. Users past that point continue downwards. |
+| Deleted a branch | Users who match a branch that still exists continue. Users who match the deleted branch, or who are already inside it, drop off. |
+| Updated a stage's configuration | Users already in the edited stage follow the configuration that applied when they entered. Everyone else follows the new configuration. |
+
+MoEngage raises the **User Exited Flow** event for each user who leaves the previous version, with one of the following exit reasons:
+
+- **Move to new version**, when the user enters the new version.
+- **Dropped off as the path was no longer defined**, when no matching stage exists for the user in the new version.
+
+MoEngage attributes drop-offs to the version the user left. You can find these users in Behavior Analytics by querying the **User Exited Flow** event with the exit reason, constrained on the flow ID.
+
+### Sending a New Version for Approval
+
+If your workspace uses the campaign approval workflow, **Actions** shows **Send for approval** instead of **Publish**, and the dialog box has the following two steps: **Manage users from previous version** and **Send for approval**.
+
+To send a new version for approval, perform the following steps:
+
+1. Under **Manage users from previous version**, select one of the two options, and then click **Next**.
+
+   ![Manage users from previous version step showing the two options and the Next button](/images/flows-versioning-approval-manage-users.png)
+
+2. Under **Select Approvers**, type the approver's name in the **Start typing to filter approvers** box, and then click **\+ Add** beside the approver.
+
+   ![Send for approval step showing the approver list with the Add option and the empty Selected Approvers panel](/images/flows-versioning-approval-select-approvers.png)
+
+3. Click **Send for approval**.
+
+   ![Send for approval step with an approver added and the Send for approval button available](/images/flows-versioning-approval-send.png)
+
+The approvers you add appear under **Selected Approvers**, and **Send for approval** stays unavailable until you add at least one. To remove an approver, click the minus icon on their avatar, and to change the user movement choice, click **Previous**.
+
+<Note>
+  The approver can publish the version without telling you first, which makes the flow active and sends you an email. MoEngage asks for the user movement choice every time the version goes for review, so you answer it again when you edit a version that is already under review or resubmit one that an approver rejected.
+</Note>
+
+### Viewing the Choice Later
+
+Flow Settings shows the option you selected when you published the version, so you can check the decision later without republishing the flow.
+
+To view the choice, perform the following steps:
+
+1. Open the flow, and then click **Settings**.
+
+   ![Flow page with the Settings option beside the Flow, Stats and Debug Flows tabs](/images/flows-versioning-settings-tab.png)
+
+2. Scroll to **Users movement from previous version to this version**, and then check which option is selected.
+
+   ![Flow Settings panel showing the Users movement from previous version to this version options in a read-only state](/images/flows-versioning-settings-user-movement.png)
+
+Both options are read only, so you cannot change the choice after you publish the version. The field appears only on flows that have two or more versions. Approvers use it to see the decision before they approve a version.
+
+## Restoring a Previous Version
+
+If a newer version is not performing as expected, you can bring back an earlier version instead of rebuilding it. Restoring copies that version into a new draft, which you can then edit and publish like any other version.
+
+To restore a previous version, perform the following steps:
+
+1. Beside the flow name, click the version selector, and then select the version you want to restore.
+
+   ![Version selector listing each version with its status, and the details of the selected version](/images/flows-versioning-version-selector.png)
+
+2. Click **Actions**, and then click **Restore as draft**.
+
+   ![Actions menu showing the Restore as draft option below Pause, Retire, Stop, Duplicate and Export](/images/flows-versioning-restore-action.png)
+
+3. In the **Restore as draft** dialog box, click **Restore as draft**.
+
+   ![Restore as draft dialog box confirming that restoring creates a new version in draft state](/images/flows-versioning-restore-confirm.png)
+
+The dialog box names the version number it creates. MoEngage copies the version you selected into that new version in **Draft** status, and the draft stays inactive until you publish it.
+
+<Info>
+  - **Restore as draft** requires Create access in the Campaigns module.
+  - The option is available while the latest version is active, scheduled, or paused.
+  - The option is not available when the latest version is stopped.
+  - If the latest version is retired, the option appears only when editing a retired flow is enabled for your workspace.
+</Info>
+
+## Stopping a Flow That Has Active Older Versions
+
+Stopping the latest version also stops every older version of the flow, so that users still active in an earlier version do not keep receiving messages from it.
+
+MoEngage shows this confirmation only when an earlier version still has active trips. When no earlier version has active trips, stopping the flow shows the standard confirmation described in [Stop](/user-guide/flows-cross-channel-messaging/create/create-flows/status-of-flows#stop).
+
+To stop the flow, perform the following steps:
+
+1. Click **Actions**, and then click **Stop**.
+2. In the **Stop all versions of this flow?** dialog box, click **Stop Flow**.
+
+   ![Stop all versions of this flow dialog box listing what happens when you stop the flow](/images/flows-versioning-stop-all-versions.png)
+
+After you stop the flow, the following happens:
+
+- No new users enter the flow.
+- Active users in all versions stop at their current stage.
+- You cannot resume or edit the flow later.
+
+You can still duplicate the flow afterwards.
 
 ## Switching between versions
 
