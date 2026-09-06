@@ -1,0 +1,112 @@
+---
+title: "Troubleshoot iOS Push Notifications"
+description: "Fix common iOS push delivery, impression, and rich-template issues across native iOS, React Native, and Flutter, for MoEngage iOS SDK 7.x–9.x."
+keywords: "iOS push troubleshooting, notification service extension, notification content extension, app group id, MORichNotification, rich push templates"
+---
+
+Use this page when iOS push notifications fail to deliver, impressions aren't tracked, or rich templates don't render. Pick the tab that matches your app's framework — each tab covers MoEngage iOS SDK versions 7.x, 8.x, and 9.x, with version-specific code called out inline.
+
+<Info>
+  For push impressions to be tracked, turn on the **Show iOS impressions** toggle on the MoEngage dashboard.
+  <img alt="Show iOS impressions toggle" src="/images/moengage_74b27d.png" />
+</Info>
+
+## Common Push Notification Issues
+
+Covers failed delivery, missing impressions, deep linking, and images not rendering.
+
+<Tip>
+  **Impressions not tracked, or images not rendering?** First identify your SDK version — open `podfile.lock` and find the `MoEngage-iOS-SDK` entry — and confirm whether a Notification Service Extension is implemented. Then follow the steps in your framework's tab below.
+</Tip>
+
+<Tabs>
+  <Tab title="Native iOS">
+    1. **Check `app_group_id` in your project's main target** for each configuration. You can use the same or different IDs across configurations, but two apps with *different* Bundle Identifiers sharing the *same* `app_group_id` will break the Notification Service Extension on the same device.
+    2. **Check `app_group_id` during SDK initialization** — in `info.plist` (under the MoEngage key) if you initialize via plist, or in the `sdkConfig` variable in `AppDelegate` if you initialize via config:
+       <CodeGroup>
+       ```swift Swift
+       var sdkConfig = MoEngageSDKConfig.init(appId: "XXXXXXXXXXXXXXXX", dataCenter: .data_center_0X)
+       sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+       ```
+       ```objc Objective-C
+       MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"XXXXXXXXXXXXXXXX" dataCenter: MoEngageDataCenterData_center_0X];
+       sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+       ```
+       </CodeGroup>
+    3. **Add a Notification Service Extension target** — enable Push Notifications and add the App Group ID under its Signing & Capabilities, and match its minimum deployment iOS version to the main app.
+    4. **Integrate `MORichNotification`** into the Notification Service Extension target via your Podfile, and set the App Group ID in `NotificationService.swift`.
+    5. **Check Build Phases** on the main app target — under Embed App Extensions, ensure **Copy only when installing** is unchecked.
+    6. **Keep `appGroupId` consistent** across all schemes/configurations (Debug/Release/QA/UAT), and align the Build Configuration of the main target and the extension.
+    {/* Verbatim NotificationService.swift + Podfile snippets to be lifted from source pages ios-swift-version-9xx / ios-objective-c-version-9xx during execution. 7.x & 8.x class-name differences (MoEngage -> MOMessaging -> MoEngageSDKMessaging) are called out inline as in the React Native tab. */}
+  </Tab>
+  <Tab title="React Native">
+    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `info.plist`. If that fixes delivery, you're done; otherwise continue.
+    2. **Set `UNUserNotificationCenterDelegate`** in `didFinishLaunchingWithOptions` (before MoEngage init; if you init Firebase here, do it first). MoEngage initialization differs by SDK version:
+       ```swift React Native · AppDelegate.swift
+       UNUserNotificationCenter.current().delegate = self
+       // 8.x.x and 9.x.x
+       MoEngageInitializer.sharedInstance().initializeDefaultInstance(launchOptions)
+       // 7.x.x — set MoEngage properties in Info.plist, then:
+       MOReactInitializer.sharedInstance().intializeSDK(withLaunchOptions: launchOptions)
+       ```
+    3. **Extend `AppDelegate`** to conform to `UNUserNotificationCenterDelegate`.
+    4. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `info.plist`.
+    5. **Pass the push token manually** in `didRegisterForRemoteNotificationsWithDeviceToken` — the class name changes by version:
+       ```swift React Native
+       // 7.x.x
+       MoEngage.sharedInstance().setPushToken(deviceToken)
+       // 8.x.x
+       MOMessaging.sharedInstance.setPushToken(deviceToken)
+       // 9.x.x
+       MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+       ```
+    6. **Implement the `UNUserNotificationCenter` delegate functions** (`willPresent` for foreground display, `didReceive` to forward the response to MoEngage using the version-specific class above).
+  </Tab>
+  <Tab title="Flutter">
+    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `info.plist`, then test.
+    2. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `info.plist`.
+    3. **Override `didRegisterForRemoteNotificationsWithDeviceToken`** in `AppDelegate` and pass the token (class name changes by version):
+       ```swift Flutter · AppDelegate
+       override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+         super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+         // 7.x.x  MoEngage.sharedInstance().setPushToken(deviceToken)
+         // 8.x.x  MOMessaging.sharedInstance.setPushToken(deviceToken)
+         // 9.x.x  MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+       }
+       ```
+    4. **Override the `UNUserNotificationCenter` delegate functions** (`willPresent` and `didReceive`) in `AppDelegate`, forwarding `didReceive` to the version-specific MoEngage class.
+  </Tab>
+</Tabs>
+
+## Rich Push Template Issues
+
+If push templates (carousels, background/font colors) don't render, the fix depends on whether you've already added a Notification Content Extension.
+
+<Tabs>
+  <Tab title="Content Extension not yet added">
+    1. **Create a Notification Content Extension target.** Name it (Swift is recommended — it works with Objective-C projects too), add the App Group ID under Signing & Capabilities, and match its minimum deployment iOS version to the main app.
+    2. **Integrate `MORichNotification`** — add the Content Extension as a separate target in your Podfile and install `MoEngageRichNotification`.
+    3. **Update `NotificationViewController.swift`** — set the App Group ID in `viewDidLoad`, and call `MoEngageSDKRichNotification.addPushTemplate(toController:withNotification:)` in `didReceive`.
+    4. **Edit `MainInterface.storyboard`** — remove the default label and set the View's background color to clear.
+    5. **Add the `NSExtensionAttributes`** to the extension's `info.plist`:
+       ```xml Info.plist
+       <key>UNNotificationExtensionCategory</key>
+       <string>MOE_PUSH_TEMPLATE</string>
+       <key>UNNotificationExtensionDefaultContentHidden</key>
+       <true/>
+       <key>UNNotificationExtensionInitialContentSizeRatio</key>
+       <real>1.2</real>
+       <key>UNNotificationExtensionUserInteractionEnabled</key>
+       <true/>
+       ```
+    6. **Check Build Phases, `appGroupId` consistency, and Build Configuration** as in the Common Push Notification Issues tab.
+  </Tab>
+  <Tab title="Content Extension already added">
+    Verify each of the following:
+    1. The Content Extension's `info.plist` contains the `NSExtensionAttributes` block above (`MOE_PUSH_TEMPLATE` category, hidden default content, `1.2` size ratio, interaction enabled).
+    2. In `MainInterface.storyboard`, the default label is removed and the View's background is clear.
+    3. In the main app target's Build Phases, **Copy only when installing** is unchecked under Embed App Extensions.
+    4. The `appGroupId` is consistent across all schemes/configurations.
+    5. The Build Configuration for the main target, Notification Service Extension, and Notification Content Extension all point to the same scheme/configuration.
+  </Tab>
+</Tabs>

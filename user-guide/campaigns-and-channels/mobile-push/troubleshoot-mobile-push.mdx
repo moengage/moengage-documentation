@@ -1,0 +1,91 @@
+---
+title: "Troubleshoot Mobile Push"
+description: "Diagnose and fix mobile push delivery, rendering, impression, deep link, and token issues on Android and iOS."
+keywords: "push not received, blank notification, push rendering, impressions dropping, deeplink, token drop, killed state"
+---
+
+Use this page to diagnose mobile push issues. Jump to the relevant section from the contents. For error codes shown in a campaign's failure breakdown, see [Mobile Push Error Reference](/user-guide/campaigns-and-channels/mobile-push/mobile-push-error-reference).
+
+## Delivery
+
+### Why aren't end users receiving push notifications?
+
+Notifications accepted by FCM or APNs can still fail to reach a device. Common causes:
+
+- **User and device settings** — notifications blocked at the OS level, or aggressive battery optimization / Doze mode restricting background activity.
+- **Network and server-side** — the device needs a persistent connection to Google/Apple servers; Google estimates up to 15% of users aren't connected at any given time. Notifications also expire when their Time to Live (TTL) lapses, and there's a lag before FCM/APNs marks a token inactive after an uninstall.
+- **Manufacturer-specific** — some Lenovo, Micromax, ASUS, and Vivo models show delivery failure rates of 90–99% due to aggressive power/memory management. This is beyond MoEngage's control.
+- **Corporate firewalls** — strict outer firewalls can reject push packets.
+
+Deliverability correlates strongly with user recency: the more recently a user engaged with the app, the more reachable their device.
+
+### Why don't push notifications work when the app is killed (Android)?
+
+Push works in the foreground and background but not when the app is killed — typically with Hybrid SDK integrations.
+
+- If you use React Native methods to pass the push payload, let MoEngage handle the payload instead, or use Android native methods.
+- Ensure the MoEngage SDK is initialized in the Application class's `onCreate()` method, on the main thread. See [SDK Initialization](/developer-guide/android-sdk/sdk-integration/basic-integration/sdk-initialization).
+
+### Why are Android users receiving blank notifications?
+
+Usually the silent push MoEngage sends to track uninstalls isn't handled on the app side when your app controls notification display.
+
+1. Confirm the cause by [testing the silent push](/user-guide/settings/analytics/uninstall-tracking). While testing, disable **Settings > Analytics and Data > Uninstall tracking > Android Uninstall Tracking**.
+2. Handle the silent push as described in [Push Display Handled by Application](/developer-guide/android-sdk/push/advanced/push-display-handled-by-application), then re-enable Android Uninstall Tracking once all users are on the updated app version.
+
+Blank notifications can also appear when your app receives push from multiple providers — ensure the app doesn't display a notification when the push is from MoEngage's silent channel.
+
+### Why do push notification tests fail for mobile numbers?
+
+If a test push shows `Installed User not found for Mobile Number = …`, send the test using the user's unique **ID** (shown on the user profile) rather than the Mobile Number attribute. The unique ID determines whether a user can receive push.
+
+## Rendering and Images
+
+### Why do push templates have rendering issues on Android?
+
+Custom push templates are constrained by Android's custom-notification guidelines, so they render differently from basic notifications.
+
+| Notification type | Collapsed height | Expanded height |
+| --- | --- | --- |
+| Native (Basic) | 100 dp | ~300 dp |
+| Custom — SDK below 11.4.02 / templates below 2.4.0 | 64 dp | 256 dp |
+| Custom — SDK 11.4.02+ / templates 2.4.0+ | 100 dp | 287 dp |
+
+- **Image cropping** — in expanded mode the image area is 192 dp (no buttons) or 152 dp (with buttons), so images may crop. Use a ~2:1 aspect ratio and center the content.
+- **100 dp templates** render only on whitelisted OEMs (currently Google, OnePlus, Samsung, Oppo, Vivo, Motorola); other OEMs fall back to 64 dp. Contact your CSM to adjust the whitelist for your workspace.
+- **Missing background color** — the SDK has ~10 seconds to render; on poor networks the background/image render can fail, leaving stylized text with no background. Use text colors that contrast with both light and dark backgrounds, and check the dashboard preview in both modes.
+- **Color inversion in dark mode** — observed on some Oppo (ColorOS) devices on Android 10; this is an OEM bug outside MoEngage's scope.
+- **Personalization failure** — if you personalize the template and backup but set no fallback, a failure in either stops the whole notification. Always add a personalization backup. See [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs).
+
+### Why does a push notification on Android fail to display its image?
+
+- **Image download failure** — verify the image URL is valid and publicly accessible, within ~25 KB, in a supported format, and that the device has a stable connection.
+- **Push Amplification Plus (Huawei)** — notifications delivered via HMS PushKit don't support images.
+
+## Impressions
+
+### Why are Android impressions dropping?
+
+Possible causes: the app isn't sending *notification received* events (integration issue); different segmentation or a lower send volume; changes in app, SDK, or device models; OS-level notification blocks; FCM connectivity issues; TTL expiry; uninstall-inactivation lag; or a firewall rejecting packets.
+
+## Deep Links
+
+### Why aren't deep links in push notifications working on Android?
+
+1. Test the deep link URL from a third-party app (WhatsApp, Slack, a browser). If it fails there too, the issue is app-side — MoEngage uses native Android deep links ([Create Deep Links to App Content](https://developer.android.com/training/app-links/deep-linking)).
+2. In hybrid frameworks, in-app routes often don't work when opened from outside the app.
+3. If deep links work from third-party apps but not from MoEngage push and the SDK creates the notification, the deep link URL format may need attention — contact your CSM or Support.
+
+### Why aren't deep links copied from Android to iOS?
+
+This is expected behavior. Android requires a deep link value while iOS treats it as optional, so **Copy from Android** transfers everything *except* the deep link. Set an iOS-specific deep link, or remove the **Copy from Android** option.
+
+## Tokens and Subscription
+
+### What causes a push token drop on Android, and how do I fix it?
+
+A token drop is when MoEngage doesn't have push tokens for all your users — for example, tokens for only 60 of 100 daily installs is a 40% drop. Without a token, push can't be sent. Common causes: poor or no connectivity (Firebase SDK doesn't generate a token), a Play Services / Firebase version mismatch, an app-side flag that gates token passing, or an integration error. For fixes, see [How to Fix Token Drop](/developer-guide/android-sdk/troubleshooting-and-faqs/how-to-fix-token-drop).
+
+### Why doesn't the SDK trigger the "Unsubscribed to Push" event?
+
+On Android 13 and above, the default notification permission state is *denied*. If a user denies the permission there's no state change, so the SDK records no *Unsubscribed to Push* event. When a user grants permission, the app must tell the SDK to trigger *Subscribed to Push*. On Android 12 and below, permission is granted by default, so no subscribe/unsubscribe events are generated.
