@@ -1,0 +1,365 @@
+---
+title: "Troubleshoot Data"
+description: "Diagnose and fix MoEngage data issues across user data, event data, imports, and the Data APIs."
+keywords: "data troubleshooting, user merge, events missing, data management, user deletion, Data API"
+---
+
+Use this page to diagnose data issues. For file/import error messages, see the [Data Import Error Reference](/user-guide/data/data-import-error-reference). For conceptual questions, see [Data FAQs](/user-guide/data/data-faqs).
+
+## User Data
+
+### Why Are Location Values Not Updated on the User Profile?
+
+**Problem**
+
+Location details such as **City**, **State**, and **Country** passed through Server-to-Server API (S2S API) or Amazon Simple Storage Service (S3) imports are not updated on the user profile in the MoEngage dashboard. 
+<img alt="s3 import.png" src="/images/moengage_88018b.png" />
+
+**Explanation**
+
+1. **Internal attributes:**
+   - Location attributes (city, state, and country) are internal attributes derived from the user’s IP address during an SDK call triggered by the App/Site opened event.
+   - These attributes are managed by the SDK to avoid potential conflicts and inconsistencies.
+2. **Update restrictions:**
+   - These attributes cannot be updated through:
+     - File imports (S3)
+     - S2S API calls (v1/customer and v1/transition)
+   - Updates attempted through these methods may be overridden by SDK updates, making debugging difficult for large user bases.
+3. **User creation behavior:**
+   - These attributes are supported during the user creation process but remain unmodifiable afterward through non-SDK sources.
+   - The values can be updated only after the SDK call occurs.
+4. **SDK integration alternatives:**
+   - If SDK integration is not planned, use custom user attributes to store and manage location details.
+   - This avoids conflicts with the internal attributes tracked by the SDK.
+.
+
+### Why Are Users Not Merged After Using the User Merge API?
+
+**Problem**
+
+Users are not merged even after using the User Merge API.
+
+**Explanation**
+
+This issue occurs because you have passed the _MoEngage ID_ instead of the _ID_.
+
+Please note that the Merge User API is not functional in workspaces where the Identity Resolution feature is enabled.
+
+**Solution**
+
+Perform the following steps:
+
+1. _Update the payload_. Update the following payload with the ID that must be merged and retained.
+   <CodeGroup>
+   ```json Code
+   {
+   “merge_data”: [
+   {
+   “merged_user”: “user_id_that_you_want_to_merge“,
+   “retained_user”: “user_id_that_you_want_to_retain”
+   }
+   ]
+   }
+   ```
+   </CodeGroup>
+
+2. _Use the correct identifier._ The UID is the unique identifier for a user, which MoEngage stores in the [ID attribute of the user profile](/user-guide/data/user-data/user-profile). Ensure that only the UID/ID attribute in the user profile is used to merge users.
+
+![user profile id.png](/images/moengage_896d2c.png)
+
+<Info>
+  Only registered users in MoEngage can be merged with another registered user, regardless of the source of creation.
+</Info>
+.
+
+### Why Is an Anonymous User Profile Created with an Uninstall Event Linked to a Campaign ID?
+
+**Problem**
+
+An anonymous user profile is created containing only an uninstall event. It contains no actual user information and does not map to a registered profile.
+
+<img alt="anonymous user.png" src="/images/moengage_b5c3c4.png" />
+
+**Solution**
+
+Perform the following steps:
+
+- Expand the uninstall event in the **Activity info** to check for campaign details.
+- Locate the **Campaign ID** associated with this event.  
+<img alt="campaign id.png" src="/images/moengage_d2c7ce.png" />
+- Search for the **Campaign ID** in the dashboard.
+- If the campaign was scheduled for **All Users**, it indicates that the user had uninstalled the application before the campaign could be delivered.
+
+Since MoEngage did not receive the proper uninstall callback for this user, a guest profile was created to track this uninstall event. This process ensures that the uninstall event is recorded, even without mapping it to a registered user profile.
+.
+
+### Why Creating a User Again After Deletion Using the Open GDPR API Is Not Possible?
+
+**Problem**
+
+After deleting a user using the Open General Data Protection Regulation (GDPR) API, it is not possible to recreate the same user on the MoEngage dashboard immediately.
+
+**Explanation**
+
+When a user is deleted using the Open GDPR API, their cache data remains in the system for 24 hours. The user can be recreated only after this 24-hour period has passed.
+.
+
+## Event Data and Data Management
+
+### Why Is the New Data Type Not Reflecting in Data Management?
+
+**Problem**
+
+The **Data management** section does not reflect newly updated data types for user or event attributes. Segmentation still uses the old data type.
+
+**Solution**
+
+Perform the following steps:
+
+1. **Update the data type**: Go to **Settings** \> **Data management**, edit the user or event attributes and update the desired new data type.
+2. **Send test values**: Update the attribute values for a specific test user to send sample values with the new data type to a test user profile.
+3. **Verify reflection**: After MoEngage processes values in the new data type, the updated type will be reflected in the **Data management** dashboard, as well as in Segmentation and throughout the system.
+
+<Info>
+- Updating the data type does not change the existing data. For example, if an attribute 'x' is initially set as a string and is updated to numeric, it can store both numeric and string values.
+- This solution applies to both user attributes and event attributes in MoEngage.
+</Info>
+.
+
+### Why Are Events for Specific Users Missing on the Dashboard?
+
+**Problem**
+
+Events are missing on the MoEngage dashboard for a small set of specific users, while the rest of your user base is unaffected.
+
+**Explanation**
+
+When events are missing for only a few users, those users have likely breached the [Fair Usage Policy (FUP)](/user-guide/data/key-concepts/fair-usage-policy-fup) limits.
+
+FUP limits apply per user. When a single user ID sends a high volume of data requests in a short window and crosses a MoEngage safety threshold, MoEngage temporarily blocks data tracking for that user ID to protect platform stability. Data for all other users continues to be tracked as normal, which is why the impact is limited to specific users.
+
+If a specific user breaches any of the following thresholds, tracking for that user is temporarily blocked. Limits differ depending on whether the data comes from an SDK or a non-SDK source.
+
+**SDK Sources**
+
+| Time Interval | Maximum Number of Data Requests Allowed | Action Taken If the Limit Is Breached |
+| --- | --- | --- |
+| 1 minute | 500 | Blocks the tracked data of that user for the next 1 hour. |
+| 5 minutes | 1,000 | Blocks the tracked data of that user for the next 1 hour. |
+| 1 hour | 5,000 | Blocks the tracked data of that user for the next 24 hours. |
+| 1 day | 10,000 | Blocks the tracked data of that user for the next 24 hours. |
+
+**Non-SDK Sources**
+
+Applies to file imports, partner integrations, and Data APIs. Limits are cumulative across all non-SDK sources.
+
+| Time Interval | Maximum Number of Data Requests Allowed | Action Taken If the Limit Is Breached |
+| --- | --- | --- |
+| 1 minute | 5,000 | Blocks the tracked data of that user for the next 1 hour. |
+| 5 minutes | 10,000 | Blocks the tracked data of that user for the next 1 hour. |
+| 1 hour | 50,000 | Blocks the tracked data of that user for the next 24 hours. |
+| 1 day | 100,000 | Blocks the tracked data of that user for the next 24 hours. |
+
+<Warning>
+For any of the above time intervals, the limit breach can occur a maximum of three consecutive times before MoEngage imposes a 7-day block. If imposed, all data tracking for that specific user is suspended for a 7-day duration.
+</Warning>
+
+For the complete policy, including limits on user profile activity info and the number of devices per user, refer to [Fair Usage Policy Limits and Actions](/user-guide/data/key-concepts/fair-usage-policy-fup#fair-usage-policy-limits-and-actions).
+
+<Note>
+Missing events can also be caused by an event being blocked or hidden globally in Data Management, which affects your entire user base rather than specific users. To rule that out, see [Why Are New Events or User Attributes Not Reflected on the Dashboard?](/user-guide/data/faqs-data/why-are-new-events-or-user-attributes-not-reflected-on-the-dashboard).
+</Note>
+
+**Solution**
+
+Use Behavior analysis to confirm whether a specific user breached an FUP limit.
+
+<Info>
+**Prerequisites:**
+
+- Access to **Analyze** > **Behavior** and **Settings** > **Data Management**.
+- The affected user ID.
+</Info>
+
+Perform the following steps:
+
+1. Confirm the event is active and not blocked globally. Go to **Settings** > **Data Management** and verify the event **Status** is **Allowed**. If you do not have access to Data Management, contact your workspace admin. For more information, refer to [Overview - Data Management](/user-guide/settings/data-management/overview-data-management).
+
+![MoEngage Data Management page showing event statuses set to Allowed.](/images/fup-data-management-page.png)
+
+2. Go to **Analyze** > **Behavior**. In the **Events & filters** section, select the event that appears to be missing for the user.
+3. In the **Filter Users** section, select **Filter users by**. In the **Filter users by** list, click **ID** and enter the affected user ID.
+
+![MoEngage Behavior analysis with an event selected and users filtered by ID.](/images/fup-behavior-filter-by-id.png)
+
+4. In the **Behavior Options** section, in the **Analysis type** list, click **Total events**.
+5. In **Duration**, select the period when the events went missing, and then click **Apply**.
+6. Review the **Behavior chart**. Hover over the spikes to view the hourly or minute-by-minute breakdown of events.
+
+![MoEngage Behavior chart with a spike of 535 total events in a single hour.](/images/fup-behavior-chart-spike.png)
+
+If a spike shows a high concentration of requests in a short window (for example, 535 events in one minute), the user crossed the SDK limit (500/minute) but stayed well under the non-SDK limit (5,000/minute). This confirms that subsequent events for that user were blocked due to an FUP breach.
+.
+
+### Why Are New Events or User Attributes Not Reflected on the Dashboard?
+
+**Problem**
+
+New events or user attributes sent through S2S API calls or SDK requests do not appear on the dashboard.
+
+**Solution**
+
+Perform the following steps:
+
+1. Check the data management settings (**Settings** \> **Data Management**). Ensure the event or user attribute is not blocked or hidden in the settings. If you do not have access to Data Management, contact your admin or manager for assistance.
+2. Check event/user attribute limit. Verify in the data management settings that you haven’t exceeded the event or user attribute limit.
+
+<Info>
+If the event or user attribute limit is exceeded, you can block unused event or user attributes to make space for new attribute ingestion, or contact your CSM to know more about getting your limits extended.
+</Info>
+
+For more information, read [Overview - Data Management](/user-guide/settings/data-management/overview-data-management).
+.
+
+## Imports
+
+### Why Is the User Import Status Showing as 'Processing'?
+
+**Problem**
+
+The user import status is stuck in the **Processing** state, but no actual processing occurs.
+
+**Solution**
+
+Perform the following steps:
+
+1. **Check import details:**
+   - Log in to the MoEngage dashboard and review the import status details.
+   - Imports often show as **Processing** or **Pending.**
+2. **Rate limits and multiple uploads:**
+   - This issue can occur if multiple files are uploaded within the same hour.
+   - Files are processed based on the available rate limits per hour and per day. These limits can be checked on the import page (If your rate limits have been upgraded, contact your account manager or customer success manager to confirm the rate limits).  
+   <img alt="processed.png" src="/images/moengage_8e19b7.png" />
+3. **Pending State:**
+   - If the file remains stuck in the **Processing** state, it is likely in a **Pending** state.
+   - The file will update once the rate limits are refreshed and processing resumes. 
+   <img alt="pending.png" src="/images/moengage_5b6468.png" />
+4. **Check back later:**
+   - You can revisit the import page later to confirm the imports have been completed.
+.
+
+## Data APIs
+
+### Why Is Domain Whitelisting Recommended Over IP Whitelisting for the Data API?
+
+**Problem**
+
+It is recommended that the domain for the Data application programming interface (API) be whitelisted instead of the IP.
+
+<Info>
+The need to enable network address translation (NAT) IP forwarding for specific User API and Event API requests may arise, potentially because of errors like a time-out error, network error, and so on.
+</Info>
+
+**Explanation**
+
+- MoEngage uses a multi-tenant system, meaning IPs change frequently to support scale and security.
+- The domain `api-xx.moengage.com` is static, making domain whitelisting more reliable than IP whitelisting.
+- MoEngage APIs use Authentication to validate requests and ensure security.
+- If static IPs are required, a custom implementation at MoEngage is required, which is typically avoided.
+- Do not cache the IP. If you encounter any errors in the response from MoEngage, domain whitelisting should suffice.
+.
+
+### How To Verify User Deletion in MoEngage?
+
+This article explains how to verify whether a user has been successfully deleted from the MoEngage system using the **Delete User API**. Since the deletion process takes up to 24 hours, ensure the required waiting period has passed before proceeding with the verification steps.
+
+**Instructions**
+
+1. **Wait for 24 hours**:
+   - Ensure at least 24 hours have passed since submitting the delete user API request. The deletion process requires this amount of time to complete.
+2. **Check the segmentation search dashboard**:
+   - Obtain the **Unique ID** or **User ID** of the deleted user.
+   - Go to **Segment** \> **Create segment** in the MoEngage dashboard.
+   - Use the search bar in the upper right corner to search for the user.
+   - Perform the search using the **Unique ID** or **User ID**:
+     - If the search results display the user's details, the deletion has not been completed.
+     - If the search results are empty, the user has been successfully removed.
+3. **Use the Get User API**:
+   - Make an API call using the **Get User API** as specified in the MoEnage [Get User](https://www.moengage.com/docs/api/user/get-user) API documentation.
+   - In the API response:
+     - Look for the **users\_not\_found** field:
+       - If present and contains the user's details, this confirms the user has been deleted
+       - If not present, check the user's field for the user's information.
+
+<Info>
+  All verification methods should be performed only after 24 hours from the time the delete user API request was submitted.
+</Info>
+.
+
+### How to Use the Delete API Through a Connector Campaign to Delete Multiple User Profiles?
+
+You can use the Delete API through a connector campaign to delete multiple user profiles without requiring a development or IT team.
+
+**Instructions**
+
+Perform the following steps:
+
+1. **Create a custom segment:**
+   - Identify all users you want to delete from MoEngage and create a custom segment for them.
+2. **Set up a connector campaign:**
+   - Create a **One-Time Custom Connector campaign**.
+   ![custom connector.png](/images/moengage_bb31ce.png)
+   - Select the custom segment created as the Audience for this campaign
+   ![user audience.png](/images/moengage_2869f1.png)
+3. **Configure the API request:**
+   - In the Step 2 **Content** page, add the API information in a POST call with appropriate headers and key-value pairs.
+   ![content api.png](/images/moengage_7f0908.png)
+   - Use the following keys and values:
+     - Key: identity\_type ; Value: customer\_id
+     - Key: identity\_value; Value: Use @ to personalize the ID dynamically for this key.
+     - Refer to the [sample cURL request for the Delete API](https://www.moengage.com/docs/api/user/delete-users).
+     ![key value.png](/images/moengage_bff7dc.png)
+4. **Set delivery control:**
+   - To avoid request failures, set the request limit in delivery control to 4,000 requests per minute.
+5. **Publish the campaign:**
+   - Publish the campaign to delete all users in the specified custom segment.
+
+<Info>
+  - This method does not apply to deleting anonymous user profiles.
+  - Please contact your MoEngage Customer Success Manager (CSM) or the Support team to request the deletion of user profiles.
+</Info>
+.
+
+### How To Generate an Auth Token for the Data API?
+
+This article explains how to generate an Auth Token for the Data API using the provided script.
+
+**Instructions**
+
+1. **Input required**:
+   - **Workspace ID (earlier app id)**
+   - **API key**
+   To find the Workspace ID and API key, go to **Settings** \> **APIs** in the MoEngage dashboard.
+
+   ![Auth token.png](/images/moengage_bedf6e.png)
+2. **Generate the Auth Token**:
+   Use the following script to generate the Auth Token for the specified app:
+   <CodeGroup>
+   ```python Python wrap
+   import base64
+   import subprocess
+   app_id = str(input("Enter the APP ID or Worskspace ID: ")).strip()
+   app_key = str(input("Enter the secret key: ")).strip()
+   secret_string = app_id + ":" + app_key
+   secret_string_bytes = secret_string.encode("ascii")
+   base64_bytes = base64.b64encode(secret_string_bytes)
+   base64_string = base64_bytes.decode("ascii")
+   subprocess.run("pbcopy", text=True, input=base64_string)
+   print("Token copied to your clipboard")
+   ```
+   </CodeGroup>
+
+<Info>
+  Once executed, the Auth Token will be generated and automatically copied to the clipboard.
+</Info>
+.
