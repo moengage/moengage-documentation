@@ -1,23 +1,32 @@
 ---
 title: "Why does the 0-1 bucket in 'total events per user' behavior analysis show no users?"
-description: "Why the 0-1 bucket in Total Events per User behavior analysis shows zero users — custom distribution ranges exclude their upper bounds."
+description: "Why the 0-1 bucket in Total Events per User behavior analysis is always empty, and how to find users who never performed an event by using segmentation."
+keywords: "total events per user, custom distribution, bucket, zero events, behavior analysis"
 ---
 
 ## Problem
 
-The 'Total Events per User' behavior analysis does not show any users in the 0-1 bucket of the custom distribution, leaving the data empty.
+When you run a **Total Events per User** behavior analysis with a custom distribution, the 0-1 bucket always shows 0 users, even though you expect it to capture low-activity users.
 
-## Solution
+## Why This Happens
 
-Perform the following steps:
+Two things combine to make this bucket permanently empty:
 
-1. **Understand the analysis:**
-   - The "Total Events per User" analysis focuses on event frequency per user, not individual users.
-2. **Exclusion of upper bounds in custom distribution:**   
-   - In custom distributions, the upper bounds are typically excluded.
-   - As a result, the 0-1 bucket will always show 0 because it excludes users who have not performed the specified events.
-3. **Alternative Solution:**
-   - Use segmentation to identify users based on specific event criteria.
-   - For instance, apply the condition "Has not executed App/Site Opened" within a given timeframe to find users who have not performed this event.
+1. **Total Events per User counts only users who performed the selected event at least once.** The analysis measures how many times each user performed an event they have already performed, so a count of 0 can never appear in the result set.
+2. **Custom distribution buckets exclude their upper bound.** A 0-1 bucket captures values greater than or equal to 0 and less than 1 — that is, only a count of exactly 0. A user with exactly 1 event falls into the next bucket, 1-2, not 0-1.
 
-This identified cohort of users can be used to create a custom segment or campaign for further analysis and engagement.
+Because no user in this analysis can have a count of 0, the 0-1 bucket is always empty, regardless of your data.
+
+<Tip>
+  To see a clean distribution of actual usage frequency, start your custom distribution at 1 instead of 0 (for example, 1-2, 2-3, 3-5). Starting at 0 guarantees an empty first bucket every time.
+</Tip>
+
+## How to Find Users With Zero Events
+
+Behavior analysis cannot surface users who never performed an event, because it analyzes only the users who did. To find and act on that zero-event cohort, use segmentation instead:
+
+1. Go to **Segment** and create a new segment.
+2. Add the condition **Has not executed \[Event Name\]** — for example, **Has not executed App/Site Opened** — and set the timeframe you want.
+3. Save the segment.
+
+Use this segment directly for analysis, or to build a re-engagement campaign that targets users who have not performed the event.
