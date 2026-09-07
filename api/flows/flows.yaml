@@ -514,8 +514,8 @@ paths:
       summary: Get Flow Analytics
       description: |
         This API returns how a flow is performing: the trips started, completed, in progress, and
-        dropped, along with exit and drop reasons, split stage results, and conversion goal
-        performance. Requires the `campaigns:view` permission.
+        dropped, along with exit and drop reasons, split stage results, per-stage counts, and
+        conversion goal performance. Requires the `campaigns:view` permission.
       x-mint:
         content: |
           <Note>
@@ -566,6 +566,7 @@ paths:
               - drop_stats
               - split_stage_stats
               - business_trigger_stats
+              - stage_stats
       responses:
         '200':
           description: The flow analytics for the requested window.
@@ -645,6 +646,25 @@ paths:
                                 event_stats:
                                   sent:
                                     aggregated: { total: 3900, unique: 3860 }
+                  stage_stats:
+                    - timestamp: 1706745600
+                      stages:
+                        - stage_id: "cell_entry_001"
+                          stage_name: "Flow Entry"
+                          stage_type: "TRIGGER"
+                          stage_sub_type: "EVENT"
+                          engaged_group: { entered: 1200, exited: 1100, current: 100 }
+                          control_group: { entered: 120, exited: 110, current: 10 }
+                          global_control_group: { entered: 60, exited: 55, current: 5 }
+                          total: { entered: 1380, exited: 1265, current: 115 }
+                        - stage_id: "cell_email_002"
+                          stage_name: "Welcome Email"
+                          stage_type: "ACTION"
+                          stage_sub_type: "EMAIL"
+                          engaged_group: { entered: 1100, exited: 950, dropped: 60, current: 90 }
+                          control_group: { entered: 110, exited: 95, dropped: 5, current: 10 }
+                          global_control_group: { entered: 55, exited: 48, dropped: 3, current: 4 }
+                          total: { entered: 1265, exited: 1093, dropped: 68, current: 104 }
                   business_trigger_stats: []
         '400':
           $ref: '#/components/responses/AnalyticsBadRequest'
@@ -893,8 +913,8 @@ components:
     XMoeScopes:
       name: X-MOE-SCOPES
       in: header
-      required: false
-      description: The scope of the request. MoEngage recommends that you send it.
+      required: true
+      description: A comma-separated list of the scopes authorized for the request.
       schema:
         type: string
 
@@ -1551,6 +1571,11 @@ components:
           description: Business trigger performance. Returned as an empty array when the flow has none.
           items:
             $ref: '#/components/schemas/BusinessTriggerStat'
+        stage_stats:
+          type: array
+          description: Node-level entry, exit, drop, and current counts for each stage, one entry per period.
+          items:
+            $ref: '#/components/schemas/StageStatsPeriodEntry'
 
     SummaryEntry:
       type: object
@@ -1728,6 +1753,77 @@ components:
           items:
             type: object
             additionalProperties: true
+
+    StageStatsPeriodEntry:
+      type: object
+      description: One entry per period. The entry omits `timestamp` for `overall` granularity.
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: The start of the period in Unix epoch seconds (UTC). Omitted for `overall` granularity.
+          example: 1706745600
+        stages:
+          type: array
+          description: One entry per stage in the flow.
+          items:
+            $ref: '#/components/schemas/StageStat'
+
+    StageStat:
+      type: object
+      required: [stage_id, stage_name]
+      description: >
+        The counts for a single stage, broken down by user group. MoEngage resolves `stage_name`,
+        `stage_type`, and `stage_sub_type` from the flow's own stage metadata, the same source that
+        supplies `stage_name` in `split_stage_stats`.
+      properties:
+        stage_id:
+          type: string
+          description: The ID of the stage within the flow.
+          example: "cell_entry_001"
+        stage_name:
+          type: string
+          description: The label given to the stage in the flow builder.
+          example: "Flow Entry"
+        stage_type:
+          type: string
+          description: The stage type, such as `TRIGGER` or `ACTION`.
+          example: "TRIGGER"
+        stage_sub_type:
+          type: string
+          description: The stage sub-type, such as `EVENT` for a trigger or `EMAIL` for an action.
+          example: "EVENT"
+        engaged_group:
+          $ref: '#/components/schemas/StageGroupStats'
+        control_group:
+          $ref: '#/components/schemas/StageGroupStats'
+        global_control_group:
+          $ref: '#/components/schemas/StageGroupStats'
+        total:
+          $ref: '#/components/schemas/StageGroupStats'
+
+    StageGroupStats:
+      type: object
+      description: The entry, exit, drop, and current counts for one user group at this stage.
+      properties:
+        entered:
+          type: integer
+          description: The number of users who entered the stage in the period.
+          example: 1200
+        exited:
+          type: integer
+          description: The number of users who moved on from the stage in the period.
+          example: 1100
+        dropped:
+          type: integer
+          description: >
+            The number of users who dropped at the stage. Present only when the stage recorded drops
+            for the group in the period.
+          example: 60
+        current:
+          type: integer
+          description: The number of users still at the stage, calculated as entered minus exited minus dropped.
+          example: 100
 
     FlowChannelAnalyticsResponse:
       type: object
