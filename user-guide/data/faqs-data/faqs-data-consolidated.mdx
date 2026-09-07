@@ -1,0 +1,865 @@
+---
+title: "FAQs - Data"
+description: "Answers to frequently asked questions about MoEngage data — user data, event data, imports, privacy, and Data APIs — all on one page."
+---
+
+This page consolidates the frequently asked questions from across the Data section — covering user data, event data, imports, privacy, and the Data APIs — into a single reference. Use the category headers below to jump to the relevant set of questions, or search this page for a keyword from your issue.
+
+<Info>
+  Each question below also has its own standalone page, linked in the accordion title, if you'd rather bookmark or share a single answer.
+</Info>
+
+## Key Concepts
+
+<AccordionGroup>
+  <Accordion title="What Are the Key Points of the MoEngage Data Tracking Policy?">
+  This article explains the key points of the MoEngage data tracking policy. These policies help you make the necessary adjustments during the initial implementation stages.
+
+  **Instructions**
+
+  1. MoEngage accepts the following datatypes for attributes:
+     - Integer, Float, Double, Long, Boolean, String, Datetime, Array``<Long>``, Array``<Int>``, Array``<Double>``, Array``<Short>``, Array``<Float>``, Array``<String>``, Object, Array of Objects.
+  2. Each array element can be a maximum of 512 characters, with up to 50 elements in each array.
+  3. Attribute values sent as dictionary data types will be rejected.
+  4. For attributes of the datetime data type,
+     - When sending data through MoEngage Data APIs, use the ISO 8601 date format (for example, 2020-05-31T16:33:35Z).
+     - When sending data through SDK, use the SDK's date functions.
+  5. If an attribute value is a URL and exceeds the 512-character limit, it will be rejected to prevent issues with image and URL personalization.
+  6. Arrays must be homogeneous (all values in an array must be of the same datatype). Data typecasting is supported at the array level.
+  7. Event names used with periods create an additional space. For example, *event.name* will be ingested as *event. Name* (with a space). It is recommended to use “\_" (hyphens) instead of "." (period).
+  8. You can create up to 100 unique event attributes for a single event.
+  9. The following table lists the limit values for events and attribute names:  
+
+     | Key | Character Limit | Limit Breach Handling |
+     | --- | --- | --- |
+     | Event name length | 200 | Store the first 200 characters only. |
+     | User attribute name length | 200 | Store the first 200 characters only. |
+     | User attribute value length | 512 | Store the first 512 characters only. |
+     | Event attribute name length | 200 | Store the first 200 characters only. |
+     | Event attribute value length | 512 | Store the first 512 characters only. |
+
+  For more information, read [Data Tracking Policies](/user-guide/data/key-concepts/data-tracking-policies).
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/what-are-the-key-points-of-the-moengage-data-tracking-policy).
+  </Accordion>
+  <Accordion title="Why Is the New Data Type Not Reflecting in Data Management?">
+  **Problem**
+
+  The **Data management** section does not reflect newly updated data types for user or event attributes. Segmentation still uses the old data type.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. **Update the data type**: Go to **Settings** \> **Data management**, edit the user or event attributes and update the desired new data type.
+  2. **Send test values**: Update the attribute values for a specific test user to send sample values with the new data type to a test user profile.
+  3. **Verify reflection**: After MoEngage processes values in the new data type, the updated type will be reflected in the **Data management** dashboard, as well as in Segmentation and throughout the system.
+
+  <Info>
+  - Updating the data type does not change the existing data. For example, if an attribute 'x' is initially set as a string and is updated to numeric, it can store both numeric and string values.
+  - This solution applies to both user attributes and event attributes in MoEngage.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-is-the-new-data-type-not-reflecting-in-data-management).
+  </Accordion>
+</AccordionGroup>
+
+## User Data
+
+<AccordionGroup>
+  <Accordion title="What Unique ID Values Does the System Accept?">
+  This article outlines the key points to consider when setting up a unique identifier (UniqueID) for users in MoEngage.
+
+  **Instructions**
+
+  1. The following values are not allowed in the UniqueID field:
+     <CodeGroup>
+     ```text Values
+     "unknown"
+     "guest"
+     "null"
+     "0"
+     "1"
+     "true"
+     "false"
+     "user_attribute_unique_id"
+     "(empty)"
+     “na"
+     "n/a"
+     ""
+     "dummy_seller_code"
+     "user_id"
+     "id"
+     "customer_id"
+     "uid"
+     "userid"
+     "none"
+     "-2"
+     "-1"
+     "2"
+     ```
+     </CodeGroup>
+
+  2. If you encounter any issues during implementation, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/what-unique-id-values-does-the-system-accept).
+  </Accordion>
+  <Accordion title="Why Are Location Values Not Updated on the User Profile?">
+  **Problem**
+
+  Location details such as **City**, **State**, and **Country** passed through Server-to-Server API (S2S API) or Amazon Simple Storage Service (S3) imports are not updated on the user profile in the MoEngage dashboard. 
+  <img alt="s3 import.png" src="/images/moengage_88018b.png" />
+
+  **Explanation**
+
+  1. **Internal attributes:**
+     - Location attributes (city, state, and country) are internal attributes derived from the user’s IP address during an SDK call triggered by the App/Site opened event.
+     - These attributes are managed by the SDK to avoid potential conflicts and inconsistencies.
+  2. **Update restrictions:**
+     - These attributes cannot be updated through:
+       - File imports (S3)
+       - S2S API calls (v1/customer and v1/transition)
+     - Updates attempted through these methods may be overridden by SDK updates, making debugging difficult for large user bases.
+  3. **User creation behavior:**
+     - These attributes are supported during the user creation process but remain unmodifiable afterward through non-SDK sources.
+     - The values can be updated only after the SDK call occurs.
+  4. **SDK integration alternatives:**
+     - If SDK integration is not planned, use custom user attributes to store and manage location details.
+     - This avoids conflicts with the internal attributes tracked by the SDK.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-are-location-values-not-updated-on-the-user-profile).
+  </Accordion>
+  <Accordion title="Why Are Users Not Merged After Using the User Merge API?">
+  **Problem**
+
+  Users are not merged even after using the User Merge API.
+
+  **Explanation**
+
+  This issue occurs because you have passed the _MoEngage ID_ instead of the _ID_.
+
+  Please note that the Merge User API is not functional in workspaces where the Identity Resolution feature is enabled.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. _Update the payload_. Update the following payload with the ID that must be merged and retained.
+     <CodeGroup>
+     ```json Code
+     {
+     “merge_data”: [
+     {
+     “merged_user”: “user_id_that_you_want_to_merge“,
+     “retained_user”: “user_id_that_you_want_to_retain”
+     }
+     ]
+     }
+     ```
+     </CodeGroup>
+
+  2. _Use the correct identifier._ The UID is the unique identifier for a user, which MoEngage stores in the [ID attribute of the user profile](/user-guide/data/user-data/user-profile). Ensure that only the UID/ID attribute in the user profile is used to merge users.
+
+  ![user profile id.png](/images/moengage_896d2c.png)
+
+  <Info>
+    Only registered users in MoEngage can be merged with another registered user, regardless of the source of creation.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-are-users-not-merged-after-using-the-user-merge-api).
+  </Accordion>
+  <Accordion title="Why Is an Anonymous User Profile Created with an Uninstall Event Linked to a Campaign ID?">
+  **Problem**
+
+  An anonymous user profile is created containing only an uninstall event. It contains no actual user information and does not map to a registered profile.
+
+  <img alt="anonymous user.png" src="/images/moengage_b5c3c4.png" />
+
+  **Solution**
+
+  Perform the following steps:
+
+  - Expand the uninstall event in the **Activity info** to check for campaign details.
+  - Locate the **Campaign ID** associated with this event.  
+  <img alt="campaign id.png" src="/images/moengage_d2c7ce.png" />
+  - Search for the **Campaign ID** in the dashboard.
+  - If the campaign was scheduled for **All Users**, it indicates that the user had uninstalled the application before the campaign could be delivered.
+
+  Since MoEngage did not receive the proper uninstall callback for this user, a guest profile was created to track this uninstall event. This process ensures that the uninstall event is recorded, even without mapping it to a registered user profile.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-is-an-anonymous-user-profile-created-with-an-uninstall-event-linked-to-a-campaign-id).
+  </Accordion>
+</AccordionGroup>
+
+## Event Data
+
+<AccordionGroup>
+  <Accordion title="Event & Category Name Update">
+  In Event dropdowns, there were a few event names that had less readability. MoEngage renamed those events' and category's names to have ease of use and better readability.  
+
+  The list of Event Name, Existing Category, New event name, and New category is given below -
+
+  | Old Name | Old Category | Updated Name | Updated Category |
+  | --- | --- | --- | --- |
+  | MOE\_APP\_EXIT | Tracked User Event | App Exit | Lifecycle |
+  | MOE\_LOGOUT | Tracked User Event | User Logout | Lifecycle |
+  | UPDATE | Tracked User Event | App Update | Lifecycle |
+  | MO\_PUSH\_PREFERENCE\_CHANGED | Tracked User Event | Push Preference Changed iOS | Campaign Activity |
+  | NOTIFICATION\_DISMISSED\_IOS\_MOE | Tracked User Event | Notification Dismissed iOS | Campaign Activity |
+  | NOTIFICATION\_RECEIVED\_IOS\_APP\_ACTIVE | Tracked User Event | Notification Received iOS App Active | Campaign Activity |
+  | USER EXITED FLOW | Tracked User Event | User Exited Flow | Campaign Activity |
+  | USER ENTERED FLOW | Tracked User Event | User Entered Flow | Campaign Activity |
+
+  MOE\_APP\_EXIT is an on-demand event and is a paid feature. Please connect with the MoEngage support team if this event is not available in your account.
+
+  Two of the categories in the User Properties were also renamed -
+
+  | Old Category Name | Updated Category Name | Description |
+  | --- | --- | --- |
+  | MoEngage Tracked Attribute | Tracked Standard Attribute | User attributes tracked by clients in the standard key provided by MoEngage such as Email, Name, etc. |
+  | Tracked User Attribute | Tracked Custom Attribute | User attributes are tracked by clients in the desired custom key. |
+
+  The changes are to be visible in all event drop downs and user attribute dropdowns in the MoEngage dashboard. The changes are also available in the User Profile.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/event-and-category-name-update).
+  </Accordion>
+  <Accordion title="Triggered Campaigns not working on S2S events, how to resolve?">
+  S2S events have to be modified a bit, for them to be considered for event-triggered campaigns. There is a flag you need to pass as part of S2S events.
+
+  You should use an additional key **"real\_time\_action": "true"** in the API request which can be added while sending the events to us.
+
+  PFB the sample request:
+
+  <CodeGroup>
+
+  ```json JSON wrap
+  {
+  "type": "event",
+  "customer_id": "1234567890",
+  "actions": [
+  {
+  "action": "Set MPIN Failure",
+  "real_time_action": "true",
+  "attributes": {
+  "date": "2017-02-06T15:49:28.744Z"
+  },
+  "platform": "IOS",
+  "app_version": "2140",
+  "user_time": "1486376368",
+  "current_time": "1486376368"
+  }
+  ]
+  }
+  ```
+
+  </CodeGroup>
+
+
+  The presence of this key in your request tells our system that these events have to be considered for event-triggered campaigns.
+
+  If you are still facing any issues, contact the MoEngage Support team.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/triggered-campaigns-not-working-on-s2s-events-how-to-resolve).
+  </Accordion>
+  <Accordion title="Why Are Events for Specific Users Missing on the Dashboard?">
+  **Problem**
+
+  Events are missing on the MoEngage dashboard for a small set of specific users, while the rest of your user base is unaffected.
+
+  **Explanation**
+
+  When events are missing for only a few users, those users have likely breached the [Fair Usage Policy (FUP)](/user-guide/data/key-concepts/fair-usage-policy-fup) limits.
+
+  FUP limits apply per user. When a single user ID sends a high volume of data requests in a short window and crosses a MoEngage safety threshold, MoEngage temporarily blocks data tracking for that user ID to protect platform stability. Data for all other users continues to be tracked as normal, which is why the impact is limited to specific users.
+
+  If a specific user breaches any of the following thresholds, tracking for that user is temporarily blocked. Limits differ depending on whether the data comes from an SDK or a non-SDK source.
+
+  **SDK Sources**
+
+  | Time Interval | Maximum Number of Data Requests Allowed | Action Taken If the Limit Is Breached |
+  | --- | --- | --- |
+  | 1 minute | 500 | Blocks the tracked data of that user for the next 1 hour. |
+  | 5 minutes | 1,000 | Blocks the tracked data of that user for the next 1 hour. |
+  | 1 hour | 5,000 | Blocks the tracked data of that user for the next 24 hours. |
+  | 1 day | 10,000 | Blocks the tracked data of that user for the next 24 hours. |
+
+  **Non-SDK Sources**
+
+  Applies to file imports, partner integrations, and Data APIs. Limits are cumulative across all non-SDK sources.
+
+  | Time Interval | Maximum Number of Data Requests Allowed | Action Taken If the Limit Is Breached |
+  | --- | --- | --- |
+  | 1 minute | 5,000 | Blocks the tracked data of that user for the next 1 hour. |
+  | 5 minutes | 10,000 | Blocks the tracked data of that user for the next 1 hour. |
+  | 1 hour | 50,000 | Blocks the tracked data of that user for the next 24 hours. |
+  | 1 day | 100,000 | Blocks the tracked data of that user for the next 24 hours. |
+
+  <Warning>
+  For any of the above time intervals, the limit breach can occur a maximum of three consecutive times before MoEngage imposes a 7-day block. If imposed, all data tracking for that specific user is suspended for a 7-day duration.
+  </Warning>
+
+  For the complete policy, including limits on user profile activity info and the number of devices per user, refer to [Fair Usage Policy Limits and Actions](/user-guide/data/key-concepts/fair-usage-policy-fup#fair-usage-policy-limits-and-actions).
+
+  <Note>
+  Missing events can also be caused by an event being blocked or hidden globally in Data Management, which affects your entire user base rather than specific users. To rule that out, see [Why Are New Events or User Attributes Not Reflected on the Dashboard?](/user-guide/data/faqs-data/why-are-new-events-or-user-attributes-not-reflected-on-the-dashboard).
+  </Note>
+
+  **Solution**
+
+  Use Behavior analysis to confirm whether a specific user breached an FUP limit.
+
+  <Info>
+  **Prerequisites:**
+
+  - Access to **Analyze** > **Behavior** and **Settings** > **Data Management**.
+  - The affected user ID.
+  </Info>
+
+  Perform the following steps:
+
+  1. Confirm the event is active and not blocked globally. Go to **Settings** > **Data Management** and verify the event **Status** is **Allowed**. If you do not have access to Data Management, contact your workspace admin. For more information, refer to [Overview - Data Management](/user-guide/settings/data-management/overview-data-management).
+
+  ![MoEngage Data Management page showing event statuses set to Allowed.](/images/fup-data-management-page.png)
+
+  2. Go to **Analyze** > **Behavior**. In the **Events & filters** section, select the event that appears to be missing for the user.
+  3. In the **Filter Users** section, select **Filter users by**. In the **Filter users by** list, click **ID** and enter the affected user ID.
+
+  ![MoEngage Behavior analysis with an event selected and users filtered by ID.](/images/fup-behavior-filter-by-id.png)
+
+  4. In the **Behavior Options** section, in the **Analysis type** list, click **Total events**.
+  5. In **Duration**, select the period when the events went missing, and then click **Apply**.
+  6. Review the **Behavior chart**. Hover over the spikes to view the hourly or minute-by-minute breakdown of events.
+
+  ![MoEngage Behavior chart with a spike of 535 total events in a single hour.](/images/fup-behavior-chart-spike.png)
+
+  If a spike shows a high concentration of requests in a short window (for example, 535 events in one minute), the user crossed the SDK limit (500/minute) but stayed well under the non-SDK limit (5,000/minute). This confirms that subsequent events for that user were blocked due to an FUP breach.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-are-events-for-specific-users-missing-on-the-dashboard).
+  </Accordion>
+  <Accordion title="Why Are New Events or User Attributes Not Reflected on the Dashboard?">
+  **Problem**
+
+  New events or user attributes sent through S2S API calls or SDK requests do not appear on the dashboard.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. Check the data management settings (**Settings** \> **Data Management**). Ensure the event or user attribute is not blocked or hidden in the settings. If you do not have access to Data Management, contact your admin or manager for assistance.
+  2. Check event/user attribute limit. Verify in the data management settings that you haven’t exceeded the event or user attribute limit.
+
+  <Info>
+  If the event or user attribute limit is exceeded, you can block unused event or user attributes to make space for new attribute ingestion, or contact your CSM to know more about getting your limits extended.
+  </Info>
+
+  For more information, read [Overview - Data Management](/user-guide/settings/data-management/overview-data-management).
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-are-new-events-or-user-attributes-not-reflected-on-the-dashboard).
+  </Accordion>
+</AccordionGroup>
+
+## Imports
+
+<AccordionGroup>
+  <Accordion title="How can I import custom data to MoEngage?">
+  MoEngage has SDKs on all mobile platforms and also a Javascript SDK to capture user data. But not everything regarding a user can be captured at the SDK level, some additional user attributes can come in from your servers. We have provided [Data Import APIs](https://www.moengage.com/docs/api/data/data-overview) to feed any additional information to our servers. You can use these APIs to feed our system with User Attributes and also User Events.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-can-i-import-custom-data-to-moengage).
+  </Accordion>
+  <Accordion title="How to Fix Common Errors with Simple Storage Service (S3) Import?">
+  **Problem**
+
+  MoEngage is unable to process the files due to implementation issues.
+
+  <Info>
+  Import fails happen when the file is larger than 200 MB.
+  </Info>
+
+  <img alt="imports failed.png" src="/images/moengage_07946e.png" />
+
+  **Instructions**
+
+  Perform the following steps:
+
+  1. **Check for common issues:** If imports fail, check the status details. Hovering over the status may show a "file not found" error.
+  2. **File size:** Ensure that each file is not larger than 200 MB.
+  3. **Handling 504 errors:**
+     - 504 errors often occur due to large numbers of files in a single S3 bucket. If there are over 1000 files in one folder, it can cause timeouts.
+     - To resolve this, split the folder into multiple folders with fewer files (\<=100 for each folder). The backend S3 import fetch file API currently has a timeout of 5 minutes.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-to-fix-common-errors-with-simple-storage-service-s3-import).
+  </Accordion>
+  <Accordion title="How to Fix UTF-8 File Encoding Issues?">
+  **Problem**
+
+  <img src="/images/moengage_34dce1.png" />
+
+  <img src="/images/moengage_0bd3b4.png" />
+
+  When importing data files into MoEngage, you might see the following error messages:
+
+  1. `File is
+     in an unsupported format or contains invalid characters. Please save it as UTF-8
+     and re-upload.`
+  2. Or a message similar to `'utf-8' codec can't decode byte 0xe9
+     in position 154: invalid continuation byte`.
+
+  This error occurs because the file was not saved with UTF-8 encoding, which is required for the MoEngage platform. It commonly happens when your data includes special characters, accents, emojis, or symbols from various languages.
+
+  **Explanation**
+
+  **What is UTF-8?**
+
+  UTF-8 is a universal character encoding standard that can represent almost any character from any language. It is the dominant encoding for the World Wide Web. MoEngage requires data files to be in UTF-8 to ensure that all user attributes, regardless of language or special characters, are processed and stored correctly.
+
+  Files saved in other encodings, such as ASCII or ISO-8859-1, have a more limited set of characters and cannot properly handle the diverse data you might have for your users. Using the wrong encoding can lead to data corruption, where characters appear as strange symbols (for example, "" or "Ã©").
+
+  **How to Identify and Check File Encoding**
+
+  If you are unsure of your file's encoding or suspect it contains unsupported characters, you can use the following methods to check.
+
+  **A. Identify the File's Current Encoding**
+
+  Using a modern text editor is the most reliable way to check a file's encoding.
+
+  - **Using a Text Editor (for example, VSCode, Notepad++):** Open your data file in an editor like Visual Studio Code or Notepad++. The current file encoding is typically displayed in the status bar at the bottom-right corner of the window.
+
+  **B. Check for Non-UTF-8 Characters**
+
+  - **Visual Inspection in a Text Editor:** The easiest way to find problematic characters is to open the file in a text editor that is set to UTF-8 encoding. Any characters that are not valid in UTF-8 will often appear as a black diamond with a question mark () or other garbled symbols.
+  - **Using an Online Validator:** You can use online tools to check for non-UTF-8 characters. Simply copy the contents of your file and paste them into an online ASCII or UTF-8 checker. The tool will highlight any characters that are not compliant.
+
+  **Solution: How to Save a File with UTF-8 Encoding**
+
+  You can easily fix this issue by re-saving your file in the correct UTF-8 format using common spreadsheet software.
+
+  **A. Use Microsoft Excel**
+
+  There are two reliable ways to save a file as UTF-8 in Microsoft Excel.
+
+  **Method 1: Save as CSV UTF-8 (Recommended for newer Microsoft Excel versions)**
+
+  1. Open your file in Microsoft Excel.
+  2. Go to **File Save As**.
+  3. In the **Save as type** drop-down menu, select **CSV UTF-8 (Comma delimited) (\*.csv)**.
+  4. Click **Save**.
+
+  **Method 2: Using the Text Import Wizard (For older Microsoft Excel versions)**
+
+  If your version of Microsoft Excel doesn't have the **CSV UTF-8** option, you can use this method.
+
+  1. Open a new, blank workbook in Microsoft Excel.
+  2. Go to the **Data** tab and click **From Text/CSV**.
+  3. Select your CSV file and click **Import**.
+  4. In the dialog box that appears, Microsoft Excel will show a preview of your data. In the **File Origin** drop-down list, select an encoding that makes your text appear correctly in the preview (for example, **1252: Western European (Windows)**).
+  5. Click **Load** to import the data into the blank sheet.
+  6. Now, go to **File Save As**.
+  7. Click the **Tools** drop-down next to the **Save** button and select **Web Options**.
+  8. Navigate to the **Encoding** tab.
+  9. Under **Save this document as:**, select **Unicode (UTF-8)** from the list.
+  10. Click **OK**, and then **Save** your file.
+
+  **B. Use Google Sheets (Easiest Method)**
+
+  Google Sheets automatically handles UTF-8 encoding, making it a very simple and reliable option.
+
+  1. Open Google Sheets.
+  2. Go to **File Import** and upload your file.
+  3. Once the file is open and you've verified the data looks correct, go to **File Download**.
+  4. Select **Comma Separated Values (.csv)**. The file will automatically be downloaded in UTF-8 format.
+
+  **C. Use Notepad (for Windows)**
+
+  1. Open your file with the Notepad application.
+  2. Go to **File Save As**.
+  3. At the bottom of the **Save As** dialog box, you will see an "Encoding" drop-down menu.
+  4. Select **UTF-8** from the list and click **Save**.
+
+  **Supported and Unsupported Characters**
+
+  The most important step is ensuring your file is UTF-8 encoded. However, it's also helpful to know what types of data and characters are supported.
+
+  **Supported Characters**
+
+  With a correctly formatted UTF-8 file, MoEngage supports:
+
+  - **Standard alphanumeric characters:** a-z, A-Z, 0-9.
+  - **Common symbols:** @, ., \_, -, +, ! and others typically found in names, emails, and addresses.
+  - **International characters and accents:** ñ, é, ü, ç.
+  - **Symbols and Emojis:** €, ₹, 😊, ✅.
+
+  **Unsupported Formats and Characters**
+
+  The following can cause import errors even if the file is UTF-8 encoded:
+
+  - **Complex Attribute Types:** You cannot import complex data like JSON objects, dictionaries, or lists directly into a single CSV field.
+  - **Incorrect Newline Characters:** The only supported newline character is `\n` (Line Feed). Files created on Windows sometimes use `\r\n` (Carriage Return + Line Feed), which can cause parsing issues. Saving through Google Sheets or a text editor often resolves this.
+  - **Hidden Control Characters:** Non-printable characters (like null characters or other control characters) can corrupt the file and cause the import to fail. These are often introduced by exporting data from certain systems.
+  - **Very Small Files:** If your file contains fewer than five rows of data, you may encounter an error. If this happens, add some dummy rows to meet the minimum threshold for import.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-to-fix-utf-8-file-encoding-issues).
+  </Accordion>
+  <Accordion title="What Are the Common File Import Errors in MoEngage?">
+  You may encounter errors when importing files using the **Data Imports** or **User Imports** feature in MoEngage. This article explains common errors and how to resolve them.
+
+  **File errors**:
+
+  | Error message | Remedy |
+  | --- | --- |
+  | - Error in uploading file | Verify that the file encoding is UTF-8 and all characters are UTF-8 decodable. Also, remove any non-ASCII characters. |
+  | - Field larger than field limit | Ensure that each cell contains less than 128 KB (131,072 characters) of data. |
+  | - The column value for the selected identifier attribute (ID), which in this case is \{column\_name}, is absent. For instance, refer to row \{row\_number} - Event datetime missing. Please check your file. - The column value for the selected identifier attribute (ID), which in this case is \{column\_name}, is absent. For instance, refer to row \{row\_number}; Column value found larger than the max size-limit. Please check opening and closing quotes in Row number: \{row\_number} | Verify that all required attributes (for example, ID values, event time values) are present. |
+  | - Column value found larger than the max size-limit. Please check opening and closing quotes in Row number: \{row\_number} | Ensure the CSV field value does not exceed the allowed limit. |
+  | - Number of rows in the file exceed the hourly limit, please get in touch with support to understand the allowed rate limits | Contact support to check rate limits as it has exceeded the allowed limit. |
+  | - No data found in the file. - Only Headers are present in the file, no other data found. - The file only contains empty rows, no other data found. | Ensure the CSV file is not incomplete or empty. |
+  | - A \{user/aux} import with the same import name has already been used in a previous import. Please use a new unique import name. | Ensure the import or file name is unique. |
+
+  You may notice a discrepancy between the total number of rows in your uploaded file and the processed rows. This occurs when you select **Do not create new users** during import. To ensure new users are created, do not select this option.
+
+  MoEngage allows you to import users and events using files stored in S3 or SFTP buckets. You may encounter the following errors when uploading files through S3 or SFTP using the **Data Imports** feature:
+
+  **Credentials/ Connection issues:**
+
+  | Error message | Remedy |
+  | --- | --- |
+  | - SFTP folder path not valid / connection issue / credentials failing / server down | Check your SFTP server configuration. |
+  | - S3 server down, connection timeout, endpoint error connection | Verify the S3 connection settings. |
+
+  You may encounter the following encryption and decryption errors when using the **Data Imports** feature:
+
+  **Encryption/ Decryption errors:**
+
+  | Error message | Remedy |
+  | --- | --- |
+  | - Decryption key is missing, please connect with Support team - Decryption key is wrong; please crosscheck the private key | Verify that the correct decryption key is entered in the MoEngage dashboard. |
+  | - Signing key verification failed - Signing key missing, please enter the signing key - Signing key verification failed, please recheck the signing key | Enter the correct signing key. |
+  | - Unable to decrypt the file; please crosscheck the public encryption key | Verify and use the correct public encryption key. |
+  | - File is not in encrypted format, please encrypt and retry | Ensure the file is encrypted with the correct encryption key. |
+  | - File is in encrypted format, please setup PGP encryption in MoEngage to decrypt the file | If the file is encrypted, configure the encryption settings in the MoEngage dashboard. Edit the import to configure the decryption. |
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/what-are-the-common-file-import-errors-in-moengage).
+  </Accordion>
+  <Accordion title="Why Are Event Data Uploads From S3 Failing Due to a Timeout Error?">
+  **Problem**
+
+  A timeout error (504 error response) occurs when attempting to set up a new Simple Storage Service (S3) import.   
+   <img alt="import fail.png"  src="/images/moengage_cae01d.png"  />
+
+  **Cause**
+
+  The error occurs because the specified folder contains too many files, which exceeds your system's processing capacity.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. **Check the number of files**:
+     - Verify the total number of files in the folder causing the issue.
+  2. **Organize files into separate folders**:
+     - Segregate files into different folders based on their purpose, such as event or user imports.
+  3. **Create a new folder**:
+     - Add only the necessary files to the new folder as a workaround.
+  4. **Remove files after import**:
+     - After the files have been imported successfully, remove them from the folder to prevent future issues.
+
+  <Info>
+  The maximum timeout limit is 5 minutes.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-are-event-data-uploads-from-s3-failing-due-to-a-timeout-error).
+  </Accordion>
+  <Accordion title="Why Does a NoneType Comparison Error occur During SFTP/S3 Import?">
+  **Problem**
+
+  While performing an Amazon Simple Storage Service/Secure File Transfer Protocol (S3/SFTP) import, the following error appears when attempting to fetch a file:
+
+  '\>' not supported between instances of 'NoneType' and 'int'.
+
+  <img alt="none type.png" src="/images/moengage_797483.png" />
+
+  **Solution**
+
+  Perform the following step:
+
+  - Verify the subfolder names inside the parent folder. If any names contain spaces, rename them on the SFTP server and retry the import.
+
+  <Warning>
+  MoEngage does not support file or folder names with empty spaces when importing through S3/SFTP.
+  </Warning><Info>
+  If some import files fail, check for the cells in the file that have too much data. The maximum allowed limit for each cell (or field) in a file is 131,072 characters. Exceeding this limit can cause the import operation to fail.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-does-a-nonetype-comparison-error-occur-during-sftps3-import).
+  </Accordion>
+  <Accordion title='Why Does the "Empty Rows" Error Occur When Importing a File?'>
+  **Problem**
+
+  The "empty rows" error occurs when importing a file.
+
+  **Explanation**
+
+  The "empty rows" error typically occurs when the file has blank rows. These rows are often added unintentionally during file creation or saving, especially when using tools like Microsoft Excel.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. Open the file in a text editor like Notepad or Google Sheets.
+  2. Scroll to the end of the file and press the down arrow key. If the cursor moves down, it means the file contains empty rows.
+  3. Delete the empty rows.
+  4. Save the file as a CSV file directly from the text editor.
+  5. Reimport the updated file.
+
+  <Info>
+  A text editor like Notepad or Google Sheets can help prevent empty rows from being included in your file.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-does-the-empty-rows-error-occur-when-importing-a-file).
+  </Accordion>
+  <Accordion title="Why Does the Periodic SFTP Import Fail with an Error?">
+  **Problem**
+
+  The periodic Secure File Transfer Protocol (SFTP) import fails, and the following error occurs:
+
+  file not found at the location.
+
+  <img alt="import error.png" src="/images/moengage_480553.png" />
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. **Verify the error message:**
+     - Navigate to the import page and review the error details.
+     - Hover over the status to view the error message.
+  2. **Check file location for first-time imports:**
+     - Confirm that the file exists in the specified SFTP location.
+     - If this error occurs during the first import attempt, ensure the file is placed in the correct folder.
+  3. **Check for duplicate processing in periodic imports:**
+     - For periodic imports, this error may occur if the file was already processed as part of another import.
+  4. **Best practices for file management:**
+     - Ensure each file is processed in only one import.
+     - If the same file needs to be used for multiple imports, assign unique file names or store the files in separate folder paths.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-does-the-periodic-sftp-import-fail-with-an-error).
+  </Accordion>
+  <Accordion title="Why Is the User Import Status Showing as 'Processing'?">
+  **Problem**
+
+  The user import status is stuck in the **Processing** state, but no actual processing occurs.
+
+  **Solution**
+
+  Perform the following steps:
+
+  1. **Check import details:**
+     - Log in to the MoEngage dashboard and review the import status details.
+     - Imports often show as **Processing** or **Pending.**
+  2. **Rate limits and multiple uploads:**
+     - This issue can occur if multiple files are uploaded within the same hour.
+     - Files are processed based on the available rate limits per hour and per day. These limits can be checked on the import page (If your rate limits have been upgraded, contact your account manager or customer success manager to confirm the rate limits).  
+     <img alt="processed.png" src="/images/moengage_8e19b7.png" />
+  3. **Pending State:**
+     - If the file remains stuck in the **Processing** state, it is likely in a **Pending** state.
+     - The file will update once the rate limits are refreshed and processing resumes. 
+     <img alt="pending.png" src="/images/moengage_5b6468.png" />
+  4. **Check back later:**
+     - You can revisit the import page later to confirm the imports have been completed.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-is-the-user-import-status-showing-as-processing).
+  </Accordion>
+</AccordionGroup>
+
+## Privacy
+
+<AccordionGroup>
+  <Accordion title="How to Use the Delete API Through a Connector Campaign to Delete Multiple User Profiles?">
+  You can use the Delete API through a connector campaign to delete multiple user profiles without requiring a development or IT team.
+
+  **Instructions**
+
+  Perform the following steps:
+
+  1. **Create a custom segment:**
+     - Identify all users you want to delete from MoEngage and create a custom segment for them.
+  2. **Set up a connector campaign:**
+     - Create a **One-Time Custom Connector campaign**.
+     ![custom connector.png](/images/moengage_bb31ce.png)
+     - Select the custom segment created as the Audience for this campaign
+     ![user audience.png](/images/moengage_2869f1.png)
+  3. **Configure the API request:**
+     - In the Step 2 **Content** page, add the API information in a POST call with appropriate headers and key-value pairs.
+     ![content api.png](/images/moengage_7f0908.png)
+     - Use the following keys and values:
+       - Key: identity\_type ; Value: customer\_id
+       - Key: identity\_value; Value: Use @ to personalize the ID dynamically for this key.
+       - Refer to the [sample cURL request for the Delete API](https://www.moengage.com/docs/api/user/delete-users).
+       ![key value.png](/images/moengage_bff7dc.png)
+  4. **Set delivery control:**
+     - To avoid request failures, set the request limit in delivery control to 4,000 requests per minute.
+  5. **Publish the campaign:**
+     - Publish the campaign to delete all users in the specified custom segment.
+
+  <Info>
+    - This method does not apply to deleting anonymous user profiles.
+    - Please contact your MoEngage Customer Success Manager (CSM) or the Support team to request the deletion of user profiles.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-to-use-the-delete-api-through-a-connector-campaign-to-delete-multiple-user-profiles).
+  </Accordion>
+  <Accordion title="How To Verify User Deletion in MoEngage?">
+  This article explains how to verify whether a user has been successfully deleted from the MoEngage system using the **Delete User API**. Since the deletion process takes up to 24 hours, ensure the required waiting period has passed before proceeding with the verification steps.
+
+  **Instructions**
+
+  1. **Wait for 24 hours**:
+     - Ensure at least 24 hours have passed since submitting the delete user API request. The deletion process requires this amount of time to complete.
+  2. **Check the segmentation search dashboard**:
+     - Obtain the **Unique ID** or **User ID** of the deleted user.
+     - Go to **Segment** \> **Create segment** in the MoEngage dashboard.
+     - Use the search bar in the upper right corner to search for the user.
+     - Perform the search using the **Unique ID** or **User ID**:
+       - If the search results display the user's details, the deletion has not been completed.
+       - If the search results are empty, the user has been successfully removed.
+  3. **Use the Get User API**:
+     - Make an API call using the **Get User API** as specified in the MoEnage [Get User](https://www.moengage.com/docs/api/user/get-user) API documentation.
+     - In the API response:
+       - Look for the **users\_not\_found** field:
+         - If present and contains the user's details, this confirms the user has been deleted
+         - If not present, check the user's field for the user's information.
+
+  <Info>
+    All verification methods should be performed only after 24 hours from the time the delete user API request was submitted.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-to-verify-user-deletion-in-moengage).
+  </Accordion>
+  <Accordion title="Why Creating a User Again After Deletion Using the Open GDPR API Is Not Possible?">
+  **Problem**
+
+  After deleting a user using the Open General Data Protection Regulation (GDPR) API, it is not possible to recreate the same user on the MoEngage dashboard immediately.
+
+  **Explanation**
+
+  When a user is deleted using the Open GDPR API, their cache data remains in the system for 24 hours. The user can be recreated only after this 24-hour period has passed.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-creating-a-user-again-after-deletion-using-the-open-gdpr-api-is-not-possible).
+  </Accordion>
+  <Accordion title="What Are the Key Distinctions Between Encryption and Masking on the Data Management Page?">
+  The key distinctions between encryption and masking on the Data Management page are as follows:
+
+  - On the Data Management page, when you edit a user attribute, the Edit User attribute pop-up window appears. Under **Data Privacy Configuration**, you can find the options for masking and encryption. 
+
+  <img alt="data privacy.png" src="/images/moengage_cf9440.png" />
+  - If the **Encrypt attribute** setting is turned on, the **Mask attribute** setting is enabled automatically. You cannot turn the **Mask attribute** off.
+  - If the **Encrypt attribute** setting is turned off, the **Mask attribute** setting is turned off by default. You can choose to turn the **Mask attribute** setting on or off independently.
+  - If only the **Mask attribute** setting is turned on, the data is masked but not encrypted.
+
+  For more information, read [Overview - Data Management](/user-guide/settings/data-management/overview-data-management).
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/what-are-the-key-distinctions-between-encryption-and-masking-on-the-data-management-page).
+  </Accordion>
+</AccordionGroup>
+
+## General & Data APIs
+
+<AccordionGroup>
+  <Accordion title="Error Messages in the Browser Console due to CORS Policy">
+  **Problem**
+
+  In the browser console, error messages related to CORS policy were observed.
+
+  ![Mceclip0](/images/mceclip0.png)
+
+  **Cause**
+
+  The API endpoint [https://websdk.moengage.com/v2/device/add](https://websdk.moengage.com/v2/device/add) belongs to the US cluster and the account to which the data was being redirected to exists in the EU cluster. As the Device Add calls were not being made to the correct API, CORS error is seen in the browser console.
+
+  **Solution**
+
+  In the script where the MoEngage SDK is being initialized, ensure the data is being redirected to the EU cluster by passing **cluster: "eu"** key-value pair. Once this key-value is pair is added, clear the browser local storage and reload the page. The error messages would no longer be seen on the browser console.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/error-messages-in-the-browser-console-due-to-cors-policy).
+  </Accordion>
+  <Accordion title="How To Generate an Auth Token for the Data API?">
+  This article explains how to generate an Auth Token for the Data API using the provided script.
+
+  **Instructions**
+
+  1. **Input required**:
+     - **Workspace ID (earlier app id)**
+     - **API key**
+     To find the Workspace ID and API key, go to **Settings** \> **APIs** in the MoEngage dashboard.
+
+     ![Auth token.png](/images/moengage_bedf6e.png)
+  2. **Generate the Auth Token**:
+     Use the following script to generate the Auth Token for the specified app:
+     <CodeGroup>
+     ```python Python wrap
+     import base64
+     import subprocess
+     app_id = str(input("Enter the APP ID or Worskspace ID: ")).strip()
+     app_key = str(input("Enter the secret key: ")).strip()
+     secret_string = app_id + ":" + app_key
+     secret_string_bytes = secret_string.encode("ascii")
+     base64_bytes = base64.b64encode(secret_string_bytes)
+     base64_string = base64_bytes.decode("ascii")
+     subprocess.run("pbcopy", text=True, input=base64_string)
+     print("Token copied to your clipboard")
+     ```
+     </CodeGroup>
+
+  <Info>
+    Once executed, the Auth Token will be generated and automatically copied to the clipboard.
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/how-to-generate-an-auth-token-for-the-data-api).
+  </Accordion>
+  <Accordion title="What Is the Importance of the MoEngage API Key, and What Happens if It Is Updated?">
+  **Problem**
+
+  The significance and potential impact of updating the **MoEngage API key** for the apps on Android and iOS platforms on MoEngage need to be addressed. The MoEngage API key can be found on the dashboard under the **Settings** \> **APIs** section, as shown in the screenshot. 
+
+  <img alt="API key.png" src="/images/moengage_71d567.png" />
+
+  **Solution**
+
+  To successfully update the MoEngage API key and address potential impacts, follow these steps:
+
+  1. **Immediate changes**: The API key can be regenerated and saved at any time.
+     - Navigate to **Settings** \> **API** in the MoEngage dashboard to regenerate the API key.
+  2. **Support for old and new API keys**:
+     - Once a new API key is regenerated, the old key will immediately become invalid.
+     - MoEngage does not support simultaneous usage of old and new API keys.
+  3. **Implementation updates**:
+     - The old API key must be replaced with the new one in all implementation areas.
+     - The Workspace ID (earlier app id) will remain the same during this process.
+  4. **Risk of data loss**:
+     - Failing to update the new API key across all required locations may lead to data loss. Ensure proper implementation to avoid disruption.
+
+  <Info>
+  These instructions apply to the current MoEngage dashboard. A new dashboard will soon be available. For more information, read [API Key Dashboard](/user-guide/settings/account/api-and-api-keys/api-key-dashboard).
+  </Info>
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/what-is-the-importance-of-the-moengage-api-key-and-what-happens-if-it-is-updated).
+  </Accordion>
+  <Accordion title="Why Is Domain Whitelisting Recommended Over IP Whitelisting for the Data API?">
+  **Problem**
+
+  It is recommended that the domain for the Data application programming interface (API) be whitelisted instead of the IP.
+
+  <Info>
+  The need to enable network address translation (NAT) IP forwarding for specific User API and Event API requests may arise, potentially because of errors like a time-out error, network error, and so on.
+  </Info>
+
+  **Explanation**
+
+  - MoEngage uses a multi-tenant system, meaning IPs change frequently to support scale and security.
+  - The domain `api-xx.moengage.com` is static, making domain whitelisting more reliable than IP whitelisting.
+  - MoEngage APIs use Authentication to validate requests and ensure security.
+  - If static IPs are required, a custom implementation at MoEngage is required, which is typically avoided.
+  - Do not cache the IP. If you encounter any errors in the response from MoEngage, domain whitelisting should suffice.
+
+  [View this FAQ as a standalone page](/user-guide/data/faqs-data/why-is-domain-whitelisting-recommended-over-ip-whitelisting-for-the-data-api).
+  </Accordion>
+</AccordionGroup>
