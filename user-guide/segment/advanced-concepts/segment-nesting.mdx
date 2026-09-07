@@ -176,7 +176,7 @@ So the overall segment E is now defined as -  `(  {(J OR K) AND (L OR M)}  AND G
 1. Three levels because a custom segment F (of nesting level 2) has been introduced (Level 2 of custom segment F + 1 Level = Level 3) - as per rule mentioned in the beginning.
 2. Another level - Using nested filter an event attribute is used that increases the nesting level to 4
 
-If this query is used to create a custom segment, the created custom segment will be of nesting level 4. So, the segment E will not be processed as it will become level 4 nesting.
+If this query is used to create a custom segment, the created custom segment will be of nesting level 4. Since MoEngage supports up to 6 levels of nesting, segment E is within the limit and is processed. A custom segment is only rejected when its nesting exceeds 6 levels.
 
 ![](/images/moengage_ba0667.png)
 
@@ -192,15 +192,15 @@ Nested AND/OR functionalities are available in segmentation as well as campaign 
 
 A particular user segment can also be excluded from the selected user segment. To use this, click on Exclude user checkbox.
 
-MoEngage supports up to 3 levels of nesting. These combinations offer flexibility in defining specific conditions for segmenting your users.
+MoEngage supports up to 6 levels of nesting. These combinations offer flexibility in defining specific conditions for segmenting your users.
 
 **Note**:
 
 <Info>
-  [File Segments](/user-guide/segment/segment-operations/file-segments) are not counted towards the nesting Limits.
+  [File Segments](/user-guide/segment/create-segments/file-segments) are not counted towards the nesting Limits.
 </Info>
 
-## **How to simplify if there are more than 3 levels of nesting?**
+## **How to simplify if there are more than 6 levels of nesting?**
 
 Segment queries are logical expressions of conditions. Any logical expression can be simplified into 1 level of nesting. Logical rules can be utilized to simplify it.
 
@@ -211,24 +211,10 @@ Logical rules used to simplify the nesting -
 - (X AND Y) OR Z  =  (X OR Z) AND (Y OR Z)
 - (X OR Y) AND Z  =  (X AND Z) OR (Y AND Z)
 
-Here is an example of making a multi-nested segment into 1 level of the nested segment:
+Here is an example of collapsing a multi-nested segment into a single level of nesting. Start with segment blocks `A` and `B` combined as `A AND B`, then expand each block that is itself a segment:
 
-Let's say we have a segment block of A & B with a condition - A AND B
+1. `A = C OR D`, so the segment becomes `(C OR D) AND B`.
+2. `C = E AND F`, so the segment becomes `((E AND F) OR D) AND B`, which simplifies to `(E OR D) AND (F OR D) AND B`.
+3. `E = G AND H`, so the segment becomes `((G AND H) OR D) AND (F OR D) AND B`.
 
-Segment block A has another definition - A =  C OR D\
-Then, the expanded definition of the segment - (C OR D) AND B
-
-Segment block C has another definition - C = E AND F\
-Then, the expanded definition of the segment - ((E AND F) OR D) AND B
-
-Simplifying this - (E OR D) AND (F OR D) AND B
-
-Segment block E has another definition - E = G AND H
-
-Then, the expanded definition of the segment - ((G AND H) OR D) AND (F OR D) AND B
-
-**_Finally, simplify the above expression in this way_** _- (G OR D) AND (H OR D) AND (F OR D) AND B. This query will have nesting level as 1._
-
-With the above example, we can understand that any segment definition can be broken down
-
-into 1 level of nesting.
+Applying the logical rules above, this simplifies to `(G OR D) AND (H OR D) AND (F OR D) AND B` — a query with a nesting level of 1. Any segment definition can be broken down into a single level of nesting this way.

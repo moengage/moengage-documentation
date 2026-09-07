@@ -47,6 +47,13 @@ paths:
           description: |
             This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
           example: 'YOUR_WORKSPACE_ID_XXXX'
+        - name: MOE-PROJECT-CODE
+          in: header
+          schema:
+            type: string
+          description: |
+            This is the project ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **Portfolio** > **Project ID**. **Note**: This parameter is mandatory for workspaces with the [Portfolio](https://www.moengage.com/docs/user-guide/settings/account/portfolio/portfolio) feature enabled.
+          example: 'YOUR_PROJECT_ID_XXXX'  
       requestBody:
         description: List of recipients to resubscribe and ESP preference.
         required: true
@@ -93,6 +100,13 @@ paths:
                     error:
                       message: request_id - Field is required but value is None
                       err_code: InvalidFieldValue
+                missingrequestbody:
+                  summary: Missing request body
+                  value:
+                    response_id: wkskLzEMwM
+                    error:
+                      message: Request_Body is mandatory. Kindly add request_body and the desired fields in the API payload.
+                      err_code: BadRequest
                 tooManyRecipients:
                   summary: Too many recipients (>100)
                   value:
@@ -118,10 +132,17 @@ paths:
                   summary: Invalid Email Connector Settings
                   description: Occurs if the configured ESP settings are incorrect or the ESP is not SendGrid when `update_esp` is true.
                   value:
-                    response_id: GENERATED_ID
+                    response_id: gPrSPOPNtT
                     error:
-                        message: Valid email settings not present
+                        message: "This API only supports 'Recipients', 'update_esp', 'esp' and 'request_id' as fields in the Request Body. Kindly remove other fields and try again"
                         err_code: InvalidSettings # FIXME: Confirm actual error code
+                missingProjectCode:
+                  summary: Missing Project Code for Portfolio enabled workspaces.
+                  value:
+                    response_id: PeALddsxdG
+                    error:
+                      message: MOE-PROJECT-CODE header missing in request
+                      err_code: InvalidHeaderValue
         '401':
           description: Authorization Failure. Returned for issues like `MOE-APPKEY` header mismatch with Basic Auth username, missing Basic Auth credentials, or invalid authentication type.
           content:
@@ -215,6 +236,13 @@ paths:
           description: |
             This is the Workspace ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **APIs** > **Workspace ID (earlier app id)**.
           example: 'YOUR_WORKSPACE_ID_XXXX'
+        - name: MOE-PROJECT-CODE
+          in: header
+          schema:
+            type: string
+          description: |
+            This is the project ID of your MoEngage account that must be passed with the request. You can find it in the MoEngage dashboard at **Settings** > **Account** > **Portfolio** > **Project ID**. **Note**: This parameter is mandatory for workspaces with the [Portfolio](https://www.moengage.com/docs/user-guide/settings/account/portfolio/portfolio) feature enabled.
+          example: 'YOUR_PROJECT_ID_XXXX'  
       requestBody:
         description: The request body contains the user's email preference details encapsulated in a `user_preferences` object.
         required: true
@@ -241,7 +269,7 @@ paths:
               example:
                 message: Your request has been processed successfully
         '400':
-          description: Bad Request. Returned when required parameters are missing, incorrect data types are used, invalid values are passed (e.g., invalid `opt_in_status`), or the user is not found.
+          description: Bad Request. Returned when required parameters are missing, incorrect data types are used, invalid values are passed (e.g., invalid `opt_in_status`), the user is not found, or project code missing for Portfolio enabled workspaces.
           content:
             application/json:
               schema:
@@ -341,6 +369,15 @@ paths:
                   summary: Sentry Check Failed
                   value:
                     message: Sentry check failed
+                missingProjectCode:
+                  summary: Missing Project Code for Portfolio enabled workspaces.
+                  value:
+                    error:
+                      code: 400 Bad Request
+                      message: Invalid Header
+                      details:
+                         target: MOE-PROJECT-CODE
+                         message: MOE-PROJECT-CODE header missing in request.
         '401':
           description: Unauthorized. Authentication failed (e.g., missing Authorization header, wrong Workspace ID, or wrong Data API Key).
           content:
