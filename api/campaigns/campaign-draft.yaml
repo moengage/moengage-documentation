@@ -45,8 +45,7 @@ servers:
     variables:
       dc:
         default: '01'
-        enum: ['01', '02', '03', '04', '05', '06', '101']
-        description: 'Data center (DC) segment in the hostname. Replace `OX` with your workspace DC (01–06 or 101). See [Data centers](/api/introduction#data-centers).'
+        description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
 
 security:
   - BasicAuth: []
@@ -3197,7 +3196,7 @@ components:
 
     CampaignDraftCreatedData:
       type: object
-      required: [id, status]
+      required: [id, status, campaign_delivery_type]
       description: Payload returned when a draft is successfully created.
       properties:
         id:
@@ -3208,6 +3207,11 @@ components:
           type: string
           enum: [DRAFT]
           description: Created campaigns are always returned as `DRAFT`.
+        campaign_delivery_type:
+          type: string
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
+          description: The delivery type of the campaign. It echoes the `campaign_delivery_type` sent in the request.
+          example: ONE_TIME
 
     CampaignPatchAcceptedData:
       type: object
@@ -4010,12 +4014,25 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CampaignDraftCreatedData' }
-              example:
-                response_id: "abc-101"
-                type: "campaign"
-                data:
-                  id: "64a1b2c3d4e5f6a7b8c9d0e1"
-                  status: "DRAFT"
+              examples:
+                draft_created:
+                  summary: Draft created
+                  value:
+                    response_id: "abc-101"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      status: "DRAFT"
+                      campaign_delivery_type: "ONE_TIME"
+                api_triggered_shell_created:
+                  summary: API-triggered shell created
+                  value:
+                    response_id: "abc-102"
+                    type: "campaign"
+                    data:
+                      id: "6a9a8b9100919e1be1bb3f6e"
+                      status: "DRAFT"
+                      campaign_delivery_type: "API_TRIGGERED"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
