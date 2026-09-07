@@ -1,25 +1,34 @@
 ---
 title: "Why is there a discrepancy in the behavior table for ingested data?"
-description: "Why ingested event counts may differ between platforms like mParticle and MoEngage — learn how backdated events affect behavior table data."
+description: "Why daily event counts in the MoEngage Behavior table differ from a source platform such as mParticle, and how ingestion logs and Analytics date backdated events differently."
+keywords: "backdated events, ingestion logs, behavior table, event date, mParticle discrepancy"
 ---
 
 ## Problem
 
-The customer observes a discrepancy in event counts between mParticle and MoEngage while passing event data.
+You send event data to MoEngage from a source platform (for example, mParticle), but the daily event counts in the MoEngage Behavior table do not match the counts in the source platform.
 
-## Explanation
+## Why This Happens
 
-1. **Data logging in MoEngage:**
-   - The first log is recorded when data from any platform reaches MoEngage.
-   - If no logs are visible for certain days, it usually indicates that:
-     - Requests did not reach MoEngage.
-     - Requests failed due to validation errors.
-2. **Backdated events:**
-   - If backdated events are passed (for example, 1,000 events sent on January 10 for January 1), the following occurs:
-     - These events appear under January 10 in the logs.
-     - However, in the behavior section of the dashboard, they are displayed under January 1.
-   - If the source platform uses a different logic for displaying event dates, discrepancies will occur.
+### Confirm That the Data Reached MoEngage
+
+MoEngage ingestion logs record when data from any platform reaches MoEngage servers. These logs are accessible only to the MoEngage team. To verify raw ingestion for a specific date range, raise a request with MoEngage Support or your Customer Success Manager, and they check the logs on your behalf.
+
+If a given day shows no data in the logs, either the requests never reached MoEngage, or they arrived and failed validation.
+
+### Logs and Analytics Record Backdated Events Under Different Dates
+
+- Logs record an event under the day it was **received**. For example, 1,000 events for January 1 that you send to MoEngage on January 10 appear in the logs under January 10.
+- Analytics (the Behavior table) and Segmentation record and analyze those same events under **January 1** — the original occurrence date of the event, not the date it was received.
+- This split is expected behavior, not a defect: logs reflect the ingestion date, while the Behavior table and Segmentation reflect the event date.
+- If your source platform groups the same events by different date logic (for example, its own processing date instead of the event date), you see a day-level mismatch against the MoEngage Behavior table, even when the totals reconcile after the backdated data finishes syncing.
 
 <Info>
-MoEngage processes data for any specific day using the **current\_time** when the event is received, not the time when the event originally occurred through API (in the case of historical data).
+  For historical or backdated data sent through the API, MoEngage logs reflect the time the event was **received**. Analytics and Segmentation use the **original occurrence time** of the event for analysis.
 </Info>
+
+## What to Do
+
+- To verify raw ingestion for a suspected gap, contact MoEngage Support with the date range. Ingestion logs are not self-serve.
+- When you reconcile counts against a source platform, compare by event date rather than by processing or received date, so that the comparison matches how the MoEngage Behavior table and Segmentation attribute the data.
+- If a mismatch persists beyond the expected backdating delay, contact MoEngage Support to investigate further.
