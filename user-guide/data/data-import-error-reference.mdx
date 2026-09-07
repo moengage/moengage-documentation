@@ -1,0 +1,83 @@
+---
+title: "Data Import Error Reference"
+description: "Causes and fixes for common MoEngage file, S3, and SFTP import errors — including credentials, encryption, and UTF-8 encoding issues."
+keywords: "file import errors, S3 import, SFTP import, UTF-8 encoding, NoneType error, empty rows, 504 timeout, decryption key"
+---
+
+Use this reference to resolve errors seen when importing data through **Data Imports** or **User Imports**. For issues that aren't import errors, see [Troubleshoot Data](/user-guide/data/troubleshoot-data).
+
+## File Errors
+
+| Error message | Remedy |
+| --- | --- |
+| Error in uploading file | Verify the file encoding is UTF-8 and all characters are UTF-8 decodable; remove any non-ASCII characters. See [Fix UTF-8 encoding errors](#fix-utf-8-encoding-errors). |
+| Field larger than field limit | Ensure each cell contains less than 128 KB (131,072 characters) of data. |
+| Column value for the selected identifier attribute (ID) is absent / event datetime missing | Verify that all required attributes (ID values, event time values) are present in every row. |
+| Column value found larger than the max size-limit (check opening/closing quotes in a row) | Ensure the CSV field value does not exceed the allowed limit. |
+| Number of rows in the file exceeds the hourly limit | Contact support to confirm your allowed rate limits. |
+| No data found / only headers present / only empty rows | Ensure the CSV file is complete and not empty. See [empty rows](#specific-import-failures). |
+| An import with the same import name has already been used | Use a new, unique import or file name. |
+
+<Info>
+A discrepancy between the total rows in your file and the processed rows occurs when **Do not create new users** is selected during import. To create new users, don't select this option.
+</Info>
+
+## Credentials and Connection Errors
+
+| Error message | Remedy |
+| --- | --- |
+| SFTP folder path not valid / connection issue / credentials failing / server down | Check your SFTP server configuration. |
+| S3 server down, connection timeout, endpoint error | Verify the S3 connection settings. |
+
+## Encryption and Decryption Errors
+
+| Error message | Remedy |
+| --- | --- |
+| Decryption key is missing / wrong | Verify the correct decryption (private) key is entered in the MoEngage dashboard. |
+| Signing key missing / verification failed | Enter the correct signing key. |
+| Unable to decrypt the file | Verify and use the correct public encryption key. |
+| File is not in encrypted format | Encrypt the file with the correct encryption key and retry. |
+| File is in encrypted format, please set up PGP encryption | Configure decryption on the import (set up PGP encryption in the MoEngage dashboard). |
+
+## Specific Import Failures
+
+| Symptom / error | Cause | Resolution |
+| --- | --- | --- |
+| 504 timeout, or import fails with "file not found" on hover | The folder contains too many files (over ~1,000), so the 5-minute fetch times out; or a file exceeds 200 MB | Split files into folders of ≤100 each, keep each file under 200 MB, and remove files after a successful import |
+| `'>' not supported between instances of 'NoneType' and 'int'` (S3/SFTP) | A folder or subfolder name contains spaces, which is not supported | Rename the folders to remove spaces, then retry |
+| "Empty rows" error | Blank rows in the file, often added by Excel | Open the file in a text editor or Google Sheets, delete the blank rows, and re-save as CSV |
+| Periodic SFTP import fails with "file not found at the location" | The file is missing at the SFTP location, or was already processed by another import | Confirm the file exists; use unique file names or separate folders so each file is processed only once |
+
+## Fix UTF-8 Encoding Errors
+
+Imports fail with messages such as *"File is in an unsupported format or contains invalid characters. Please save it as UTF-8 and re-upload,"* or *"'utf-8' codec can't decode byte 0xe9 …"* when a file isn't saved in UTF-8 — commonly because the data contains accents, emojis, or symbols from other languages.
+
+MoEngage requires import files to be UTF-8 so that all user attributes, regardless of language or special characters, are processed correctly.
+
+### Check a File's Encoding
+
+- **Text editor (VS Code, Notepad++):** open the file; the encoding shows in the status bar (bottom-right). Characters that aren't valid UTF-8 appear as a black diamond with a question mark or other garbled symbols.
+- **Online validator:** paste the file contents into a UTF-8 checker to highlight non-compliant characters.
+
+### Save a File as UTF-8
+
+<Tabs>
+  <Tab title="Microsoft Excel">
+    **Newer versions:** File > Save As > in **Save as type**, select **CSV UTF-8 (Comma delimited) (\*.csv)** > Save.
+
+    **Older versions (Text Import Wizard):** open a blank workbook > **Data > From Text/CSV** > import your file, choosing a **File Origin** encoding that renders the preview correctly > Load. Then **File > Save As > Tools > Web Options > Encoding > Unicode (UTF-8)** > OK > Save.
+  </Tab>
+  <Tab title="Google Sheets">
+    **File > Import** and upload your file. Once the data looks correct, **File > Download > Comma Separated Values (.csv)** — the file downloads in UTF-8 automatically.
+  </Tab>
+  <Tab title="Notepad (Windows)">
+    Open the file > **File > Save As** > set the **Encoding** drop-down to **UTF-8** > Save.
+  </Tab>
+</Tabs>
+
+### Formats That Still Fail (Even in UTF-8)
+
+- **Complex attribute types** — JSON objects, dictionaries, or lists can't be imported directly into a single CSV field.
+- **Incorrect newline characters** — only `\n` (Line Feed) is supported; Windows `\r\n` can break parsing. Re-saving via Google Sheets or a text editor usually fixes this.
+- **Hidden control characters** — non-printable characters can corrupt the file; often introduced when exporting from other systems.
+- **Very small files** — fewer than five rows of data can error; add dummy rows to meet the minimum.
