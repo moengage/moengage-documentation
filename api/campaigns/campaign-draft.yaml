@@ -5,7 +5,7 @@ info:
   description: |
     The Campaigns V5 API manages the draft campaign lifecycle — draft creation, incremental updates, validation, test sends, and post-publish management.
 
-    **Note:** Campaign publishing is not yet supported in V5. To publish campaigns, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
+    **Note:** Campaign publishing is not yet supported in V5, except for `API_TRIGGERED` campaigns, which publish through `PATCH /v5/campaigns/{campaign_id}/status`. To publish every other delivery type, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
 
     **Supported channels:**
     - Push (Android, iOS, Web)
@@ -19,6 +19,7 @@ info:
     - DEVICE_TRIGGERED (Push only)
     - LOCATION_TRIGGERED (Push only)
     - BROADCAST_LIVE_ACTIVITY (Push iOS only)
+    - API_TRIGGERED (Email only)
 
     **Campaign lifecycle:**
 
@@ -26,8 +27,8 @@ info:
     2. **Update** - Patch individual components as you refine the setup. Each submitted component is validated in full before the draft is updated.
     3. **Validate** - Check whether a draft would pass publish-time validation without committing any changes.
     4. **Test** - Send a test message to specific users from either a saved draft or inline content before going live.
-    5. **Manage** - Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
-
+    5. **Manage** - Pause, resume, or stop a live campaign. `API_TRIGGERED` campaigns support `STOP` only. 
+    
     **Campaign versioning** is optional per workspace:
     - When enabled, publishing an update to a live campaign creates a new document with an incremented `version_number`.
     - `campaign_id` is the stable identifier across all versions; each version has its own raw `id` (ObjectId).
@@ -44,12 +45,29 @@ servers:
     variables:
       dc:
         default: '01'
-        description: 'Data center (DC) segment in the hostname. Replace `OX` with your workspace DC (01–06 or 101). See [Data centers](/api/introduction#data-centers).'
+        description: 'The ''dc'' in the API Endpoint URL refers to the MoEngage Data Center (DC). MoEngage hosts each customer in a different DC. You can find your DC number and replace the value of ''dc'' in the URL by referring to the DC and API endpoint mapping [here](/api/introduction#data-centers). Your MoEngage Data Center (DC) can be 01, 02, 03, 04, 05, 06, or 101.'
 
 security:
   - BasicAuth: []
 
 components:
+  headers:
+    XRateLimitLimit:
+      description: The request limit per minute for your workspace.
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: The requests remaining in the current window.
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: The seconds until the current rate-limit window resets.
+      schema:
+        type: integer
+    RetryAfter:
+      description: The seconds to wait before retrying the request.
+      schema:
+        type: integer
   securitySchemes:
     BasicAuth:
       type: http
@@ -221,11 +239,13 @@ components:
           type: string
           enum: [EMAIL]
           description: The campaign channel. One of `PUSH` or `EMAIL`.
-        campaign_delivery_type: 
+        campaign_delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, API_TRIGGERED]
           description: |
             The delivery type of the campaign.
+
+            **Note:** `API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview). The shell defines the content structure and the campaign settings, and each trigger request specifies the recipient and the values for that send. It supports `campaign_content.locales`, `campaign_content.variation_details`, `control_group_details`, `conversion_goal_details`, and `utm_params`. It does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, and within `delivery_controls` only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns) for the full field list.
 
             For full request payloads per delivery type, see the code examples on this page.
         created_by: 
@@ -327,8 +347,11 @@ components:
           description: Must be `EMAIL` for an Email update.
         campaign_delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED]
-          description: The delivery type of the campaign being updated.
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, API_TRIGGERED]
+          description: |
+            The delivery type of the campaign being updated.
+
+            Editing an `API_TRIGGERED` shell creates a new shell version. Sending a trigger request against the shell does not, so the number of trigger requests never changes the shell version.
         updated_by:
           type: string
           format: email
@@ -375,7 +398,7 @@ components:
         status:
           type: string
           description: |
-            Reserved for future use. Campaign publishing is not yet supported in V5. Do not set this field.
+            Reserved for future use. Do not set this field. To publish an `API_TRIGGERED` campaign, use the `PUBLISH` action on `PATCH /v5/campaigns/{campaign_id}/status`.
 
 
     CampaignStatusV5Request:
@@ -389,21 +412,27 @@ components:
             A client-supplied identifier for this status change request, echoed back as `response_id` so you can correlate the request and response. This is not a deduplication key — to make a request idempotent, use the `Idempotency-Key` header. Replaying the same `Idempotency-Key` returns the original response.
         action:
           type: string
-          enum: [STOP, PAUSE, RESUME]
+          enum: [PUBLISH, STOP, PAUSE, RESUME]
           description: |
-            Lifecycle action for an already published or scheduled campaign.
+            Lifecycle action for a campaign.
 
             Each action applies only to specific delivery types and requires the campaign to be in a valid source state:
 
             | Action | Supported delivery types | Valid source states |
             | :--- | :--- | :--- |
+            | `PUBLISH` | `API_TRIGGERED` | `DRAFT` |
             | `STOP` | `ONE_TIME` | `ACTIVE`, `SCHEDULED`, `PAUSED`, `SENDING` |
+            | `STOP` | `API_TRIGGERED` | `ACTIVE`, `SCHEDULED` |
             | `PAUSE` | `PERIODIC`, `EVENT_TRIGGERED` | `ACTIVE`, `SCHEDULED`, `SENDING` |
             | `RESUME` | `PERIODIC`, `EVENT_TRIGGERED` | `PAUSED` |
 
             <Note>
-             `STOP` cannot be used on Periodic campaigns. `PAUSE` and `RESUME` cannot be used on One-time campaigns.
+             `STOP` cannot be used on Periodic campaigns. `PAUSE` and `RESUME` cannot be used on One-time or API-triggered campaigns.
             </Note>
+
+            `PUBLISH` applies to `API_TRIGGERED` campaigns only. For every other delivery type, campaign publishing is not yet supported in V5.
+
+            An `API_TRIGGERED` shell supports `PUBLISH` and `STOP`. It does not support `PAUSE` or `RESUME`, so a shell has no paused state. After you stop a shell, MoEngage rejects trigger requests against it.
 
 
     SearchV5Request:
@@ -512,9 +541,11 @@ components:
           type: array
           items:
             type: string
-            enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED]
+            enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, API_TRIGGERED]
           description: |
             Include campaigns with any of these delivery types.
+
+            Filter on `API_TRIGGERED` to list your Messaging API shells.
 
             In V1, this field was `delivery_type`. In V5, it is `campaign_delivery_type`.
           example: ["ONE_TIME", "PERIODIC"]
@@ -624,7 +655,7 @@ components:
               example: "2024-12-31T23:59:59"
         delivery_type:
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, API_TRIGGERED]
           description: |
             Filter campaigns by delivery type.
 
@@ -700,6 +731,8 @@ components:
         - **Draft mode**: Supply `draft_id` to load content from a saved DRAFT campaign. By default, the server sends one test per locale and variation defined in the draft. Use `test_campaign_meta.locale_name` or `variation` to narrow the send.
 
         **Conditional required fields:** `test_campaign_meta` is always required. Inline mode additionally requires `channel`, `basic_details`, `connector`, and `campaign_content`. Draft mode additionally requires `draft_id`. These per-mode requirements are enforced by the API but cannot be expressed in the `required` array, which lists only the always-required `test_campaign_meta`.
+
+        **Note:** Test Campaign is not supported for `API_TRIGGERED` campaigns. A `draft_id` that points to an `API_TRIGGERED` shell returns an error. An inline-mode request returns no error, because the endpoint does not accept `campaign_delivery_type` as input, so the test send does not exercise the shell.
       required: [test_campaign_meta]
       properties:
         request_id:
@@ -1330,7 +1363,7 @@ components:
       description: |
         Configuration for A/B testing variations.
 
-        For runnable `MANUAL` (fixed split) and `SHERPA` (auto-optimized) examples, refer to [A/B test variations](/api/campaigns/campaign-content-reference#a-b-test-variations).
+        For runnable `MANUAL` (fixed split) and `SHERPA` (auto-optimized) examples, refer to [A/B test variations](/api/campaigns/campaign-content-reference#a%2Fb-test-variations).
       properties:
         distribution_type: 
           type: string
@@ -2922,9 +2955,9 @@ components:
           description: The communication channel.
         campaign_delivery_type: 
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
           description: The delivery type of the campaign.
-        created_by: 
+        created_by:
           type: string
           format: email
           description: The email ID of the user who created the campaign.
@@ -3067,9 +3100,9 @@ components:
           description: The email ID of the user who created the campaign.
         campaign_delivery_type: 
           type: string
-          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY]
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
           description: The delivery type of the campaign.
-        campaign_name: 
+        campaign_name:
           type: string
           description: The name of the campaign.
           example: "Summer Sale Campaign"
@@ -3163,7 +3196,7 @@ components:
 
     CampaignDraftCreatedData:
       type: object
-      required: [id, status]
+      required: [id, status, campaign_delivery_type]
       description: Payload returned when a draft is successfully created.
       properties:
         id:
@@ -3174,6 +3207,11 @@ components:
           type: string
           enum: [DRAFT]
           description: Created campaigns are always returned as `DRAFT`.
+        campaign_delivery_type:
+          type: string
+          enum: [ONE_TIME, PERIODIC, EVENT_TRIGGERED, BUSINESS_EVENT_TRIGGERED, DEVICE_TRIGGERED, LOCATION_TRIGGERED, BROADCAST_LIVE_ACTIVITY, API_TRIGGERED]
+          description: The delivery type of the campaign. It echoes the `campaign_delivery_type` sent in the request.
+          example: ONE_TIME
 
     CampaignPatchAcceptedData:
       type: object
@@ -3198,7 +3236,7 @@ components:
         action:
           type: string
           description: The action that was applied (matches the requested action).
-          enum: [STOP, PAUSE, RESUME]
+          enum: [PUBLISH, STOP, PAUSE, RESUME]
 
     CampaignSearchResponseData:
       type: object
@@ -3251,6 +3289,53 @@ components:
           type: string
           description: Human-readable summary of the test send operation.
           example: "Test campaign processed"
+
+    TriggerErrorResponse:
+      type: object
+      description: The standard error envelope returned by this endpoint.
+      properties:
+        error:
+          type: object
+          description: The error that caused the request to fail.
+          required:
+            - code
+            - message
+            - target
+          properties:
+            code:
+              type: string
+              description: |
+                The machine-readable error code. One of `VALIDATION_FAILED`, `NOT_FOUND`, `RECIPIENT_LIMIT_EXCEEDED`, `UNKNOWN_PLACEHOLDER`, `UNKNOWN_LOCALE`, `CAMPAIGN_NOT_TRIGGERABLE`, or `RATE_LIMITED`.
+            message:
+              type: string
+              description: A human-readable description of the error.
+            target:
+              type: string
+              description: The request field or header that caused the error. Always present.
+            details:
+              type: array
+              description: The individual field failures, each with its own `target` and `message`. Present only when more than one field failed validation.
+              items:
+                $ref: '#/components/schemas/TriggerErrorDetail'
+        response_id:
+          type: string
+          description: The identifier for this response. It returns the `Idempotency-Key` from the request, so you can correlate the two.
+
+    TriggerErrorDetail:
+      type: object
+      description: A single field-level cause of an error.
+      properties:
+        code:
+          type: string
+          description: The machine-readable code for this cause, for example `string_too_long` or `string_too_short`.
+          example: string_too_long
+        target:
+          type: string
+          description: The request field that caused this error. An entry in an array is identified by index, for example `recipients.0`.
+          example: recipients.0
+        message:
+          type: string
+          description: A human-readable description of this cause.
 
   responses:
     V5ValidationError:
@@ -3519,6 +3604,33 @@ paths:
                     delivery_type: "AT_FIXED_TIME"
                     start_time: "{{start_time}}"
                     expiry_time: "{{expiry_time}}"
+              email_api_triggered:
+                summary: Email - API_TRIGGERED (Messaging API shell)
+                value:
+                  request_id: "{{request_id}}"
+                  channel: "EMAIL"
+                  campaign_delivery_type: "API_TRIGGERED"
+                  created_by: "{{user_email}}"
+                  basic_details:
+                    name: "{{campaign_name}}"
+                    content_type: "PROMOTIONAL"
+                    user_attribute_identifier: "Email (Standard)"
+                    subscription_category: "{{subscription_category}}"
+                  connector:
+                    connector_type: "{{connector_type}}"
+                    connector_name: "{{connector_name}}"
+                  campaign_content:
+                    content:
+                      email:
+                        subject: "{{email_subject}}"
+                        preview_text: "{{preview_text}}"
+                        sender_name: "{{sender_name}}"
+                        from_address: "{{from_email}}"
+                        reply_to_address: "{{reply_to_email}}"
+                        html_content: "{{html_body}}"
+                  delivery_controls:
+                    ignore_frequency_capping: false
+                    count_for_frequency_capping: true
               push_event_triggered:
                 summary: Push - EVENT_TRIGGERED
                 value:
@@ -3902,12 +4014,25 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CampaignDraftCreatedData' }
-              example:
-                response_id: "abc-101"
-                type: "campaign"
-                data:
-                  id: "64a1b2c3d4e5f6a7b8c9d0e1"
-                  status: "DRAFT"
+              examples:
+                draft_created:
+                  summary: Draft created
+                  value:
+                    response_id: "abc-101"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      status: "DRAFT"
+                      campaign_delivery_type: "ONE_TIME"
+                api_triggered_shell_created:
+                  summary: API-triggered shell created
+                  value:
+                    response_id: "abc-102"
+                    type: "campaign"
+                    data:
+                      id: "6a9a8b9100919e1be1bb3f6e"
+                      status: "DRAFT"
+                      campaign_delivery_type: "API_TRIGGERED"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
@@ -3925,6 +4050,10 @@ paths:
         Returns the full configuration and current status of a single campaign by its ID.
       x-mint:
         content: |
+          <Note>
+          **`API_TRIGGERED` campaigns:** the response carries the standard campaign shape, so components that do not apply to a shell may still appear. `segmentation_details` reflects the All Users audience the server stores rather than an audience you configured, and `scheduling_details`, `trigger_condition`, `campaign_audience_limit`, and the unsupported `delivery_controls` fields carry no meaning for a shell. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+          </Note>
+
           <Note>
           **SMS campaigns:** SMS campaigns are returned by this endpoint; the response `channel` field will be `SMS`. The `connector` and `sender_name` fields carry SMS-specific details. SMS campaigns can be retrieved but must be created and managed through the MoEngage dashboard or V1 APIs in the interim.
           </Note>
@@ -4093,6 +4222,53 @@ paths:
                         utm_campaign: "weekly_newsletter"
                       campaign_audience_limit:
                         is_campaign_audience_limit_enabled: false
+                api_triggered_email_campaign:
+                  summary: Active Email campaign (API-triggered shell)
+                  value:
+                    response_id: "abc-102"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e3"
+                      campaign_id: "64a1b2c3d4e5f6a7b8c9d0e3"
+                      status: "ACTIVE"
+                      channel: "EMAIL"
+                      campaign_delivery_type: "API_TRIGGERED"
+                      created_by: "developer@example.com"
+                      updated_by: "developer@example.com"
+                      created_at: "2024-01-01 08:00:00.000000"
+                      updated_at: "2024-06-15 10:30:00.000000"
+                      basic_details:
+                        name: "Order confirmation shell"
+                        content_type: "TRANSACTIONAL"
+                        subscription_category: "order_updates"
+                        user_attribute_identifier: "Email (Standard)"
+                        tags:
+                          - "order-confirmation"
+                        team: "Retention Team"
+                      connector:
+                        connector_type: "SENDGRID"
+                        connector_name: "SendgridPrimary"
+                      campaign_content:
+                        locales: []
+                        content:
+                          email:
+                            subject: "Your order {{order_id}} is confirmed"
+                            preview_text: "Thanks for your purchase"
+                            sender_name: "Example Store"
+                            from_address: "orders@example.com"
+                            reply_to_address: "support@example.com"
+                      control_group_details:
+                        is_global_control_group_enabled: false
+                        is_campaign_control_group_enabled: false
+                      delivery_controls:
+                        ignore_frequency_capping: false
+                        count_for_frequency_capping: true
+                      segmentation_details:
+                        is_all_user_campaign: true
+                      utm_params:
+                        utm_source: "moengage"
+                        utm_medium: "email"
+                        utm_campaign: "order_confirmation"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
@@ -4118,7 +4294,11 @@ paths:
       x-mint:
         content: |
           <Note>
-          **Campaign publishing is not yet available in V5.** This endpoint only supports updating draft components. To publish campaigns, use the V1 API at `PATCH /core-services/v1/campaigns/{campaign_id}` in the interim. Publishing via V5 will be available in a future release.
+          **Campaign publishing is not yet available in V5, except for `API_TRIGGERED` campaigns.** This endpoint only supports updating draft components. An `API_TRIGGERED` campaign publishes through the `PUBLISH` action on `PATCH /v5/campaigns/{campaign_id}/status`. To publish every other delivery type, use the V1 API at `PATCH /core-services/v1/campaigns/{campaign_id}` in the interim.
+          </Note>
+
+          <Note>
+          **`API_TRIGGERED` campaigns accept a reduced component set.** Patching `segmentation_details`, `scheduling_details`, `trigger_condition`, `campaign_audience_limit`, `basic_details.business_event`, `send_only_double_opt_in_users`, or `deduplication_attribute` is rejected. Within `delivery_controls`, only `ignore_frequency_capping` and `count_for_frequency_capping` are supported: `bypass_dnd` set to `true`, `campaign_throttle_rpm`, a non-zero `minimum_delay_between_two_notification_in_hour`, and an enabled `limit_send_config` are all rejected. Refer to [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
           </Note>
 
           Send a `PATCH` request without a `status` key in the body.
@@ -4669,7 +4849,7 @@ paths:
       x-mint:
         content: |
           <Note>
-          This endpoint only handles post-publish lifecycle transitions (STOP, PAUSE, RESUME) for campaigns that are already live. Campaign publishing is not yet supported in V5.
+          For every delivery type except `API_TRIGGERED`, this endpoint only handles post-publish lifecycle transitions (STOP, PAUSE, RESUME) for campaigns that are already live, and campaign publishing is not yet supported in V5. `API_TRIGGERED` campaigns also publish through this endpoint, using the `PUBLISH` action.
           </Note>
 
           <Note>
@@ -4709,6 +4889,11 @@ paths:
             schema:
               $ref: '#/components/schemas/CampaignStatusV5Request'
             examples:
+              publish_api_triggered:
+                summary: Publish an API-triggered campaign
+                value:
+                  request_id: "{{request_id}}"
+                  action: "PUBLISH"
               stop_campaign:
                 summary: Stop a campaign
                 value:
@@ -4735,12 +4920,23 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CampaignStatusTransitionData' }
-              example:
-                response_id: "abc-601"
-                type: "campaign"
-                data:
-                  id: "64a1b2c3d4e5f6a7b8c9d0e1"
-                  action: "STOP"
+              examples:
+                published:
+                  summary: API-triggered campaign published
+                  value:
+                    response_id: "abc-600"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      action: "PUBLISH"
+                stopped:
+                  summary: Campaign stopped
+                  value:
+                    response_id: "abc-601"
+                    type: "campaign"
+                    data:
+                      id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                      action: "STOP"
         '400':
           $ref: '#/components/responses/V5ValidationError'
         '401':
@@ -4763,6 +4959,340 @@ paths:
                   details: []
         '500':
           $ref: '#/components/responses/V5InternalError'
+
+  /v5/campaigns/{campaign_id}/send:
+    post:
+      summary: Trigger Message
+      operationId: triggerMessage
+      tags:
+        - Trigger
+      description: |
+        Trigger a message against a published `API_TRIGGERED` campaign shell.
+
+        Create a shell through the [Campaigns V5 API](/api/campaigns/campaign-draft-overview), then trigger messages against its `campaign_id`. A shell is reusable and supports repeated trigger requests. See the [Messaging API Overview](/api/messaging/messaging-api-overview).
+      x-mint:
+        content: |
+          <Info>
+            This API supports Email only.
+          </Info>
+
+          ### Rate Limit
+
+          The default rate limit is 1,000 requests per minute per workspace. A request targets one recipient, so the limit is also the maximum number of messages you can trigger per minute.
+
+          MoEngage rejects requests above the limit with `429` and does not queue them. Contact your Customer Success Manager to raise the limit.
+
+          Every response carries the `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            The raw 24-character campaign ObjectId of a published `API_TRIGGERED` shell. Take the value from the `data.id` field returned by [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) or [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5). The field is named `id` in those responses, not `campaign_id`.
+          example: 6a9a8b9100919e1be1bb3f6e
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: |
+            A caller-supplied correlation ID (UUID). MoEngage stores the value as `moe_event_id` on the delivery and engagement events for this message, and returns it as `response_id`, so it is the only way to trace a trigger request through to its events in the event stream. When you omit the header, MoEngage generates a value.
+          example: 3f8b2c14-7d5a-42e1-9c6b-8a1f0e4d2b73
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: A unique key for this request (UUID v4). Deduplication is not enforced in this release, so sending the same key a second time sends the message a second time. Send the header on every request so that no integration change is needed once deduplication is enforced.
+          example: 550e8400-e29b-41d4-a716-446655440000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - identifier_type
+                - recipients
+              properties:
+                identifier_type:
+                  type: string
+                  description: |
+                    The identifier used to resolve the recipient. Accepts one of:
+
+                    - `ID`, the unique user ID. Always active in every workspace.
+                    - `MOENGAGE_ID`, the MoEngage-generated user ID.
+                    - The name of any user attribute activated as an identifier in your workspace, for example `CRM_ID` or `LOYALTY_ID`. Send the attribute name your workspace uses, not a generic value.
+
+                    A workspace can activate up to five identifiers, configured under Unified Identity. To find the names available to you, see [Unified Identity](/user-guide/data/user-data/unified-identity-identity-resolution).
+
+                    A custom identifier must be activated before you use it, and the value must match the activated attribute name exactly. An identifier type that is not activated returns `422`.
+                  example: ID
+                recipients:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 256
+                    description: The recipient identifier, matching the type declared in `identifier_type`. Must be between 1 and 256 characters. Resolution is case-sensitive, so send the value exactly as the user profile stores it.
+                  description: The recipient of this message, as a list holding exactly one identifier. A request targets one recipient. Call the endpoint again for each additional recipient.
+                  example: ["U-10294"]
+                locale_name:
+                  type: string
+                  description: The locale variant of the shell to render. Optional.
+                  example: en_US
+                personalized_attributes:
+                  type: object
+                  description: Values for the shell's placeholders. A value can be fully resolved or can contain personalization tokens that MoEngage resolves for each recipient.
+                  additionalProperties:
+                    oneOf:
+                      - type: string
+                      - type: number
+                  example:
+                    first_name: Alice
+                    order_id: ORD-12345
+                    order_total: "99.99"
+            examples:
+              ID:
+                summary: Target by unique user ID
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              MOENGAGE_ID:
+                summary: Target by MoEngage ID
+                value:
+                  identifier_type: "MOENGAGE_ID"
+                  recipients: ["64a1b2c3d4e5f6a7b8c9d0e4"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              CRM_ID:
+                summary: Target by a custom identifier attribute, named as your workspace activated it
+                value:
+                  identifier_type: "CRM_ID"
+                  recipients: ["John123"]
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+              ID with locale_name:
+                summary: Any identifier type, selecting a locale variant
+                value:
+                  identifier_type: "ID"
+                  recipients: ["U-10294"]
+                  locale_name: "en_US"
+                  personalized_attributes:
+                    first_name: "Alice"
+                    order_id: "ORD-12345"
+      responses:
+        "202":
+          description: |
+            Accepted and enqueued for asynchronous dispatch.
+
+            **An invalid recipient is silently dropped.** MoEngage does not resolve recipients at the request level, so a `202` never confirms that the identifier matches a user. If the identifier matches no user, MoEngage discards the message during dispatch without returning an error, without a `4xx`, and without any notification to your application. The message simply never arrives. A recipient dropped by frequency capping or suppression behaves the same way.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_id:
+                    type: string
+                    description: The correlation ID for this request. Returns the `X-MOE-Request-Id` you sent, or a MoEngage-generated UUID when you omit that header. Present on every response, including errors.
+                  type:
+                    type: string
+                    description: The type of object returned in `data`. Always `message` for this endpoint.
+                  data:
+                    type: object
+                    description: The accepted request.
+                    required:
+                      - campaign_id
+                      - recipient_count
+                    properties:
+                      campaign_id:
+                        type: string
+                        description: The ID of the shell the message was triggered against.
+                      recipient_count:
+                        type: integer
+                        description: The number of recipients accepted from the request. A request targets one recipient, so this is `1`. This counts what was accepted, not what resolved to a user.
+              example:
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+                type: message
+                data:
+                  campaign_id: 6a9a8b9100919e1be1bb3f6e
+                  recipient_count: 1
+
+        "400":
+          description: |
+            Validation failed. The request violates the schema, contains an unknown field, or carries a recipient identifier that is empty or longer than 256 characters.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              examples:
+                recipient_too_long:
+                  summary: Recipient identifier over 256 characters
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_long
+                          target: recipients.0
+                          message: String should have at most 256 characters
+                    response_id: a47bf280-0cfd-4326-9445-07de27a7f739
+                recipient_empty:
+                  summary: Recipient identifier is an empty string
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: One or more fields failed validation.
+                      target: body
+                      details:
+                        - code: string_too_short
+                          target: recipients.0
+                          message: String should have at least 1 character
+                    response_id: b8465cf0-8b26-4401-af15-54bc9d8a2d6c
+
+        "404":
+          description: |
+            No campaign exists with this `campaign_id` in your workspace. MoEngage returns `404` rather than `403` for a campaign owned by another workspace, so that campaign IDs are not disclosed.
+
+            A campaign that exists but is not an API-triggered campaign returns `422 CAMPAIGN_NOT_TRIGGERABLE` instead.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Campaign not found.
+                  target: campaign_id
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "401":
+          description: Authentication failed. The Workspace ID or API key is missing or incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Invalid or missing credentials.
+                  target: Authorization
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+
+        "403":
+          description: The credentials are valid, but the API key is not scoped to the Campaigns API. Add the **Campaigns** scope to the key under **Settings** > **Account** > **API keys**.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: The API key is not authorized for this resource.
+                  target: Authorization
+                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+
+        "422":
+          description: |
+            The request is well formed but cannot be processed. The campaign is still a draft, the campaign is not an API-triggered campaign, `recipients` holds more than one identifier, or a placeholder or locale is not declared on the shell.
+
+            `CAMPAIGN_NOT_TRIGGERABLE` covers both non-triggerable states, with the `message` field distinguishing them: a shell that has not been published yet, and a campaign of the wrong delivery type.
+
+            A `campaign_id` that does not exist at all returns `404 NOT_FOUND` instead.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              examples:
+                campaign_is_draft:
+                  summary: Shell has not been published yet
+                  value:
+                    error:
+                      code: CAMPAIGN_NOT_TRIGGERABLE
+                      message: Campaign is a draft and cannot be triggered.
+                      target: campaign_id
+                    response_id: c3d4e5f6-a7b8-9012-cdef-ab3456789012
+                campaign_not_triggerable:
+                  summary: Campaign exists but is not an API-triggered campaign
+                  value:
+                    error:
+                      code: CAMPAIGN_NOT_TRIGGERABLE
+                      message: Campaign is not an API-triggered campaign.
+                      target: campaign_id
+                    response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+                recipient_limit_exceeded:
+                  summary: More than one recipient
+                  value:
+                    error:
+                      code: RECIPIENT_LIMIT_EXCEEDED
+                      message: recipients accepts exactly one identifier
+                      target: recipients
+                      details:
+                        - code: MAX_EXCEEDED
+                          target: recipients
+                          message: recipients accepts exactly one identifier
+                    response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "429":
+          description: The request exceeds the per-workspace rate limit. MoEngage rejects the request and does not queue it. Retry after the interval in the Retry-After header.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Rate limit exceeded for this workspace
+                response_id: 550e8400-e29b-41d4-a716-446655440000
+
+        "500":
+          description: Server error. Retrying the request may send the message more than once, because this endpoint does not deduplicate retries.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+            X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: An unexpected error occurred
+                response_id: 550e8400-e29b-41d4-a716-446655440000
 
   /v5/campaigns/search:
     post:
@@ -5188,6 +5718,8 @@ paths:
       summary: Test Campaign (V5)
       description: |
         Sends a test Push or Email message to specific users or device identifiers before publishing the campaign.
+
+        **Note:** Test Campaign is not supported for `API_TRIGGERED` campaigns. In draft mode, a `draft_id` that points to an `API_TRIGGERED` shell returns an error. In inline mode, the request returns no error, because the endpoint does not accept `campaign_delivery_type` as input, so a test send that appears to succeed does not test the shell. To verify an `API_TRIGGERED` shell, publish it and send a trigger request to a recipient you control.
       x-mint:
         content: |
           The endpoint supports two modes:

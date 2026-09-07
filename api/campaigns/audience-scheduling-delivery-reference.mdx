@@ -1,7 +1,7 @@
 ---
 title: "Audience and delivery reference"
 description: "Reference for trigger_condition, segmentation_details, scheduling_details, delivery_controls, conversion_goal_details, control_group_details, utm_params, campaign_audience_limit, advanced, and geofences. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping"]
+keywords: ["trigger_condition", "segmentation_details", "scheduling_details", "delivery_controls", "conversion_goal_details", "control_group_details", "utm_params", "campaign_audience_limit", "geofences", "filters", "periodic", "BTS", "user timezone", "frequency capping", "API_TRIGGERED", "Messaging API"]
 icon: "users-viewfinder"
 ---
 
@@ -15,7 +15,7 @@ The OpenAPI spec at `/api/campaigns/campaign-draft.yaml` is the authoritative so
 
 ## Quick start
 
-The minimum audience configuration is either `segmentation_details.is_all_user_campaign: true` or a single filter under `segmentation_details.included_filters`. The minimum schedule is `scheduling_details.delivery_type: ASAP`. Event-triggered campaigns also require `trigger_condition`.
+The minimum audience configuration is either `segmentation_details.is_all_user_campaign: true` or a single filter under `segmentation_details.included_filters`. The minimum schedule is `scheduling_details.delivery_type: ASAP`. Event-triggered campaigns also require `trigger_condition`. Neither component applies to `API_TRIGGERED` campaigns; see [API-triggered campaigns](#api-triggered-campaigns).
 
 <CodeGroup>
 
@@ -71,6 +71,7 @@ Everything below is reference material covering every supported delivery type, f
 
 | Section | Location in request body |
 | :--- | :--- |
+| [API-triggered campaigns](#api-triggered-campaigns) | Field support and status actions for `API_TRIGGERED` |
 | [Trigger conditions](#trigger-conditions) | `trigger_condition` |
 | [Filter primitives](#filter-primitives) | `included_filters.filters[]`, `excluded_filters.filters[]`, `trigger_condition.*_filters.filters[]` |
 | [Campaign audience](#campaign-audience) | `segmentation_details` |
@@ -84,6 +85,84 @@ Everything below is reference material covering every supported delivery type, f
 | [Geofence targeting](#geofence-targeting) | `basic_details.geofences` |
 | [Validation rules](#validation-rules) | Cross-cutting rules enforced at validate time |
 | [Updating an existing campaign](#updating-an-existing-campaign) | Per-state restrictions for `PATCH /v5/campaigns/{campaign_id}` |
+
+## API-triggered campaigns
+
+An `API_TRIGGERED` campaign is a reusable shell for the [Messaging API](/api/messaging/messaging-api-overview). It has no audience and no schedule: each trigger request specifies one recipient and the content values for that send. This changes which components the campaign accepts.
+
+### Supported components
+
+| Component | Supported fields |
+| :--- | :--- |
+| Top level | `request_id`, `channel` (`EMAIL` only), `created_by`, `updated_by`, `campaign_delivery_type`, `version_note` (update), `approvers` |
+| `basic_details` | `name`, `team`, `tags`, `user_attribute_identifier`, `content_type` (`PROMOTIONAL` or `TRANSACTIONAL`), `subscription_category` |
+| `campaign_content` | `locales`, `variation_details`, `content` |
+| `connector` | `connector_type`, `connector_name` |
+| `control_group_details` | `is_global_control_group_enabled`, `is_campaign_control_group_enabled`, `campaign_control_group_percentage` |
+| `conversion_goal_details` | `attribution_window_in_hours`, `goals[]` |
+| `delivery_controls` | `ignore_frequency_capping`, `count_for_frequency_capping` |
+| `utm_params` | All fields |
+
+`locales` and `variation_details` behave as they do for every other delivery type. See [Locale-keyed and variation-keyed shape](/api/campaigns/campaign-content-reference#locale-keyed-and-variation-keyed-shape).
+
+### Audience and scheduling
+
+A shell has no audience of its own. Do not send `segmentation_details`: MoEngage rejects a create request that includes it, and stores an All Users audience on the shell instead. Each trigger request names its own recipient.
+
+`scheduling_details` is optional. When you send it, `delivery_type` must be `ASAP`, which is accepted and has no effect. MoEngage rejects any other value, and no other field within `scheduling_details` applies.
+
+### Unsupported components
+
+The following are not supported for API-triggered email campaigns. MoEngage rejects a create request that includes them with `400 VALIDATION_FAILED`.
+
+| Component or field | Condition | Error message |
+| :--- | :--- | :--- |
+| `channel` other than `EMAIL` | Always | `API_TRIGGERED delivery type is supported only for the EMAIL channel` |
+| `segmentation_details` | Always | `segmentation_details is not supported for API_TRIGGERED campaigns` |
+| `scheduling_details.delivery_type` other than `ASAP` | Any other value | `Only ASAP delivery_type is supported for API_TRIGGERED campaigns` |
+| `campaign_audience_limit` | When `is_campaign_audience_limit_enabled` is `true` | `campaign_audience_limit is not allowed for API_TRIGGERED campaigns` |
+| `delivery_controls.campaign_throttle_rpm` | Always, and no default RPM is applied | `campaign_throttle_rpm is not valid for this campaign type` |
+| `send_only_double_opt_in_users` | Always. Double opt-in does not apply. | `['send_only_double_opt_in_users'] are not expected in this request.` |
+| `deduplication_attribute` | Always. Brand deduplication does not apply. | `['deduplication_attribute'] are not expected in this request.` |
+| `trigger_condition` | Always. The trigger request initiates the send. | |
+| `basic_details.business_event` | Always | |
+| `delivery_controls.bypass_dnd` | When `true`. DND is not evaluated for an API-triggered campaign, so the flag has no effect. | |
+| `delivery_controls.minimum_delay_between_two_notification_in_hour` | When non-zero. The field is measured in hours, so `0` or omitting it are the only accepted values. | |
+| `delivery_controls.limit_send_config` | When `enabled` is `true` | |
+
+The per-request rate limit on the trigger endpoint governs delivery pacing rather than audience size.
+
+### Unsupported email features
+
+Beyond the components above, the following email capabilities do not apply to an `API_TRIGGERED` campaign.
+
+| Capability | Notes |
+| :--- | :--- |
+| Google annotations | Not supported. |
+| Double opt-in | Not supported. A create request that includes `send_only_double_opt_in_users` is rejected. |
+| Link branding | Not supported. |
+| Deep links | Not supported. |
+| Brand deduplication | Not supported. A create request that includes `deduplication_attribute` is rejected. |
+| From address personalization | Not supported. `from_address` accepts a fixed value only. |
+| Reply-to address personalization | Not supported. `reply_to_address` accepts a fixed value only. |
+| Reply-to unsubscribe and list unsubscribe | Not supported. |
+| Campaign reports | Messages dropped during dispatch are not reported. Delivery and engagement events and campaign stats are reported as for any other delivery type. |
+| Idempotent trigger retries | Not enforced in this release. The trigger endpoint accepts the `Idempotency-Key` header and returns it as `response_id`, but does not deduplicate on it. |
+
+### Test sends
+
+Test Campaign is not supported for `API_TRIGGERED` campaigns.
+
+| Mode | Behavior |
+| :--- | :--- |
+| Draft mode | A `draft_id` that points to an `API_TRIGGERED` shell returns an error. |
+| Inline mode | The request returns no error, because the endpoint does not accept `campaign_delivery_type` as input. A successful inline test does not confirm that the shell works. |
+
+To verify a shell, publish it and send a trigger request to a recipient you control.
+
+### Status actions
+
+An `API_TRIGGERED` shell supports `PUBLISH` and `STOP`. It does not support `PAUSE` or `RESUME`, so a shell has no paused state. After you stop a shell, MoEngage rejects trigger requests against it. `PUBLISH` on `PATCH /v5/campaigns/{campaign_id}/status` applies to `API_TRIGGERED` campaigns only; publishing every other delivery type through V5 is not yet supported.
 
 ## Trigger conditions
 
@@ -283,6 +362,7 @@ The `intelligent_delay_optimization` object defines the window within which MoEn
 | `LOCATION_TRIGGERED` (Push) | **Required**. | — | **Required**. See [Geofence targeting](#geofence-targeting). |
 | `ONE_TIME` (Push, Email) | Not applicable. | — | — |
 | `PERIODIC` (Push, Email) | Not applicable. | — | — |
+| `API_TRIGGERED` (Email) | Not permitted. See [API-triggered campaigns](#api-triggered-campaigns). | Not permitted. | — |
 
 ## Filter primitives
 
@@ -864,6 +944,8 @@ The `delivery_controls` object carries throttling, frequency capping, DND behavi
   }
 }
 ```
+
+For `API_TRIGGERED` campaigns, only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. See [API-triggered campaigns](#api-triggered-campaigns).
 
 ## Conversion goal tracking
 

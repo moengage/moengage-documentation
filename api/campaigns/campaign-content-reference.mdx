@@ -1,7 +1,7 @@
 ---
 title: "Campaign content reference"
 description: "Reference for basic_details and campaign_content per channel, platform, and template type. Used by the Create Campaign and Update Campaign endpoints."
-keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale"]
+keywords: ["campaign content", "basic_details", "Android push template", "iOS push template", "web push template", "email content", "html_content", "custom_template_id", "A/B variation", "locale", "API_TRIGGERED", "Messaging API"]
 icon: "layout-template"
 ---
 
@@ -1124,6 +1124,95 @@ When `custom_template_id` is provided, `subject`, `preview_text`, and `sender_na
   }
 }
 ```
+
+</Tab>
+</Tabs>
+
+### Content for API-triggered shells
+
+An `API_TRIGGERED` campaign is a reusable shell for the [Messaging API](/api/messaging/messaging-api-overview) and stores a message structure rather than finished content. The fields in `campaign_content.content.email` behave as they do for any other Email campaign. The difference is their content: a standard campaign defines final content, and a shell defines placeholders that each trigger request populates.
+
+The division of responsibility is fixed:
+
+- **The shell defines the structure.** Subject, sender, HTML body, and template reference belong to the shell. A trigger request cannot change them.
+- **The trigger request specifies the values.** Each request provides the values for the shell's placeholders and the recipient.
+
+A value in a trigger request takes one of two forms, and a single request can combine both:
+
+| Form | Behavior |
+| :--- | :--- |
+| Fully resolved | The request provides the final value, and MoEngage passes it through unchanged. Use this form when your application has already rendered the content. |
+| Personalization token | The request provides a value that contains personalization tokens, and MoEngage resolves them for each recipient at send time. |
+
+Personalization on a shell uses the same syntax and the same sources as any other campaign, including user attributes, content blocks, and the Content API. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
+
+A shell supports `locales` and `variation_details` as any other Email campaign does. Each trigger request can set `locale_name` to select one of the shell's declared locale variants.
+
+`from_address` and `reply_to_address` accept fixed values only. Neither field accepts personalization on a shell. Link branding, deep links, and Google annotations do not apply either. See [Unsupported email features](/api/campaigns/audience-scheduling-delivery-reference#unsupported-email-features).
+
+Attachments and images are supported by URL reference only. File upload is not supported.
+
+#### API-triggered content variants
+
+A shell can combine both sources of personalization. MoEngage resolves user attributes from the recipient profile, and each trigger request provides the values for the shell's placeholders.
+
+<Tabs>
+<Tab title="Shell content">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order {{order_id}} is confirmed",
+        "sender_name": "Example Store",
+        "preview_text": "Thanks for your purchase",
+        "from_address": "orders@example.com",
+        "reply_to_address": "support@example.com",
+        "html_content": "<!DOCTYPE html><html><body><p>Hello {{UserAttribute['First Name']}}, order {{order_id}} ships on {{ship_date}}.</p></body></html>"
+      }
+    }
+  }
+}
+```
+
+`{{UserAttribute['First Name']}}` resolves from the recipient profile. `{{order_id}}` and `{{ship_date}}` are shell placeholders, and each trigger request provides their values.
+
+</Tab>
+<Tab title="Matching trigger request">
+
+```json
+{
+  "identifier_type": "ID",
+  "recipients": ["U-10294"],
+  "personalized_attributes": {
+    "order_id": "ORD-10294",
+    "ship_date": "12 March"
+  }
+}
+```
+
+Every key in `personalized_attributes` must match a placeholder declared on the shell. An undeclared key returns `422 UNKNOWN_PLACEHOLDER`. See [Trigger Message](/api/trigger/trigger-message).
+
+</Tab>
+<Tab title="Pre-rendered HTML">
+
+```json
+{
+  "campaign_content": {
+    "content": {
+      "email": {
+        "subject": "Your order is confirmed",
+        "sender_name": "Example Store",
+        "from_address": "orders@example.com",
+        "html_content": "{{html_body}}"
+      }
+    }
+  }
+}
+```
+
+When your application renders the full body itself, define the HTML as a single placeholder and pass the rendered markup as its value. MoEngage sends the value unchanged.
 
 </Tab>
 </Tabs>
