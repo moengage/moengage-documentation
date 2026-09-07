@@ -13,6 +13,13 @@ The MoEngage Personalize SDK provides a secure framework for delivering personal
   Before you can fetch personalized experiences, ensure the core MoEngage SDK has been initialized in your application. For more information, refer to Flutter SDK Initialization.
 </Info>
 
+{/* SDK-TEAM-SUGGESTION:
+"Flutter SDK Initialization" in the line above is plain text — no hyperlink.
+iOS / Android / React Native all link their initialization doc. Please link
+this to the canonical Flutter SDK initialization page (the same target the
+moengage_flutter installation guide uses).
+*/}
+
 # How It All Fits Together
 
 Before writing any code, it is helpful to understand the three moving parts of the personalization workflow:
@@ -59,6 +66,16 @@ final personalize = MoEngagePersonalize('YOUR_WORKSPACE_ID');
 
 </CodeGroup>
 
+{/* SDK-TEAM-SUGGESTION (low priority):
+The `final personalize = MoEngagePersonalize('YOUR_APP_ID');` line is
+repeated in every subsequent code block (§1, §2, §3a, §3b, §4a, §4b — 7
+occurrences total). Consider adding a one-line note here that the same
+`personalize` instance is reused throughout the rest of the guide, then
+omit the re-declaration from the later blocks. Each block becomes shorter
+and the reader isn't led to think they should construct a new instance
+per call. Trade-off: each block is no longer fully self-contained.
+*/}
+
 # Implementation Workflow
 
 The Personalize helper for Flutter is designed to simplify the retrieval and interaction with dynamic, personalized content. Below is a breakdown of the workflow and code placeholders.
@@ -102,6 +119,7 @@ import 'package:moengage_personalize/moengage_personalize.dart';
 final personalize = MoEngagePersonalize('YOUR_WORKSPACE_ID');
 
 // additional attributes you want to pass for the experience.
+// `attributes` is optional — omit the named parameter entirely to skip contextual targeting.
 final attributes = <String, String>{};
 ```
 
@@ -128,6 +146,9 @@ personalize.fetchExperience('<experience_key>', attributes: attributes)
 <CodeGroup>
 
 ```dart Dart wrap
+// Each key must be one of those returned by fetchExperiencesMeta.
+final List<String> experienceKeys = ['<experience_key_1>', '<experience_key_2>'];
+
 personalize.fetchExperiences(experienceKeys, attributes: attributes)
     .then((result) => print('Multiple Experiences: $result'))
     .catchError((e) => print(e));
@@ -140,7 +161,16 @@ The returned `Future` resolves with an `ExperienceCampaignsResult` object. On su
 - `experiences` — successfully resolved ExperienceCampaign objects
 - `failures` — [`ExperienceCampaignFailure`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) objects for keys that could not be resolved, each with a reason and `experienceKeys`.
 
-Throws [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) (with code and message) for system-level failures such as network errors or SDK not initialised."
+{/* SDK-TEAM-SUGGESTION:
+Inconsistent linking — `ExperienceCampaignsResult` and `ExperienceCampaign`
+in this paragraph (and at lines 170, 217, 243 in tracking sections) are
+plain text/code, but their siblings `ExperienceCampaignFailure`,
+`ExperienceCampaignsMetadata`, and `PersonalizeError` ARE linked to the
+data-payload page elsewhere in this doc. Please link these two types to
+their data-payload entries for consistency.
+*/}
+
+Throws [`PersonalizeError`](/developer-guide/flutter-sdk/personalize/personalize-data-payload) (with code and message) for system-level failures such as network errors or SDK not initialised.
 
 Use Cases:
 
@@ -148,7 +178,23 @@ Use Cases:
 
 To accurately measure campaign performance, you must track user impressions after rendering the personalized content on the UI.
 
+{/* SDK-TEAM-SUGGESTION:
+The sentence above is an orphan lead-in that sits at the end of §2 but
+belongs to §3. It duplicates the §3 intro just below (which already states
+the same thing more precisely with the impression definition). Please remove
+this sentence — §3's own intro covers it.
+*/}
+
 ## 3. Notify SDK on Showing the Experience (Track Impressions)
+
+{/* SDK-TEAM-SUGGESTION:
+Heading style is verbose ("Notify SDK on Showing the Experience (Track
+Impressions)") and inconsistent with §4 just below ("Track Clicks"). The iOS
+and Android docs use the terser "Track Impressions". React Native matches
+Flutter's verbose form. This is a cross-platform consistency item — pick one
+heading style and apply across all four docs. Suggested: "Track Impressions"
+(matches §4 within this file).
+*/}
 
 An _impression_ is a telemetry event that notifies the MoEngage SDK that a personalized campaign payload has successfully rendered on the UI and is visible to the user.
 
@@ -169,7 +215,11 @@ final personalize = MoEngagePersonalize('YOUR_WORKSPACE_ID');
 // Pass the exact objects or payloads previously received from the fetchExperiences() method.
 final List<ExperienceCampaign> campaigns = [/* campaign objects */];
 
+// Track multiple campaigns at once:
 personalize.experiencesShown(campaigns);
+
+// Or track a single campaign:
+personalize.experienceShown(campaigns.first);
 ```
 
 </CodeGroup>
@@ -194,7 +244,11 @@ final personalize = MoEngagePersonalize('YOUR_WORKSPACE_ID');
 // List of offering payload dicts for a specific offering campaign
 final List<Map<String, dynamic>> offeringPayloads = [/* offering payload dicts */];
 
+// Track multiple offerings at once:
 personalize.offeringsShown(offeringPayloads);
+
+// Or track a single offering:
+personalize.offeringShown(offeringPayloads.first);
 ```
 
 </CodeGroup>
@@ -259,6 +313,38 @@ personalize.offeringClicked(campaign, offeringPayload);
   }
 }
 ```
+
+{/* SDK-TEAM-SUGGESTION:
+The "Sample Payload" example above is too vague for a client to act on — it
+just shows a placeholder key with a comment. The actual on-the-wire shape
+(verified against the iOS test fixture and parser) is:
+
+  {
+    "<your_offering_key>": {
+      "value": "[ { \"offering_content\": {...}, \"offering_context\": {...}, ... }, ... ]",
+      "data_type": "string"
+    }
+  }
+
+— with `<your_offering_key>` configurable per campaign, `value` being a
+**stringified JSON array** the client must decode, and each element being
+an offering dict with `offering_content` (UI data) and `offering_context`
+(SDK attribution data).
+
+The same gap exists in §3b (impressions). The Android dev (Abhishek, PR #124)
+has proposed moving this payload-shape sample to a **shared cross-platform
+page** linked from iOS / Android / RN / Flutter, rather than duplicating per
+platform. See DOC-2009 (owner Shubhra Pati). When that common page lands,
+link from here and §3b. Until then, please defer.
+*/}
+
+{/* SDK-TEAM-SUGGESTION:
+This "Sample Payload" sits only under §4b (clicks), but the offering payload
+shape is equally relevant to §3b (impressions). Once the common-payload page
+is created, both §3b and §4b should reference it. Until then, consider
+either moving the sample up to §3b (where offerings are introduced) or
+cross-referencing it from §3b.
+*/}
 
 <Info>
   You can use these Offering-specific functions only if the data is part of an offering payload. For all other experience data, use the standard experience shown/clicked functions.
