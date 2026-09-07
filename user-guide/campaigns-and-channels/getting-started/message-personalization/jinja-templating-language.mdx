@@ -126,7 +126,7 @@ For if statements, filtering, and if expressions, it can be useful to combine mu
 | Operator | Description |
 | --- | --- |
 | and | Return true if the left and the right operands are true. |
-| or | Return true if the left or the right operand is true. Or can also be used to deal with default values. For example, the following will return the user’s name if it exists; otherwise, it will return the user’s email:<br />`{{ UserAttribute.name or UserAttribute.email }}` |
+| or | Return true if the left or the right operand is true. Or can also be used to deal with default values. For example, the following will return the user’s name if it exists; otherwise, it will return the user’s email:<br />`{{ UserAttribute['name'] or UserAttribute['email'] }}` |
 | not | Negate a statement |
 | (expr) | Group an expression. |
 
@@ -154,11 +154,11 @@ To comment out part of a line in a template, use the comment syntax, which is by
 Jinja
 
 ```text
-{% # note: commented-out template because we no longer use this
+{# note: commented-out template because we no longer use this
 {% for user in users %}
 ...
 {% endfor %}
-# %}
+#}
 ```
 
 ## Assignments
@@ -199,6 +199,14 @@ Sample condition
 ```
 
 ## Escaping
+
+<Warning>
+  Insert MoEngage personalization tokens unencoded in your email HTML. Do not URL-encode a token or an href that contains one. URL-encoding replaces the `{{` delimiter with `%7B%7B` and `$` with `%24`, which decodes to a `{{$` sequence that Jinja cannot parse. When you save or send the campaign, this can produce an error similar to:
+
+  `Error in parsing jinja template format. Error unexpected char u'$' at ...`
+
+  If a link contains a personalization token, insert it through the token or merge tag provided in the editor rather than pasting a manually URL-encoded value into the href.
+</Warning>
 
 It is sometimes desirable (even necessary) to have MoEngage ignore parts it would otherwise handle as variables or blocks. For example, if, with the default syntax, you want to use `{{` as a raw string in a template and not to start a variable, you must use a trick.
 
@@ -246,6 +254,10 @@ Jinja
 {{UserAttribute['First Name']|e}}
 ```
 
+<Note>
+  If you're writing Jinja in the rich (Froala) editor for a stylized email or push template, avoid raw `>` / `<` comparison operators — the rich editor HTML-encodes them, which breaks the template with a `TemplateSyntaxError`. Use `!=` instead, or write the Jinja in the custom HTML/source view. See [Rich editor encodes comparison operators](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#why-does-my-jinja-condition-throw-a-templatesyntaxerror-in-the-rich-editor) for details.
+</Note>
+
 ## Control Structures
 
 A control structure refers to all those things that control the flow of a program:
@@ -292,6 +304,10 @@ Jinja
 
 You can call variables that are defined outside of a loop from within a loop, but not the other way around.
 
+<Note>
+  When looping to generate HTML table rows, the `{% for %}` loop must wrap a complete `<tr>...</tr>` row inside `<tbody>` — not reside directly inside `<table>` or `<tbody>` around individual cells. Placing loop tags in an invalid position causes the email HTML editor to relocate or remove them when the template is saved, breaking the table's output. See [Dynamic tables with Jinja](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#why-does-my-dynamically-generated-table-render-incorrectly-after-saving) for the correct pattern.
+</Note>
+
 ### If
 
 In the simplest form, you can use it to test if a variable is defined, not empty, or not false:
@@ -299,10 +315,10 @@ In the simplest form, you can use it to test if a variable is defined, not empty
 Jinja
 
 ```text
-{% if UserAttribute.interests %}
+{% if UserAttribute['interests'] %}
 Your interests:
 <ul>
-{% for interest in UserAttribute.interests %}
+{% for interest in UserAttribute['interests'] %}
    <li>{{ interest|e }}</li>
 {% endfor %}
 </ul>
@@ -314,9 +330,9 @@ For multiple branches, _elif_ and _else_ can be used too:
 Jinja
 
 ```text
-{% if UserAttribute.membership == 'Gold' %}
+{% if UserAttribute['membership'] == 'Gold' %}
 You are a Gold member!
-{% elif UserAttribute.membership == 'Silver' %}
+{% elif UserAttribute['membership'] == 'Silver' %}
 You are a Silver member!
 {% else %}
 Please become a member today!
@@ -367,7 +383,7 @@ If you don't want to send the message and if the value of the attribute is not f
 Jinja
 
 ```text
-Welcome, {{UserAttribute['First name']|default('MOE\_NOT\_SEND')}}
+Welcome, {{UserAttribute['First name']|default('MOE_NOT_SEND')}}
 ```
 
 ### Custom JINJA Error Message
@@ -401,8 +417,8 @@ This example uses a conditional logic to check for the presence of a first name 
 Jinja
 
 ```ruby
-{% set has_first_name = UserAttribute['First Name] and UserAttribute['First Name']|length  0 %}
-{% set has_last_name = UserAttribute['Last Name'] and UserAttribute['Last Name']|length  0 %}
+{% set has_first_name = UserAttribute['First Name'] and UserAttribute['First Name']|length > 0 %}
+{% set has_last_name = UserAttribute['Last Name'] and UserAttribute['Last Name']|length > 0 %}
 {% if has_first_name and has_last_name %}
 Hello {{UserAttribute['u_n']}} {{UserAttribute['u_ln']}}!
 {% elif has_first_name and not has_last_name %}
@@ -711,6 +727,23 @@ Usage
   - Within dateTimeFormatter filter, multiple methods can be used. For example, to display a user attribute in a particular format and user Timezone, the following code can be used. `{{UserAttribute['First Seen']|dateTimeFormatter(toFormat='%Y-%m-%d %H:%M', timeZone='Asia/Kolkata',tzOffset=UserAttribute['User Time Zone Offset (Mins)'])}}`
   - If both the timeZone and tzOffset methods are used, tzOffset is given priority irrespective of the sequence. If the tzOffset value is not available or is -1000, the timeZone method will be used.
 </Note>
+
+**Common Date-Time Format Codes**
+
+The `toFormat` and related parameters above use standard `strftime`-style format codes. The most commonly used codes are listed below. For the complete list, refer to [Python's strftime and strptime format codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
+
+| Code | Meaning | Example |
+| --- | --- | --- |
+| `%Y` | 4-digit year | 2026 |
+| `%m` | Month (01–12) | 08 |
+| `%d` | Day (01–31) | 03 |
+| `%H` | Hour, 24-hour format (00–23) | 14 |
+| `%I` | Hour, 12-hour format (01–12) | 02 |
+| `%M` | Minute (00–59) | 05 |
+| `%S` | Second (00–59) | 30 |
+| `%p` | AM/PM | PM |
+| `%b` / `%B` | Month, abbreviated/full name | Aug / August |
+| `%a` / `%A` | Weekday, abbreviated/full name | Mon / Monday |
 
 ### Strikethrough Text
 

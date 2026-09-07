@@ -1,8 +1,14 @@
 <img src="logo/dark.svg" width="65" height="65" alt="MoEngage icon" align="left"/>
 
-# MoEngage Documentation
+# MoEngage Documentation — Source Repository
 
-The official MoEngage documentation. This repo contains SDK integration guides, API reference docs, and product user guides for MoEngage.
+Source files for the MoEngage documentation site. **Read the docs on the published site rather than in this repository** — the live pages include search, Ask AI, and rendered API references.
+
+- **[MoEngage Documentation](https://www.moengage.com/docs/)** — the full documentation portal
+- **[MoEngage User Guide](https://www.moengage.com/docs/user-guide/introduction)** — dashboard, campaigns, analytics, and settings
+- **[MoEngage Integration Guide](https://www.moengage.com/docs/developer-guide/introduction)** — SDK integration for mobile, web, and cross-platform
+- **[MoEngage API Documentation](https://www.moengage.com/docs/api/introduction)** — REST API reference
+- **[MoEngage Partner Integrations](https://www.moengage.com/docs/partner-guide/introduction)** — 200+ technology partner integrations
 
 ## Project Structure
 
@@ -72,7 +78,6 @@ OpenAPI-powered reference docs for MoEngage REST APIs:
 
 ## Links
 
-- [Live Docs](https://www.moengage.com/docs/)
-- [MoEngage Help Center](https://help.moengage.com/hc/en-us)
+- [MoEngage Documentation](https://www.moengage.com/docs/) — the published documentation site
 - [MoEngage Dashboard](https://dashboard.moengage.com/)
 

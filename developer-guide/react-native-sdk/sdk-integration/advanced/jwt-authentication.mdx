@@ -1,0 +1,232 @@
+---
+title: "JWT Authentication"
+description: "Secure your MoEngage data collection by implementing JWT authentication in your React Native application."
+keywords: "JWT, JSON Web Token, SDK authentication, passAuthenticationDetails, authenticationError, React Native"
+---
+
+## Overview
+
+JWT (JSON Web Token) authentication is a standard method for securely verifying user identity. By implementing JWT authentication, you add a critical layer of security to your data collection process with MoEngage.
+
+The feature ensures that the data sent on behalf of your identified users is authentic and has not been tampered with. This security is achieved by requiring a token that is cryptographically signed by your own server, which prevents unauthorized users from impersonating your legitimate users.
+
+<Note>
+  **Prerequisites**
+
+  Before you begin the implementation, ensure you meet the following requirements:
+
+  - Your application must use the MoEngage React Native Core plugin version [**_12.9.1_**](/release-notes/sdks/react-native#core-12-9-1) or higher to access the JWT authentication feature.
+  - You must have access to your MoEngage dashboard to manage public keys and configure the feature's enforcement settings. For detailed information on enforcement settings, [refer here](/user-guide/settings/account/security/sdk-authentication#step-2-select-an-enforcement-mode).
+</Note>
+
+The following diagram illustrates the interaction between your application, your server, the MoEngage SDK, and the MoEngage server:
+
+![Flow diagram showing the application requesting a JWT from your server, passing it to the MoEngage SDK, and the SDK sending authenticated requests to the MoEngage server](/images/jwt1.jpeg)
+
+## Integration
+
+Perform the following to integrate JWT authentication into your React Native application.
+
+### Step 1: Enable JWT Authentication
+
+Enable JWT authentication during native SDK initialization on each platform. Follow the instructions that match the initialization method your application uses. Steps 2 and 3 are the same for both methods.
+
+<Tip>
+  If you use the [config generator](https://app-cdn.moengage.com/sdk/integration/config/index.html) to produce your configuration files, set **Enable JWT Authorisation** to **Yes**. The generated files then contain the keys described below.
+</Tip>
+
+#### Android
+
+**Manual Initialization**
+
+Configure the **_NetworkAuthorizationConfig_** property on the **_MoEngage.Builder_** object. For more information, refer to [Android SDK Initialization](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/manual-initialization/android).
+
+<CodeGroup>
+
+```kotlin Kotlin wrap
+import com.moengage.core.DataCenter
+import com.moengage.core.MoEngage
+import com.moengage.core.config.NetworkAuthorizationConfig
+import com.moengage.core.config.NetworkRequestConfig
+import com.moengage.react.MoEInitializer
+
+val moEngage = MoEngage.Builder(this, "YOUR_WORKSPACE_ID", DataCenter.DATA_CENTER_X)
+    .configureNetworkRequest(NetworkRequestConfig(NetworkAuthorizationConfig(isJwtEnabled = true)))
+MoEInitializer.initializeDefaultInstance(applicationContext, moEngage)
+```
+
+
+```java Java wrap
+import com.moengage.core.DataCenter;
+import com.moengage.core.MoEngage;
+import com.moengage.core.config.NetworkAuthorizationConfig;
+import com.moengage.core.config.NetworkRequestConfig;
+import com.moengage.react.MoEInitializer;
+
+MoEngage.Builder builder = MoEngage.builder(this, "YOUR_WORKSPACE_ID", DataCenter.getDataCenterX())
+    .configureNetworkRequest(new NetworkRequestConfig(new NetworkAuthorizationConfig(true)));
+MoEInitializer.INSTANCE.initializeDefaultInstance(getApplicationContext(), builder);
+```
+
+</CodeGroup>
+
+**File-Based Initialization**
+
+Add the following key to your `moengage.xml` configuration file. For more information, refer to [File Based Initialization](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/file-based-initialization/file-based-initialization#android-configuration-reference).
+
+```xml moengage.xml
+<bool name="com_moengage_core_jwt_authorization_enabled">true</bool>
+```
+
+#### iOS
+
+**Manual Initialization**
+
+Configure the **_networkConfig_** property on the **_MoEngageSDKConfig_** object. For more information, refer to [iOS SDK Initialization](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/manual-initialization/ios).
+
+<CodeGroup>
+
+```swift Swift wrap
+let sdkConfig = MoEngageSDKConfig(appId: "YOUR_WORKSPACE_ID", dataCenter: .YOUR_DATA_CENTER)
+sdkConfig.networkConfig = MoEngageNetworkRequestConfig(authorizationConfig: MoEngageNetworkAuthorizationConfig(isJwtEnabled: true))
+MoEngageInitializer.sharedInstance().initializeDefaultSDKConfig(sdkConfig, andLaunchOptions: launchOptions)
+```
+
+
+```objective-c Objective-C wrap
+MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_WORKSPACE_ID" dataCenter:YOUR_DATA_CENTER];
+sdkConfig.networkConfig = [[MoEngageNetworkRequestConfig alloc] initWithAuthorizationConfig:[[MoEngageNetworkAuthorizationConfig alloc] initWithIsJwtEnabled:YES]];
+[[MoEngageInitializer sharedInstance] initializeDefaultSDKConfig:sdkConfig andLaunchOptions:launchOptions];
+```
+
+</CodeGroup>
+
+**File-Based Initialization**
+
+Add the following key to the `MoEngage` dictionary in your `Info.plist`. For more information, refer to [File Based Initialization](/developer-guide/react-native-sdk/sdk-integration/react-native/sdk-initialization/file-based-initialization/file-based-initialization#ios-configuration-reference).
+
+```xml Info.plist
+<key>IsJwtEnabled</key>
+<true/>
+```
+
+### Step 2: Pass the JWT to the SDK
+
+Your application is responsible for managing the JWT lifecycle. The recommended flow is to fetch a token when the user logs in and pass the token to the SDK. You should also check whether the token has expired on subsequent app launches and fetch a new one if necessary.
+
+Use the **_passAuthenticationDetails()_** method to provide the token to the SDK.
+
+```typescript TypeScript wrap
+import ReactMoE, {
+  MoEAuthenticationType,
+  MoEJwtAuthenticationData,
+} from "react-native-moengage";
+
+ReactMoE.passAuthenticationDetails({
+  authenticationType: MoEAuthenticationType.JWT,
+  data: new MoEJwtAuthenticationData("YOUR_JWT_TOKEN", "USER_IDENTIFIER"),
+});
+```
+
+For detailed information, refer to [Interfaces and Enums](#interfaces-and-enums).
+
+### Step 3: Register the Listener and Handle Authentication Errors
+
+The SDK delivers token validation errors returned by the MoEngage server through the `authenticationError` event. Register a listener for this event so your application can fetch and provide a new token when authentication fails.
+
+Register the listener in a global scope, such as your root component, so your application always receives callbacks.
+
+```typescript TypeScript wrap
+import ReactMoE, {
+  MoEAuthenticationType,
+  MoEAuthenticationErrorData,
+  MoEJwtAuthenticationErrorData,
+} from "react-native-moengage";
+
+ReactMoE.setEventListener(
+  "authenticationError",
+  (error: MoEAuthenticationErrorData) => {
+    if (error.authenticationType === MoEAuthenticationType.JWT) {
+      const errorData = error.data as MoEJwtAuthenticationErrorData;
+      const jwtError = errorData.code;
+      const message = errorData.message;
+      // Take appropriate action based on jwtError.
+      // For example, fetch a new token and call passAuthenticationDetails() again.
+    }
+  }
+);
+```
+
+To stop receiving the callback, call **_removeEventListener()_** with the same event name.
+
+```typescript TypeScript wrap
+ReactMoE.removeEventListener("authenticationError");
+```
+
+For detailed information, refer to [Interfaces and Enums](#interfaces-and-enums).
+
+## Interfaces and Enums
+
+The following interfaces, classes, and enums define the data structures used by the JWT authentication methods described in this guide. Use them when constructing your token payload and handling errors.
+
+```typescript TypeScript wrap
+// Payload accepted by passAuthenticationDetails().
+interface MoEAuthenticationData {
+  authenticationType: MoEAuthenticationType;
+  data: MoEAuthenticationDetails; // For JWT, use MoEJwtAuthenticationData.
+}
+
+// Authentication scheme used to authenticate the SDK's network requests.
+enum MoEAuthenticationType {
+  JWT = "JWT",
+}
+
+// JWT specific authentication payload.
+// Construct with: new MoEJwtAuthenticationData(token, userIdentifier)
+interface MoEJwtAuthenticationData extends MoEAuthenticationDetails {
+  token: string;
+  userIdentifier: string;
+}
+
+// Payload delivered with the authenticationError event.
+interface MoEAuthenticationErrorData {
+  accountMeta: MoEAccountMeta;
+  platform: MoEPlatform;
+  authenticationType: MoEAuthenticationType;
+  data: MoEAuthenticationErrorDetails; // For JWT, use MoEJwtAuthenticationErrorData.
+}
+
+// JWT specific error details.
+interface MoEJwtAuthenticationErrorData extends MoEAuthenticationErrorDetails {
+  code: MoEJwtErrorCode;
+  token: string;
+  userIdentifier: string;
+  message: string;
+}
+
+// Reason the JWT authentication failed.
+enum MoEJwtErrorCode {
+  TimeConstraintFailure = "TIME_CONSTRAINT_FAILURE",
+  DecryptionFailed = "DECRYPTION_FAILED",
+  HeaderTypeIncompatible = "HEADER_TYPE_INCOMPATIBLE",
+  PayloadContentMissing = "PAYLOAD_CONTENT_MISSING",
+  InvalidSignature = "INVALID_SIGNATURE",
+  IdentifierMismatch = "IDENTIFIER_MISMATCH",
+  Unknown = "UNKNOWN",
+  TokenNotAvailable = "TOKEN_NOT_AVAILABLE",
+}
+
+// Platform on which the error occurred.
+enum MoEPlatform {
+  Android = "android",
+  IOS = "iOS",
+}
+```
+
+<Info>
+  **Information**
+
+  - If an API request fails due to an authentication error, the SDK will not retry the request until your application provides a new token.
+  - After 10 consecutive authentication failures in a single session, the SDK will stop attempting to sync data until the next session begins. This counter resets after any successful sync.
+  - Upon user logout, if a data sync fails due to a JWT error, the pending data will be deleted, and no retry will be attempted.
+</Info>
