@@ -543,8 +543,6 @@ paths:
         - basicAuth: []
       parameters:
         - $ref: '#/components/parameters/FlowId'
-        - $ref: '#/components/parameters/XMoeTenantId'
-        - $ref: '#/components/parameters/XMoeScopes'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
         - $ref: '#/components/parameters/AttributionType'
         - $ref: '#/components/parameters/MetricType'
@@ -721,8 +719,6 @@ paths:
             with the underscore for the on-site channel; `ONSITE` returns `CHANNEL_NOT_SUPPORTED`.
           schema:
             $ref: '#/components/schemas/ChannelEnum'
-        - $ref: '#/components/parameters/XMoeTenantId'
-        - $ref: '#/components/parameters/XMoeScopes'
         - $ref: '#/components/parameters/XMoeRequestIdHeader'
         - $ref: '#/components/parameters/AttributionType'
         - $ref: '#/components/parameters/MetricType'
@@ -897,26 +893,6 @@ components:
           - "Version 2"
           - "All Versions"
         example: "Version 2"
-
-    XMoeTenantId:
-      name: X-MOE-Tenant-ID
-      in: header
-      required: true
-      description: >
-        Identifies the workspace making the request. The analytics endpoints read this header
-        directly and do not resolve the workspace from the Basic Auth credentials, so you must send
-        it. Omitting it returns a `401` with the code `MISSING_TENANT_ID`, and a value that cannot
-        be resolved returns a `401` with the code `INVALID_TENANT_ID`.
-      schema:
-        type: string
-
-    XMoeScopes:
-      name: X-MOE-SCOPES
-      in: header
-      required: true
-      description: A comma-separated list of the scopes authorized for the request.
-      schema:
-        type: string
 
     AttributionType:
       name: attribution_type
@@ -2180,8 +2156,6 @@ components:
                 - UNKNOWN_PARAMETERS
                 - INVALID_CHANNEL
                 - CHANNEL_NOT_SUPPORTED
-                - MISSING_TENANT_ID
-                - INVALID_TENANT_ID
                 - FLOW_NOT_FOUND
                 - VERSION_NOT_FOUND
                 - UPSTREAM_ERROR
@@ -2341,8 +2315,8 @@ components:
 
     AnalyticsUnauthorized:
       description: >
-        Authentication failed, or MoEngage could not resolve the workspace because the
-        `X-MOE-Tenant-ID` header was missing or could not be resolved.
+        Authentication failed. The `Authorization` header is missing, or the credentials in it are
+        not valid for this workspace.
       headers:
         X-MOE-Request-Id:
           $ref: '#/components/headers/XMoeRequestIdEchoed'
@@ -2353,9 +2327,9 @@ components:
           example:
             response_id: "resp_a1b2c3d4"
             error:
-              code: "MISSING_TENANT_ID"
-              message: "The X-MOE-Tenant-ID header is required."
-              target: "X-MOE-Tenant-ID"
+              code: "UNAUTHORIZED"
+              message: "Invalid or missing credentials."
+              target: null
 
     AnalyticsNotFound:
       description: >
