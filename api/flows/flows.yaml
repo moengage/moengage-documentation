@@ -645,24 +645,45 @@ paths:
                                   sent:
                                     aggregated: { total: 3900, unique: 3860 }
                   stage_stats:
-                    - timestamp: 1706745600
-                      stages:
-                        - stage_id: "cell_entry_001"
-                          stage_name: "Flow Entry"
+                    - stages:
+                        - stage_id: "v7MPJ08_m"
+                          stage_name: "Entry Rules"
                           stage_type: "TRIGGER"
                           stage_sub_type: "EVENT"
-                          engaged_group: { entered: 1200, exited: 1100, current: 100 }
-                          control_group: { entered: 120, exited: 110, current: 10 }
-                          global_control_group: { entered: 60, exited: 55, current: 5 }
-                          total: { entered: 1380, exited: 1265, current: 115 }
-                        - stage_id: "cell_email_002"
+                          engaged_group: { entered: 4, exited: 4, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          control_group: { entered: 0, exited: 0, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          global_control_group: { entered: 0, exited: 0, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 4, exited: 4, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                        - stage_id: "mmiHF5iOz"
+                          stage_name: "Check User Attribute"
+                          stage_type: "CONDITION"
+                          stage_sub_type: "MULTIPLE_USER_ATTRIBUTE_CHANGE"
+                          engaged_group: { entered: 4, exited: 4, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 4, exited: 4, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                        - stage_id: "P-cO5BZDYS"
+                          stage_name: "A/B Split"
+                          stage_type: "SPLIT"
+                          stage_sub_type: "RANDOM_MANUAL"
+                          engaged_group: { entered: 3, exited: 3, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 3, exited: 3, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                        - stage_id: "Y4_TV6IeUe"
+                          stage_name: "Branch 2"
+                          stage_type: "BRANCH"
+                          stage_sub_type: "RANDOM"
+                          engaged_group: { entered: 2, exited: 2, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 2, exited: 2, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                        - stage_id: "qOHeYoQyA"
                           stage_name: "Welcome Email"
                           stage_type: "ACTION"
                           stage_sub_type: "EMAIL"
-                          engaged_group: { entered: 1100, exited: 950, dropped: 60, current: 90 }
-                          control_group: { entered: 110, exited: 95, dropped: 5, current: 10 }
-                          global_control_group: { entered: 55, exited: 48, dropped: 3, current: 4 }
-                          total: { entered: 1265, exited: 1093, dropped: 68, current: 104 }
+                          engaged_group: { entered: 2, exited: 2, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 2, exited: 2, current: 0, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                        - stage_id: "VKDsuHRqCh"
+                          stage_name: "Exit"
+                          stage_type: "CONTROL"
+                          stage_sub_type: "STOP_USER_JOURNEY"
+                          engaged_group: { entered: 2, exited: 0, current: 2, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
+                          total: { entered: 2, exited: 0, current: 2, drops: { drop_reasons: { Exceptions: 0 }, total_drops: 0 }, exits: { total_exits: 0 } }
                   business_trigger_stats: []
         '400':
           $ref: '#/components/responses/AnalyticsBadRequest'
@@ -864,10 +885,12 @@ components:
       required: true
       description: >
         The 24-character ID of the flow. This must be the flow's own ID, not a version ID;
-        passing a version ID returns `400`.
+        passing a version ID returns `400`. Send the ID exactly as it appears on the dashboard.
+        MoEngage accepts both uppercase and lowercase hexadecimal characters, but it looks the flow
+        up case-sensitively, so a case that differs from the dashboard returns `404`.
       schema:
         type: string
-        pattern: '^[a-f0-9]{24}$'
+        pattern: '^[0-9a-fA-F]{24}$'
         example: "6a3b09c938da57c8f5838880"
 
     XMoeRequestIdHeader:
@@ -1785,21 +1808,38 @@ components:
         entered:
           type: integer
           description: The number of users who entered the stage in the period.
-          example: 1200
+          example: 4
         exited:
           type: integer
           description: The number of users who moved on from the stage in the period.
-          example: 1100
-        dropped:
-          type: integer
-          description: >
-            The number of users who dropped at the stage. Present only when the stage recorded drops
-            for the group in the period.
-          example: 60
+          example: 4
         current:
           type: integer
-          description: The number of users still at the stage, calculated as entered minus exited minus dropped.
-          example: 100
+          description: The number of users still at the stage.
+          example: 0
+        drops:
+          type: object
+          description: The users who dropped at the stage, broken down by reason.
+          properties:
+            drop_reasons:
+              type: object
+              description: The number of users dropped for each reason, keyed by the reason name.
+              additionalProperties:
+                type: integer
+              example:
+                Exceptions: 0
+            total_drops:
+              type: integer
+              description: The total number of users dropped at the stage across all reasons.
+              example: 0
+        exits:
+          type: object
+          description: The users who exited the flow at this stage.
+          properties:
+            total_exits:
+              type: integer
+              description: The total number of users who exited the flow at this stage.
+              example: 0
 
     FlowChannelAnalyticsResponse:
       type: object
@@ -2334,8 +2374,10 @@ components:
     AnalyticsNotFound:
       description: >
         `FLOW_NOT_FOUND` means `flow_id` is well formed but does not resolve to a flow in this
-        workspace. `VERSION_NOT_FOUND` means the `Version N` you asked for is outside the flow's
-        version history.
+        workspace, or resolves to a campaign that is not a flow. MoEngage also returns it when
+        `version_name` resolves to no usable version, such as `Active Version` on a flow that has no
+        active version set. `VERSION_NOT_FOUND` means the `Version N` you asked for is outside the
+        flow's version history.
       headers:
         X-MOE-Request-Id:
           $ref: '#/components/headers/XMoeRequestIdEchoed'
