@@ -1,0 +1,106 @@
+---
+title: "iOS"
+description: "Initialize the MoEngage SDK in your Unity project's iOS configuration file with your workspace ID."
+---
+
+<Info>
+  Unity iOS SDK supports file-based initialization only, using the `MoEngage-Info.plist` configuration file described below.
+</Info>
+
+## Include MoEngage Configuration
+
+After importing the MoEngage package, add a **MoEngage-Info.plist** file to your `Assets` folder (`Asset > Import New Asset`).
+
+<Warning>
+  Starting from Unity SDK Core 6.0.0 version, support for `MoEngageConfiguration.h` is removed. You must migrate to `MoEngage-Info.plist` for SDK configuration.
+</Warning>
+
+In your `MoEngage-Info.plist`, set the workspace ID, region, and other configuration values:
+
+```xml XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- MoEngage Account Identifier -->
+  <key>APPLICATION_ID</key>
+  <string>YOUR_WORKSPACE_ID</string>
+
+  <!-- Set DataCenter: DATA_CENTER_01 / DATA_CENTER_02 / DATA_CENTER_03 / DATA_CENTER_04 / DATA_CENTER_05 -->
+  <key>DATA_CENTER</key>
+  <string>DATA_CENTER_01</string>
+
+  <!-- Enable Xcode console logs for debugging -->
+  <key>ENABLE_LOGS</key>
+  <true/>
+
+  <!-- Enable UnityAppController swizzling -->
+  <key>UNITY_CONTROLLER_SWIZZLING_ENABLED</key>
+  <true/>
+
+  <!-- Interval (seconds) at which data is sent to MoEngage. Minimum value: 60 -->
+  <key>ANALYTICS_PERIODIC_FLUSH_DURATION</key>
+  <integer>60</integer>
+
+  <!-- Set to true to disable periodic flush of events -->
+  <key>ANALYTICS_DISABLE_PERIODIC_FLUSH</key>
+  <false/>
+
+  <!-- Enable storage encryption -->
+  <key>STORAGE_ENCRYPTION_ENABLED</key>
+  <false/>
+
+  <!-- Keychain group name to save the encryption key -->
+  <key>KEYCHAIN_GROUP_NAME</key>
+  <string></string>
+
+  <!-- Set to true to encrypt all data in API requests -->
+  <key>NETWORK_ENCRYPTION_ENABLED</key>
+  <false/>
+
+  <!-- Set to true if the app handles deeplink callbacks directly -->
+  <key>SHOULD_PROVIDE_DEEPLINK_CALLBACK</key>
+  <false/>
+</dict>
+</plist>
+```
+
+Set `SHOULD_PROVIDE_DEEPLINK_CALLBACK` to `true` if your app handles deeplink routing manually instead of letting the SDK handle navigation.
+
+## Unity App Controller Swizzling
+
+There are two approaches using which the SDK can be initialized:
+
+1. **Unity App Controller Subclass:**\
+   SDK contains the `MoEUnityAppController` class which is the subclass of UnityAppController. Here we get a callback on AppLaunch to initialize MoEngage SDK.
+2. **UnityAppController swizzling:**\
+   Set `UNITY_CONTROLLER_SWIZZLING_ENABLED` to `true` in `MoEngage-Info.plist` to enable UnityAppController swizzling. Here `application:didfinishLaunchinWithOptions:` method is swizzled to initialize MoEngage SDK.
+
+<Warning>
+  UnityAppController swizzling (2nd approach) will be required if your project has multiple implementations of UnityAppController subclasses (1st approach), here the subclass defined in the plugin might not work reliably because here only one of the subclasses in the project will get the callbacks.
+</Warning>
+
+## Build and Replace
+
+Once required packages are imported go to `File > Build Settings`, switch to iOS platform, and click on `Build`. Select `Replace` in the pop-up. It's necessary to select **Replace** on first-time integration, this is because we will be updating the build settings of the Xcode project for MoEngage SDK and also installing the native dependencies.
+
+<Frame>
+  ![IOSSDK Intialization2](/images/IOSSDKIntialization2.png)
+</Frame>
+
+### CocoaPods
+
+<Info>
+  Make sure [CocoaPods](https://cocoapods.org/) is installed in your system before proceeding.
+</Info>
+
+The SDK uses CocoaPods by default to manage native iOS dependencies. After building from Unity, open `Unity-iPhone.xcworkspace` in Xcode to run the app.
+
+### Swift Package Manager
+
+As an alternative to CocoaPods, you can use Swift Package Manager (SPM) to manage the MoEngage iOS dependency:
+
+1. In Xcode, go to **File → Add Package Dependencies**.
+2. Enter the MoEngage iOS SDK repository URL and select the required version.
+3. Add the `MoEngageSDK` package to the `Unity-iPhone` target.
+4. Remove the generated `Podfile` and close the `.xcworkspace`. Open `Unity-iPhone.xcodeproj` directly when using SPM.

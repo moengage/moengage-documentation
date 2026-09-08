@@ -33,7 +33,7 @@ const BillableMTUCalculator = () => {
         <div style={{ flex: '1.5', minWidth: '350px', background: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#6a7c92', textTransform: 'uppercase', marginBottom: '6px' }}>
-              Total MTU (Mobile + Web + TV)
+              Total MTU (all platforms)
             </label>
             <input
               type="number"
