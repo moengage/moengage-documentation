@@ -100,11 +100,11 @@ NSE enables rich push notifications (including images, video, and GIFs) and trac
        <CodeGroup>
        ```swift Swift wrap
        // In your main AppDelegate.swift - didFinishLaunchingWithOptions
-       let sdkConfig = MoEngageSDKConfig(appId: "YOUR_APP_ID", dataCenter: .data_center_01)
+       let sdkConfig = MoEngageSDKConfig(appId: "YOUR_WORKSPACE_ID", dataCenter: .data_center_01)
        sdkConfig.appGroupID = "group.com.yourcompany.appname" // Your App Group ID
        ```
        ```objective-c Objective C wrap
-        MoEngageSDKConfig *sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_APP_ID" dataCenter:MoEngageDataCenterData_center_01];
+        MoEngageSDKConfig *sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_WORKSPACE_ID" dataCenter:MoEngageDataCenterData_center_01];
         sdkConfig.appGroupID = @"group.com.yourcompany.appname"; // Add your App Group ID here
         [[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
        ```
@@ -419,34 +419,62 @@ Embed buttons within a notification to allow users to perform tasks directly fro
 
 ### Configure Push Notification Badge Behavior
 
-With `disableBadgeReset(true)` enabled, the SDK won't reset the badge to 0 on app launch. Instead, clicking a notification decrements the badge by 1, maintaining accurate counts when multiple notifications are present.
-
-<Warning>
-  Call `disableBadgeReset(true)` **before** the MoEngage SDK is initialized in `AppDelegate.swift`. Calling it after initialization causes tapping one notification to clear all notifications from the iOS Notification Center.
-</Warning>
+From SDK version 10.13.0, the SDK manages the app badge count and keeps it in sync with the number of MoEngage notifications in the iOS Notification Center. To manage the badge count in your app instead, add the `MoEngageBadgeUpdateEnabled` key to the root level of your `Info.plist` and set it to `false`. The key defaults to `true`.
 
 <CodeGroup>
 
-```swift Swift wrap
-func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-
-    MoEngageSDKMessaging.sharedInstance.disableBadgeReset(true)
-
-    let sdkConfig = MoEngageSDKConfig(appId: "YOUR_APP_ID", dataCenter: .data_center_01)
-    MoEngage.sharedInstance().initializeDefaultInstance(sdkConfig)
-
-    return true
-}
-```
-
-```objective-c Objective C wrap
-[[MoEngageSDKMessaging sharedInstance] disableBadgeReset:YES];
-
-MoEngageSDKConfig *sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_APP_ID" dataCenter:MoEngageDataCenterData_center_01];
-[[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
+```xml Info.plist wrap
+<key>MoEngageBadgeUpdateEnabled</key>
+<false/>
 ```
 
 </CodeGroup>
+
+<Warning>
+  `MoEngageSDKMessaging.sharedInstance.disableBadgeReset(_:)` is deprecated from SDK version 10.13.0. Use the `MoEngageBadgeUpdateEnabled` key in `Info.plist` instead.
+</Warning>
+
+<Accordion title="Using an SDK version earlier than 10.13.0?">
+  On these versions, call `disableBadgeReset(true)` to stop the SDK from resetting the badge to 0 on app launch. Clicking a notification then decrements the badge by 1, maintaining accurate counts when multiple notifications are present.
+
+  Call `disableBadgeReset(true)` **before** the MoEngage SDK is initialized in `AppDelegate.swift`. Calling it after initialization causes tapping one notification to clear all notifications from the iOS Notification Center.
+
+  <CodeGroup>
+
+  ```swift Swift wrap
+  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+      MoEngageSDKMessaging.sharedInstance.disableBadgeReset(true)
+
+      let sdkConfig = MoEngageSDKConfig(appId: "YOUR_WORKSPACE_ID", dataCenter: .data_center_01)
+      #if DEBUG
+          MoEngage.sharedInstance.initializeDefaultTestInstance(sdkConfig)
+      #else
+          MoEngage.sharedInstance.initializeDefaultLiveInstance(sdkConfig)
+      #endif
+
+      return true
+  }
+  ```
+
+  ```objective-c Objective C wrap
+  - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+
+      [[MoEngageSDKMessaging sharedInstance] disableBadgeReset:YES];
+
+      MoEngageSDKConfig *sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_WORKSPACE_ID" dataCenter:MoEngageDataCenterData_center_01];
+      #ifdef DEBUG
+          [[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
+      #else
+          [[MoEngage sharedInstance] initializeDefaultLiveInstance:sdkConfig];
+      #endif
+
+      return YES;
+  }
+  ```
+
+  </CodeGroup>
+</Accordion>
 
 ## Best Practices
 
