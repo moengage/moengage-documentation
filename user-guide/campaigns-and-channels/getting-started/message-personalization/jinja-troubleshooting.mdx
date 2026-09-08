@@ -20,8 +20,7 @@ Use this guide to diagnose Jinja personalization failures by symptom. If you're 
 | Dynamically generated HTML table renders incorrectly after saving | A `{% for %}` loop was placed directly inside `<table>`/`<tbody>` instead of wrapping a full `<tr>...</tr>` row | Wrap the entire `<tr>` row (not just cell content) inside the loop — see [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#why-does-my-dynamically-generated-table-render-incorrectly-after-saving) |
 | Date renders in the wrong format, wrong timezone, or blank | Input string doesn't match the expected format, or `tzOffset` resolved to null | See [Date and Datetime Formatting Failures](#date-and-datetime-formatting-failures) |
 | Datetime attribute slicing fails inside a Flow | **[PENDING — Q2]** | **[PENDING — Q2]** |
-| Recommendation/catalog campaign shows fewer products than expected, or doesn't send at all | **[PENDING — Q8]** partially: an unguarded loop over an empty product set | Guard the loop with `{% if %}` and an `MOE_NOT_SEND` fallback — see [Multi-Product Catalog Personalization](#multi-product-catalog-personalization) |
-| Jinja error appears in a Flow but not in the equivalent standalone campaign (or vice versa) | **[PENDING — Q7]** | **[PENDING — Q7]** |
+| Recommendation/catalog campaign renders an empty or broken slot | An unguarded loop over an empty product set | Guard the loop with `{% if %}` and an `MOE_NOT_SEND` fallback — see [Multi-Product Catalog Personalization](#multi-product-catalog-personalization) |
 | Content API personalization combined with an event attribute fails in On-Site Messaging (OSM) | **[PENDING — Q5]** | **[PENDING — Q5]** |
 
 <Note>
@@ -115,6 +114,10 @@ One related, already-documented failure mode: the personalization **preview** it
 
 This is a preview-time *parse* error, not the preview-passes-but-send-fails behavior described in Q1 — keep the two distinct in the final guide.
 
+<Info>
+  Connected Apps and Connectors have no live preview. Use **Test Campaign** to see how attributes resolve with real values before publishing.
+</Info>
+
 ## Attribute Naming: Dot vs. Bracket Notation
 
 * MoEngage recommends bracket/subscript notation (`UserAttribute['First Name']`) over dot notation for all attribute references.
@@ -167,10 +170,6 @@ Always give link tokens a fallback. An unresolved attribute inside a URL produce
 <a href="https://example.com/offers/{{UserAttribute['Segment']|default('general')}}">View offers</a>
 ```
 
-<Warning>
-  **PM input needed (Q6 — new, not in the original ticket):** Confirm the behavior when a personalized URL passes through link shortening and click tracking (SMS/MMS/RCS shortening, WhatsApp CTA tracking, email click tracking). Specifically: is the Jinja resolved before or after shortening? What happens if the token resolves to an empty string or an invalid URL — is the link dropped, sent broken, or does the message fail? Are there constraints on personalizing deep links and query parameters versus the base URL?
-</Warning>
-
 ## Multi-Product Catalog Personalization
 
 When personalizing with a **Product Set** or **Recommendation**, you loop over the returned items and slice the loop to control how many render. Selecting the recommendation via **@** inserts a base snippet, which you then edit.
@@ -206,29 +205,7 @@ MOE_NOT_SEND
 
 A missing field on an individual product — for example, `image` absent for one item in the set — surfaces as an **Undefined** error in the [error reference](#personalization-failed-error-reference) rather than as a user or event attribute error.
 
-<Warning>
-  **PM input needed (Q8 — new, not in the original ticket):** How does a recommendation campaign behave when the user has *fewer* recommendations than the slice requests — for example, a `[0:5]` slice for a user with only two recommendations? Does it render the two available, fall through to `MOE_NOT_SEND`, or fail? For carousel layouts with a fixed slot count, what happens to the unfilled slots? Is there a supported way to render a variable number of items, or a documented minimum-recommendation threshold for campaign eligibility?
-</Warning>
-
 For end-to-end recommendation setup, see the [recommendations use-case guides](/use-cases/recommendations/how-to-nudge-users-to-continue-watching-content).
-
-## Error Surfacing: Flow Vendor Files vs. Inline Campaign Usage
-
-<Warning>
-  **PM input needed (Q7 — new, not in the original ticket):** Confirm how Jinja and templating errors surface and are debugged across the three authoring contexts:
-
-  1. **Inline campaign usage** — Jinja written directly in a standalone campaign's content fields.
-  2. **Flow vendor files** — Jinja evaluated as part of a Flow stage.
-  3. **Content Blocks** — Jinja inside a reusable block referenced by a campaign.
-
-  For each: where does the error appear (campaign Error Breakdown, Flow-level reporting, save-time validation, or nowhere), is it caught at save/publish time or only at send time, and does an error in a Content Block surface against the block or against the consuming campaign? Customers report that the same Jinja behaves differently across these contexts.
-</Warning>
-
-Currently undocumented. [Personalization in Flows](/user-guide/flows-cross-channel-messaging/create/actions-in-flows/personalization-in-flows) documents event-attribute personalization *limitations* (primary IF-condition event, Has Done Event timing relative to flow entry, latest-event vs. `MOE_TRIGGER_EVENT` data), but says nothing about where errors surface or how to debug them.
-
-<Info>
-  Connected Apps and Connectors have no live preview. Use **Test Campaign** to see how attributes resolve with real values before publishing.
-</Info>
 
 ## ContentAPI with Event Attributes in OSM
 
@@ -237,10 +214,6 @@ Currently undocumented. [Personalization in Flows](/user-guide/flows-cross-chann
 </Warning>
 
 [Personalization of OSM Content](/user-guide/campaigns-and-channels/on-site-message/create/personalization-of-osm-content) lists **User Attributes**, **User Events**, **Product Catalogs**, **Content APIs**, **Content Blocks**, and **Auxiliary Data** as OSM personalization data types — but the step-by-step **Data Personalization** picker dialog only lists **User Attributes**, **Product Catalogs**, and **Content API** as selectable options. Event attributes aren't shown as a picker option, which may be the root of this gap. Confirm and reconcile with Tanmay before writing the fix.
-
-<Info>
-  A related, adjacent question worth a scope check: how to format Content API payloads when personalizing **push or email** content without causing template errors, and how Connector Campaigns populate/update Content Block HTML from a Content API response. This is Push/Email/Connector-specific, not OSM — decide whether it belongs in this guide or in a separate Content-API-personalization note.
-</Info>
 
 ## Related reading
 
