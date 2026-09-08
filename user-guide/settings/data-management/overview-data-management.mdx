@@ -240,6 +240,22 @@ By default, attributes will be set to **Any** which means that any data type wil
 
 Once you set the allowed data type, only the allowed data type will be ingested going forward. However, we may still see older data types in your database due to past data present in the system. By default, the allowed data type will be pre-selected for your segmentation.
 
+### Effect on Data Already Ingested
+
+Setting an allowed data type applies to data ingested after the change. MoEngage does not convert values that were already stored under the previous data type, and it does not re-ingest or rewrite past events, so an attribute keeps a mix of both data types until the older values age out of your retention window.
+
+This has consequences worth planning for before you change the allowed data type of an attribute that is already in use:
+
+- **Queries on the new data type match only the newer values.** A segmentation or analytics query that filters the attribute as the newly allowed data type returns 0 users, or far fewer than expected, because values stored under the previous data type are not evaluated as the new type. The count recovers as new data is ingested. This is the most common reason a segment count appears to drop right after a data type change.
+- **Both data types stay available in the query builder.** The attribute keeps every data type it has ever been tracked as, so the segmentation dropdown continues to list the previous data type alongside the allowed one. The allowed data type is pre-selected, but the older type remains selectable.
+- **Value suggestions still show values from the previous data type.** Suggestions are generated from data that has already been ingested, so values stored under the old data type keep appearing until they fall outside the [value suggestions](/user-guide/segment/advanced-concepts/value-suggestions) retention window.
+
+To query the full history of an attribute while both data types are present, add one condition per data type and combine them with OR — for example, the attribute as Date for newer values, OR the attribute as String for older values.
+
+<Note>
+  Relative date operators — such as "in the last 7 days" — are available only on the Date data type. Values still stored as String cannot be filtered by a relative date, so a segment that has to cover both data types needs an absolute value or range for the String condition. Where the full history matters and relative dates are required, re-ingest the historical values in the allowed data type instead of querying across both.
+</Note>
+
 ## Array Typecasting
 
 All the elements in the array have to be homogenous, which means they must be either integers or strings. If they are not homogenous, MoEngage tries to typecast (transform) the element and then store the data. Following is the example of an array in a CSV field: \[1|2|3\] <img src="/images/moengage_c53a6c.png" />
