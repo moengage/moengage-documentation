@@ -3337,6 +3337,24 @@ components:
           type: string
           description: A human-readable description of this cause.
 
+    GatewayAuthError:
+      type: object
+      description: |
+        Authentication failure returned by the API gateway. The gateway generates this response before the request reaches the campaigns service, so it does not use the standard MoEngage error envelope and carries no `response_id`.
+      properties:
+        code:
+          type: string
+          description: The machine-readable code for the failure, for example `ER006`.
+          example: ER006
+        target:
+          type: string
+          description: The stage of the request that failed.
+          example: Authentication Invalid
+        message:
+          type: string
+          description: A human-readable description of the failure.
+          example: Auth validation failed.
+
   responses:
     V5ValidationError:
       description: Request failed schema or component validation.
@@ -5191,17 +5209,18 @@ paths:
                 response_id: 550e8400-e29b-41d4-a716-446655440000
 
         "401":
-          description: Authentication failed. The Workspace ID or API key is missing or incorrect.
+          description: |
+            Authentication failed. The Workspace ID or API key is missing or incorrect.
+
+            The API gateway returns this response before the request reaches the campaigns service. The body does not use the standard error envelope and carries no `response_id`. Read the failure from the top-level `code`, `target`, and `message` fields.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
+                $ref: '#/components/schemas/GatewayAuthError'
               example:
-                error:
-                  code: UNAUTHORIZED
-                  message: Invalid or missing credentials.
-                  target: Authorization
-                response_id: e0a49aa4-46ee-496b-a041-9e3343ce564e
+                code: ER006
+                target: Authentication Invalid
+                message: Auth validation failed.
 
         "403":
           description: The credentials are valid, but the API key is not scoped to the Campaigns API. Add the **Campaigns** scope to the key under **Settings** > **Account** > **API keys**.
