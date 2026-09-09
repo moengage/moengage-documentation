@@ -171,7 +171,7 @@ NSE enables rich push notifications (including images, video, and GIFs) and trac
 Integrate push notification registration and token management within your `AppDelegate` to ensure proper communication with Apple Push Notification service (APNs) and MoEngage. This setup allows MoEngage to effectively map APNs tokens with your users.
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `setPushToken(_:)` returns a typed task object (`MoEngagePushTokenTask`) instead of `Void`, so you can observe per-call success or failure through `.onSuccess` / `.onFailure` or the async `result()` method. Direct calls like the one above compile unchanged. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `setPushToken(_:)` returns a typed task object ([`MoEngagePushTokenTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngagePushTokenTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the one above compile unchanged. Refer to [Push Registration Callbacks](#push-registration-callbacks) for how to observe the outcome.
 </Note>
 
 ### Choose a Notification Registration Method
@@ -371,8 +371,63 @@ This manual approach requires you to forward the push payload directly to our SD
 </Accordion>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `registerForRemoteNotification`, `registerForRemoteProvisionalNotification`, and `didFailToRegisterForPush()` also return a typed task object (`MoEngagePushTokenTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome — a failure carries `invalidPushToken` or `pushRegisterFailed`. Refer to [Failure Reason Codes](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#failure-reason-codes).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `registerForRemoteNotification`, `registerForRemoteProvisionalNotification`, `setUserNotificationCategories`, and `didFailToRegisterForPush()` also return a typed task object ([`MoEngagePushTokenTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngagePushTokenTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+## Push Registration Callbacks
+
+Attach `onSuccess` and `onFailure` to any of these tasks to find out whether the device registered with MoEngage. A device that fails to register receives no push notifications, so this is worth logging during integration:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+    .onSuccess { result in
+        // The token reached MoEngage.
+    }
+    .onFailure { failure in
+        print("Push token not registered: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngagePushTokenTask *task = [[MoEngageSDKMessaging sharedInstance] setPushToken:deviceToken];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The token reached MoEngage.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Push token not registered: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+When a messaging call fails, `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) and `moduleCode` carries the precise reason from [`MoEngageMessagingRequestFailureReason.ModuleCode`](https://moengage.github.io/ios-api-reference/Classes/MoEngageMessagingRequestFailureReason/ModuleCode.html).
+
+| Code | Meaning |
+| :-- | :-- |
+| `invalidPushToken` | The supplied push token was `nil`, empty, or otherwise not usable for APNs registration with MoEngage. |
+| `pushRegisterFailed` | APNs registration with MoEngage failed. This covers your app's explicit `didFailToRegisterForPush()` signal and internal register-pipeline rejections. |
+| `duplicateImpression` | The impression payload was already tracked in an earlier call. This is not an integration error — it typically means the same push payload reached the SDK twice. |
+
+Downcast `failure.reason` to read the module code:
+
+```swift Swift wrap
+MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+    .onFailure { failure in
+        guard let reason = failure.reason as? MoEngageMessagingRequestFailureReason,
+              let rawValue = reason.moduleCode?.intValue,
+              let moduleCode = MoEngageMessagingRequestFailureReason.ModuleCode(rawValue: rawValue) else {
+            print("Push token not registered: \(failure.reason) - \(failure.message)")
+            return
+        }
+        print("Push token not registered: \(moduleCode) - \(failure.message)")
+    }
+```
+
+`moduleCode` is `nil` when the failure uses a shared code instead — `sdkNotInitialized` and `networkError` are the most likely. Handlers run on the main thread, and registering a second handler of the same kind replaces the first. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 ## Step 3: Validate Notifications
 

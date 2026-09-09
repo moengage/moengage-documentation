@@ -61,9 +61,35 @@ func application(_ application: UIApplication, open url: URL, sourceApplication:
 
 </CodeGroup>
 
-<Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `processURL(_:)` returns a typed task object (`MoEngageProcessURLTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
-</Note>
+Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `processURL(_:)` returns a typed task object ([`MoEngageProcessURLTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageProcessURLTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged. Attach `onSuccess` and `onFailure` to observe whether the SDK processed the URL:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.processURL(url)
+    .onSuccess { result in
+        // The SDK processed the URL and captured the source.
+    }
+    .onFailure { failure in
+        print("Process URL failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageProcessURLTask *task = [[MoEngageSDKAnalytics sharedInstance] processURL:url];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The SDK processed the URL and captured the source.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Process URL failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `invalidParameters` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # Non-Interactive Event
 

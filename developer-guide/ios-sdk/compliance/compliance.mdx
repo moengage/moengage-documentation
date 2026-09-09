@@ -66,8 +66,38 @@ MoEngageSDKAnalytics.sharedInstance.enableIDFVTracking() //Opt in
 IDFA and IDFV opt-outs are available from SDK version 6.1.1
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), the data tracking, IDFA, and IDFV toggle methods return a typed task object (`MoEngageTrackingToggleTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), the data tracking, IDFA, and IDFV toggle methods return a typed task object ([`MoEngageTrackingToggleTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageTrackingToggleTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to confirm the opt-out or opt-in was applied. Confirming this matters for consent flows, where you need to know the user's choice took effect:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.disableDataTracking()
+    .onSuccess { result in
+        // Tracking is now opted out.
+    }
+    .onFailure { failure in
+        print("Opt-out failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageTrackingToggleTask *task = [[MoEngageSDKAnalytics sharedInstance] disableDataTracking];
+
+[task onSuccess:^(id _Nonnull result) {
+    // Tracking is now opted out.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Opt-out failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `featureDisabled` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # Enable/Disable SDK
 

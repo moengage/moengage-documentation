@@ -32,8 +32,34 @@ MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload:notifica
 </CodeGroup>
 
 <Note>
-  The completion-block form shown above is deprecated from iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026). Call `logNotificationReceived(withPayload:)` without the completion block instead — it returns a typed task object (`MoEngageLogNotificationTask`), and you attach `.onSuccess` to be notified when the impression is logged. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  The completion-block form shown above is deprecated from iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026). Call `logNotificationReceived(withPayload:)` without the completion block instead — it returns a typed task object ([`MoEngageLogNotificationTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageLogNotificationTask.html)) and you attach `onSuccess` to be notified when the impression is logged.
 </Note>
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKMessaging.sharedInstance.logNotificationReceived(withPayload: notification.request.content.userInfo)
+    .onSuccess { result in
+        // The impression was logged. Update content in your contentHandler here.
+    }
+    .onFailure { failure in
+        print("Impression not logged: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageLogNotificationTask *task = [[MoEngageSDKMessaging sharedInstance] logNotificationReceivedWithPayload:notification.request.content.userInfo];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The impression was logged. Update content in your contentHandler here.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Impression not logged: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
 
 ## Track Notification Click
 
@@ -63,7 +89,35 @@ MoEngageSDKMessaging.sharedInstance.logNotificationClicked(withResponse: UNNotif
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `logNotificationClicked` returns a typed task object (`MoEngageLogNotificationTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. A `duplicateImpression` failure means the same payload was already tracked in an earlier call, which is not an integration error. Refer to [Failure Reason Codes](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#failure-reason-codes).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `logNotificationClicked` returns a typed task object ([`MoEngageLogNotificationTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageLogNotificationTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
+</Note>
+
+Attach `onSuccess` and `onFailure` to observe whether the click was tracked:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKMessaging.sharedInstance.logNotificationClicked(withPayload: notification.request.content.userInfo)
+    .onSuccess { result in
+        // The click was tracked.
+    }
+    .onFailure { failure in
+        print("Click not tracked: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageLogNotificationTask *task = [[MoEngageSDKMessaging sharedInstance] logNotificationClickedWithPayload:notification.request.content.userInfo];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Click not tracked: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+<Note>
+  A `duplicateImpression` failure means the same payload was already tracked in an earlier call. This is not an integration error, and it is common when a payload reaches the SDK through more than one path. Refer to [Push Registration Callbacks](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial#push-registration-callbacks) for the other messaging failure codes.
 </Note>
 
 <Note>

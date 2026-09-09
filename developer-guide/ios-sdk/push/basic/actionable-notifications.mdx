@@ -82,8 +82,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `registerForRemoteNotification(withCategories:andUserNotificationCenterDelegate:)` returns a typed task object (`MoEngagePushTokenTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `registerForRemoteNotification(withCategories:andUserNotificationCenterDelegate:)` returns a typed task object ([`MoEngagePushTokenTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngagePushTokenTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to confirm the device registered with your categories:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKMessaging.sharedInstance.registerForRemoteNotification(withCategories: categories, andUserNotificationCenterDelegate: self)
+    .onSuccess { result in
+        // Registration with categories succeeded.
+    }
+    .onFailure { failure in
+        print("Registration failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngagePushTokenTask *task = [[MoEngageSDKMessaging sharedInstance] registerForRemoteNotificationWithCategories:categories andUserNotificationCenterDelegate:self];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Registration failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Refer to [Push Registration Callbacks](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial#push-registration-callbacks) for the messaging failure codes.
 
 <Info>
   **Notification Categories**

@@ -78,8 +78,79 @@ MoEngageSDKInApp.sharedInstance.showInApp()
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `showInApp()` returns a typed task object (`MoEngageShowInAppTask`) instead of `Void`. Direct calls like the one above compile unchanged. Chaining `.onSuccess { ... }` / `.onFailure { ... }` or calling the async `result()` method reports whether a campaign was displayed. A `campaignNotFound` or `anotherCampaignActive` failure means there was nothing to display, not an integration error. Refer to [Failure Reason Codes](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#failure-reason-codes).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `showInApp()` returns a typed task object ([`MoEngageShowInAppTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageShowInAppTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the one above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to find out whether a campaign was displayed. `onSuccess` receives a [`MoEngageShowInAppResult`](https://moengage.github.io/ios-api-reference/Classes/MoEngageShowInAppResult.html) carrying `campaignName`, `campaignId`, and `inAppType`:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKInApp.sharedInstance.showInApp()
+    .onSuccess { result in
+        print("Displayed campaign: \(result.campaignName)")
+    }
+    .onFailure { failure in
+        print("In-app not displayed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageShowInAppTask *task = [[MoEngageSDKInApp sharedInstance] showInApp];
+
+[task onSuccess:^(id _Nonnull result) {
+    MoEngageShowInAppResult *inAppResult = (MoEngageShowInAppResult *)result;
+    NSLog(@"Displayed campaign: %@", inAppResult.campaignName);
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"In-app not displayed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+<Warning>
+  A failure here usually does not mean something is wrong with your integration. `campaignNotFound` and `anotherCampaignActive` both mean the SDK simply had nothing to display at that moment, which is the normal case most of the time. Do not surface these to your users or treat them as errors.
+</Warning>
+
+## InApp Failure Codes
+
+When an in-app request fails, `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) and `moduleCode` carries the precise in-app reason from [`MoEngageInAppRequestFailureReason.ModuleCode`](https://moengage.github.io/ios-api-reference/Classes/MoEngageInAppRequestFailureReason/ModuleCode.html).
+
+| Code | Meaning |
+| :-- | :-- |
+| `campaignNotFound` | No eligible in-app campaign was displayed for this request. |
+| `anotherCampaignActive` | Another in-app message is already visible. |
+| `evaluationFailed` | The selected campaign was rejected after selection, by the final rule check, a pre-attach guard, or the runtime UI state. |
+| `renderFailed` | The selected native campaign's payload could not be fetched before the render attempt. |
+| `htmlAssetLoadFailed` | An HTML campaign's assets could not be loaded. |
+| `metaFetchFailed` | The campaign metadata fetch failed. |
+| `duplicateFunctionCall` | The same request was already in progress. |
+
+Downcast `failure.reason` to read the module code:
+
+```swift Swift wrap
+MoEngageSDKInApp.sharedInstance.showInApp()
+    .onFailure { failure in
+        guard let reason = failure.reason as? MoEngageInAppRequestFailureReason,
+              let rawValue = reason.moduleCode?.intValue,
+              let moduleCode = MoEngageInAppRequestFailureReason.ModuleCode(rawValue: rawValue) else {
+            print("In-app not displayed: \(failure.reason) - \(failure.message)")
+            return
+        }
+
+        switch moduleCode {
+        case .campaignNotFound, .anotherCampaignActive:
+            // Nothing to display right now. No action needed.
+            break
+        default:
+            print("In-app not displayed: \(moduleCode) - \(failure.message)")
+        }
+    }
+```
+
+`moduleCode` is `nil` when the failure uses a shared code instead — `sdkNotInitialized` and `networkError` are the most likely. Handlers run on the main thread, and registering a second handler of the same kind replaces the first. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # Non Intrusive Nudges
 
@@ -139,8 +210,38 @@ SDK can show Nudges in four positions (i.e. at the top, bottom, bottom left, and
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `showNudge` returns a typed task object (`MoEngageShowNudgeTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe whether a nudge was displayed. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `showNudge` returns a typed task object ([`MoEngageShowNudgeTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageShowNudgeTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to find out whether a nudge was displayed:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKInApp.sharedInstance.showNudge(atPosition: .top)
+    .onSuccess { result in
+        // A nudge was displayed.
+    }
+    .onFailure { failure in
+        print("Nudge not displayed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageShowNudgeTask *task = [[MoEngageSDKInApp sharedInstance] showNudgeAtPosition:MoEngageNudgePositionTop];
+
+[task onSuccess:^(id _Nonnull result) {
+    // A nudge was displayed.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Nudge not displayed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+As with `showInApp`, a `campaignNotFound` failure means there was no eligible nudge to display, not an integration problem. Refer to [InApp Failure Codes](#inapp-failure-codes) for the full list.
 
 # InApp Callbacks
 
@@ -347,8 +448,38 @@ Self handled In-Apps are not shown by the SDK. While creating the campaign, a St
 </CodeGroup>
 
 <Note>
-  The completion-block form shown above is deprecated from iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026). Call `getSelfHandledInApp()` without the completion block instead — it returns a typed task object ([`MoEngageGetSelfHandledInAppTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageGetSelfHandledInAppTask.html)), and you attach `.onSuccess` to receive the campaign. The same applies to `getSelfHandledInApps`. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  The completion-block form shown above is deprecated from iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026). Call `getSelfHandledInApp()` without the completion block instead — it returns a typed task object ([`MoEngageGetSelfHandledInAppTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageGetSelfHandledInAppTask.html)) and you attach `onSuccess` to receive the campaign. The same applies to `getSelfHandledInApps`.
 </Note>
+
+The task form separates "no campaign available" from a genuine fetch failure, which the completion block could not do:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKInApp.sharedInstance.getSelfHandledInApp()
+    .onSuccess { result in
+        // Update your UI using the self-handled content.
+    }
+    .onFailure { failure in
+        print("Self-handled in-app unavailable: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageGetSelfHandledInAppTask *task = [[MoEngageSDKInApp sharedInstance] getSelfHandledInApp];
+
+[task onSuccess:^(id _Nonnull result) {
+    // Update your UI using the self-handled content.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Self-handled in-app unavailable: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+A `campaignNotFound` failure means no campaign was available, and `metaFetchFailed` means the fetch itself failed. Refer to [InApp Failure Codes](#inapp-failure-codes).
 
 For getting the Self-Handled InApp payload in the case of Event-Triggered campaigns, set the [_selfHandledInAppTriggered(withInfo:forAccountMeta:)_](https://moengage.github.io/ios-api-reference/Protocols/MoEngageInAppNativeDelegate.html#/c:@M@MoEngageInApps@objc\(pl\)MoEngageInAppNativeDelegate\(im\)selfHandledInAppTriggeredWithInfo:forAccountMeta:) delegate. SDK will automatically deliver the payload in this delegate if the user is eligible for the campaign.
 
@@ -482,8 +613,38 @@ For tracking InApp Clicked information for stats, call the following methods :
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `selfHandledShown`, `selfHandledClicked`, and `selfHandledDismissed` return a typed task object (`MoEngageSelfHandledTrackingTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to confirm the stat was tracked. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `selfHandledShown`, `selfHandledClicked`, and `selfHandledDismissed` return a typed task object ([`MoEngageSelfHandledTrackingTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageSelfHandledTrackingTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to confirm the stat was tracked. Because self-handled campaign stats are yours to report, a silently dropped call here shows up later as under-reported campaign performance:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKInApp.sharedInstance.selfHandledShown(campaignInfo: campaignInfo)
+    .onSuccess { result in
+        // The impression was tracked.
+    }
+    .onFailure { failure in
+        print("Self-handled stat not tracked: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageSelfHandledTrackingTask *task = [[MoEngageSDKInApp sharedInstance] selfHandledShownWithCampaignInfo:campaignInfo];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The impression was tracked.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Self-handled stat not tracked: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `invalidParameters` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # In-App Messaging Rules
 

@@ -1,10 +1,10 @@
 ---
 title: "Migration to SDK version 11.0.0"
-description: "Migrate your MoEngage iOS SDK to version 11.0.0: initialization enforcement, typed task return values with onSuccess and onFailure, failure reason codes, Sendable requirements, and Swift enum replacements."
-keywords: "iOS SDK 11.0.0, migration, onSuccess, onFailure, MoEngageRequestFailure, sdkNotInitialized, Sendable, MoEngageInAppActionType, MoEngageNudgePosition"
+description: "Migrate your MoEngage iOS SDK to version 11.0.0: initialization enforcement, typed task return values, Sendable requirements, and Swift enum replacements."
+keywords: "iOS SDK 11.0.0, migration, typed task, onSuccess, onFailure, Sendable, MoEngageInAppActionType, MoEngageNudgePosition"
 ---
 
-SDK version 11.0.0 introduces breaking changes to initialization enforcement, API return types, Swift concurrency annotations, and two public Objective-C enums. This page lists the changes you need to make when moving to 11.0.0 or above from 10.x.x, and documents the `onSuccess` and `onFailure` callbacks the new return types provide. For the complete change list, refer to the [release notes](/release-notes/sdks/ios#22nd-july-2026).
+SDK version 11.0.0 introduces breaking changes to initialization enforcement, API return types, Swift concurrency annotations, and two public Objective-C enums. This page lists the changes you need to make when moving to 11.0.0 or above from 10.x.x. For the complete change list, refer to the [release notes](/release-notes/sdks/ios#22nd-july-2026).
 
 # Initialization Enforcement
 
@@ -22,63 +22,7 @@ Public APIs in the Core, InApp, and Messaging modules that previously returned `
 
 The return value is annotated `@discardableResult`. Existing calls that ignore it compile and behave as before, and attaching callbacks is optional.
 
-## Observing the Outcome of a Call
-
-Chain `onSuccess(_:)` and `onFailure(_:)` on the returned task to handle the outcome. Both methods return the task, so you can chain them in either order.
-
-<CodeGroup>
-
-```swift Swift wrap
-MoEngageSDKAnalytics.sharedInstance.trackEvent("Successful Purchase", withProperties: eventProperties)
-    .onSuccess { result in
-        // The SDK accepted the event.
-    }
-    .onFailure { failure in
-        print("Track event failed: \(failure.reason) - \(failure.message)")
-    }
-```
-
-```objective-c Objective C wrap
-MoEngageTrackEventTask *task = [[MoEngageSDKAnalytics sharedInstance] trackEvent:@"Successful Purchase" withProperties:eventProperties];
-
-[task onSuccess:^(id _Nonnull result) {
-    // The SDK accepted the event.
-}];
-
-[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
-    NSLog(@"Track event failed: %@ - %@", failure.reason, failure.message);
-}];
-```
-
-</CodeGroup>
-
-In Swift, `onSuccess` receives the typed success payload bound to that task. In Objective-C the handler receives `id`, which you cast to the result type for that task.
-
-Callback behavior to keep in mind:
-
-- Handlers run on the main thread.
-- A task holds one `onSuccess` handler and one `onFailure` handler. Registering a second handler of the same kind replaces the first.
-- A handler attached after the operation has already finished receives the stored outcome immediately.
-- `cancel()` clears the pending handlers. It does not abort the underlying operation; the SDK completes the work and discards the result.
-
-## Awaiting the Outcome
-
-Swift callers can await the outcome with `result()`, which returns the typed success payload or throws the failure:
-
-```swift Swift wrap
-do {
-    let inApp = try await MoEngageSDKInApp.sharedInstance.showInApp().result()
-    print("Displayed campaign: \(inApp.campaignName)")
-} catch let failure as MoEngageRequestFailure {
-    print("In-app not displayed: \(failure.reason) - \(failure.message)")
-}
-```
-
-`result()` is available in Swift only. Objective-C callers use `onSuccess` and `onFailure`.
-
-<Warning>
-  `result()` registers its own handlers internally. Do not attach `onSuccess` or `onFailure` and also await `result()` on the same task — the attached closure is dropped. Use one surface per task.
-</Warning>
+Each API's own page documents the callbacks for that API, with a worked example and the failure codes you are likely to see. Refer to [SDK Initialization](/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization), [Tracking Events](/developer-guide/ios-sdk/data-tracking/basic/tracking-events), [Tracking User Attributes](/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes), [In-App Messages](/developer-guide/ios-sdk/in-app-messages/in-app-nativ), and the [iOS Push Integration Tutorial](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial).
 
 ## Function References With an Explicit Void Return Type
 
@@ -104,148 +48,6 @@ The completion-block variants below still work, but they are deprecated in favou
 | `logNotificationReceived(withPayload:withCompletionBlock:)` | `logNotificationReceived(withPayload:)` returning `MoEngageLogNotificationTask` |
 
 For an example of replacing a completion block with the task, refer to [Logout Callback](/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes#logout-callback).
-
-# Failure Reason Codes
-
-`onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html) with the following properties.
-
-| Property | Type | Description |
-| :-- | :-- | :-- |
-| `reason` | `MoEngageRequestFailureReason` | The failure code. Read `reason.code` for the shared code, or downcast to a module subclass for the module-specific code. |
-| `message` | `String` | A description of the failure. |
-| `cause` | `NSError?` | The underlying error, when the SDK has one. |
-
-## Shared Codes
-
-`reason.code` carries a [`MoEngageRequestFailureReason.Code`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) value. Any module can return these codes.
-
-| Code | Meaning |
-| :-- | :-- |
-| `sdkNotInitialized` | The SDK was not initialized when the API was called. Refer to [Handling sdkNotInitialized](#handling-sdknotinitialized). |
-| `invalidParameters` | One or more parameters failed local validation. |
-| `networkError` | Network failure, such as no connectivity or a timeout. |
-| `serverError` | The server responded with an error. |
-| `authenticationFailed` | Authentication credentials were rejected. |
-| `parseError` | The server response could not be parsed. |
-| `featureDisabled` | The feature is disabled by SDK configuration or remote configuration. |
-| `requiredPermissionMissing` | A platform permission the feature requires is missing. |
-| `cancelled` | The task was cancelled before completion, through `cancel()` or cancellation of the enclosing Swift `Task`. |
-| `unknownError` | An unexpected internal error occurred. |
-
-Switch on `reason.code` to branch on a shared code:
-
-```swift Swift wrap
-MoEngageSDKAnalytics.sharedInstance.trackEvent("Successful Purchase", withProperties: eventProperties)
-    .onFailure { failure in
-        switch failure.reason.code {
-        case .sdkNotInitialized:
-            // Initialization has not completed. Refer to SDK Initialization.
-            break
-        case .networkError:
-            // Transient. The SDK retries batched data on its own.
-            break
-        default:
-            print("Track event failed: \(failure.message)")
-        }
-    }
-```
-
-## Module Codes
-
-Modules carry their own codes on a subclass of `MoEngageRequestFailureReason`. When a failure uses a module code, `reason.code` is a shared code and `moduleCode` holds the precise discriminator. Downcast `failure.reason` to read it.
-
-**Core** — [`MoEngageCoreRequestFailureReason.ModuleCode`](https://moengage.github.io/ios-api-reference/Classes/MoEngageCoreRequestFailureReason/ModuleCode.html)
-
-| Code | Meaning |
-| :-- | :-- |
-| `invalidInitialisationConfiguration` | The initialization configuration was invalid, for example a missing Workspace ID, malformed keys, or an encryption setup failure. |
-| `trackLocaleSubAttributeFailed` | Every sub-attribute was skipped during `trackLocale`, so nothing was tracked. If at least one sub-attribute is accepted, `trackLocale` resolves through `onSuccess` instead, with the accepted and skipped attributes in the result. |
-
-**InApp** — [`MoEngageInAppRequestFailureReason.ModuleCode`](https://moengage.github.io/ios-api-reference/Classes/MoEngageInAppRequestFailureReason/ModuleCode.html)
-
-| Code | Meaning |
-| :-- | :-- |
-| `campaignNotFound` | No eligible in-app campaign was displayed for this request. |
-| `anotherCampaignActive` | Another in-app message is already visible. |
-| `evaluationFailed` | The selected campaign was rejected after selection, by the final rule check, a pre-attach guard, or the runtime UI state. |
-| `renderFailed` | The selected native campaign's payload could not be fetched before the render attempt. |
-| `htmlAssetLoadFailed` | An HTML campaign's assets could not be loaded. |
-| `metaFetchFailed` | The campaign metadata fetch failed. |
-| `duplicateFunctionCall` | The same request was already in progress. |
-
-**Messaging** — [`MoEngageMessagingRequestFailureReason.ModuleCode`](https://moengage.github.io/ios-api-reference/Classes/MoEngageMessagingRequestFailureReason/ModuleCode.html)
-
-| Code | Meaning |
-| :-- | :-- |
-| `invalidPushToken` | The supplied push token was `nil`, empty, or otherwise not usable for APNs registration with MoEngage. |
-| `pushRegisterFailed` | APNs registration with MoEngage failed. This covers your app's explicit `didFailToRegisterForPush()` signal and internal register-pipeline rejections. |
-| `duplicateImpression` | The impression payload was already tracked in an earlier call. This is not an integration error — it typically means the same push payload reached the SDK twice. |
-
-Read a module code as follows:
-
-```swift Swift wrap
-MoEngageSDKInApp.sharedInstance.showInApp()
-    .onFailure { failure in
-        guard let reason = failure.reason as? MoEngageInAppRequestFailureReason,
-              let rawValue = reason.moduleCode?.intValue,
-              let moduleCode = MoEngageInAppRequestFailureReason.ModuleCode(rawValue: rawValue) else {
-            print("In-app not displayed: \(failure.reason) - \(failure.message)")
-            return
-        }
-
-        switch moduleCode {
-        case .campaignNotFound, .anotherCampaignActive:
-            // Nothing to display right now. No action needed.
-            break
-        default:
-            print("In-app not displayed: \(moduleCode) - \(failure.message)")
-        }
-    }
-```
-
-`moduleCode` is `nil` when the failure uses a shared code instead of a module code.
-
-## Handling sdkNotInitialized
-
-An API call fails with `sdkNotInitialized` when the SDK is not in an initialized state at the time of the call. This happens when initialization was started but has not succeeded — for example when the Workspace ID is wrong or the initialization request could not reach MoEngage. Initialization itself does not crash the app in this case; the downstream API call reports `sdkNotInitialized` through `onFailure`.
-
-Calling a public API before you call an initialization method at all is a different case, and the SDK treats it as an integration error rather than a runtime failure. Refer to [Initialization Before API Calls](/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization#initialization-before-api-calls) for the full behavior.
-
-To confirm that initialization succeeded before you rely on it, observe the task returned by the initialization method:
-
-<CodeGroup>
-
-```swift Swift wrap
-let sdkConfig = MoEngageSDKConfig(appId: "YOUR_WORKSPACE_ID", dataCenter: DATA_CENTER)
-#if DEBUG
-let initTask = MoEngage.sharedInstance.initializeDefaultTestInstance(sdkConfig)
-#else
-let initTask = MoEngage.sharedInstance.initializeDefaultLiveInstance(sdkConfig)
-#endif
-
-initTask
-    .onSuccess { result in
-        print("MoEngage SDK initialized from \(result.configSource)")
-    }
-    .onFailure { failure in
-        print("MoEngage SDK initialization failed: \(failure.reason) - \(failure.message)")
-    }
-```
-
-```objective-c Objective C wrap
-MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_WORKSPACE_ID" dataCenter: DATA_CENTER];
-#ifdef DEBUG
-MoEngageInitializeSDKTask *initTask = [[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
-#else
-MoEngageInitializeSDKTask *initTask = [[MoEngage sharedInstance] initializeDefaultLiveInstance:sdkConfig];
-#endif
-
-[initTask onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
-    NSLog(@"MoEngage SDK initialization failed: %@ - %@", failure.reason, failure.message);
-}];
-```
-
-</CodeGroup>
 
 # APIs That Return a Task
 

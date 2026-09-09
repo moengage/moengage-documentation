@@ -17,7 +17,7 @@ First, go to `Build Settings` of your `App Target` and ensure that **DEBUG** Pre
 
 <Note>
  -  **Breaking change in iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026):** Calling a public API without having called an initialization method at all triggers a `fatalError`. Invoke `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)` before all other MoEngage API calls. An initialization that runs but does not succeed — for example because of a wrong Workspace ID or a network failure — does not crash the app. Refer to [Initialization Before API Calls](#initialization-before-api-calls) for both cases.
- -  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `initializeDefaultTestInstance(_:)` and `initializeDefaultLiveInstance(_:)` return a typed task object ([`MoEngageInitializeSDKTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageInitializeSDKTask.html)) instead of `Void`. Direct calls like the ones above compile unchanged. Chaining `.onSuccess { ... }` / `.onFailure { ... }` or calling the async `result()` method reports whether initialization succeeded. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+ -  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `initializeDefaultTestInstance(_:)` and `initializeDefaultLiveInstance(_:)` return a typed task object ([`MoEngageInitializeSDKTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageInitializeSDKTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged. Refer to [Confirming That Initialization Succeeded](#confirming-that-initialization-succeeded).
 </Note>
 
   <CodeGroup>
@@ -160,7 +160,59 @@ If your app calls `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveI
 - The task returned by the initialization method reports the failure through its `onFailure` callback.
 - Public API calls made afterwards fail through their own `onFailure` callback with the `sdkNotInitialized` reason code.
 
-Refer to [Failure Reason Codes](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#failure-reason-codes) for how to read these callbacks and their reason codes.
+This is the case to watch for in production. Because nothing crashes, an app shipped with a wrong Workspace ID looks healthy on the device while sending no data at all. Observing the initialization task is how you catch it.
+
+## Confirming That Initialization Succeeded
+
+Attach `onSuccess` and `onFailure` to the task returned by the initialization method. `onSuccess` receives a [`MoEngageInitResult`](https://moengage.github.io/ios-api-reference/Classes/MoEngageInitResult.html) whose `configSource` property reports where the SDK read its configuration from:
+
+<CodeGroup>
+
+```swift Swift wrap
+let sdkConfig = MoEngageSDKConfig(appId: "YOUR_WORKSPACE_ID", dataCenter: DATA_CENTER)
+#if DEBUG
+let initTask = MoEngage.sharedInstance.initializeDefaultTestInstance(sdkConfig)
+#else
+let initTask = MoEngage.sharedInstance.initializeDefaultLiveInstance(sdkConfig)
+#endif
+
+initTask
+    .onSuccess { result in
+        print("MoEngage SDK initialized from \(result.configSource)")
+    }
+    .onFailure { failure in
+        print("MoEngage SDK initialization failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"YOUR_WORKSPACE_ID" dataCenter: DATA_CENTER];
+#ifdef DEBUG
+MoEngageInitializeSDKTask *initTask = [[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
+#else
+MoEngageInitializeSDKTask *initTask = [[MoEngage sharedInstance] initializeDefaultLiveInstance:sdkConfig];
+#endif
+
+[initTask onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"MoEngage SDK initialization failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+`onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) and `message` describes the failure. A configuration problem — a missing Workspace ID, malformed keys, or an encryption setup failure — reports `unknownError` as the shared code and carries `invalidInitialisationConfiguration` as the module code on [`MoEngageCoreRequestFailureReason`](https://moengage.github.io/ios-api-reference/Classes/MoEngageCoreRequestFailureReason.html):
+
+```swift Swift wrap
+initTask.onFailure { failure in
+    if let reason = failure.reason as? MoEngageCoreRequestFailureReason,
+       let rawValue = reason.moduleCode?.intValue,
+       MoEngageCoreRequestFailureReason.ModuleCode(rawValue: rawValue) == .invalidInitialisationConfiguration {
+        // The SDK configuration is invalid. Check the Workspace ID and data center.
+    }
+}
+```
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # Test/Live Environment
 

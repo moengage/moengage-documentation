@@ -19,5 +19,37 @@ MoEngageSDKAnalytics.sharedInstance.trackLocale()
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `trackLocale()` returns a typed task object (`MoEngageTrackDeviceLocaleTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. If some locale sub-attributes are skipped but at least one is accepted, the task succeeds and the result carries both the accepted and skipped attributes; the task fails with the `trackLocaleSubAttributeFailed` module code only when every sub-attribute is skipped. Refer to [Failure Reason Codes](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#failure-reason-codes).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `trackLocale()` returns a typed task object ([`MoEngageTrackDeviceLocaleTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageTrackDeviceLocaleTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to observe the outcome:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.trackLocale()
+    .onSuccess { result in
+        // Locale attributes were tracked.
+    }
+    .onFailure { failure in
+        print("Track locale failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageTrackDeviceLocaleTask *task = [[MoEngageSDKAnalytics sharedInstance] trackLocale];
+
+[task onSuccess:^(id _Nonnull result) {
+    // Locale attributes were tracked.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Track locale failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Partial success resolves through `onSuccess`. If the SDK skips some locale sub-attributes but accepts at least one, the task succeeds and the result carries both the accepted and the skipped attributes. The task fails only when every sub-attribute is skipped, and the failure then carries the `trackLocaleSubAttributeFailed` module code on [`MoEngageCoreRequestFailureReason`](https://moengage.github.io/ios-api-reference/Classes/MoEngageCoreRequestFailureReason.html), with `message` summarising the per-attribute reasons.
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `networkError` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.

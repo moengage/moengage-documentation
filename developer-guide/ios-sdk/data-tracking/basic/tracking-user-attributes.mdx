@@ -80,8 +80,39 @@ Refer to our help [document](/user-guide/data/user-data/unified-identity-identit
 <IdentifyUserNetworkFailure />
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `identifyUser` returns a typed task object ([`MoEngageIdentifyUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageIdentifyUserTask.html)) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` to read the resulting identities, or `.onFailure` to observe the failure. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `identifyUser` returns a typed task object ([`MoEngageIdentifyUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageIdentifyUserTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` to read the resulting identities, or `onFailure` to observe the failure. `onSuccess` receives a [`MoEngageIdentifyUserResult`](https://moengage.github.io/ios-api-reference/Classes/MoEngageIdentifyUserResult.html) whose `identities` property holds the identifiers the SDK now has for the user:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.identifyUser(identity: "identifier")
+    .onSuccess { result in
+        print("User identities: \(result.identities)")
+    }
+    .onFailure { failure in
+        print("Identify user failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageIdentifyUserTask *task = [[MoEngageSDKAnalytics sharedInstance] identifyUserWithIdentity:@"identifier" workspaceId:nil];
+
+[task onSuccess:^(id _Nonnull result) {
+    MoEngageIdentifyUserResult *identifyResult = (MoEngageIdentifyUserResult *)result;
+    NSLog(@"User identities: %@", identifyResult.identities);
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Identify user failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `invalidParameters` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 For more information, refer to:
 
@@ -144,7 +175,9 @@ MoEngageResetUserTask *task = [[MoEngageSDKAnalytics sharedInstance] resetUser];
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `resetUser()` returns a typed task object ([`MoEngageResetUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageResetUserTask.html)) instead of `Void`. Observe the outcome through `.onSuccess` / `.onFailure` or the async `result()` method. On SDK versions below 11.0.0, the equivalent is `resetUser(withCompletionBlock:)`; that variant is deprecated from 11.0.0 in favour of the typed task above. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `resetUser()` returns a typed task object ([`MoEngageResetUserTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageResetUserTask.html)) instead of `Void`. On SDK versions below 11.0.0 the equivalent is `resetUser(withCompletionBlock:)`; that variant is deprecated from 11.0.0 in favour of the typed task above.
+
+  Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `networkError` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 </Note>
 
 # Default User Attributes
@@ -181,7 +214,7 @@ MoEngageSDKAnalytics.sharedInstance.setLocation(MoEngageGeoLocation(withLatitude
 <Note>
   - User Phone No / Mobile Number must be tracked as a string to work properly in MoEngage systems.
   - For more information on supported data types and data tracking policies, refer to [Data Tracking Policies](/user-guide/data/key-concepts/data-tracking-policies).
-  - Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), these methods return a typed task object (`MoEngageSetUserAttributeTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  - Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), these methods return a typed task object ([`MoEngageSetUserAttributeTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageSetUserAttributeTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged. Refer to [Custom User Attributes](#custom-user-attributes) for how to observe the outcome.
 </Note>
 
 For the full list of validation rules and what happens in `DEBUG` versus release builds, refer to [Validations and restrictions](#validations-and-restrictions).
@@ -210,8 +243,40 @@ NSArray *myArray = @[@"Bengaluru", @"Delhi", @"Chennai"];
   Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026):
 
   - `setUserAttribute(_:withAttributeName:level:forAppID:)` requires the `value` parameter to conform to `Sendable` for Swift concurrency safety (`Any` → `any Sendable`). The literal values used in these examples (strings, arrays, dictionaries of these) already conform to `Sendable`, so they compile unchanged. Under the Swift 6 language mode or strict concurrency, non-`Sendable` values need to be updated.
-  - `setUserAttribute` returns a typed task object (`MoEngageSetUserAttributeTask`) instead of `Void`. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe the outcome. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  - `setUserAttribute` returns a typed task object ([`MoEngageSetUserAttributeTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageSetUserAttributeTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to observe the outcome. This applies to `setUserAttribute` and to every typed variant, including the default attribute setters such as `setName` and `setEmailID`:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.setUserAttribute("Bengaluru", withAttributeName: "Current_city")
+    .onSuccess { result in
+        // The SDK accepted the attribute.
+    }
+    .onFailure { failure in
+        print("Set user attribute failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageSetUserAttributeTask *task = [[MoEngageSDKAnalytics sharedInstance] setUserAttribute:@"Bengaluru" withAttributeName:@"Current_city"];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The SDK accepted the attribute.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Set user attribute failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+An attribute value that fails validation resolves through `onFailure` with `invalidParameters`. Refer to [Validations and restrictions](#validations-and-restrictions) for the rules and for what happens in `DEBUG` versus release builds.
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `invalidParameters` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 For the full list of validation rules, refer to [Validations and restrictions](#validations-and-restrictions).
 

@@ -75,8 +75,56 @@ MoEngageGeoLocation* pickupLocation = [[MoEngageGeoLocation alloc] initWithLatit
 <Note>
   Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026):
   - `MoEngageProperties(withAttributes:)` and `addAttribute(_:withName:)` require values to conform to `Sendable` for Swift concurrency safety (`Any` → `any Sendable`). The literal values used above (strings, numbers, booleans, dictionaries of these) already conform to `Sendable`, so this example compiles unchanged. Under the Swift 6 language mode or strict concurrency, non-`Sendable` values need to be updated.
-  - `trackEvent(_:withProperties:)` returns a typed task object (`MoEngageTrackEventTask`) instead of `Void`, so you can observe per-call success or failure through `.onSuccess` / `.onFailure` or the async `result()` method. Direct calls like the one above compile unchanged. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  - `trackEvent(_:withProperties:)` returns a typed task object ([`MoEngageTrackEventTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageTrackEventTask.html)) instead of `Void`. The return value is annotated `@discardableResult`, so direct calls like the one above compile unchanged.
 </Note>
+
+Attach `onSuccess` and `onFailure` to the returned task to observe whether the SDK accepted the event:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.trackEvent("Successful Purchase", withProperties: eventProperties)
+    .onSuccess { result in
+        // The SDK accepted the event.
+    }
+    .onFailure { failure in
+        print("Track event failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageTrackEventTask *task = [[MoEngageSDKAnalytics sharedInstance] trackEvent:@"Successful Purchase" withProperties:eventProperties];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The SDK accepted the event.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Track event failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+Success means the SDK accepted the event into its batch, not that it reached MoEngage. The SDK syncs batched events on its own schedule and retries failed syncs. To branch on the cause of a failure, switch on `reason.code`:
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.trackEvent("Successful Purchase", withProperties: eventProperties)
+    .onFailure { failure in
+        switch failure.reason.code {
+        case .sdkNotInitialized:
+            // Initialization has not completed. Refer to SDK Initialization.
+            break
+        case .invalidParameters:
+            // An attribute value failed validation. Refer to Validations and restrictions.
+            break
+        default:
+            print("Track event failed: \(failure.message)")
+        }
+    }
+```
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized` and `invalidParameters` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 <Info>
   **Non-Interactive Events**
@@ -211,8 +259,40 @@ MoEngageSDKAnalytics.sharedInstance.flush()
 </CodeGroup>
 
 <Note>
-  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `flush()` returns a typed task object (`MoEngageFlushTask`) instead of `Void`, and the `flush(withCompletionBlock:)` variant is deprecated. Direct calls like the ones above compile unchanged. Attach `.onSuccess` / `.onFailure` to the returned task to observe whether the sync succeeded. Refer to [Observing the Outcome of a Call](/developer-guide/ios-sdk/migration/migration-to-sdk-version-11-0-0#observing-the-outcome-of-a-call).
+  Starting with iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), `flush()` returns a typed task object ([`MoEngageFlushTask`](https://moengage.github.io/ios-api-reference/Classes/MoEngageFlushTask.html)) instead of `Void`, and the `flush(withCompletionBlock:)` variant is deprecated in favour of it. The return value is annotated `@discardableResult`, so direct calls like the ones above compile unchanged.
 </Note>
+
+Unlike `trackEvent`, a `flush()` outcome does describe the network sync, so `onFailure` here tells you the batch did not reach MoEngage:
+
+<CodeGroup>
+
+```swift Swift wrap
+MoEngageSDKAnalytics.sharedInstance.flush()
+    .onSuccess { result in
+        // The batch reached MoEngage.
+    }
+    .onFailure { failure in
+        print("Flush failed: \(failure.reason) - \(failure.message)")
+    }
+```
+
+```objective-c Objective C wrap
+MoEngageFlushTask *task = [[MoEngageSDKAnalytics sharedInstance] flush];
+
+[task onSuccess:^(id _Nonnull result) {
+    // The batch reached MoEngage.
+}];
+
+[task onFailure:^(MoEngageRequestFailure * _Nonnull failure) {
+    NSLog(@"Flush failed: %@ - %@", failure.reason, failure.message);
+}];
+```
+
+</CodeGroup>
+
+A failed flush does not lose data. The SDK keeps the tracked events and retries them on the next sync attempt.
+
+Handlers run on the main thread, and registering a second handler of the same kind replaces the first. `onFailure` receives a [`MoEngageRequestFailure`](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailure.html): `reason.code` carries a [shared failure code](https://moengage.github.io/ios-api-reference/Classes/MoEngageRequestFailureReason/Code.html) — `sdkNotInitialized`, `networkError`, and `serverError` are the most likely here — and `message` describes the failure. Swift callers can `await` the task's `result()` method instead of attaching handlers.
 
 # Testing events after integration
 
