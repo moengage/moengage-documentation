@@ -556,6 +556,9 @@ paths:
           description: |
             A comma-separated list of the top-level `data` fields to return. When you omit it,
             MoEngage returns every field. Each value maps to the response key of the same name.
+
+            MoEngage never returns `stage_stats` when `version_name` is `All Versions`, even when
+            you ask for it here.
           schema:
             type: string
             example: "summary,drop_stats"
@@ -1572,7 +1575,14 @@ components:
             $ref: '#/components/schemas/BusinessTriggerStat'
         stage_stats:
           type: array
-          description: Node-level entry, exit, drop, and current counts for each stage, one entry per period.
+          description: >
+            Node-level entry, exit, drop, and current counts for each stage, one entry per period.
+            MoEngage omits this field when `version_name` is `All Versions`, whether or not you
+            asked for it through `fields`. Every other field is unaffected. Across versions,
+            MoEngage can resolve node-level data only for the flow's entry stage, because that is
+            the only stage guaranteed to keep the same internal ID in every version. Returning
+            that stage on its own would read as complete per-stage data, so MoEngage withholds
+            the field instead.
           items:
             $ref: '#/components/schemas/StageStatsPeriodEntry'
 
