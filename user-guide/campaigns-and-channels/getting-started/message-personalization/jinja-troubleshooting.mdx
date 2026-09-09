@@ -1,0 +1,226 @@
+---
+title: "Jinja Personalization Troubleshooting"
+description: "Diagnose and fix MoEngage-specific Jinja personalization failures across Email, Push, Flows, and On-Site Messaging."
+---
+
+Use this guide to diagnose Jinja personalization failures by symptom. If you're new to MoEngage's templating language, start with [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language) instead — this page assumes you already know the basic syntax and covers what goes wrong in practice, and why.
+
+## Symptom → Cause → Fix
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Value renders correctly in preview but the message is blank or fails to send | **[PENDING — Q1]** see [Preview vs. Send Differences](#preview-vs-send-differences) | **[PENDING — Q1]** |
+| Personalization preview shows `Error in parsing jinja template format. Error expected token ',', got 'integer'` | A string operator/filter is applied to an integer value, or a double quotation mark is used instead of two single quotes | Cast the value with `\|string` before applying string filters, and use single quotes (`'...'`) consistently in Jinja expressions |
+| An attribute that exists still renders blank | The attribute name contains a space or a special character and was referenced with dot notation instead of bracket/subscript notation | Use bracket notation for any attribute name containing spaces or special characters — see [Attribute Naming](#attribute-naming-dot-vs-bracket-notation) |
+| An unrendered placeholder (for example, `{{first_name}}`) is sent to users literally, with no error thrown | Silent failure — no fallback (`default()`) was configured for the attribute | Always chain `\|default('fallback text')` or `\|default('MOE_NOT_SEND')` to attributes that may be null or missing |
+| Attribute is null or missing and no `default()` is set | **[PENDING — Q4]** see [Null and Missing Attribute Behavior](#null-and-missing-attribute-behavior) | Set a `default()` fallback, or `default('MOE_NOT_SEND')` to suppress the message for that user |
+| Users are removed from an email campaign; personalization fails for the entire target segment | A custom attribute shares its name with a MoEngage-tracked/reserved attribute (for example, a custom "First Name"), so personalization resolves to the reserved attribute instead | Don't name custom attributes after [MoEngage-tracked attributes](/user-guide/campaigns-and-channels/email/faqs-email/users-are-removed-due-to-personalization-failure) or [reserved event attributes](/user-guide/campaigns-and-channels/email/faqs-email/why-does-personalization-not-work-for-some-event-attributes) |
+| Jinja condition throws `TemplateSyntaxError: unexpected char u'&'` in the rich (Froala) editor | The rich editor HTML-encodes `>` / `<` inside Jinja conditions | Use `!=` instead of `>`/`<`, or author the condition in the custom HTML/source view |
+| Saving or sending returns `Error in parsing jinja template format. Error unexpected char u'$'` | A personalization token (or an `href` containing one) was URL-encoded — `{{` becomes `%7B%7B` and `$` becomes `%24` | Insert tokens unencoded via the editor's token/merge tag — see [CTA and URL Construction](#cta-and-url-construction-with-dynamic-attributes) |
+| Dynamically generated HTML table renders incorrectly after saving | A `{% for %}` loop was placed directly inside `<table>`/`<tbody>` instead of wrapping a full `<tr>...</tr>` row | Wrap the entire `<tr>` row (not just cell content) inside the loop — see [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#why-does-my-dynamically-generated-table-render-incorrectly-after-saving) |
+| Date renders in the wrong format, wrong timezone, or blank | Input string doesn't match the expected format, or `tzOffset` resolved to null | See [Date and Datetime Formatting Failures](#date-and-datetime-formatting-failures) |
+| Datetime attribute slicing fails inside a Flow | **[PENDING — Q2]** | **[PENDING — Q2]** |
+| Recommendation/catalog campaign renders an empty or broken slot | An unguarded loop over an empty product set | Guard the loop with `{% if %}` and an `MOE_NOT_SEND` fallback — see [Multi-Product Catalog Personalization](#multi-product-catalog-personalization) |
+| Content API personalization combined with an event attribute fails in On-Site Messaging (OSM) | **[PENDING — Q5]** | **[PENDING — Q5]** |
+
+<Note>
+  Rows marked **[PENDING]** need PM confirmation before this table is final — see the matching section below for the exact open question, and remove any row that turns out not to apply.
+</Note>
+
+## "Personalization Failed" Error Reference
+
+When personalization fails, the failure appears under the **Failed to Send** error category in the **Error breakdown** table on the campaign's Analytics page. Click **See breakdown** in the **Name** column to open the Personalization failure analysis, which shows how many users each failure affected and why.
+
+Failures are classified into the following categories:
+
+| Category | What it means |
+|---|---|
+| **User Attribute** | The user attribute used in personalization is unavailable — either missing from the system entirely (for example, a copy-paste error in the attribute name) or absent for that specific user. |
+| **Event Attribute** | The event attribute used in personalization is unavailable in the system or for that specific user. |
+| **Campaign Attribute** | Campaign-specific information used in personalization is missing — for example, a campaign tag attribute referenced in the template. |
+| **Undefined** | MoEngage could not fetch a value for the attribute. For example, the `image` attribute is unavailable for a specific product in a product set. |
+| **Unknown** | Any failure that doesn't fall into the categories above. |
+| **Custom Error Message** | A reason you defined yourself using the `MOE_NOT_SEND` Jinja tag. |
+
+<Info>
+  The count under **Personalization Failed** in **Failed to Send** is the number of *unique users* for whom personalization failed. This can differ from the totals in the Personalization failure analysis pop-up, where a single user is counted once per failure category. A user with both a user attribute and an event attribute failure appears in both category counts, but as one user under **Personalization Failed**.
+</Info>
+
+### Define your own failure reasons
+
+Use the `MOE_NOT_SEND` tag inside a conditional to label exactly why a message wasn't sent. Your message then appears verbatim in the **Error breakdown** section, alongside the count of affected users:
+
+```text
+{% if (UserAttribute['brand'] == 'Puma') %}
+Brand is Puma!
+{% else %}
+{% MOE_NOT_SEND("Brand name doesn't exist for user") %}
+{% endif %}
+```
+
+This turns an opaque "Personalization Failed" bucket into a diagnosable one. For campaigns with several personalization dependencies, branch the conditions so each failure mode gets its own message:
+
+```text
+{% set has_first_name = UserAttribute['First Name'] and UserAttribute['First Name']|length > 0 %}
+{% set has_last_name = UserAttribute['Last Name'] and UserAttribute['Last Name']|length > 0 %}
+{% if has_first_name and has_last_name %}
+Hello {{UserAttribute['First Name']}} {{UserAttribute['Last Name']}}!
+{% elif has_first_name and not has_last_name %}
+{% MOE_NOT_SEND("Last Name doesn't exist for user") %}
+{% elif not has_first_name and has_last_name %}
+{% MOE_NOT_SEND("First Name doesn't exist for user") %}
+{% else %}
+{% MOE_NOT_SEND("Both First Name and Last Name doesn't exist for user") %}
+{% endif %}
+```
+
+For more detail on the analytics view, see [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#personalization-failure-analysis).
+
+## Null and Missing Attribute Behavior
+
+<Warning>
+  **PM input needed (Q4):** When an attribute is null or missing and no `default()` is set, what actually happens, per channel — is the message sent with a blank/literal placeholder, is the user silently skipped, or is the user removed from the target segment? Is this a silent failure (no error surfaced) or a visible one (shows in Error Breakdown)? Email's user-removal FAQ suggests removal in at least one scenario — please confirm whether that generalizes to Push and OSM, or is Email-specific.
+</Warning>
+
+Control fallback behavior explicitly with the `default` filter:
+
+* `{{UserAttribute['First name']|default('Guest')}}` — sends the message with a fallback string.
+* `{{UserAttribute['First name']|default('MOE_NOT_SEND')}}` — suppresses the message entirely for that user if the attribute is missing.
+
+You can also branch on presence instead of using a filter:
+
+```text
+{% set firstName = UserAttribute['First name'] %}
+{% if firstName %}
+Welcome, {{ firstName }}
+{% else %}
+Welcome!
+{% endif %}
+```
+
+<Warning>
+  If you personalize both the main template and the backup notification but set no fallback, and personalization fails for either one, **nothing is sent**. The template and backup are treated as a single payload, so MoEngage has no alternate content to fall back to. Always add a personalization backup. See [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs#personalization-failure).
+</Warning>
+
+## Preview vs. Send Differences
+
+<Warning>
+  **PM input needed (Q1):** Confirm the exact type-casting behavior that causes a value to render correctly in the personalization preview but come out blank or fail at actual send time. Is this specific to a data-type mismatch (for example, a numeric user attribute being treated as a string, or vice versa) between preview-time and send-time evaluation? What's the recommended way for users to prevent it (explicit casting filter, attribute type correction at the data layer, etc.)?
+
+  Worth confirming as two distinct cases rather than one: (1) a test-send not rendering personalization despite preview showing values correctly, and (2) the same preview/send mismatch occurring specifically in live Flows, including how users can validate Jinja in a Flow before publishing.
+</Warning>
+
+One related, already-documented failure mode: the personalization **preview** itself can fail to parse with `Error in parsing jinja template format. Error expected token ',', got 'integer'`. This happens when a string operator or filter is applied to an integer value, or when a double quotation mark is used where two single quotes are expected. See [Why Does Parsing Jinja Template Format in the Personalization Preview Fail?](/user-guide/campaigns-and-channels/campaign-management-and-reports/faqs-campaign-management/why-does-parsing-jinja-template-format-in-the-personalization-preview-fail)
+
+This is a preview-time *parse* error, not the preview-passes-but-send-fails behavior described in Q1 — keep the two distinct in the final guide.
+
+<Info>
+  Connected Apps and Connectors have no live preview. Use **Test Campaign** to see how attributes resolve with real values before publishing.
+</Info>
+
+## Attribute Naming: Dot vs. Bracket Notation
+
+* MoEngage recommends bracket/subscript notation (`UserAttribute['First Name']`) over dot notation for all attribute references.
+* **If the attribute name contains spaces, bracket notation is required.** Dot notation renders blank for such attributes. `{{UserAttribute['First Name']}}` works; a dot-notation equivalent does not.
+
+<Warning>
+  **PM input needed (Q3 — remaining part):** Are there other naming-conflict cases beyond spaces/special characters that require bracket notation or otherwise cause blank output? For example, attribute names that collide with Jinja reserved words, or names starting with a digit.
+</Warning>
+
+A related but distinct failure is a **naming collision with MoEngage-reserved attributes**. If a custom attribute shares a name with a MoEngage-tracked attribute (Name, First Name, Last Name, Birthday, Gender, Location, Mobile Number, Email, ID, Advertising Identifier) or a [reserved event attribute](/user-guide/campaigns-and-channels/email/faqs-email/why-does-personalization-not-work-for-some-event-attributes) (Campaign Id, Campaign Name, Revenue, and many others), personalization resolves to the reserved attribute rather than your custom one — often silently, and frequently only surfacing after publish. Don't reuse these names.
+
+## Date and Datetime Formatting Failures
+
+Date handling accounts for a large share of personalization failures because a date attribute is a *string* until a filter parses it. If the input format doesn't match what the filter expects, the output is wrong or empty rather than erroring loudly.
+
+The available filters (`dateFormatter`, `dateTimeFormatter`, `today`, `days`) and the full `strftime` code table are documented in [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language#date-time-functions-and-formatters). Common failure modes:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Output is blank or unchanged | The stored value's format doesn't match what the filter can parse | Confirm the raw attribute value on a user profile before writing the filter; don't assume ISO-8601 |
+| Time is off by hours | `timeZone` and `tzOffset` were both supplied | `tzOffset` always wins, regardless of the order you write them in |
+| Timezone conversion silently ignored | `tzOffset` resolved to null or `-1000` | MoEngage falls back to the `timeZone` method. Set a `default()` on the offset attribute: `tzOffset=UserAttribute['User Time Zone Offset (Mins)']` is null-prone |
+| Format codes produce literal text | Wrong `strftime` code (for example, `%y` vs. `%Y`, or `%M` for month instead of `%m`) | `%m` is month, `%M` is minute; `%Y` is 4-digit year, `%y` is 2-digit |
+
+Combining format and timezone in one call:
+
+```text
+{{UserAttribute['First Seen']|dateTimeFormatter(toFormat='%Y-%m-%d %H:%M', timeZone='Asia/Kolkata', tzOffset=UserAttribute['User Time Zone Offset (Mins)'])}}
+```
+
+<Warning>
+  **PM input needed (Q2):** What specifically fails when slicing a datetime attribute inside a Flow (for example, `{{EventAttribute['some_date'][:10]}}`)? Is this a type issue (the attribute isn't a string at evaluation time), a Flow-specific limitation not present in campaigns sent outside Flows, or something else? What is the correct supported approach for extracting part of a date value — a specific filter, a pre-formatted derived attribute, or something else?
+</Warning>
+
+## CTA and URL Construction with Dynamic Attributes
+
+Personalizing a link is different from personalizing body text: the token has to survive the editor's HTML handling, and it may also pass through URL shortening.
+
+**Never URL-encode a personalization token or an `href` that contains one.** Encoding replaces `{{` with `%7B%7B` and `$` with `%24`, which decodes to a `{{$` sequence Jinja cannot parse. When you save or send, this produces:
+
+```text
+Error in parsing jinja template format. Error unexpected char u'$' at ...
+```
+
+Insert the token through the editor's token or merge tag option rather than pasting a manually encoded value into the `href`. See [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language#escaping).
+
+Always give link tokens a fallback. An unresolved attribute inside a URL produces a broken link rather than a visibly blank one, so the failure is easy to miss in QA:
+
+```text
+<a href="https://example.com/offers/{{UserAttribute['Segment']|default('general')}}">View offers</a>
+```
+
+## Multi-Product Catalog Personalization
+
+When personalizing with a **Product Set** or **Recommendation**, you loop over the returned items and slice the loop to control how many render. Selecting the recommendation via **@** inserts a base snippet, which you then edit.
+
+To render the first five titles:
+
+```text
+{% if ProductSet.OTT_ContinueWatching %}
+{% for product in ProductSet.OTT_ContinueWatching[0:5] %}
+{{ product.title }}
+{%\n%}
+{% endfor %}
+{% else %}
+MOE_NOT_SEND
+{% endif %}
+```
+
+For carousels and other slot-based layouts, target one item per slot by shifting the slice — `[0:1]` for slide 1, `[1:2]` for slide 2, and so on:
+
+```text
+{% if ProductSet.OTT_ContinueWatching %}
+{% for product in ProductSet.OTT_ContinueWatching[1:2] %}
+{{ product.image_link }}
+{% endfor %}
+{% else %}
+MOE_NOT_SEND
+{% endif %}
+```
+
+<Warning>
+  Always wrap the loop in an `{% if %}` guard with an `MOE_NOT_SEND` (or content) fallback. An unguarded loop over an empty product set renders nothing, which for a carousel slot or image URL means a broken or empty message rather than a suppressed one.
+</Warning>
+
+A missing field on an individual product — for example, `image` absent for one item in the set — surfaces as an **Undefined** error in the [error reference](#personalization-failed-error-reference) rather than as a user or event attribute error.
+
+For end-to-end recommendation setup, see the [recommendations use-case guides](/use-cases/recommendations/how-to-nudge-users-to-continue-watching-content).
+
+## ContentAPI with Event Attributes in OSM
+
+<Warning>
+  **PM input needed (Q5):** Can Content API personalization be combined with an event attribute in the same On-Site Messaging (OSM) campaign? If not supported, what actually happens — parse error, silent blank, or something else? Are there other known OSM-specific personalization limitations worth documenting here?
+</Warning>
+
+[Personalization of OSM Content](/user-guide/campaigns-and-channels/on-site-message/create/personalization-of-osm-content) lists **User Attributes**, **User Events**, **Product Catalogs**, **Content APIs**, **Content Blocks**, and **Auxiliary Data** as OSM personalization data types — but the step-by-step **Data Personalization** picker dialog only lists **User Attributes**, **Product Catalogs**, and **Content API** as selectable options. Event attributes aren't shown as a picker option, which may be the root of this gap. Confirm and reconcile with Tanmay before writing the fix.
+
+## Related reading
+
+* [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language)
+* [Common Personalization Errors and FAQs](/user-guide/campaigns-and-channels/getting-started/message-personalization/common-personalization-errors-and-faqs)
+* [Users are removed due to Personalization Failure](/user-guide/campaigns-and-channels/email/faqs-email/users-are-removed-due-to-personalization-failure)
+* [Why Does Personalization Not Work for Some Event Attributes?](/user-guide/campaigns-and-channels/email/faqs-email/why-does-personalization-not-work-for-some-event-attributes)
+* [Why Does Parsing Jinja Template Format in the Personalization Preview Fail?](/user-guide/campaigns-and-channels/campaign-management-and-reports/faqs-campaign-management/why-does-parsing-jinja-template-format-in-the-personalization-preview-fail)
+* [Personalization in Flows](/user-guide/flows-cross-channel-messaging/create/actions-in-flows/personalization-in-flows)
+* [Personalization of OSM Content](/user-guide/campaigns-and-channels/on-site-message/create/personalization-of-osm-content)
