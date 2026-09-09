@@ -17,3 +17,54 @@ The Subscription Preferences API (V5) consists of the following endpoints:
 <Note>
   **Transitional authentication note:** This route currently accepts HTTP Basic Auth only. Bearer token support is planned but not yet active on this path — Bearer requests return `401` until the APISIX gateway fronts this route.
 </Note>
+
+## FAQs
+ 
+### Get Subscription Categories
+ 
+<AccordionGroup>
+  <Accordion title="Do I need to pass a user identifier to this endpoint?" icon="sparkles">
+    No. This endpoint returns the workspace's full active subscription-category catalog and isn't scoped to any individual user — you only need to authenticate the request.
+  </Accordion>
+  <Accordion title="How fresh is the category data returned by this endpoint?" icon="sparkles">
+    The catalog is served from the existing hourly category cache, so a category you just created or edited in the dashboard may take up to an hour to appear here.
+  </Accordion>
+  <Accordion title="What happens if I don't pass the channel filter?" icon="sparkles">
+    Categories for all channels (email and SMS) are returned. Pass `channel=email` or `channel=sms` to restrict the catalog to a single channel.
+  </Accordion>
+</AccordionGroup>
+### Get Subscription Preferences
+ 
+<AccordionGroup>
+  <Accordion title="What if the email I pass matches more than one user profile?" icon="sparkles">
+    It depends on your workspace's email-based unsubscribe setting. If it's enabled, the update applies to all profiles sharing that email and the resolved profile is the canonical/first match. If it's disabled, the call succeeds only when exactly one profile matches — otherwise it returns `409`.
+  </Accordion>
+  <Accordion title="What if no profile matches the identifier I passed?" icon="sparkles">
+    The call returns `404`.
+  </Accordion>
+  <Accordion title="Can I use moe_user_id, uid, or email interchangeably?" icon="sparkles">
+    Yes — set `user_identifier_type` to whichever identifier you hold (`moe_user_id`, `uid`, or `email`) along with the matching `user_identifier_value`. You don't need to look up a different identifier first.
+  </Accordion>
+</AccordionGroup>
+### Update Subscription Preferences
+ 
+<AccordionGroup>
+  <Accordion title="Why did I get a 202 instead of the updated preferences?" icon="sparkles">
+    This endpoint is processed asynchronously by a separate worker, under the existing SLA. A `202` only confirms the request was accepted — it doesn't confirm the change has taken effect yet. Poll [Get Subscription Preferences](/api/subscription-preferences/get-subscription-preferences-v5) for the same identifier and confirm the returned state matches what you sent.
+  </Accordion>
+  <Accordion title="Is is_globally_unsubscribed optional?" icon="sparkles">
+    No — it's required on every call, since it has no neutral default: `true` unsubscribes the profile from every category on the channel, `false` explicitly clears an existing global unsubscribe.
+  </Accordion>
+  <Accordion title="What happens to categories I don't include in the request?" icon="sparkles">
+    They're left unchanged. `categories` is a sparse map — only the category names present in the request are updated.
+  </Accordion>
+  <Accordion title="What happens if I reuse an Idempotency-Key with a different request body?" icon="sparkles">
+    The call fails with `409`. Reusing the same key with the same body, however, returns the original response without reapplying the update.
+  </Accordion>
+  <Accordion title="If channel is omitted, which categories does the update apply to?" icon="sparkles">
+    It defaults to `email` — only the email subscription categories are affected. Categories on other channels (e.g. SMS) are untouched.
+  </Accordion>
+  <Accordion title="Are there reserved event_attributes names?" icon="sparkles">
+    No — any attribute name is accepted. The only limits are a maximum of 5 attributes per call, names of 50 characters or fewer, and values of 255 characters or fewer.
+  </Accordion>
+</AccordionGroup>
