@@ -8,11 +8,13 @@ SDK version 11.0.0 introduces breaking changes to initialization enforcement, AP
 
 # Initialization Enforcement
 
-Calling a public MoEngage API without having called an initialization method at all now triggers a `fatalError` instead of dropping the call. Move every MoEngage API call after `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)`, which you should call in `application(_:didFinishLaunchingWithOptions:)`.
+Calling a public MoEngage API without having called an initialization method at all now triggers a `fatalError` instead of dropping the call. This applies to Debug, Release, and TestFlight builds alike, and does not depend on whether a debugger is attached. Move every MoEngage API call after `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)`, which you should call in `application(_:didFinishLaunchingWithOptions:)`.
 
-An initialization that runs but does not succeed — for example because of a wrong Workspace ID or a network failure — does not crash the app. Downstream API calls fail with the `sdkNotInitialized` reason code through their `onFailure` callback instead.
+Calling an initialization method is enough to satisfy the check, whether or not it succeeds. An initialization that runs but fails — for example because of a wrong Workspace ID or a network failure — does not crash the app; downstream API calls fail with the `sdkNotInitialized` reason code through their `onFailure` callback instead.
 
-Refer to [Initialization Before API Calls](/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization#initialization-before-api-calls) for the cases where the SDK skips this check and for the exact behavior in each build configuration.
+If you cannot reorder your calls immediately, `MoEngageSDKCore.sharedInstance.disableIntegrationValidator()` suppresses the crash for the current process when called before initialization. Treat it as a stopgap during the upgrade, not a permanent setting.
+
+Refer to [Initialization Before API Calls](/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization#initialization-before-api-calls) for the cases where the SDK skips this check.
 
 # Typed Task Return Values
 

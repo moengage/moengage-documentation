@@ -127,24 +127,35 @@ From iOS SDK [11.0.0](/release-notes/sdks/ios#22nd-july-2026), the SDK separates
 
 ## Calling an API Without Initializing
 
-If your app calls a public API — for example `identifyUser()` or `showInApp()` — without having called an initialization method at all, the SDK triggers a `fatalError`. This is a deliberate crash that surfaces the wrong call order instead of dropping the data silently, and it applies to Debug, Release, and TestFlight builds alike. Move the MoEngage API call after initialization to fix it.
+If your app calls a public API — for example `identifyUser()` or `showInApp()` — without having called an initialization method for that workspace at all, the SDK triggers a `fatalError`. This is a deliberate crash that surfaces the wrong call order instead of dropping the data silently.
 
-The SDK skips this check in the following cases, and logs the call instead of crashing:
+The check does not depend on the build configuration, the environment, or whether a debugger is attached. It behaves the same way in Debug, Release, and TestFlight builds. The crash fires on the thread that made the call, before the SDK dispatches any work, so the stack trace points at your own call site:
 
-- The app uses `Info.plist`-based automatic initialization, where the SDK initializes itself before your app code runs.
-- The call comes from an app extension, such as a Notification Service Extension or a Notification Content Extension.
-- The app called `MoEngageSDKCore.sharedInstance.disableIntegrationValidator()` earlier in the same process.
-- The workspace the call targets is already registered with the SDK.
+```text Stack Trace
+fatalError
+  MoEngageQueuedControllerProvider.perform(onControllerWithAppId:)
+  MoEngageSDKInApp.showInApp(forAppId:)     <- your SDK call
+  MyViewController.viewDidAppear()          <- your code
+```
 
-In `DEBUG` builds run without a debugger attached, the SDK logs the violation instead of crashing.
+Move the MoEngage API call after initialization to fix it.
+
+The SDK skips this check in the following cases:
+
+- Initialization has already been requested for the workspace the call targets. The SDK sets this flag as soon as you call an initialization method, so an API call made while initialization is still in flight does not crash.
+- The app configures automatic initialization in `Info.plist`, where the SDK initializes itself before your app code runs.
+- The call comes from an app extension, such as a Notification Service Extension or a Notification Content Extension. Extensions initialize lazily.
+- The app called `MoEngageSDKCore.sharedInstance.disableIntegrationValidator()` before initialization.
+
+If your app initializes more than one workspace, the check applies per workspace. A call that targets a workspace you never initialized crashes even when another workspace is initialized.
 
 <Warning>
-  Do not use [`disableIntegrationValidator()`](https://moengage.github.io/ios-api-reference/Classes/MoEngageSDKCore.html#/c:@M@MoEngageCore@objc\(cs\)MoEngageSDKCore\(im\)disableIntegrationValidator) to suppress this crash in a shipped build. It applies to the current process only, so you have to call it before every initialization, and it hides an incorrect call order rather than fixing it.
+  Do not use [`disableIntegrationValidator()`](https://moengage.github.io/ios-api-reference/Classes/MoEngageSDKCore.html#/c:@M@MoEngageCore@objc\(cs\)MoEngageSDKCore\(im\)disableIntegrationValidator) to suppress this crash in a shipped build. Call it before initialization, and note that it applies to the current process only, so you have to call it on every launch. It hides an incorrect call order rather than fixing it, and it also suppresses the `DEBUG` validation exceptions described earlier on this page.
 </Warning>
 
 ## Initialization That Does Not Succeed
 
-If your app calls `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)` and initialization does not succeed — for example because the Workspace ID is wrong or the device has no network connectivity — the app does not crash. The SDK reports the outcome asynchronously instead:
+If your app calls `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)` and initialization does not succeed — for example because the Workspace ID is wrong or the device has no network connectivity — the app does not crash. Calling an initialization method is enough to satisfy the check above, whether or not it succeeds. The SDK reports the outcome asynchronously instead:
 
 - The task returned by the initialization method reports the failure through its `onFailure` callback.
 - Public API calls made afterwards fail through their own `onFailure` callback with the `sdkNotInitialized` reason code.
