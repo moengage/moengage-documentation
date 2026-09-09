@@ -1,109 +1,669 @@
 ---
 title: "Troubleshoot iOS Push Notifications"
-description: "Fix common iOS push delivery, impression, and rich-template issues across native iOS, React Native, and Flutter, for MoEngage iOS SDK 7.x–9.x."
-keywords: "iOS push troubleshooting, notification service extension, notification content extension, app group id, MORichNotification, rich push templates"
+description: "Fix iOS push delivery, impression, and rich-template issues across native iOS, React Native, and Flutter for MoEngage iOS SDK 7.x, 8.x, and 9.x."
+keywords: ["iOS push troubleshooting", "notification service extension", "notification content extension", "app group id", "MORichNotification", "rich push templates"]
 ---
 
-Use this page when iOS push notifications fail to deliver, impressions aren't tracked, or rich templates don't render. Pick the tab that matches your app's framework — each tab covers MoEngage iOS SDK versions 7.x, 8.x, and 9.x, with version-specific code called out inline.
+Use this page when iOS push notifications fail to deliver, impressions aren't tracked, or rich templates don't render. Go to the section that matches your symptom. Code samples cover MoEngage iOS SDK versions 7.x, 8.x, and 9.x — use the block for your version and delete the others. If you haven't integrated push yet, start with the [iOS Push Integration Tutorial](/developer-guide/ios-sdk/push/basic/ios-push-integration-tutorial).
 
 <Info>
-  For push impressions to be tracked, turn on the **Show iOS impressions** toggle on the MoEngage dashboard.
+  For push impressions to be tracked, turn on **Show iOS impressions** at **Settings > Channel > Push > iOS** on the MoEngage dashboard.
   <img alt="Show iOS impressions toggle" src="/images/moengage_74b27d.png" />
 </Info>
 
-## Common Push Notification Issues
+## Notifications Not Delivered, or Navigation and Deep Links Not Working
 
-Covers failed delivery, missing impressions, deep linking, and images not rendering.
-
-<Tip>
-  **Impressions not tracked, or images not rendering?** First identify your SDK version — open `podfile.lock` and find the `MoEngage-iOS-SDK` entry — and confirm whether a Notification Service Extension is implemented. Then follow the steps in your framework's tab below.
-</Tip>
+Covers failed delivery, screen navigation, deep linking, and rich landing. Select your app framework; each tab shows Swift and Objective-C.
 
 <Tabs>
   <Tab title="Native iOS">
-    1. **Check `app_group_id` in your project's main target** for each configuration. You can use the same or different IDs across configurations, but two apps with *different* Bundle Identifiers sharing the *same* `app_group_id` will break the Notification Service Extension on the same device.
-    2. **Check `app_group_id` during SDK initialization** — in `info.plist` (under the MoEngage key) if you initialize via plist, or in the `sdkConfig` variable in `AppDelegate` if you initialize via config:
-       <CodeGroup>
-       ```swift Swift
-       var sdkConfig = MoEngageSDKConfig.init(appId: "XXXXXXXXXXXXXXXX", dataCenter: .data_center_0X)
-       sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
-       ```
-       ```objc Objective-C
-       MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"XXXXXXXXXXXXXXXX" dataCenter: MoEngageDataCenterData_center_0X];
-       sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
-       ```
-       </CodeGroup>
-    3. **Add a Notification Service Extension target** — enable Push Notifications and add the App Group ID under its Signing & Capabilities, and match its minimum deployment iOS version to the main app.
-    4. **Integrate `MORichNotification`** into the Notification Service Extension target via your Podfile, and set the App Group ID in `NotificationService.swift`.
-    5. **Check Build Phases** on the main app target — under Embed App Extensions, ensure **Copy only when installing** is unchecked.
-    6. **Keep `appGroupId` consistent** across all schemes/configurations (Debug/Release/QA/UAT), and align the Build Configuration of the main target and the extension.
-    {/* Verbatim NotificationService.swift + Podfile snippets to be lifted from source pages ios-swift-version-9xx / ios-objective-c-version-9xx during execution. 7.x & 8.x class-name differences (MoEngage -> MOMessaging -> MoEngageSDKMessaging) are called out inline as in the React Native tab. */}
+    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `Info.plist`, then test. If push works, you're done; otherwise continue.
+    2. **Set `UNUserNotificationCenterDelegate`** in `didFinishLaunchingWithOptions`, at the start of the method. If you initialise Firebase here, do it before initialising the MoEngage SDK.
+
+      <CodeGroup>
+      ```swift Swift
+      //7.xx
+      import MoEngage
+      //8.xx //9.xx
+      import MoEngageSDK
+      func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+        UNUserNotificationCenter.current().delegate = self
+
+        FIRApp.configure() //Firebase configuration - syntax could differ according to versions
+        //MoEngage Initializatoin - use specific version code only
+
+        //7.xx version with sdkConfig
+        var sdkConfig = MOSDKConfig.init(appID: "XXXXXXXXXXXXXXXX")
+        sdkConfig.moeDataCenter = DATA_CENTER_0X
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        #if DEBUG
+            MoEngage.sharedInstance().initializeTest(with: sdkConfig, andLaunchOptions: launchOptions)
+        #else
+            MoEngage.sharedInstance().initializeLive(with: sdkConfig, andLaunchOptions: launchOptions)
+        #endif
+
+        //8.xx version with sdkConfig
+        var sdkConfig = MOSDKConfig.init(withAppID: "XXXXXXXXXXXXXXXX")
+        sdkConfig.enableLogs = true
+        sdkConfig.moeDataCenter = .data_center_0X 
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        #if DEBUG
+          MoEngage.sharedInstance().initializeDefaultTestInstance(with: sdkConfig, andLaunchOptions: launchOptions)
+        #else
+          MoEngage.sharedInstance().initializeDefaultLiveInstance(with: sdkConfig, andLaunchOptions: launchOptions)
+        #endif
+        //9.xx version with sdkConfig
+        var sdkConfig = MoEngageSDKConfig.init(appId: "XXXXXXXXXXXXXXXX", dataCenter: .data_center_0X)
+        sdkConfig.enableLogs = true
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        #if DEBUG
+          MoEngage.sharedInstance.initializeDefaultTestInstance(sdkConfig)
+        #else
+          MoEngage.sharedInstance.initializeDefaultLiveInstance(sdkConfig)
+        #endif
+
+        // Rest of the implementation related to developer's app
+        return true
+      }
+      ```
+      ```objective-c Objective-C wrap
+      //7.xx
+      #import 
+      //8.xx
+      #import 
+      //9.xx
+      @import MoEngageSDK;
+      @implementation AppDelegate
+
+       - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+      {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        center.delegate = self;
+
+        [FIRApp configure]; //Firebase configuration syntx could differ according to versions
+
+        //MoEngage Initializatoin - use specific version code only
+
+        //7.xx version with sdkConfig
+        MOSDKConfig* sdkConfig = [[MOSDKConfig alloc] initWithAppID: @"XXXXXXXXXXXXXXXX"];
+        sdkConfig.moeDataCenter = DATA_CENTER_0X;
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        #ifdef DEBUG
+          [[MoEngage sharedInstance] initializeTestWithConfig:sdkConfig andLaunchOptions:launchOptions];
+        #else
+          [[MoEngage sharedInstance] initializeLiveWithConfig:sdkConfig andLaunchOptions:launchOptions];
+        #endif
+
+        //8.xx version with sdkConfig
+        MOSDKConfig* sdkConfig = [[MOSDKConfig alloc] initWithAppID:@"XXXXXXXXXXXXXXXX"];
+        sdkConfig.enableLogs = true;
+        sdkConfig.moeDataCenter = MODataCenterData_center_0X; 
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        #ifdef DEBUG
+          [[MoEngage sharedInstance] initializeDefaultTestInstanceWithConfig:sdkConfig andLaunchOptions:nil];
+        #else
+          [[MoEngage sharedInstance] initializeDefaultLiveInstanceWithConfig:sdkConfig andLaunchOptions:nil];
+        #endif
+
+        //9.xx version with sdkConfig
+        MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"XXXXXXXXXXXXXXXX" dataCenter: MoEngageDataCenterData_center_0X];
+        MoEngageConsoleLogConfig *logConfig = [[MoEngageConsoleLogConfig alloc] initWithIsLoggingEnabled:YES loglevel:MoEngageLoggerTypeVerbose];
+        sdkConfig.consoleLogConfig = logConfig;
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        #ifdef DEBUG
+          [[MoEngage sharedInstance] initializeDefaultTestInstance:sdkConfig];
+        #else
+          [[MoEngage sharedInstance] initializeDefaultLiveInstance:sdkConfig];
+        #endif
+
+        // Rest of the implementation related to developer's app
+
+        return YES;
+      }
+      ```
+      </CodeGroup>
+
+    3. **Extend `AppDelegate`** to conform to `UNUserNotificationCenterDelegate`.
+
+      <CodeGroup>
+      ```swift Swift
+      class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+      }
+      ```
+      ```objective-c Objective-C wrap
+      #import 
+      @interface AppDelegate : UIResponder <UIApplicationDelegate, UNUserNotificationCenterDelegate>
+      ```
+      </CodeGroup>
+
+    4. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `Info.plist`.
+    5. **Pass the push token manually** in `didRegisterForRemoteNotificationsWithDeviceToken`.
+
+      <CodeGroup>
+      ```swift Swift
+      func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        //7.xx version
+        MoEngage.sharedInstance().setPushToken(deviceToken)
+        //8.xx version
+        MOMessaging.sharedInstance.setPushToken(deviceToken)
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+      }
+      ```
+      ```objective-c Objective-C
+      - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
+      {
+        //7.xx version
+        [[MoEngage sharedInstance] setPushToken:deviceToken];
+
+        //8.xx version
+        [[MOMessaging sharedInstance] setPushToken:deviceToken];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] setPushToken:deviceToken];
+      }
+      ```
+      </CodeGroup>
+
+    6. **Implement the `UNUserNotificationCenter` delegate functions** (`willPresent` and `didReceive`).
+
+      <CodeGroup>
+      ```swift Swift
+      func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        //This is to only to display Alert and enable notification sound
+        if #available(iOS 14.0, *) {
+          completionHandler([.sound,.alert, .banner, .list])
+        } else {
+          completionHandler([.sound,.alert])
+        }
+      }
+      func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        //7.xx version
+        MoEngage.sharedInstance().userNotificationCenter(center, didReceive: response)
+
+        //8.xx version
+        MOMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)
+
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)
+      }
+      ```
+      ```objective-c Objective-C wrap
+      -(void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler
+      {
+        if (@available(iOS 14.0, *)) {
+          completionHandler(UNNotificationPresentationOptionBadge | UNNotificationPresentationOptionSound | UNNotificationPresentationOptionList | UNNotificationPresentationOptionBanner);
+        } else {
+          // Fallback on earlier versions
+          completionHandler(UNAuthorizationOptionSound | UNAuthorizationOptionAlert | UNAuthorizationOptionBadge);
+        }
+      }
+      - (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)(void))completionHandler
+      {
+        //7.xx version
+        [[MoEngage sharedInstance] userNotificationCenter:center didReceiveNotificationResponse:response];
+        //8.xx version
+        [[MOMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        completionHandler();
+      }
+      ```
+      </CodeGroup>
+
   </Tab>
   <Tab title="React Native">
-    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `info.plist`. If that fixes delivery, you're done; otherwise continue.
-    2. **Set `UNUserNotificationCenterDelegate`** in `didFinishLaunchingWithOptions` (before MoEngage init; if you init Firebase here, do it first). MoEngage initialization differs by SDK version:
-       ```swift React Native · AppDelegate.swift
-       UNUserNotificationCenter.current().delegate = self
-       // 8.x.x and 9.x.x
-       MoEngageInitializer.sharedInstance().initializeDefaultInstance(launchOptions)
-       // 7.x.x — set MoEngage properties in Info.plist, then:
-       MOReactInitializer.sharedInstance().intializeSDK(withLaunchOptions: launchOptions)
-       ```
-    3. **Extend `AppDelegate`** to conform to `UNUserNotificationCenterDelegate`.
-    4. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `info.plist`.
-    5. **Pass the push token manually** in `didRegisterForRemoteNotificationsWithDeviceToken` — the class name changes by version:
-       ```swift React Native
-       // 7.x.x
-       MoEngage.sharedInstance().setPushToken(deviceToken)
-       // 8.x.x
-       MOMessaging.sharedInstance.setPushToken(deviceToken)
-       // 9.x.x
-       MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
-       ```
-    6. **Implement the `UNUserNotificationCenter` delegate functions** (`willPresent` for foreground display, `didReceive` to forward the response to MoEngage using the version-specific class above).
+    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `Info.plist`, then test.
+    2. **Set `UNUserNotificationCenterDelegate`** in `didFinishLaunchingWithOptions` (Firebase before MoEngage init). MoEngage init differs by version and can use `Info.plist` or `sdkConfig`.
+
+      <CodeGroup>
+      ```swift React-Native
+      //7.xx
+      import MoEngage
+      //8.xx
+      import MoEngageSDK
+      import ReactNativeMoEngage
+      //9.xx
+      import MoEngageSDK
+      import ReactNativeMoEngage
+      func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+        UNUserNotificationCenter.current().delegate = self
+
+        FIRApp.configure() //Firebase configuration - syntax could differ according to versions
+        //MoEngage Initializatoin - use specific version code only
+
+        //7.xx version //Set MoEngage Properties in Info.plist
+        MoEngage.setDataCenter(DATA_CENTER_0X)
+        MoEngage.enableSDKLogs(true)
+        MoEngage.setAppGroupID("group.com.XXXXXXXXXXXXXXXX")
+        MOReactInitializer.sharedInstance().intializeSDK(withLaunchOptions: launchOptions)
+
+        //7.xx version with sdkConfig
+        var sdkConfig = MOSDKConfig.init(appID: "XXXXXXXXXXXXXXXX")
+        sdkConfig.moeDataCenter = DATA_CENTER_0X
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        MOReactInitializer.sharedInstance().intializeSDK(withConfig: sdkConfig, andLaunchOptions: launchOptions)
+        //8.xx version //Set MoEngage Properties in Info.plist
+        MoEngageInitializer.sharedInstance().initializeDefaultInstance(launchOptions)
+
+        //8.xx version with sdkConfig
+        var sdkConfig = MOSDKConfig.init(withAppID: "XXXXXXXXXXXXXXXX")
+        sdkConfig.enableLogs = true
+        sdkConfig.moeDataCenter = .data_center_0X 
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        MoEngageInitializer.sharedInstance().initializeDefaultSDKConfig(sdkConfig, andLaunchOptions: launchOptions)
+
+        //9.xx version //Set MoEngage Properties in Info.plist
+        MoEngageInitializer.sharedInstance().initializeDefaultInstance(launchOptions)
+
+        //9.xx version with sdkConfig
+        var sdkConfig = MoEngageSDKConfig.init(appId: "XXXXXXXXXXXXXXXX", dataCenter: .data_center_0X)
+        sdkConfig.enableLogs = true
+        sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+        MoEngageInitializer.sharedInstance().initializeDefaultSDKConfig(sdkConfig, andLaunchOptions: launchOptions)
+
+        // Rest of the implementation related to developer's app
+        return true
+      }
+      ```
+      ```swift React-Native
+      //7.xx
+      #import  
+      //8.xx
+      #import  
+      #import 
+      //9.xx
+      #import  
+      @import MoEngageSDK;
+      @implementation AppDelegate
+
+       - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+      {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        center.delegate = self;
+
+        [FIRApp configure]; //Firebase configuration syntx could differ according to versions
+
+        //MoEngage Initializatoin - use specific version code only
+
+        //7.xx version //Set MoEngage Properties in Info.plist
+        [MoEngage setDataCenter:DATA_CENTER_0X];
+        [MoEngage enableSDKLogs: true];
+        [MoEngage setAppGroupID: @"group.com.XXXXXXXXXXXXXXXX"];
+        [[MOReactInitializer sharedInstance] intializeSDKWithLaunchOptions:launchOptions];
+
+        //7.xx version with sdkConfig
+        MOSDKConfig* sdkConfig = [[MOSDKConfig alloc] initWithAppID: @"XXXXXXXXXXXXXXXX"];
+        sdkConfig.moeDataCenter = DATA_CENTER_0X;
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        [[MOReactInitializer sharedInstance] intializeSDKWithConfig: sdkConfig andLaunchOptions: launchOptions];
+        //8.xx version //Set MoEngage Properties in Info.plist
+        [[MoEngageInitializer sharedInstance] initializeDefaultInstance: launchOptions];
+
+        //8.xx version with sdkConfig
+        MOSDKConfig* sdkConfig = [[MOSDKConfig alloc] initWithAppID:@"XXXXXXXXXXXXXXXX"];
+        sdkConfig.enableLogs = true;
+        sdkConfig.moeDataCenter = MODataCenterData_center_0X; 
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        [[MoEngageInitializer sharedInstance] initializeDefaultSDKConfig:sdkConfig andLaunchOptions:launchOptions];
+
+        //9.xx version //Set MoEngage Properties in Info.plist
+        [[MoEngageInitializer sharedInstance] initializeDefaultInstance: launchOptions];
+
+        //9.xx version with sdkConfig
+        MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"XXXXXXXXXXXXXXXX" dataCenter: MoEngageDataCenterData_center_0X];
+        MoEngageConsoleLogConfig *logConfig = [[MoEngageConsoleLogConfig alloc] initWithIsLoggingEnabled:YES loglevel:MoEngageLoggerTypeVerbose];
+        sdkConfig.consoleLogConfig = logConfig;
+        sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+        [[MoEngageInitializer sharedInstance] initializeDefaultSDKConfig:sdkConfig andLaunchOptions:launchOptions];
+
+        // Rest of the implementation related to developer's app
+
+        return YES;
+      }
+      ```
+      </CodeGroup>
+
+    3. **Extend `AppDelegate`** to conform to `UNUserNotificationCenterDelegate` (or subclass `RCTAppDelegate`).
+
+      <CodeGroup>
+      ```swift Swift wrap
+      class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+      }
+      ```
+      ```objective-c Objective-C
+      #import 
+      @interface AppDelegate : UIResponder <UIApplicationDelegate, UNUserNotificationCenterDelegate>
+      OR
+      @interface AppDelegate : RCTAppDelegate
+      ```
+      </CodeGroup>
+
+    4. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `Info.plist`.
+    5. **Pass the push token manually** in `didRegisterForRemoteNotificationsWithDeviceToken`.
+
+      <CodeGroup>
+      ```swift Swift wrap
+      func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        //7.xx version
+        MoEngage.sharedInstance().setPushToken(deviceToken)
+        //8.xx version
+        MOMessaging.sharedInstance.setPushToken(deviceToken)
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+      }
+      ```
+      ```objective-c Objective-C
+      - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
+      {
+        //7.xx version
+        [[MoEngage sharedInstance] setPushToken:deviceToken];
+
+        //8.xx version
+        [[MOMessaging sharedInstance] setPushToken:deviceToken];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] setPushToken:deviceToken];
+      }
+      ```
+      </CodeGroup>
+
+    6. **Implement the `UNUserNotificationCenter` delegate functions.**
+
+      <CodeGroup>
+      ```swift Swift
+      func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        //This is to only to display Alert and enable notification sound
+        if #available(iOS 14.0, *) {
+          completionHandler([.sound,.alert, .banner, .list])
+        } else {
+          completionHandler([.sound,.alert])
+        }
+      }
+      func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        //7.xx version
+        MoEngage.sharedInstance().userNotificationCenter(center, didReceive: response)
+
+        //8.xx version
+        MOMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)
+
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)
+      }
+      ```
+      ```objective-c Objective-C
+      -(void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler
+      {
+        if (@available(iOS 14.0, *)) {
+          completionHandler(UNNotificationPresentationOptionBadge | UNNotificationPresentationOptionSound | UNNotificationPresentationOptionList | UNNotificationPresentationOptionBanner);
+        } else {
+          // Fallback on earlier versions
+          completionHandler(UNAuthorizationOptionSound | UNAuthorizationOptionAlert | UNAuthorizationOptionBadge);
+        }
+      }
+      - (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)(void))completionHandler
+      {
+        //7.xx version
+        [[MoEngage sharedInstance] userNotificationCenter:center didReceiveNotificationResponse:response];
+        //8.xx version
+        [[MOMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        completionHandler();
+      }
+      ```
+      </CodeGroup>
+
   </Tab>
   <Tab title="Flutter">
-    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `info.plist`, then test.
-    2. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `info.plist`.
-    3. **Override `didRegisterForRemoteNotificationsWithDeviceToken`** in `AppDelegate` and pass the token (class name changes by version):
-       ```swift Flutter · AppDelegate
-       override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-         super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-         // 7.x.x  MoEngage.sharedInstance().setPushToken(deviceToken)
-         // 8.x.x  MOMessaging.sharedInstance.setPushToken(deviceToken)
-         // 9.x.x  MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
-       }
-       ```
-    4. **Override the `UNUserNotificationCenter` delegate functions** (`willPresent` and `didReceive`) in `AppDelegate`, forwarding `didReceive` to the version-specific MoEngage class.
+    1. **Firebase proxy** — if you don't use Firebase push, add `FirebaseAppDelegateProxyEnabled = NO` to `Info.plist`, then test.
+    2. **Disable the MoEngage proxy** — add `MoEngageAppDelegateProxyEnabled = NO` to `Info.plist`.
+    3. **Override `didRegisterForRemoteNotificationsWithDeviceToken`** in `AppDelegate` and pass the token.
+
+      <CodeGroup>
+      ```swift Swift
+      override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+        //7.xx version
+        MoEngage.sharedInstance().setPushToken(deviceToken)
+        //8.xx version
+        MOMessaging.sharedInstance.setPushToken(deviceToken)
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.setPushToken(deviceToken)
+      }
+      ```
+      ```swift Objective-C
+      - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
+      { 
+        [super application: application didRegisterForRemoteNotificationsWithDeviceToken: deviceToken]; 
+
+        //7.xx version
+        [[MoEngage sharedInstance] setPushToken:deviceToken];
+
+        //8.xx version
+        [[MOMessaging sharedInstance] setPushToken:deviceToken];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] setPushToken:deviceToken];
+      }
+      ```
+      </CodeGroup>
+
+    4. **Override the `UNUserNotificationCenter` delegate functions.**
+
+      <CodeGroup>
+      ```swift Swift wrap
+      //Try without willPresent if it works good to go! else override it
+      override func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        if #available(iOS 14.0, *) {
+          completionHandler([.sound,.alert, .banner, .list])
+        } else {
+          completionHandler([.sound,.alert])
+        }
+      }
+
+      override func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
+        //7.xx version
+        MoEngage.sharedInstance().userNotificationCenter(center, didReceive: response)
+
+        //8.xx version
+        MOMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)
+
+        //9.xx version
+        MoEngageSDKMessaging.sharedInstance.userNotificationCenter(center, didReceive: response)        
+      }
+      ```
+      ```objective-c Objective-C wrap
+      //Try without willPresent if it works good to go! else override it
+      - (void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+        if (notification.request.content.userInfo != nil) {
+          NSDictionary *dictionary = notification.request.content.userInfo;
+          if (dictionary[@"moengage"] != nil) {
+            completionHandler(UNAuthorizationOptionSound | UNAuthorizationOptionAlert | UNAuthorizationOptionBadge);
+          } else {
+            [super userNotificationCenter: center willPresentNotification: notification withCompletionHandler:completionHandler];
+          }
+      }
+      - (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)(void))completionHandler
+      {
+        [super userNotificationCenter: center didReceiveNotificationResponse: response withCompletionHandler: completionHandler];
+
+        //7.xx version
+        [[MoEngage sharedInstance] userNotificationCenter:center didReceiveNotificationResponse:response];
+        //8.xx version
+        [[MOMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        //9.xx version
+        [[MoEngageSDKMessaging sharedInstance] userNotificationCenter:center didReceive:response];
+
+        completionHandler();
+      }
+      ```
+      </CodeGroup>
+
   </Tab>
 </Tabs>
 
-## Rich Push Template Issues
+## Impressions Not Tracked, or Images Not Rendering
 
-If push templates (carousels, background/font colors) don't render, the fix depends on whether you've already added a Notification Content Extension.
+These symptoms usually mean the App Group ID isn't consistent, or the Notification Service Extension isn't set up. Work through the steps below (Notification Service Extension required for rich media and impression tracking).
+
+<Note>
+  Class names differ by SDK version: config is `MOSDKConfig` (7.x/8.x) or `MoEngageSDKConfig` (9.x); the rich-notification pod is `MoEngageRichNotification` (9.x) or `MORichNotification` (7.x).
+</Note>
+
+1. **Check `app_group_id` in your project's main target** for each configuration. Two apps with *different* Bundle Identifiers sharing the *same* `app_group_id` may fail on the same device.
+2. **Check `app_group_id` during SDK initialisation** — in `Info.plist` (under the MoEngage key) if you initialise via plist, or in `sdkConfig` in `AppDelegate` if you initialise via config.
+
+      <CodeGroup>
+      ```swift Swift wrap
+      var sdkConfig = MoEngageSDKConfig.init(appId: "XXXXXXXXXXXXXXXX", dataCenter: .data_center_0X)
+      sdkConfig.appGroupID = "group.com.XXXXXXXXXXXXXXXX"
+      ```
+      ```objective-c Objective-C wrap
+      MoEngageSDKConfig* sdkConfig = [[MoEngageSDKConfig alloc] initWithAppId:@"XXXXXXXXXXXXXXXX" dataCenter: MoEngageDataCenterData_center_0X];
+      sdkConfig.appGroupID = @"group.com.XXXXXXXXXXXXXXXX";
+      ```
+      </CodeGroup>
+
+3. **Add a Notification Service Extension target** — enable Push Notifications and add the App Group ID under Signing & Capabilities, and match its minimum deployment iOS version to the main app.
+4. **Integrate the rich-notification framework** into the Notification Service Extension target via your Podfile.
+
+   ```swift Swift
+   target 'MoEngageDemo' do
+     use_frameworks!
+     pod 'MoEngage-iOS-SDK'
+   end
+   target 'MoEngageNotificationService' do
+     use_frameworks! #use use_frameworks only if included in main target as in above scenario
+     pod 'MoEngageRichNotification'
+   end
+   ```
+
+5. **Set the App Group ID in `NotificationService.swift`.**
+
+   ```swift Swift
+   import UserNotifications
+   import MoEngageRichNotification
+
+   class NotificationService: UNNotificationServiceExtension {
+
+       var contentHandler: ((UNNotificationContent) -> Void)?
+       var bestAttemptContent: UNMutableNotificationContent?
+
+       override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {	
+         MoEngageSDKRichNotification.setAppGroupID("group.com.XXXXXXXXXXXXXXXX")
+         self.contentHandler = contentHandler
+         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
+         MoEngageSDKRichNotification.handle(richNotificationRequest: request, withContentHandler: contentHandler)
+       }
+
+       override func serviceExtensionTimeWillExpire() {
+           // Called just before the extension will be terminated by the system.
+           // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
+           if let contentHandler = contentHandler, let bestAttemptContent =  bestAttemptContent {
+               contentHandler(bestAttemptContent)
+           }
+       }
+   }
+   ```
+
+6. **Check Build Phases** on the main app target — under Embed App Extensions, ensure **Copy only when installing** is unchecked.
+7. **Keep `appGroupId` consistent** across all schemes/configurations (Debug/Release/QA/UAT), and align the Build Configuration of the main target and the extension.
+
+## Rich Push Templates Not Rendering
+
+If push templates (carousels, background/font colors) don't render, the fix depends on whether you've added a Notification Content Extension.
 
 <Tabs>
   <Tab title="Content Extension not yet added">
-    1. **Create a Notification Content Extension target.** Name it (Swift is recommended — it works with Objective-C projects too), add the App Group ID under Signing & Capabilities, and match its minimum deployment iOS version to the main app.
-    2. **Integrate `MORichNotification`** — add the Content Extension as a separate target in your Podfile and install `MoEngageRichNotification`.
-    3. **Update `NotificationViewController.swift`** — set the App Group ID in `viewDidLoad`, and call `MoEngageSDKRichNotification.addPushTemplate(toController:withNotification:)` in `didReceive`.
+    1. **Create a Notification Content Extension target.** Swift is recommended (it works with Objective-C projects too). Add the App Group ID under Signing & Capabilities, and match its minimum deployment iOS version to the main app.
+    2. **Integrate the rich-notification framework** — add the Content Extension as a separate target in your Podfile.
+
+      ```swift Swift
+      target 'MoEngageDemo' do
+      use_frameworks!
+      pod 'MoEngage-iOS-SDK'
+      end
+      target 'MoEngageNotificationService' do
+      use_frameworks! #use use_frameworks only if included in main target as in above scenario
+      pod 'MoEngageRichNotification'
+      end
+      target 'MoegageRichContent" do
+      use_frameworks! #use use_frameworks only if included in main target as in above scenario
+      pod 'MoEngageRichNotification'
+      end
+      ```
+
+    3. **Update `NotificationViewController.swift`** — set the App Group ID in `viewDidLoad` and add the push template in `didReceive`.
+
+      ```swift Swift
+      import UIKit
+      import UserNotifications
+      import UserNotificationsUI
+      import MoEngageRichNotification
+      class NotificationViewController: UIViewController, UNNotificationContentExtension {
+          @IBOutlet var label: UILabel?
+
+          override func viewDidLoad() {
+              super.viewDidLoad()
+              MoEngageSDKRichNotification.setAppGroupID("group.com.XXXXXXXXXXXXXXXX")
+          }
+
+          func didReceive(_ notification: UNNotification) {
+              if #available(iOSApplicationExtension 12.0, *) {
+                  MoEngageSDKRichNotification.addPushTemplate(toController: self, withNotification: notification) 
+              } else {
+                  // Fallback on earlier versions
+              }
+          }
+      }
+      ```
+
     4. **Edit `MainInterface.storyboard`** — remove the default label and set the View's background color to clear.
-    5. **Add the `NSExtensionAttributes`** to the extension's `info.plist`:
-       ```xml Info.plist
-       <key>UNNotificationExtensionCategory</key>
-       <string>MOE_PUSH_TEMPLATE</string>
-       <key>UNNotificationExtensionDefaultContentHidden</key>
-       <true/>
-       <key>UNNotificationExtensionInitialContentSizeRatio</key>
-       <real>1.2</real>
-       <key>UNNotificationExtensionUserInteractionEnabled</key>
-       <true/>
-       ```
-    6. **Check Build Phases, `appGroupId` consistency, and Build Configuration** as in the Common Push Notification Issues tab.
+    5. **Add the `NSExtensionAttributes`** to the extension's `Info.plist`.
+
+      ```swift Swift
+      <key>NSExtensionAttributes</key> 
+      <dict>
+            <key>UNNotificationExtensionCategory</key>
+            <string>MOE_PUSH_TEMPLATE</string>
+            <key>UNNotificationExtensionDefaultContentHidden</key>
+            <true/>
+            <key>UNNotificationExtensionInitialContentSizeRatio</key>
+            <real>1.2</real>
+            <key>UNNotificationExtensionUserInteractionEnabled</key>
+            <true/>
+      </dict>
+      ```
+
+    6. **Check Build Phases, `appGroupId` consistency, and Build Configuration** as in the Impressions section above.
   </Tab>
   <Tab title="Content Extension already added">
     Verify each of the following:
-    1. The Content Extension's `info.plist` contains the `NSExtensionAttributes` block above (`MOE_PUSH_TEMPLATE` category, hidden default content, `1.2` size ratio, interaction enabled).
+    1. The Content Extension's `Info.plist` contains the `NSExtensionAttributes` block.
+
+      ```swift Swift wrap
+      <key>NSExtensionAttributes<key>
+      <dict>
+      	<key>UNNotificationExtensionCategory<key>
+      	<string>MOE_PUSH_TEMPLATE</string>
+           <key>UNNotificationExtensionDefaultContentHidden</key>
+           <true/>
+           <key>UNNotificationExtensionInitialContentSizeRatio</key>
+           <real>1.2</real>
+           <key>UNNotificationExtensionUserInteractionEnabled</key>
+           <true/>
+      <dict>
+      ```
+
     2. In `MainInterface.storyboard`, the default label is removed and the View's background is clear.
     3. In the main app target's Build Phases, **Copy only when installing** is unchecked under Embed App Extensions.
     4. The `appGroupId` is consistent across all schemes/configurations.
