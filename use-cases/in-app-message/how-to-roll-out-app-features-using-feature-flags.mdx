@@ -1,0 +1,168 @@
+---
+title: "How to Roll Out App Features Using Feature Flags"
+description: "Use self-handled in-app campaigns as feature flags to turn app features on or off for specific user segments without shipping a new app build."
+keywords: "feature flag, feature flagging, feature toggle, gradual rollout, self-handled in-app, app personalization, remote configuration"
+---
+
+# Introduction
+
+A feature flag lets you decide which users see a feature in your app, and change that decision without releasing a new app build. You control the flag from the MoEngage dashboard, and your app reads its value at runtime.
+
+MoEngage does not ship a separate feature-flagging product. Instead, you build feature flags from self-handled in-app campaigns: the campaign delivers a JSON payload to your app, and your app reads the values in that payload to decide which experience to render. Because the payload is campaign content, you can target it by segment, hold back a percentage of users with control groups, and compare variants with A/B testing.
+
+In this article, you will build a feature flag that sends frequent buyers straight to the payment screen after they add an item to the cart, while non-frequent buyers see a product recommendations screen first.
+
+# Expected Result
+
+Two user segments receive different values for the same flag, so the same app build produces two different checkout paths. You can change either path, or switch a segment off entirely, by editing or pausing a campaign.
+
+<Tabs>
+  <Tab title="Frequent Buyers">
+    ![Three app screens showing a frequent buyer browsing products, adding headphones to the cart, and arriving directly at the payment screen.](/images/FrequentBuyers_Process.png)
+  </Tab>
+  <Tab title="Non-Frequent Buyers">
+    ![Four app screens showing a non-frequent buyer browsing products, adding headphones to the cart, viewing a product recommendations screen, and then arriving at the payment screen.](/images/NonFrequentBuyers_Process.png)
+  </Tab>
+</Tabs>
+
+<Tip>
+  Your app must be integrated with the MoEngage SDK and must handle self-handled in-app campaigns before a feature flag can take effect. For more information, refer to [Self-Handled InApps for Android](/developer-guide/android-sdk/in-app-messages/in-app-nativ#self-handled-inapps) and [Self handled In-Apps for iOS](/developer-guide/ios-sdk/in-app-messages/in-app-nativ#self-handled-in-apps).
+</Tip>
+
+# How Feature Flags Work in MoEngage
+
+A feature flag has three parts:
+
+1. **The audience**: a segment that defines who gets a particular value of the flag.
+2. **The flag value**: a JSON payload delivered by a self-handled in-app campaign.
+3. **The app logic**: code in your app that reads the payload and renders the matching experience.
+
+<Info>
+  Create one self-handled in-app campaign per flag value. A single campaign targets a single audience and carries a single payload, so a flag with two values for two segments needs two campaigns. Users who match no campaign receive no payload, and your app falls back to its default experience.
+</Info>
+
+Treat that default as part of the design. If a user is offline, is excluded by a control group, or does not match any segment, your app must still render something sensible without a payload.
+
+# Example: Personalize the Checkout Flow
+
+The following example sets up a flag named "Payment flow for frequent buyers," with one value for frequent buyers and one for non-frequent buyers.
+
+## Step 1: Create the Segments
+
+Define the two audiences before you create the campaigns. You can create them in the **Target audience** section during campaign creation, or in advance from **Segment** \> **Create segment**.
+
+In the **Filter users by** section, add a **User behavior** filter on the **Product Purchased** event:
+
+- **Frequent buyers**: users who have executed **Product Purchased** **at least** five times in the last 20 days.
+- **Non-frequent buyers**: users who have executed **Product Purchased** **at most** five times in the last 20 days.
+
+<Tabs>
+  <Tab title="Frequent Buyers">
+    ![Segmentation filter set to User behavior, Has Executed Product Purchased at least 5 times in the last 20 days.](/images/FrequentBuyerssegment.png)
+  </Tab>
+  <Tab title="Non-Frequent Buyers">
+    ![Segmentation filter set to User behavior, Has Executed Product Purchased at most 5 times in the last 20 days.](/images/NonFrequentBuyerssegment.png)
+  </Tab>
+</Tabs>
+
+<Warning>
+  Check that your two segments do not overlap before you publish. In the example above, a user with exactly five purchases matches both definitions and qualifies for both campaigns, and the payload your app receives then depends on campaign priority. Set the second segment to **at most** four times to keep the two audiences mutually exclusive.
+</Warning>
+
+For more information, refer to [Rule-based Filter Segments](/user-guide/segment/create-segments/rule-based-filter-segments).
+
+<Note>
+  If you already have a fixed list of users for the rollout, upload it as a file segment instead of defining rules. For more information, refer to [File Segments](/user-guide/segment/create-segments/file-segments).
+</Note>
+
+## Step 2: Define the Flag Payload
+
+Decide the keys your app reads and the values each segment receives. This example uses two keys: `buy_now_action` records which event the button represents, and `buy_now_url` records where the button navigates.
+
+<Tabs>
+  <Tab title="Frequent Buyers">
+    ```json
+    {
+      "buy_now_action": "purchase",
+      "buy_now_url": "appname://payment_screen"
+    }
+    ```
+  </Tab>
+  <Tab title="Non-Frequent Buyers">
+    ```json
+    {
+      "buy_now_action": "add_to_cart",
+      "buy_now_url": "appname://cart_screen"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Choose key names that match your app's implementation. These are sample keys, and MoEngage passes the payload to your app without interpreting it.
+
+If several campaigns share the same payload structure, store it as a content block and reference it from each campaign, so you update the structure in one place. For more information, refer to [Content Blocks](/user-guide/content/content-blocks/content-blocks).
+
+## Step 3: Create the Self-Handled In-App Campaigns
+
+Repeat these steps once for each segment, using that segment's payload from Step 2.
+
+### Step 3.1: Target Users
+
+1. In the left sidebar, click **Engage** \> **Campaigns**, and then click **\+ Create campaign**.
+2. Under **Inbound**, click **In-app**.
+3. Enter a **Campaign name** that identifies the flag and the segment, such as "Payment flow flag - frequent buyers." Select the relevant **Campaign tags**.
+4. In the **Target Platforms** section, select the platforms your app runs on.
+5. In the **Trigger Criteria** section, select when your app should receive the payload. Select **On app open** if the flag governs a screen the user can reach at any point in the session.
+6. In the **Target audience** section, select the segment you created in Step 1.
+7. In the **Control Group** section, specify the users to exclude from the campaign. For more information, refer to [Roll Out the Feature Gradually](#roll-out-the-feature-gradually).
+8. Click **Next**.
+
+### Step 3.2: Content
+
+1. Go to the **Custom template editor**, and then click **Self-Handled**.
+2. In the payload field, enter the JSON payload for this segment from Step 2.
+3. In **Template Settings**, configure the settings for each device type you target.
+4. Preview the campaign, and then click **Next**.
+
+### Step 3.3: Schedule and Goals
+
+1. In the **Send campaign** section, define when the campaign starts and ends, along with its frequency and limits. A feature flag usually runs with no end date, so the flag stays active until you pause the campaign.
+2. In the **Conversion Goals** section, add the goals that tell you whether the flagged experience performed better. For this example, track the **Product Purchased** event.
+3. In the **Delivery Controls** section, configure the controls your rollout needs. For more information, refer to [Create In-App Campaign](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign).
+4. Click **Publish**.
+
+## Step 4: Consume the Payload in Your App
+
+Your app receives the payload when a user qualifies for one of the campaigns. Read `buy_now_action` and render the matching screen:
+
+- When the value is `purchase`, take the user to the payment screen.
+- When the value is `add_to_cart`, take the user to the recommendations screen, and provide a path from there to the payment screen.
+- When no payload arrives, render your default checkout flow.
+
+Your app also reports impressions, clicks, and conversions back to MoEngage so that campaign analytics reflect the flagged experience. For more information, refer to [Self Handled In-App Template](/user-guide/campaigns-and-channels/in-app-message/templates/self-handled-in-app-template).
+
+# Roll Out the Feature Gradually
+
+Use control groups to hold back part of the target audience, so you can compare users who received the flagged experience against comparable users who did not.
+
+- **Campaign control group**: set the percentage of the campaign's target audience to exclude, in the **Control Group** section of Step 1. Increase the flagged audience by lowering this percentage over time.
+- **Global control group**: set the allocation for a workspace-wide holdout in **Settings** \> **Control Groups**. For more information, refer to [Global Control Group](/user-guide/settings/advanced-settings/global-control-group).
+
+For more information about both types, refer to [Control Groups](/user-guide/campaigns-and-channels/getting-started/introduction/control-groups).
+
+To switch a feature off, pause the campaign that carries its flag value. Users stop receiving the payload, and your app falls back to its default experience.
+
+# Test Variants of a Flagged Feature
+
+When you want to compare more than one version of the same flagged experience, add variations to the campaign. In Step 2 of campaign creation, click **\+ A/B Test** and give each variation its own payload.
+
+You can distribute users across variations manually, or let Merlin AI shift traffic toward the better-performing variation as results accumulate. For more information, refer to:
+
+- [What is A/B or Multivariate Testing](/user-guide/ai-and-intelligence/ab-testing/what-is-ab-or-multivariate-testing/overview)
+- [Perform User Distribution Dynamically Using Merlin AI](/user-guide/ai-and-intelligence/ab-testing/create-multivariate-testing/perform-user-distribution-dynamically-using-merlin-ai)
+
+# Conclusion
+
+In this use case, you built a feature flag from two self-handled in-app campaigns, one per segment, and used control groups to stage the rollout and A/B testing to compare variants. Because the flag value lives in campaign content, you can change which users get a feature, and what that feature does, without shipping a new app build.
+
+To measure how each flagged experience performed, refer to [Analyze In-App Campaigns](/user-guide/campaigns-and-channels/in-app-message/analyze/analyze-in-app-campaigns).
