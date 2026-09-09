@@ -1,0 +1,214 @@
+---
+title: "Flows Authoring Overview"
+description: "Create MoEngage Flows as drafts and update existing flows through the API."
+keywords: ["create flow API", "update flow API", "flow draft", "sparse merge", "stage_id", "node graph", "idempotency key", "flow validation"]
+---
+
+import ApiAuthentication from '/snippets/api-authentication.mdx';
+
+Use the Flows authoring endpoints to create a flow as a draft and to update an existing flow. To list, read, or change the status of a flow, refer to [Flows](/api/flows/flows-overview).
+
+<Note>
+  The Flows authoring endpoints are in early access. MoEngage enhances these endpoints based on feedback during this period, but does not make breaking changes.
+</Note>
+
+## Endpoints
+
+The Flows authoring API is a collection of the following endpoints:
+
+* [Create a Flow](/api/flows/create-a-flow): Creates a flow as version 1 in **Draft** status.
+* [Update a Flow](/api/flows/update-a-flow): Changes an existing flow. MoEngage changes only the members you send.
+
+## Authentication
+
+<ApiAuthentication />
+
+<Note>
+  When creating an API key for this API, ensure the **Campaigns** check box is selected under **Select APIs for access** (Flows reuse the Campaigns permissions). Both endpoints require the **Create & Manage** permission.
+</Note>
+
+MoEngage resolves the workspace from the Basic Auth credentials in the `Authorization` header.
+
+Requests go to your data center's host, `https://api-{dc}.moengage.com`. For the full list of data centers and their identifiers, refer to [Data Centers](/api/introduction#data-centers).
+
+## Conventions
+
+- IDs are 24-character identifiers. `flow_id` identifies the flow; `version_id` identifies one of its versions.
+- Every successful response uses the format `{response_id, type, data}`.
+- Dates and times are in ISO 8601 UTC format (`YYYY-MM-DDThh:mm:ssZ`).
+- MoEngage rejects any field it does not recognize with a `400` response. A flow you fetched with a GET request therefore posts back only after you remove the read-only fields.
+
+## Request Headers
+
+Both endpoints accept the following headers in addition to `Authorization`.
+
+| Header | Description |
+| --- | --- |
+| `X-MOE-Request-Id` | Your own identifier for the request. MoEngage echoes it back as `response_id`. You can send `request_id` in the body instead; when you send both, MoEngage uses the header. |
+| `Idempotency-Key` | A UUID that protects against duplicate writes. Required on both endpoints. |
+| `Content-Type` | Must be `application/json`. Any other media type returns a `415` response. |
+
+### How the Idempotency Key Behaves
+
+MoEngage honors an `Idempotency-Key` at most once for 24 hours and never replays a response.
+
+- MoEngage claims the key before it processes the request.
+- If you send the same key again within 24 hours, MoEngage returns a `409` response and **does not perform the request**. Because MoEngage does not replay the original response, fetch the flow to confirm what the first request did.
+- A request that fails releases its key, so a `400` response does not consume it. You can correct the request and retry with the same key.
+
+To retry after a `409` response, use a new key.
+
+## Creating a Flow
+
+MoEngage creates the flow as version 1 in **Draft** status. Nothing is published, scheduled, or sent. You publish the flow from the dashboard.
+
+### Stage IDs
+
+Every node in `structure.nodes` carries a `stage_id` that you choose. MoEngage uses it only to connect the graph, through `parent_stage_id`, `config.target_stage_id`, and `config.branch_order`.
+
+MoEngage stores each node under its own ID and returns the mapping in `data.assigned_stage_ids`, where each key is your ID and each value is the stored ID.
+
+Use the stored IDs in every later update request. A GET request also returns `structure.nodes` under the stored IDs.
+
+### Required Fields
+
+| Field | Description |
+| --- | --- |
+| `name` | The flow name, 5 to 256 characters. |
+| `created_by` | The email address of the user the flow is created for. The user must be provisioned for the workspace; an unknown address returns a `400` response. |
+| `structure.nodes` | The flow graph. It needs exactly one `TRIGGER` node. |
+
+`team` is the team's name, not its ID. It is required when the teams feature is enabled for your workspace and must be absent when it is not. An unknown name returns a `400` response, and a team that `created_by` does not belong to returns a `403` response.
+
+`tags` holds tag names, up to 12. An unknown name returns a `400` response.
+
+### Action Nodes Are Skeletons
+
+An `ACTION` node fixes the channel and the node's place in the graph. You author the message content in the dashboard, so `config.campaign_id` returns a `400` response.
+
+Until you attach content, the node carries a warning. It does not block the draft.
+
+## Updating a Flow
+
+The request body is sparse. MoEngage changes only what you send.
+
+- A member you leave out stays unchanged.
+- MoEngage removes a node only when you send `{stage_id, operation: "remove"}`. Leaving a node out of `structure.nodes` means leave it alone.
+- A `config` member you send replaces that member as a whole. Members you do not send stay. The exception is `WAIT_FOR_TIMER`, whose whole `config` is replaced, so send every member for the wait type you choose.
+- `parent_stage_id` is the only way to reconnect a node. MoEngage never reconnects the `TRIGGER` node.
+
+### Removing a Node That Has Branches
+
+When the node you remove has more than one child branch, `keep_stage_id` names the branch whose subtree survives. MoEngage connects that subtree to the removed node's parent and deletes the other branches with the node.
+
+Removing an ID the flow does not have does nothing and is not an error.
+
+### Adding and Changing Nodes
+
+Address an existing node by its stored `stage_id`. You can leave out `type` and `sub_type` for a node that already exists.
+
+A new node needs `type`, and `sub_type` unless it is a `BRANCH` node.
+
+A node's kind is fixed. To change the `type` or `sub_type` of a node, remove it and add a new one.
+
+New nodes carry IDs that you choose and MoEngage replaces, as on create. The update response does not return the mapping, so send a GET request to learn the stored IDs of the nodes you added.
+
+### Which Version MoEngage Changes
+
+`version_no` selects the version to change. The default is the active version.
+
+`flow_draft_uuid` is an optional lock. Send the value that **Create a Flow** returned, and MoEngage refuses the update with a `409` response if the flow changed in the meantime. MoEngage generates a new value on every successful update.
+
+### Editing a Draft Compared to a Live Flow
+
+MoEngage edits a draft version in place. On a live version, what happens depends on what you change.
+
+| Change | What MoEngage does |
+| --- | --- |
+| `structure`, `attribution_window`, `conversion_goal_details`, `team`, and the trigger's `segmentation`, `trigger`, and `exit_conditions` | Stages the change into the flow's pending draft version. MoEngage reuses an unpublished draft if one exists and creates one if it does not. The response names the version it wrote to. |
+| `name`, `tags`, a node `label`, anything under `settings`, `global_control_group_enabled` | Returns a `409` response. These changes reach users who are already in the flow, so make them from the dashboard. |
+
+An archived flow returns a `409` response. Unarchive it first. A version in **Stopped** or **Completed** status also returns a `409` response.
+
+## Warnings
+
+Warnings are findings that do not block a draft, such as an `ACTION` node with no content attached, or a setting that has no effect on the flow type.
+
+Warnings never fail a request. MoEngage returns them in `data.warnings` as `{stage_id, messages}` and saves them on the draft as badges on the canvas.
+
+Flow-level warnings use the stage ID `journeySetting`.
+
+## Validation
+
+MoEngage validates the whole flow and returns a `400` response with one entry in `error.details` for each finding.
+
+- `target` is the path of the field. For a node in your request, MoEngage uses its position, such as `structure.nodes[2].config.wait.duration`. For a stored node that your request did not include, MoEngage uses its ID, such as `structure.nodes[stage_id='loWYqyTFp'].parent_stage_id`. Flow-level findings use paths such as `settings.control_group.percentage`.
+- `message` starts with the code in brackets, such as `[wait.below_minimum]`.
+
+On update, MoEngage validates the merged result. Findings that the stored flow already had become warnings rather than errors, so an existing imperfection in a draft does not block an unrelated change.
+
+### Common Validation Codes
+
+| Code | Meaning |
+| --- | --- |
+| `schema.extra_forbidden` | The body carries a field MoEngage does not recognize. |
+| `schema.missing` | A required field is absent, such as `sub_type` on a new node that is not a `BRANCH` node. |
+| `schema.not_updatable` | The body carries a field MoEngage owns, such as `flow_id`, `status`, or `versions`. |
+| `schema.conflicting_entries` | The same `stage_id` appears twice in `structure.nodes`. |
+| `structural.trigger.missing` | The graph has no `TRIGGER` node. |
+| `structural.parent.unresolved` | A `parent_stage_id` names a node that is not in the flow. |
+| `structural.termination.missing_exit` | A path through the flow never reaches an `EXIT` node. |
+| `structural.cycle.detected` | The `parent_stage_id` values form a loop. |
+| `wait.below_minimum` | A timer or evaluation window is shorter than 5 minutes. |
+| `trigger.entry_event_missing` | An `EVENT` trigger has no entry event. |
+| `filters.rejected` | A segmentation or condition filter failed validation, for example an unknown attribute or a missing value. |
+| `schedule.start_time_in_the_past` | The scheduled start time has already passed. |
+| `label.too_long` | A label is longer than 256 characters. |
+| `feature.not_entitled` | Your workspace does not have the feature the node or setting needs. |
+| `conversion.unknown_goal_event` | The conversion goal names an event your workspace has never received. |
+| `contract.campaign_id_not_allowed_at_create` | An `ACTION` node carried `campaign_id`. Author channel content in the dashboard. |
+
+## Flow Structure and Nodes
+
+`structure.nodes` holds the flow graph as a flat list. The shape is the same on read and on write.
+
+Each node has a `stage_id`, a `type`, a `sub_type`, a `parent_stage_id`, a `label`, and a `config` object for its kind.
+
+| Type | Description |
+| --- | --- |
+| `TRIGGER` | How users enter the flow. Every flow has exactly one, and it has no `parent_stage_id`. |
+| `ACTION` | Sends a message on one channel, or picks between channels with Next Best Action. |
+| `CONDITION` | Checks the user or the outcome of the previous message, then routes them down a `YES` or `NO` branch. |
+| `SPLIT` | Divides users between branches, by fixed percentage, by condition, or by the intelligent path optimizer. |
+| `BRANCH` | One path out of a `SPLIT` or `CONDITION` node. It exists only under one of those. |
+| `CONTROL` | Waits, jumps to another stage, or exits the flow. |
+
+`parent_stage_id` is the only way the graph expresses which node follows which. MoEngage works out the children.
+
+For a description of each `sub_type` and the fields its `config` accepts, refer to [Flows](/api/flows/flows-overview#flow-structure-and-nodes).
+
+## FAQs
+
+<AccordionGroup>
+  <Accordion title="Can I publish a flow through the API?">
+    No. Both endpoints work on drafts. You publish a flow from the dashboard.
+  </Accordion>
+  <Accordion title="Why does my update return a 409 response when the flow is live?">
+    The change you sent reaches users who are already in the flow. MoEngage stages structural changes into a pending draft version, but refuses changes to the name, tags, labels, and settings of a live flow. Make those from the dashboard.
+  </Accordion>
+  <Accordion title="How do I find the stage IDs of nodes I just added?">
+    **Create a Flow** returns them in `assigned_stage_ids`. **Update a Flow** does not return the mapping, so send a GET request to [Get a Single Flow](/api/flows/get-a-single-flow) to read the stored IDs.
+  </Accordion>
+  <Accordion title="Can I attach message content to an action node?">
+    No. `config.campaign_id` returns a `400` response. An `ACTION` node fixes the channel and its place in the graph; you author the content in the dashboard.
+  </Accordion>
+  <Accordion title="Can I add or edit a Next Best Action stage?">
+    No. You can only remove one. Use `keep_stage_id` to name the channel that takes the composite's place, or leave it out to remove the whole composite.
+  </Accordion>
+  <Accordion title="What happens if I reuse an Idempotency-Key?">
+    MoEngage returns a `409` response and does not perform the request. MoEngage does not replay the original response, so fetch the flow to confirm what the first request did, then retry with a new key.
+  </Accordion>
+  <Accordion title="What permissions do I need?">
+    Both endpoints require the `campaigns:create_manage` permission.
+  </Accordion>
+</AccordionGroup>
