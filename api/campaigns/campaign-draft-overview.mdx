@@ -2,13 +2,14 @@
 title: "Campaigns Overview"
 description: "Use the MoEngage Campaigns API to create, update, test, and manage campaigns programmatically. V5 supports campaign creation for Push and Email, with search, retrieval, and personalized preview available for SMS and other channels."
 icon: "file-magnifying-glass"
+keywords: ["Campaigns API", "V5", "campaign draft", "campaign_delivery_type", "ONE_TIME", "PERIODIC", "EVENT_TRIGGERED", "API_TRIGGERED", "Messaging API", "campaign lifecycle", "campaign versioning", "idempotency key"]
 ---
 
 import ApiAuthentication from '/snippets/api-authentication.mdx';
 
 The Campaigns API (V5) lets you build campaigns incrementally rather than submitting a complete payload in a single request. Create a campaign in draft state, then add content, audience segments, trigger conditions, and scheduling across subsequent calls. Once the campaign is ready, validate its configuration, send test messages, and publish it.
 
-Include an `Idempotency-Key` (UUID v4) on all POST and PATCH requests to ensure safe retries.
+Include an `Idempotency-Key` (UUID v4) on all POST and PATCH requests to ensure safe retries. The exception is [Trigger Message](/api/trigger/trigger-message), which accepts the header but does not deduplicate on it, so a retry sends the message again.
 
 ## Supported channels and delivery types
 
@@ -33,6 +34,11 @@ SMS campaign creation and update are not supported in V5. Use the MoEngage dashb
 - `DEVICE_TRIGGERED` (Push only)
 - `LOCATION_TRIGGERED` (Push only)
 - `BROADCAST_LIVE_ACTIVITY` (Push iOS only)
+- `API_TRIGGERED` (Email only)
+
+<Note>
+`API_TRIGGERED` creates a reusable campaign shell for the [Messaging API](/api/messaging/messaging-api-overview). The shell defines the content structure and the campaign settings, and each trigger request specifies one recipient and the values for that send, so a single shell supports repeated trigger requests for one message type. A trigger request never creates a campaign and does not change the shell version. `segmentation_details`, `scheduling_details`, `trigger_condition`, and `campaign_audience_limit` are not permitted, and within `delivery_controls` only `ignore_frequency_capping` and `count_for_frequency_capping` are supported. A shell supports the `PUBLISH` and `STOP` status actions and does not support `PAUSE` or `RESUME`. See [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+</Note>
 
 ## Campaign lifecycle
 
@@ -50,7 +56,7 @@ SMS campaign creation and update are not supported in V5. Use the MoEngage dashb
     Send a test message to specific users before going live. V5 supports two modes: **inline mode**, where you supply `channel` and `campaign_content` directly in the request without saving a draft, and **draft mode**, where you pass a `draft_id` to load content from a saved draft. Draft mode is new in V5.
   </Step>
   <Step title="Manage">
-    Pause, resume, or stop a live campaign. Search your workspace and retrieve lightweight metadata across all campaigns.
+    Pause, resume, or stop a live campaign. `API_TRIGGERED` campaigns support `STOP` only. Search your workspace and retrieve lightweight metadata across all campaigns.
   </Step>
 </Steps>
 
@@ -62,7 +68,7 @@ If you are migrating from V1, here is what is new in V5:
 </Note>
 
 <Warning>
-**Campaign publishing is not yet supported in V5.** To publish campaigns, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim. 
+**Campaign publishing is not yet supported in V5, except for `API_TRIGGERED` campaigns.** An `API_TRIGGERED` campaign publishes through the `PUBLISH` action on `PATCH /v5/campaigns/{campaign_id}/status`. To publish every other delivery type, use the V1 API (`PATCH /core-services/v1/campaigns/{campaign_id}`) in the interim.
 </Warning>
 
 ## Campaign versioning
@@ -79,7 +85,7 @@ The Campaigns API consists of the following endpoints to manage your campaign li
 * [Get Campaign](/api/get-campaign-details/get-campaign-v5): Retrieves a single campaign in its full deparsed form, displaying its current state and configuration.
 * [Update Campaign](/api/update-campaigns/update-campaign-v5): Updates specific components of an existing draft.
 * [Validate Campaign](/api/create-campaigns/validate-campaign-v5): Safely runs a full publish-time validation check without modifying the draft or changing its state.
-* [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5): Applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that have already been published.
+* [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5): Applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that have already been published, and publishes `API_TRIGGERED` campaigns with the PUBLISH action.
 * [Search Campaigns](/api/get-campaign-details/search-campaigns): Searches for campaigns using granular filters, with the ability to explicitly include or exclude campaigns in draft state.
 * [Get Campaign Meta](/api/get-campaign-details/get-campaign-meta-v5): Fetches lightweight metadata, including daily cached reachability estimates for scheduled campaigns.
 * [Test Campaign](/api/test-campaigns/test-campaign): Sends a test push or email to up to 10 users. Supports **inline mode** (pass `channel` and `campaign_content` directly) and **draft mode** (pass `draft_id` to load content from a saved draft). Draft mode is new in V5.
@@ -116,7 +122,15 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
   </Accordion>
   <Accordion title="What delivery types are supported for Push and Email campaigns?">
     - **Push:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`, `DEVICE_TRIGGERED`, `LOCATION_TRIGGERED`, `BROADCAST_LIVE_ACTIVITY`
-    - **Email:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`
+    - **Email:** `ONE_TIME`, `PERIODIC`, `EVENT_TRIGGERED`, `BUSINESS_EVENT_TRIGGERED`, `API_TRIGGERED`
+  </Accordion>
+  <Accordion title="When should I use API_TRIGGERED instead of EVENT_TRIGGERED?">
+    Use `EVENT_TRIGGERED` when MoEngage determines the recipients, based on an event a user performs and the filters you configure. Use `API_TRIGGERED` when your application determines the recipient and names it in the request.
+
+    An `API_TRIGGERED` shell has no audience and no schedule. It sends only in response to a trigger request, and each request specifies the recipient identifier and the content values for that send.
+  </Accordion>
+  <Accordion title="Do the campaign creation rate limits apply to API_TRIGGERED shells?">
+    Yes. Creating a shell counts against the creation limits below. Triggering messages against a published shell does not, because the request creates no campaign. A separate per-request rate limit governs trigger requests.
   </Accordion>
   <Accordion title="What are the creation rate limits?">
     The API enforces two sets of limits:
@@ -245,7 +259,7 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
 
   </Accordion>
   <Accordion title="Can I use this endpoint to publish a campaign?">
-    No. This endpoint only applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that are already live. Campaign publishing is not yet supported in V5. To publish campaigns, use the V1 API in the interim.
+    Only for `API_TRIGGERED` campaigns, which publish with the `PUBLISH` action. For every other delivery type, this endpoint applies lifecycle transitions (STOP, PAUSE, RESUME) to campaigns that are already live, and publishing is not yet supported in V5. Use the V1 API in the interim.
   </Accordion>
   <Accordion title="Can I stop a Periodic or Event-triggered campaign?">
     `STOP` is not valid for Periodic or Event-triggered campaigns. Use `PAUSE` to temporarily halt a running Periodic or Event-triggered campaign and `RESUME` to restart it. Attempting to `STOP` a Periodic campaign returns a `422 Unprocessable Entity` error.
@@ -307,6 +321,10 @@ Get Child Campaigns and Update Global Control Group are not yet available in V5.
 </AccordionGroup>
 
 ### Test Campaign
+
+<Warning>
+Test Campaign is not supported for `API_TRIGGERED` campaigns. In draft mode, a `draft_id` that points to an `API_TRIGGERED` shell returns an error. In inline mode, the request returns no error, because the endpoint does not accept `campaign_delivery_type` as input. A successful inline test therefore does not confirm that the shell works. To verify a shell, publish it and send a trigger request to a recipient you control. See [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+</Warning>
 
 <AccordionGroup>
   <Accordion title="Can I send a test without first saving a campaign?">

@@ -1,0 +1,232 @@
+---
+title: "Messaging API Overview"
+description: "Use the MoEngage Messaging API to create reusable email campaign shells and trigger email to individual recipients through an asynchronous endpoint."
+icon: "envelope"
+keywords: ["Messaging API", "API_TRIGGERED", "campaign shell", "trigger email API", "asynchronous email API", "202 Accepted", "rate limit", "per-recipient email"]
+---
+
+import ApiAuthentication from '/snippets/api-authentication.mdx';
+
+The Messaging API sends email to individual recipients that your application specifies. It defines two operations: create a reusable campaign shell, then trigger messages against that shell.
+
+A shell defines the content structure and the campaign settings. Each trigger request specifies one recipient and the values for that send. A single shell therefore supports repeated trigger requests for one message type.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Create an API Key">
+    Create a key with access to the **Campaigns** API. Creating a shell requires **Create & Manage** permissions. Publishing a shell requires **Create, Manage & Publish**.
+  </Step>
+  <Step title="Configure an Email Connector">
+    A shell requires a configured email connector before you publish it.
+  </Step>
+</Steps>
+
+## Operations
+
+| Operation | Description | Frequency |
+| :--- | :--- | :--- |
+| Create a shell | Create an Email campaign with `campaign_delivery_type: API_TRIGGERED` that defines the content structure, connector, and delivery controls. Publish the shell to make it triggerable. | Once per message type |
+| Trigger a message | Call the trigger endpoint with the shell's `campaign_id`, the recipient, and the values for that send. | Once per recipient |
+
+The `campaign_id` that the trigger endpoint needs is the `data.id` value returned when you create or publish the shell. Those responses have no field named `campaign_id`.
+
+The following rules apply:
+
+- A trigger request targets an existing published shell. A trigger request never creates a campaign.
+- Editing a shell creates a new shell version. Trigger requests do not, so send volume does not affect the shell version.
+
+The trigger endpoint is asynchronous. A `202 Accepted` response confirms that the request is valid and enqueued, and returns the campaign ID and the accepted recipient count. It is not a delivery guarantee. Dispatch occurs after the acknowledgement, and inbox delivery depends on your email provider.
+
+<Warning>
+**An invalid recipient is silently dropped.** MoEngage does not resolve recipients at the request level, so a `202` never confirms that the identifier matches a user. If the identifier matches no user, MoEngage discards the message during dispatch without returning an error and without notifying your application. Nothing distinguishes this from a successful send on your side, so validate identifiers before you trigger.
+</Warning>
+
+MoEngage sends the message as specified or rejects the request. There is no channel or vendor fallback, and a request that exceeds a limit is rejected rather than queued.
+
+## Endpoints
+
+Shell creation uses the Campaigns API. The Messaging API adds no separate create-campaign endpoint.
+
+| Operation | Endpoint |
+| :--- | :--- |
+| Create a shell | [Create Campaign](/api/create-campaigns/create-campaign-draft-v5) with `campaign_delivery_type: API_TRIGGERED` |
+| Validate a shell | [Validate Campaign](/api/create-campaigns/validate-campaign-v5) |
+| Publish or stop a shell | [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5) |
+| Edit a shell | [Update Campaign](/api/update-campaigns/update-campaign-v5) |
+| Read a shell | [Get Campaign](/api/get-campaign-details/get-campaign-v5) |
+| Trigger a message | [Trigger Message](/api/trigger/trigger-message) |
+
+For the components that an `API_TRIGGERED` campaign accepts, see [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns). For the content structure, see [Content for API-triggered shells](/api/campaigns/campaign-content-reference#content-for-api-triggered-shells).
+
+## Authentication
+
+<ApiAuthentication />
+
+<Note>
+  When creating an API key for this API, select the **Campaigns** checkbox under **Select APIs for access**.
+</Note>
+
+## Rate Limits
+
+The default limit on the trigger endpoint is 1,000 requests per minute per workspace. A request targets one recipient, so the limit is also the maximum number of messages you can trigger per minute.
+
+A request that exceeds the limit returns `429` with a `Retry-After` header. MoEngage rejects the request and does not queue it. Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`.
+
+Contact your Customer Success Manager to raise the limit for your workspace.
+
+Creating a shell counts against the `POST /v5/campaigns` limit. Triggering a message against a published shell does not, because the request creates no campaign. See [Rate Limits](/api/rate-limits#messaging).
+
+## Limitations
+
+| Capability | Status |
+| :--- | :--- |
+| Channels other than Email | Not supported. Use the [Push API](/api/push/push-overview) to send push notifications to individual users. |
+| Idempotent retries | Not enforced in this release. The `Idempotency-Key` header is accepted but MoEngage does not deduplicate on it, so retrying an accepted request sends the message again. Send the header on every request so that no integration change is needed once deduplication is enforced. |
+| Campaign reports | Partially supported. Sent, delivered, opened, and clicked events and campaign stats are reported as for any other delivery type. Drop events are not: a message discarded for an unresolvable recipient, suppression, or an unsubscribe does not appear in reports, so a drop is indistinguishable from a send that produced no engagement. |
+| Recipient validation at request time | Not performed. Recipients are not resolved at the request level, so an invalid recipient is accepted with a `202` and silently dropped during dispatch. |
+| Double opt-in | Not supported. A create request that includes `send_only_double_opt_in_users` is rejected. |
+| Google annotations | Not supported. |
+| Link branding | Not supported. |
+| Deep links | Not supported. |
+| Brand deduplication | Not supported. A create request that includes `deduplication_attribute` is rejected. |
+| Sender address personalization | Not supported. Neither the from address nor the reply-to address accepts personalization. |
+| Reply-to unsubscribe and list unsubscribe | Not supported. |
+| Segment and filter targeting | Not supported. A create request that includes `segmentation_details` is rejected, and the shell stores an All Users audience. Each trigger request names its own recipient. |
+| Scheduling | Not supported. `scheduling_details` is optional, and `delivery_type: ASAP` is accepted with no effect. Any other value is rejected. |
+| Throttling | Not supported. `campaign_throttle_rpm` does not apply and no default RPM is applied. The per-request rate limit on the trigger endpoint governs delivery pacing. |
+| Maximum-send caps | Not supported. `campaign_audience_limit` and `limit_send_config` do not apply. |
+| Do Not Disturb | Not evaluated. MoEngage sends the message regardless of the recipient's DND state. `bypass_dnd` is a shell field rather than a trigger field: setting it to `true` on the shell is rejected at create time, and it has no meaning in a trigger payload, where an unrecognised field returns `400 VALIDATION_FAILED`. |
+| Test sends | Test Campaign is not supported. A draft-mode test against a shell returns an error, and an inline-mode test returns no error but does not exercise the shell. Publish the shell and trigger it against a recipient you control instead. |
+| Attachments and images | Supported by URL reference only. File upload is not supported. |
+
+For the full list of supported and unsupported fields, see [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+
+## FAQs
+
+### Shell Creation
+
+<AccordionGroup>
+  <Accordion title="What is a campaign shell?">
+    A shell is a reusable email campaign. It defines the content structure with placeholders, the email settings, and the delivery controls. Each trigger request specifies one recipient and the per-send values.
+  </Accordion>
+  <Accordion title="How do I create a shell?">
+    Create it through the Campaigns V5 API with `campaign_delivery_type: API_TRIGGERED`. The shell starts in `DRAFT` status. Validate it, then publish it to make it triggerable. See [Create Campaign](/api/create-campaigns/create-campaign-draft-v5).
+
+    A trigger request against a shell that is still a draft returns `422 CAMPAIGN_NOT_TRIGGERABLE` with the message `Campaign is a draft and cannot be triggered.`
+  </Accordion>
+  <Accordion title="Which campaign components can a shell use?">
+    A shell does not accept `segmentation_details`, `scheduling_details`, `trigger_condition`, or `campaign_audience_limit`, because it has no audience and no schedule. Within `delivery_controls`, only `ignore_frequency_capping` and `count_for_frequency_capping` apply. See [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns).
+  </Accordion>
+  <Accordion title="Can I edit a shell after publishing it?">
+    Yes. Editing a published shell creates a new shell version. The updated content does not take effect instantly, so verify the change before you rely on it in production rather than triggering immediately after publishing.
+  </Accordion>
+  <Accordion title="How do I stop a shell from accepting trigger requests?">
+    Stop it with the `STOP` status action. After you stop a shell, MoEngage rejects trigger requests against it. A shell supports `PUBLISH` and `STOP` only, so it has no paused state and cannot be resumed. See [Update Campaign Status](/api/update-campaigns/update-campaign-status-v5).
+  </Accordion>
+  <Accordion title="What are placeholders?">
+    Placeholders are named fields in the shell content that each trigger request populates. The shell defines the structure and the trigger request specifies the values.
+  </Accordion>
+  <Accordion title="Does a shell support control groups?">
+    Yes. Set `is_global_control_group_enabled` or `is_campaign_control_group_enabled` in `control_group_details`, and set `campaign_control_group_percentage` to size the campaign control group. Recipients allocated to a control group do not receive the message.
+  </Accordion>
+  <Accordion title="Does a shell support A/B variations?">
+    Yes. Define the variations in `campaign_content.variation_details`, as you would for any other Email campaign.
+  </Accordion>
+  <Accordion title="How do locales work with a shell?">
+    Define the locale variants in `campaign_content.locales`. Each trigger request can set `locale_name` to select one of them. A `locale_name` that the shell does not declare returns `422 UNKNOWN_LOCALE`.
+  </Accordion>
+  <Accordion title="Can I supply fully resolved content instead of placeholders?">
+    Yes. A trigger request can carry a final value, such as HTML that your application has already rendered, instead of a token for MoEngage to resolve. A single request can combine both forms. See [Content for API-triggered shells](/api/campaigns/campaign-content-reference#content-for-api-triggered-shells).
+  </Accordion>
+</AccordionGroup>
+
+### Triggering Messages
+
+<AccordionGroup>
+  <Accordion title="What does a successful trigger response look like?">
+    `202 Accepted` means the request is valid and enqueued for asynchronous dispatch. It is neither a delivery guarantee nor confirmation that the recipient exists: MoEngage does not resolve recipients at the request level, and an invalid recipient is silently dropped later during dispatch.
+
+    ```json
+    {
+      "response_id": "e0a49aa4-46ee-496b-a041-9e3343ce564e",
+      "type": "message",
+      "data": {
+        "campaign_id": "6a9a8b9100919e1be1bb3f6e",
+        "recipient_count": 1
+      }
+    }
+    ```
+
+    `response_id` is the correlation ID for the request, `data.campaign_id` is the shell you triggered, and `data.recipient_count` is the number of recipients accepted. No per-message ID is returned. The message is sent after the acknowledgement, and inbox delivery depends on your email provider.
+  </Accordion>
+  <Accordion title="Are trigger requests idempotent?">
+    Not in this release. MoEngage accepts the `Idempotency-Key` header but does not deduplicate on it, so retrying a request that was already accepted sends the message a second time. Track which requests you have sent in your own application, and treat a `202` as confirmation that MoEngage accepted the request.
+
+    Send the header on every request, so that once deduplication is enforced the same key is honored without any change on your side. To correlate a request with its response and its events, use `X-MOE-Request-Id` instead.
+  </Accordion>
+  <Accordion title="Which identifier types can I use, and where do I find them?">
+    `identifier_type` accepts `ID` for the unique user ID, `MOENGAGE_ID` for the MoEngage-generated ID, or the name of any user attribute your workspace has activated as an identifier.
+
+    For a custom identifier, send the attribute name itself. If your workspace has activated an attribute named `CRM_ID`, send `"identifier_type": "CRM_ID"` with the attribute value in `recipients`. There is no generic value for this case, so the name always comes from your own workspace configuration.
+
+    A workspace can activate up to five identifiers, and `ID` is always active. Find the names available to you under [Unified Identity](/user-guide/data/user-data/unified-identity-identity-resolution), which is also where an admin activates a new one.
+
+    A custom identifier must be activated before you use it, and the value you send must match the activated attribute name exactly. An identifier type that is not activated returns `422`.
+  </Accordion>
+  <Accordion title="Can I trigger more than one recipient in a single request?">
+    No. `recipients` accepts exactly one identifier, and a request holding more returns `422 RECIPIENT_LIMIT_EXCEEDED`. Call the endpoint once per recipient, within the rate limit.
+  </Accordion>
+  <Accordion title="What happens when a recipient is in Do Not Disturb?">
+    MoEngage sends the message. DND is not evaluated for an API-triggered campaign, so a recipient in a DND window still receives the email. Apply your own suppression before calling the endpoint if you need DND respected.
+  </Accordion>
+  <Accordion title="How does frequency capping apply?">
+    When the shell sets `ignore_frequency_capping` to `false`, MoEngage evaluates your workspace frequency-cap rules for each recipient at send time and drops the message for recipients who have reached their cap. When the shell sets it to `true`, MoEngage bypasses the cap. Use `count_for_frequency_capping` to control whether a send counts toward a recipient's cap. The `minimum_delay_between_two_notification_in_hour` field is measured in hours, and `0` or omitting it are the only accepted values.
+  </Accordion>
+  <Accordion title="How does MoEngage resolve personalization values?">
+    MoEngage resolves a value that contains personalization tokens for each recipient at send time, using the same engine as any other campaign, including user attributes, content blocks, and the Content API. A fully resolved value passes through unchanged. Event-attribute personalization does not apply, because an API-triggered campaign has no triggering event.
+  </Accordion>
+  <Accordion title="How do I correlate a trigger request with its events?">
+    Send a UUID in the `X-MOE-Request-Id` header. MoEngage stores the value as `moe_event_id` on the delivery and engagement events for that message, and returns it as `response_id`, so it links the request, the response, and the events. When you omit the header, MoEngage generates the value, and `response_id` still appears on every response, including errors.
+  </Accordion>
+  <Accordion title="What does an error response look like?">
+    Every error carries `error.code`, `error.message`, and `error.target`, naming the field or header responsible. When more than one field fails validation, `error.details[]` lists each failure with its own `target` and `message`. A single-field failure has no `details[]`.
+  </Accordion>
+  <Accordion title="What happens when I exceed the rate limit?">
+    The request returns `429` with a `Retry-After` header. MoEngage rejects the request and does not queue it. Retry after the interval that the header specifies.
+  </Accordion>
+  <Accordion title="What happens when MoEngage cannot resolve a recipient?">
+    MoEngage silently drops the message. You receive no error, because the `202` was already returned before resolution ran, and no notification follows because the API reports no per-message outcome. The message is not retried, since a retry cannot change the outcome, and nothing in the API tells you the send did not happen. Validate identifiers on your side before triggering. See [Limitations](#limitations).
+  </Accordion>
+  <Accordion title="Is recipient resolution case-sensitive?">
+    Yes. Send identifiers exactly as the user profile stores them.
+  </Accordion>
+</AccordionGroup>
+
+### General
+
+<AccordionGroup>
+  <Accordion title="Which channels does the Messaging API support?">
+    Email only. Use the [Push API](/api/push/push-overview) to send push notifications to individual users.
+  </Accordion>
+  <Accordion title="Can I get delivery and engagement reports?">
+    Partially. Sent, delivered, opened, and clicked events and campaign stats are reported as they are for any other delivery type. Drop events are not: a message discarded for an unresolvable recipient, suppression, or an unsubscribe does not appear in reports. See [Limitations](#limitations).
+  </Accordion>
+  <Accordion title="Is there a size limit on the request payload?">
+    No limit is enforced, and the endpoint does not reject a request on size. Keep HTML bodies under 102 KB as a guideline, because several email clients clip larger messages.
+  </Accordion>
+  <Accordion title="Does the Messaging API affect my existing integrations?">
+    No. Existing Push API and Campaigns API integrations continue to work without modification, and migration is not required.
+  </Accordion>
+</AccordionGroup>
+
+## Postman Collection
+
+Postman collections for the Messaging API are available in the [MoEngage API workspace](https://www.postman.com/moengage-dev/workspace/api-docs).
+
+## See Also
+
+- [Campaigns Overview](/api/campaigns/campaign-draft-overview): the Campaigns V5 API that creates and manages shells.
+- [API-triggered campaigns](/api/campaigns/audience-scheduling-delivery-reference#api-triggered-campaigns): the components an `API_TRIGGERED` campaign accepts.
+- [Content for API-triggered shells](/api/campaigns/campaign-content-reference#content-for-api-triggered-shells): the shell content structure and placeholder model.
+- [Rate Limits](/api/rate-limits#messaging): limits across the MoEngage REST APIs.
