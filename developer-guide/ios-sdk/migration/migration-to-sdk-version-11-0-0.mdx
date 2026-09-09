@@ -1,0 +1,120 @@
+---
+title: "Migration to SDK version 11.0.0"
+description: "Migrate your MoEngage iOS SDK to version 11.0.0: initialization enforcement, typed task return values, Sendable requirements, and Swift enum replacements."
+keywords: "iOS SDK 11.0.0, migration, onSuccess, onFailure, Sendable, MoEngageInAppActionType, MoEngageNudgePosition"
+---
+
+SDK version 11.0.0 introduces breaking changes to initialization enforcement, API return types, Swift concurrency annotations, and two public Objective-C enums. This page lists the changes you need to make when moving to 11.0.0 or above from 10.x.x. For the complete change list, refer to the [release notes](/release-notes/sdks/ios#22nd-july-2026).
+
+# Initialization Enforcement
+
+Calling a public MoEngage API without having called an initialization method at all now triggers a `fatalError` instead of dropping the call. Move every MoEngage API call after `initializeDefaultTestInstance(_:)` or `initializeDefaultLiveInstance(_:)`, which you should call in `application(_:didFinishLaunchingWithOptions:)`.
+
+An initialization that runs but does not succeed — for example because of a wrong Workspace ID or a network failure — does not crash the app. Downstream API calls fail with the `sdkNotInitialized` reason code through their `onFailure` callback instead.
+
+Refer to [Initialization Before API Calls](/developer-guide/ios-sdk/sdk-integration/basic/sdk-initialization#initialization-before-api-calls) for the cases where the SDK skips this check and for the exact behavior in each build configuration.
+
+# Typed Task Return Values
+
+Public APIs in the Core, InApp, and Messaging modules that previously returned `Void` now return a task object — a subclass of `MoEngageBaseTask` such as `MoEngageTrackEventTask` or `MoEngageShowInAppTask`. Attach `onSuccess` and `onFailure` to the task, or await its async `result()`, to observe the outcome of that call.
+
+Direct calls and Objective-C callers compile unchanged, since the methods are annotated `@discardableResult`. Refer to [API Callbacks and Error Handling](/developer-guide/ios-sdk/sdk-integration/basic/api-callbacks) for the full API-to-task mapping, the failure reason codes, and usage examples.
+
+## Function References With an Explicit Void Return Type
+
+Assigning one of these methods to a function reference typed `-> Void` no longer compiles. Wrap the call in a closure.
+
+| SDK Version 10.x.x | SDK Version 11.0.0 |
+| :-- | :-- |
+| `let trackFn: (String, MoEngageProperties?, String?) -> Void = MoEngageSDKAnalytics.sharedInstance.trackEvent` | `let trackFn: (String, MoEngageProperties?, String?) -> Void = { name, properties, appID in`<br />`    _ = MoEngageSDKAnalytics.sharedInstance.trackEvent(name, withProperties: properties, forAppID: appID)`<br />`}` |
+| `let initFn: (MoEngageSDKConfig) -> Void = MoEngage.sharedInstance.initializeDefaultLiveInstance` | `let initFn: (MoEngageSDKConfig) -> Void = {`<br />`    _ = MoEngage.sharedInstance.initializeDefaultLiveInstance($0)`<br />`}` |
+| `let showFn: () -> Void = MoEngageSDKInApp.sharedInstance.showInApp` | `let showFn: () -> Void = {`<br />`    _ = MoEngageSDKInApp.sharedInstance.showInApp()`<br />`}` |
+| `let tokenFn: (Data?) -> Void = MoEngageSDKMessaging.sharedInstance.setPushToken` | `let tokenFn: (Data?) -> Void = {`<br />`    _ = MoEngageSDKMessaging.sharedInstance.setPushToken($0)`<br />`}` |
+
+## Deprecated Completion-Block Variants
+
+The completion-block variants below still work, but they are deprecated in favour of the typed task returned by the same method without the completion block. Migrate to the task and read the outcome through `onSuccess` and `onFailure`.
+
+| Deprecated in 11.0.0 | Use instead |
+| :-- | :-- |
+| `resetUser(withCompletionBlock:)`, `resetUser(forAppID:withCompletionBlock:)` | `resetUser()` / `resetUser(forAppID:)` returning `MoEngageResetUserTask` |
+| `flush(withCompletionBlock:)`, `flush(forAppID:withCompletionBlock:)` | `flush()` / `flush(forAppID:)` returning `MoEngageFlushTask` |
+| `getUserIdentities(withCompletionBlock:)` | `getUserIdentities(workspaceId:)` returning `MoEngageGetUserIdentitiesTask` |
+| `getSelfHandledInApp(withCompletionBlock:)`, `getSelfHandledInApps(withCompletionBlock:)` | `getSelfHandledInApp()` / `getSelfHandledInApps()` returning the corresponding task |
+| `logNotificationReceived(withPayload:withCompletionBlock:)` | `logNotificationReceived(withPayload:)` returning `MoEngageLogNotificationTask` |
+
+For an example of replacing a completion block with the task, refer to [Logout Callback](/developer-guide/ios-sdk/data-tracking/basic/tracking-user-attributes#logout-callback).
+
+# Sendable Requirements
+
+Attribute and event property values must now conform to `Sendable`. Under the Swift 6 language mode or strict concurrency checking, call sites that pass non-`Sendable` values need to be updated. Untyped `[String: Any]` dictionaries become `[String: any Sendable]`.
+
+| API | SDK Version 10.x.x | SDK Version 11.0.0 |
+| :-- | :-- | :-- |
+| `MoEngageSDKAnalytics.setUserAttribute(_:withAttributeName:level:forAppID:)` | `value: Any` | `value: any Sendable` |
+| `MoEngageSDKAnalytics.setDeviceAttribute(_:withName:forWorkspaceId:)` | `value: Any` | `value: any Sendable` |
+| `MoEngageProperties.init(withAttributes:)` | `attributesDict: [String: Any]` | `attributesDict: [String: any Sendable]` |
+| `MoEngageProperties.addAttribute(_:withName:)` | `attrVal: Any` | `attrVal: any Sendable` |
+
+Strings, numbers, booleans, dates, and dictionaries or arrays of these already conform to `Sendable`, so most call sites compile unchanged.
+
+# Main Actor Isolation
+
+## Callback Protocols
+
+`MoEngageAnalyticsCallBack` and `MoEngageAuthenticationError.Listener` are now `Sendable` and `@MainActor` isolated. Conforming types must be safe to use across concurrency domains, and their callback methods are invoked on the main actor. Update implementations that were not already confined to the main thread.
+
+## Cards View Controller APIs
+
+`presentCardsViewController`, `pushCardsViewController`, and `getCardsViewController` are now annotated `@MainActor`. Objective-C callers are unaffected. Swift callers that invoke these methods from a non-main-actor context must hop to the main actor, either by marking the caller `@MainActor` or by wrapping the call in `await MainActor.run { ... }`.
+
+<CodeGroup>
+
+```swift SDK Version 11.0.0 wrap
+@MainActor
+func openCards() {
+    MoEngageSDKCards.sharedInstance.presentCardsViewController()
+}
+```
+
+```swift Explicit Hop wrap
+func openCards() async {
+    await MainActor.run {
+        MoEngageSDKCards.sharedInstance.presentCardsViewController()
+    }
+}
+```
+
+</CodeGroup>
+
+# Objective-C Enums Migrated to Swift
+
+The public Objective-C enums `MoEngageInAppActionType` and `MoEngageNudgePosition` are now Swift enums. Update your code to the equivalents below. For more information, refer to [In-App Messages](/developer-guide/ios-sdk/in-app-messages/in-app-nativ).
+
+**`MoEngageInAppActionType`**
+
+| | Swift 10.x.x | Swift 11.0.0 | Objective-C 10.x.x | Objective-C 11.0.0 |
+| :-- | :-- | :-- | :-- | :-- |
+| Navigation action | `NavigationAction` | `.navigationAction` | `NavigationAction` | `MoEngageInAppActionTypeNavigationAction` |
+| Custom action | `CustomAction` | `.customAction` | `CustomAction` | `MoEngageInAppActionTypeCustomAction` |
+
+**`MoEngageNudgePosition`**
+
+| | Swift 10.x.x | Swift 11.0.0 | Objective-C 10.x.x | Objective-C 11.0.0 |
+| :-- | :-- | :-- | :-- | :-- |
+| Top | `NudgePositionTop` | `.top` | `NudgePositionTop` | `MoEngageNudgePositionTop` |
+| Bottom | `NudgePositionBottom` | `.bottom` | `NudgePositionBottom` | `MoEngageNudgePositionBottom` |
+| Bottom-left | `NudgePositionBottomLeft` | `.bottomLeft` | `NudgePositionBottomLeft` | `MoEngageNudgePositionBottomLeft` |
+| Bottom-right | `NudgePositionBottomRight` | `.bottomRight` | `NudgePositionBottomRight` | `MoEngageNudgePositionBottomRight` |
+| Any | `NudgePositionAny` | `.any` | `NudgePositionAny` | `MoEngageNudgePositionAny` |
+| None | `NudgePositionNone` | `.none` | `NudgePositionNone` | `MoEngageNudgePositionNone` |
+
+# Migration Checklist
+
+- [ ] Every MoEngage API call happens after an initialization method call.
+- [ ] Function references typed `-> Void` for the affected APIs are wrapped in closures.
+- [ ] Deprecated completion-block variants are replaced with the typed tasks.
+- [ ] Attribute and event property values conform to `Sendable`.
+- [ ] `MoEngageAnalyticsCallBack` and `MoEngageAuthenticationError.Listener` implementations are safe on the main actor.
+- [ ] Swift callers of the Cards view controller APIs run on the main actor.
+- [ ] `MoEngageInAppActionType` and `MoEngageNudgePosition` references use the Swift enum cases.
