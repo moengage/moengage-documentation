@@ -375,3 +375,143 @@ div[class*="scroll-mt"][class*="peer"] {
 .prose h6:not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   font-size: 0.875rem; /* 14px */
 }
+
+/* System status indicator.
+
+   One data-moe-status attribute drives the pill. Each state declares a dot
+   colour and a separate text colour: the dot is decorative so it can take the
+   vivid hue, but pill text has to clear 4.5:1 against the tinted background,
+   which the vivid greens and ambers do not. Light-theme text therefore uses the
+   800-level shades (the 600/700 shades measure 4.4-4.5:1 and miss AA); the dots
+   stay on the 500/600 shades, which measure 3.2-4.8:1 and clear the 3:1
+   non-text minimum. In dark theme the accessible direction inverts, so text
+   takes the lighter hue. */
+[data-moe-status="operational"] {
+  --moe-status-dot: #16a34a;
+  --moe-status-text: #166534;
+  --moe-status-tint: rgb(22 163 74 / 0.1);
+}
+[data-moe-status="degraded"] {
+  --moe-status-dot: #d97706;
+  --moe-status-text: #92400e;
+  --moe-status-tint: rgb(217 119 6 / 0.12);
+}
+[data-moe-status="major"] {
+  --moe-status-dot: #dc2626;
+  --moe-status-text: #b91c1c;
+  --moe-status-tint: rgb(220 38 38 / 0.12);
+}
+/* Grey is "we could not reach the status page", not "everything is fine" and
+   not "everything is down". */
+[data-moe-status="unavailable"] {
+  --moe-status-dot: #6b7280;
+  --moe-status-text: #4b5563;
+  --moe-status-tint: rgb(107 114 128 / 0.12);
+}
+
+/* Mintlify sets .dark on some builds and data-theme on others, so both are
+   matched, the same as the resize-handle rules above. */
+.dark [data-moe-status="operational"],
+[data-theme="dark"] [data-moe-status="operational"] {
+  --moe-status-dot: #22c55e;
+  --moe-status-text: #4ade80;
+  --moe-status-tint: rgb(34 197 94 / 0.16);
+}
+.dark [data-moe-status="degraded"],
+[data-theme="dark"] [data-moe-status="degraded"] {
+  --moe-status-dot: #f59e0b;
+  --moe-status-text: #fbbf24;
+  --moe-status-tint: rgb(245 158 11 / 0.16);
+}
+.dark [data-moe-status="major"],
+[data-theme="dark"] [data-moe-status="major"] {
+  --moe-status-dot: #ef4444;
+  --moe-status-text: #f87171;
+  --moe-status-tint: rgb(239 68 68 / 0.16);
+}
+.dark [data-moe-status="unavailable"],
+[data-theme="dark"] [data-moe-status="unavailable"] {
+  --moe-status-dot: #9ca3af;
+  --moe-status-text: #d1d5db;
+  --moe-status-tint: rgb(156 163 175 / 0.16);
+}
+
+.moe-status-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--moe-status-dot, #8c8c8c);
+}
+
+.moe-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--moe-status-tint);
+  color: var(--moe-status-text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+.moe-status-pill:hover {
+  filter: brightness(0.97);
+}
+
+/* Degraded and major must not rest on colour alone, so their dots also pulse.
+   Operational and unavailable stay static - a permanently blinking navbar on a
+   healthy site would be noise. Anyone who has asked for less motion gets the
+   static dot and still has the pill's text label. */
+[data-moe-status="degraded"] .moe-status-dot,
+[data-moe-status="major"] .moe-status-dot {
+  animation: moe-status-pulse 2s ease-in-out infinite;
+}
+@keyframes moe-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moe-status-dot {
+    animation: none !important;
+  }
+}
+
+/* The mobile slot only earns its place below Mintlify's lg breakpoint, where the
+   desktop link list is display:none. From lg up the desktop pill takes over, so
+   the mobile one is withdrawn rather than shown twice. */
+@media (min-width: 1024px) {
+  .moe-status-navbar-mobile {
+    display: none !important;
+  }
+}
+
+/* Under sm the mobile header has room for the dot but not the words, so the
+   label is visually hidden rather than removed - it stays in the accessibility
+   tree and goes on supplying the link's accessible name. Below sm the only pill
+   on screen is the mobile one. */
+@media (max-width: 639px) {
+  .moe-status-pill {
+    padding: 0.25rem;
+  }
+  .moe-status-pill-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

@@ -315,3 +315,292 @@
 
   window.addEventListener('load', () => setTimeout(trySetup, 500));
 })();
+
+
+/**
+ * System Status Indicator
+ *
+ * Shows the live rollup from status.moengage.com (Atlassian Statuspage) as a
+ * pill in the navbar, in one of four states:
+ *
+ *   operational  green  all clear
+ *   degraded     amber  something is impaired but serving
+ *   major        red    a real outage
+ *   unavailable  grey   the status API could not be reached, so we do not know
+ *
+ * The grey state matters: a failed fetch must never be painted as an outage.
+ */
+
+(function() {
+  'use strict';
+
+  const CONFIG = {
+    /* The rollup endpoint is 216 bytes and sends access-control-allow-origin: *,
+       so it reads straight from the browser with no proxy. summary.json carries
+       the same rollup plus 186 per-region components, far more than a
+       chrome-level indicator needs. */
+    apiUrl: 'https://status.moengage.com/api/v2/status.json',
+    pageUrl: 'https://status.moengage.com',
+    cacheKey: 'moe-system-status',
+    cacheTtl: 60 * 1000,
+    refreshInterval: 5 * 60 * 1000,
+    requestTimeout: 5000,
+    debounceDelay: 100
+  };
+
+  /* Statuspage reports five indicators; we collapse them into four states.
+     critical joins major because both mean "down", and maintenance joins
+     degraded because planned work still impairs service - painting it green
+     would be wrong and painting it red would be alarmist. */
+  const INDICATORS = {
+    none: 'operational',
+    minor: 'degraded',
+    major: 'major',
+    critical: 'major',
+    maintenance: 'degraded'
+  };
+
+  /* Short labels keep the navbar tight. The API's own status.description is
+     human-authored and longer ("Partial System Outage"), so it goes in the
+     tooltip instead, where it can never contradict the status page. */
+  const LABELS = {
+    operational: 'Operational',
+    degraded: 'Degraded',
+    major: 'Major Outage',
+    unavailable: 'Status Unavailable'
+  };
+
+  const UNKNOWN = { state: 'unavailable', label: LABELS.unavailable, detail: 'Could not reach the status page' };
+
+  let current = null;
+  let observerTimeout = null;
+  let inFlight = false;
+
+  // sessionStorage throws outright in some embedding contexts, so every access
+  // is guarded and a failure just means we refetch.
+  function readCache() {
+    try {
+      const raw = sessionStorage.getItem(CONFIG.cacheKey);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
+      if (!cached || Date.now() - cached.at > CONFIG.cacheTtl) return null;
+      return cached.status;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCache(status) {
+    try {
+      sessionStorage.setItem(CONFIG.cacheKey, JSON.stringify({ at: Date.now(), status: status }));
+    } catch (e) {
+      /* Private mode or blocked storage: polling still works, just uncached. */
+    }
+  }
+
+  // Local-only override so every state can be previewed in mint dev without
+  // waiting for a real incident: ?moe-status=major
+  function debugOverride() {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return null;
+    const key = new URLSearchParams(window.location.search).get('moe-status');
+    if (!key || !LABELS[key]) return null;
+    return { state: key, label: LABELS[key], detail: LABELS[key] };
+  }
+
+  function normalize(payload) {
+    const status = payload && payload.status;
+    if (!status || !INDICATORS[status.indicator]) return null;
+    const state = INDICATORS[status.indicator];
+    return {
+      state: state,
+      label: LABELS[state],
+      detail: (status.description || '').trim() || LABELS[state]
+    };
+  }
+
+  function fetchStatus() {
+    if (inFlight) return Promise.resolve(current);
+    inFlight = true;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeout);
+
+    return fetch(CONFIG.apiUrl, { signal: controller.signal, mode: 'cors' })
+      .then(response => (response.ok ? response.json() : null))
+      .then(payload => {
+        const status = normalize(payload);
+        if (status) writeCache(status);
+        return status;
+      })
+      .catch(() => null)
+      .then(status => {
+        clearTimeout(timer);
+        inFlight = false;
+        /* Prefer the last known good reading over grey: a single dropped poll on
+           the reader's flaky wifi should not start claiming we are unreachable. */
+        return status || current || UNKNOWN;
+      });
+  }
+
+  function buildPill(status) {
+    const link = document.createElement('a');
+    link.className = 'moe-status-pill';
+    link.setAttribute('data-moe-status', status.state);
+    link.href = CONFIG.pageUrl;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    // Carries the full wording for the compact, dot-only mobile rendering.
+    link.title = status.detail;
+
+    const dot = document.createElement('span');
+    dot.className = 'moe-status-dot';
+    dot.setAttribute('aria-hidden', 'true');
+
+    const label = document.createElement('span');
+    label.className = 'moe-status-pill-label';
+    label.textContent = status.label;
+
+    link.appendChild(dot);
+    link.appendChild(label);
+    return link;
+  }
+
+  /* Two navbar slots, because Mintlify renders two navbars and swaps them at its
+     lg breakpoint. The desktop link list sits inside a `hidden lg:flex` wrapper,
+     so a pill placed there is display:none below 1024px; the icon row beside the
+     mobile search is `flex lg:hidden`. A slot in each covers every width.
+
+     Each slot is a live region. Only one is ever displayed, and a live region
+     inside a display:none ancestor is not announced, so a state change is
+     announced once rather than twice.
+
+     Both are created empty and toggled with the hidden attribute. The desktop
+     list is space-x-6 (margin-inline-end on :not(:last-child)) and the mobile
+     row is gap-3, but a hidden element is display:none and generates no box, so
+     neither spacing rule renders while the slot is empty. */
+  function makeSlot(tag, className) {
+    const slot = document.createElement(tag);
+    slot.className = className;
+    slot.setAttribute('role', 'status');
+    slot.setAttribute('aria-live', 'polite');
+    slot.hidden = true;
+    return slot;
+  }
+
+  function desktopSlot() {
+    const navbar = document.getElementById('navbar');
+    if (!navbar) return null;
+
+    const existing = navbar.querySelector('.moe-status-navbar');
+    if (existing) return existing;
+
+    const list = navbar.querySelector('ul');
+    if (!list) return null;
+
+    const slot = makeSlot('li', 'navbar-link moe-status-navbar');
+    list.insertBefore(slot, list.firstChild);
+    return slot;
+  }
+
+  function mobileSlot() {
+    const navbar = document.getElementById('navbar');
+    if (!navbar) return null;
+
+    const existing = navbar.querySelector('.moe-status-navbar-mobile');
+    if (existing) return existing;
+
+    // The mobile icon row (search, menu). Matched on utility classes rather than
+    // a generated hash, the same way the footer rules in style.css do.
+    const row = Array.from(navbar.querySelectorAll('div')).find(
+      div =>
+        typeof div.className === 'string' &&
+        div.className.indexOf('lg:hidden') !== -1 &&
+        div.className.indexOf('items-center') !== -1
+    );
+    if (!row) return null;
+
+    const slot = makeSlot('span', 'moe-status-navbar-mobile');
+    row.insertBefore(slot, row.firstChild);
+    return slot;
+  }
+
+  function fillSlot(slot, status) {
+    if (!slot) return;
+
+    if (!status) {
+      slot.hidden = true;
+      slot.textContent = '';
+      delete slot.dataset.moeStatus;
+      return;
+    }
+
+    // Idempotent: the MutationObserver fires constantly, and rebuilding the pill
+    // every time would restart its pulse animation on each mutation.
+    if (slot.dataset.moeStatus === status.state && slot.dataset.moeLabel === status.label) {
+      slot.hidden = false;
+      return;
+    }
+
+    slot.dataset.moeStatus = status.state;
+    slot.dataset.moeLabel = status.label;
+    slot.textContent = '';
+    slot.appendChild(buildPill(status));
+    slot.hidden = false;
+  }
+
+  function render() {
+    fillSlot(desktopSlot(), current);
+    fillSlot(mobileSlot(), current);
+  }
+
+  function refresh(force) {
+    const override = debugOverride();
+    if (override) {
+      current = override;
+      render();
+      return;
+    }
+
+    const cached = !force && readCache();
+    if (cached) {
+      current = cached;
+      render();
+      return;
+    }
+
+    fetchStatus().then(status => {
+      current = status;
+      render();
+    });
+  }
+
+  function init() {
+    refresh(false);
+
+    // Mintlify routes on the client, so the navbar is torn down and rebuilt
+    // without a page load. Re-render on mutation, same contract as the
+    // resizable-panels observer above.
+    const observer = new MutationObserver(() => {
+      if (observerTimeout) clearTimeout(observerTimeout);
+      observerTimeout = setTimeout(render, CONFIG.debounceDelay);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Docs tabs stay open for hours. Poll while visible, stop while hidden, and
+    // catch up on return rather than burning requests in a background tab.
+    setInterval(() => {
+      if (!document.hidden) refresh(true);
+    }, CONFIG.refreshInterval);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refresh(false);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
