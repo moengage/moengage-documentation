@@ -47,8 +47,9 @@ info:
 
     **Rate Limits**: The rate limits are at the workspace level. A maximum of 10 requests per second,
     100 requests per minute, and 6,000 requests per hour are allowed per workspace for the search,
-    get, and status endpoints. The analytics endpoints do not have a rate limit of their own;
-    requests to them count toward a shared limit of 10,000 requests per minute.
+    get, and status endpoints. The analytics endpoints do not have a rate limit of their own.
+    Requests to them count toward a shared limit of 10,000 requests per minute that also covers
+    other MoEngage API traffic.
 
      <Note>
        Breaching any limit rejects the request with a `429` response.
@@ -1825,7 +1826,9 @@ components:
           example: 4
         current:
           type: integer
-          description: The number of users still at the stage.
+          description: >
+            The number of users still at the stage. MoEngage derives it as `entered` minus
+            `exited`, minus `drops.total_drops`, minus `exits.total_exits`.
           example: 0
         drops:
           type: object
@@ -1846,6 +1849,24 @@ components:
           type: object
           description: The users who exited the flow at this stage.
           properties:
+            exit_reasons:
+              type: object
+              description: >
+                The number of users who exited for each exit condition, keyed by the condition's
+                name.
+              additionalProperties:
+                type: integer
+              example:
+                "Exit Condition 3": 1
+            conversions:
+              type: object
+              description: >
+                The number of users who exited on each conversion goal, keyed by the goal's name.
+              additionalProperties:
+                type: integer
+              example:
+                TY: 1
+                TY1: 3
             total_exits:
               type: integer
               description: The total number of users who exited the flow at this stage.
