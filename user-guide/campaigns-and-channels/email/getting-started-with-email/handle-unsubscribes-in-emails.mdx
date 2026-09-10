@@ -7,17 +7,27 @@ description: "Learn how to manage email unsubscribes in MoEngage with global uns
 
 Marketers using emails must provide an _Unsubscribe_ link in their non-transactional communications to maintain a good domain reputation and comply with regulations. A user hence unsubscribing should be avoided from future communication of a similar nature.
 
+<Note>
+  Test and preview campaigns do not modify user-profile data. Sending a test does not update the unsubscribe status (`moe_unsubscribe`) or other reachability attributes on the profile — only live campaigns update these fields. To validate an unsubscribe flow, run a live campaign targeting a small internal segment.
+</Note>
+
 MoEngage as a platform helps marketers adhere to the rule above by providing the following types of Subscription Management:
 
 - [Global Unsubscribe](/user-guide/campaigns-and-channels/email/getting-started-with-email/handle-unsubscribes-in-emails#global-unsubscribe)
 - [List-Unsubscribe](/user-guide/campaigns-and-channels/email/getting-started-with-email/handle-unsubscribes-in-emails#list-unsubscribe)
 - [Subscription Categories](/user-guide/campaigns-and-channels/email/getting-started-with-email/handle-unsubscribes-in-emails#subscription-categories)
 
+# Unsubscribe vs. Suppression
+
+Unsubscribe is a user action: the user clicks unsubscribe, and MoEngage sets the standard unsubscription attribute on their profile to `True`. Suppression is the platform-side outcome that stops non-transactional campaigns from reaching a user, and unsubscribe is only one of the conditions that triggers it.
+
+For the full comparison — what triggers suppression, how brands manage it, and why MoEngage doesn't maintain a native suppression list — see [Unsubscribe vs. Suppression](/user-guide/campaigns-and-channels/email/getting-started-with-email/suppression-updates#unsubscribe-vs-suppression) on the Suppression Updates page.
+
 # Types of Subscription Management in MoEngage Emails
 
 ## Global Unsubscribe
 
-Global unsubscribe allows users to unsubscribe from all non-transactional emails of your brand or business. When a user clicks this link, they can either be unsubscribed directly or be redirected to a landing page to get double confirmation before unsubscribing.
+Global unsubscribe allows users to unsubscribe from all non-transactional emails of your brand or business. When a user clicks this link, they can either be unsubscribed directly or be redirected to a landing page to get double confirmation before unsubscribing. This doesn't affect transactional emails or those sent via Inform — those continue to reach the user regardless of their global unsubscribe status. Bounce is the only trigger that blocks all campaign types, including transactional.
 
 ## List-Unsubscribe
 
@@ -35,6 +45,7 @@ Broadly, MoEngage offers marketers the following ways to set these up:
 
 - **MoEngage Managed:** This option allows you to seamlessly use MoEngage capabilities to capture and update a user's subscription on MoEngage. If you have other systems (third-party tools or in-house systems), you can forward this information from MoEngage to those systems.
 - **Self-Managed, Custom Managed, or None:** This option allows you to invoke your brand's handling of user subscription; it is generally used when brands want to manage user preferences on their side. In such cases, brands would need to capture users' subscriptions and update both their systems and MoEngage.
+
 
 # How to Set Them Up?
 
@@ -119,6 +130,10 @@ As mentioned above, in the case of MoEngage-Tracking or Sendgrid Tracking, a def
       - For this to work correctly, the href attribute should always be linked to the protocol (HTTP or HTTPS).
       - You can replace the _Unsubscribe here_ text with the required text in any supported language.
     </Info>
+
+    <Warning>
+      Paste the href unencoded. If a link contains a MoEngage personalization token, do not URL-encode it. URL-encoding replaces the `{{` delimiter with `%7B%7B` and `$` with `%24`, which decodes to a `{{$` sequence that Jinja cannot parse. When you save or send the campaign, this can produce an error similar to `Error in parsing jinja template format. Error unexpected char u'$' at ...`. Insert the token through the merge tag or token option provided in the editor. For more information, see [Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/jinja-templating-language#escaping).
+    </Warning>
 
     **Custom HTML Editor**
 
@@ -308,7 +323,7 @@ If you are using custom landing page and would want to update the preference of 
 For example, if the link to the custom landing page was [_https://www.abc.com/managepreference_](https://www.abc.com/managepreference), when the user clicks the same from the email, the link will be like below:
 
 ```text wrap
-https://www.abc.com/managepreference?/?user\_id=7XvJW2dj3iS.rYAt4pg5ASBQtaqAMFDw9e89vZCXx\_RFfN3eL0wBG008oI6cpncOQV6ESg&cid=5FGZGcA8FRv3Id89JCCczQjwxq6ApEyAarYDje2mzfRQ\_WG7VyyFEc0w4L3MA.31a7wzR64fi7lfq8Km0AaeO4paGVul.4HxixDYnoUp21xyUjGtfvnrHSR2G1reTpYPHHU.r3Ac9vE&app\_key=UY\_GHXBXyaHbiYnCoNOu7eS.u5yIrrN3noTBNZX5mNSL4KN5C5PZ3zcXBKCCxl9w3m0ukw
+https://www.abc.com/managepreference?/?user_id=7XvJW2dj3iS.rYAt4pg5ASBQtaqAMFDw9e89vZCXx_RFfN3eL0wBG008oI6cpncOQV6ESg&cid=5FGZGcA8FRv3Id89JCCczQjwxq6ApEyAarYDje2mzfRQ_WG7VyyFEc0w4L3MA.31a7wzR64fi7lfq8Km0AaeO4paGVul.4HxixDYnoUp21xyUjGtfvnrHSR2G1reTpYPHHU.r3Ac9vE&app_key=UY_GHXBXyaHbiYnCoNOu7eS.u5yIrrN3noTBNZX5mNSL4KN5C5PZ3zcXBKCCxl9w3m0ukw
 ```
 
 Here, you can parse and find user\_id which in this case will be
@@ -383,6 +398,10 @@ To achieve the same, perform the following steps:
 1. Collate the list of Email IDs to be resubscribed.
 2. Invoke the MoEngage Resubscribe API as mentioned [here](https://www.moengage.com/docs/api/resubscribe/bulk-resubscribe-users).
 3. Set _update\_esp=true_ and pass the list of email IDs in the _recipients key_ as an _array_.
+
+<Warning>
+  Resubscribing a user in MoEngage or with your email sender only removes the suppression condition, it doesn't restore consent. See the [compliance note](/user-guide/campaigns-and-channels/email/getting-started-with-email/suppression-updates#unsubscribe-vs-suppression) on the Suppression Updates page before resuming sends to a resubscribed user.
+</Warning>
 
 # Frequently Asked Questions
 

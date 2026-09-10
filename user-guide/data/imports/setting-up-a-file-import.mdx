@@ -1,0 +1,345 @@
+---
+title: "Set Up a File Import"
+description: "Automate imports of users, events, and auxiliary data from files in Amazon S3 or an SFTP server into MoEngage. Prepare files, map columns, and schedule syncs."
+keywords: "file import, Amazon S3, SFTP, CSV, JSON, NDJSON, mapping file, manifest, naming conventions, file size limit, rate limit, PGP"
+---
+
+import MappingFileConcept from '/snippets/imports-mapping-file-concept.mdx';
+import DatetimeFormats from '/snippets/imports-datetime-formats.mdx';
+import UniversalImportFaqs from '/snippets/imports-faq-universal.mdx';
+import FileImportFaqs from '/snippets/imports-faq-file.mdx';
+import PortfolioRouting from '/snippets/imports-portfolio-routing.mdx';
+import ArraySupport from '/snippets/imports-array-support.mdx';
+import ReachabilityNote from '/snippets/imports-reachability-note.mdx';
+import PgpEncryption from '/snippets/imports-pgp-encryption.mdx';
+import DataArchival from '/snippets/imports-data-archival.mdx';
+
+MoEngage automates imports of users, events, and auxiliary data from files you drop in an Amazon S3 bucket or an SFTP server. You prepare your files, configure the connection and column mapping once, and MoEngage picks up new files on a one-time or periodic schedule.
+
+Select your source in any tabbed section below and the page stays on that source throughout.
+
+# Types of Imports
+
+MoEngage can import the following from your files:
+
+- **Registered Users**: Users who are already registered on MoEngage.
+- **Anonymous Users**: Users who are not yet registered on MoEngage.
+- **Events** (Standard and User-Defined): Standard events such as Campaign Interaction Events, as well as your own user-defined events.
+- **Auxiliary Data**: Supplementary user data ingested temporarily. Auxiliary Data has its own setup. See [Auxiliary Data](/user-guide/data/imports/auxiliary-data).
+
+# Prepare Your Files
+
+## Supported File Types
+
+MoEngage supports **CSV** and **NDJSON** files, in UTF-8 encoding.
+
+| File Type | Users | Events | Auxiliary Data |
+| --- | :---: | :---: | :---: |
+| CSV | ✅ | ✅ | ✅ |
+| JSON (NDJSON) | ✅ | ✅ | ❌ |
+
+## Naming Conventions
+
+Name your files so that MoEngage can identify the import type and the run date:
+
+<Info>
+  Give every file a unique name. MoEngage skips any file name it has already processed, whether the previous import succeeded, partially succeeded, or failed.
+</Info>
+
+A file name has two parts: `<import type>_<date time format>.<file extension>`.
+
+- **Registered users**: prefix `registered_user_data_`, for example, `registered_user_data_01311997.csv`.
+- **Anonymous users**: prefix `anonymous_user_data_`, for example, `anonymous_user_data_jan_2022.csv`.
+- **Events**: prefix `<event name>_`, for example, for the event "Purchase Summary", `Purchase_Summary_31011997.csv`.
+
+MoEngage also supports custom file names following `<custom name>_<date time format>.<file extension>`, where the custom name uses letters, numbers, spaces, and underscores.
+
+The `<date time format>` suffix represents the day the import runs. For example, if an import runs on 7 January 2022 and the selected format is `ddmmyyyy`, MoEngage looks for files ending in `07012022.csv` or `07012022.json`. Configure the format on the dashboard during setup. Supported formats:
+
+| Format | Description | Example |
+| --- | --- | --- |
+| `{mm}_{yyyy}` | `mm`: month 01–12; `yyyy`: 4-digit year | `01_2022` |
+| `{ddmmyyyy}` | `dd`: day 01–31; `mm`: month 01–12; `yyyy`: 4-digit year | `31012022` |
+| `{yyyymmdd}` | `yyyy`: 4-digit year; `mm`: month 01–12; `dd`: day 01–31 | `20220112` |
+| `{mon_yyyy}` | `mon`: lowercase 3-letter month (`jan`–`dec`); `yyyy`: 4-digit year | `jan_2022` |
+| `{yyyymmdd}_{hhmm}` | date as above; `hh`: hours 00–23; `mm`: minutes 00–59 | `20220131_1259` |
+
+<Info>
+  Do not use `moe_` as a prefix for events, event attributes, or user attributes. It is a reserved system prefix.
+</Info>
+
+**File extensions:**
+
+- Without encryption: `.csv`, `.json`
+- With PGP encryption: `.csv.asc`, `.json.asc`, `.csv.pgp`, `.json.pgp`
+
+## File Structure
+
+Structure your files according to the file type you import:
+
+<Tabs>
+  <Tab title="CSV Files">
+    - The first row must be the column names (treated as the header row).
+    - No duplicate column names (names are case-sensitive) and no missing column names.
+    - Only the comma (`,`) is supported as a delimiter.
+    - Avoid empty rows.
+
+    Sample files: [Registered Users](https://uploads-samples-cdn.moengage.com/registered_user_data.csv), [Anonymous Users](https://uploads-samples-cdn.moengage.com/anonymous_user_data.csv), [Events](https://uploads-samples-cdn.moengage.com/sample_event.csv), [Mapping File](https://uploads-samples-cdn.moengage.com/upload_mapping.json).
+  </Tab>
+  <Tab title="JSON Files">
+    JSON files must be Newline-Delimited JSON (NDJSON) with a `.json` extension. Each line is a complete, self-contained JSON object separated by a newline:
+
+    ```json wrap
+    {"user_id": "user123", "name": "John Doe", "email": "john.doe@example.com", "address": {"city": "New York", "zip": "10001"}}
+    {"user_id": "user124", "name": "Jane Smith", "email": "jane.smith@example.com", "preferences": ["email_updates", "sms_alerts"]}
+    ```
+
+    Sample files: [Registered Users](https://app-cdn.moengage.com/partners-integration-ui/app-marketplace-public/helpdoc/registered_user_data.json), [Anonymous Users](https://app-cdn.moengage.com/partners-integration-ui/app-marketplace-public/helpdoc/anonymous_user_data.json), [Events](https://app-cdn.moengage.com/partners-integration-ui/app-marketplace-public/helpdoc/sample_event.json), [Mapping File](https://app-cdn.moengage.com/partners-integration-ui/app-marketplace-public/helpdoc/upload_mapping.json).
+
+    #### File Structure and Mapping JSON Levels
+
+    When you upload or select a JSON file, MoEngage generates a flattened, tabular preview of the data. This preview represents keys up to two levels deep (root level + one nested level) as distinct columns:
+
+    ```json
+    {
+      "item-id": 123,
+      "item-type": "books",
+      "item-cost": {
+        "amount": {
+          "cost-price": 100,
+          "discount": 0
+        },
+        "currency": "USD"
+      }
+    }
+    ```
+
+    | Key | Level | Mappable? |
+    | --- | --- | --- |
+    | `item-id`, `item-type` | 1 | Directly to an attribute. |
+    | `item-cost` | 1 (object) | As a whole Object. |
+    | `item-cost.amount` | 2 (object) | As a whole Object. |
+    | `item-cost.currency` | 2 | Directly to an attribute. |
+    | `cost-price`, `discount` | 3 | No, deeper than two levels. |
+
+    #### Mapping Capabilities
+
+    - **Mapping Primitive Keys**: Map any primitive key from Level 1 or Level 2 directly to a standard MoEngage attribute.
+    - **Mapping Entire Objects or Arrays of Objects**: Map a complete JSON object or an array of objects to a single MoEngage attribute of type "Object" or "Array of Objects" respectively. When an entire object is mapped, its internal structure and all nested keys are preserved and imported. You cannot rename these keys within MoEngage.
+    - **Cherry-Picking Fields**: To map only specific primitive fields from an object (up to Level 2) and not the entire parent object, skip the parent object attribute in the mapping table, then map its individual nested primitive keys.
+    - **Mapping Files**: Use mapping files to automate your JSON key mappings. The mapping file references the flattened JSON paths (for example, `"column": "user_profile.id"`).
+
+    #### Map Limitations
+
+    **Level-2 Keys within an Array of Objects**: You cannot directly map individual Level 2 keys nested within an array of objects. You can map the entire array of objects to an "Array of Objects" attribute, which imports its full nested structure.
+
+    #### Behavior During Data Ingestion
+
+    - **Null or Blank Strings**: If a mapped key's value is null or an empty string, MoEngage skips it and does not update the corresponding data.
+    - **Unmapped/Skipped Keys**: Any additional keys in your JSON file that are neither mapped nor marked as skipped are ignored and not ingested.
+  </Tab>
+</Tabs>
+
+<Info>
+  MoEngage does not support the `|` (pipe) character in non-array columns. Ensure String, Numeric, and Boolean columns do not contain this character.
+</Info>
+
+## Folder Structure
+
+Place all files into a single folder and configure the folder path during setup. MoEngage does not look inside subfolders or the root folder.
+
+## Array Support (CSV)
+
+<ArraySupport />
+
+# Limits
+
+File imports have the following limits:
+
+<DataArchival />
+
+| Limit | Value |
+| --- | --- |
+| File size | Less than 500 MB per CSV/JSON file. Split larger files. |
+| Rows | A single CSV or JSON file supports up to your hourly row limit. Files exceeding your hourly row limit are rejected. |
+| Columns/Attributes | 100 columns for users; 100 columns per event. |
+| File name prefix | Maximum 100 characters. |
+| Number of files | Up to 250 files per import run. |
+
+**Rate limits** (defaults, contact MoEngage to increase):
+
+| Import Type | Hourly | Daily |
+| --- | --- | --- |
+| Users | 600K/hr | 14M/day |
+| Events | 5M/hr | 40M/day |
+
+The hourly rate is the maximum ingested per hour; the daily rate is the total cap per day. When a rate limit is breached, you receive a _Rate limit breached_ alert on the Data Imports dashboard.
+
+<Tip>
+  Avoid scheduling a very large number of files at the same time. Doing so can create a processing backlog and delay ingestion, even when each file is small. Stagger or batch your scheduled imports over time instead of queuing a large number of files together.
+</Tip>
+
+# Required Access and Connection
+
+Grant MoEngage access to your source before you create the import:
+
+<Tabs>
+  <Tab title="Amazon S3">
+    Grant MoEngage read access to your S3 bucket and set up a connection in the App Marketplace. For the IAM permissions and connection setup, see [Set Up Authentication](/partner-guide/data-and-analytics/cloud-storage/amazon-s3#step-1-set-up-authentication), [Grant Permissions](/partner-guide/data-and-analytics/cloud-storage/amazon-s3#step-2-grant-permissions), and [Connect Amazon S3 in the App Marketplace](/partner-guide/data-and-analytics/cloud-storage/amazon-s3#step-3-connect-amazon-s3-on-the-app-marketplace).
+  </Tab>
+  <Tab title="SFTP">
+    Set up an [SFTP connection](https://partners.moengage.com/hc/en-us/articles/26763225201172-SFTP#01H7YCB0T78V73YJSY4Y8A8X0S) in the App Marketplace with the relevant permissions. For details, see [Configure a New SFTP Connection](https://partners.moengage.com/hc/en-us/articles/26763225201172-SFTP#h_01JFHD1Q8VFS8SCBZZWCERE7Z2).
+  </Tab>
+</Tabs>
+
+# Set Up the Import
+
+Set up your import in three steps: configure the connection and file format, map your columns to MoEngage attributes, and select the import frequency.
+
+<Info>
+  Contact your MoEngage Customer Success team to enable the **Data** menu on the left navigation if it is not visible.
+</Info>
+
+On the MoEngage sidebar, go to **Data** > **Data imports**, click **+ Import**, and select **Users** or **Events**. Then select your source tile and click **Continue**.
+
+## Step 1: Configure the Connection and File Format
+
+Select whether to import **Registered users** or **Anonymous users** (for User imports), or select the event to import (for Event imports). Registered and anonymous imports expect different file names; see [Naming Conventions](#naming-conventions).
+
+For events, your file names must begin with the event name of the chosen event. For example, the event "App/Site Opened" has the event name `MOE_APP_OPENED`, so file names begin with `MOE_APP_OPENED_`. To create a new event, click **+ Create event** and enter a unique name; new events appear in your app only after the first successful import.
+
+Next, configure the connection and folder:
+
+<Tabs>
+  <Tab title="Amazon S3">
+    1. In the **S3 connection** list, select your connection (or click **+ Add connection**).
+    2. In the **File type** list, select **CSV** or **JSON**.
+    3. In the **Folder path** box, enter your directory path. Do not include the bucket name or trailing slashes, because MoEngage resolves the bucket name from your marketplace connection.
+    4. To import PGP-encrypted files, select **Is your file encrypted?** and provide your private **Decryption Key**, optional public **Signing Key**, and **Key passphrase**.
+
+    <img src="/images/s3-imports-select-connection.png" alt="S3 connection, file type, folder path, and encryption options" />
+  </Tab>
+  <Tab title="SFTP">
+    1. In the **SFTP connection** list, select your connection (or click **+ Add connection**).
+    2. In the **Folder URL** box, enter the full path beginning with `sftp://[host-name]/`, without a trailing slash (for example, `sftp://files.hostname.com/my_folder`). MoEngage does not support root folders or subfolders, so keep all files in a single folder.
+    3. To import PGP-encrypted files, select **Is your file encrypted?** and provide your private **Decryption Key**, optional public **Signing Key**, and **Key passphrase**.
+
+    <img src="/images/moengage_84ac18.png" alt="SFTP connection, folder URL, and encryption fields" />
+  </Tab>
+</Tabs>
+
+Enter a unique **Import name** to identify this import on the dashboard.
+
+<Accordion title="Set up PGP encryption">
+  <PgpEncryption />
+</Accordion>
+
+### File Configurations
+
+Select the DateTime format present in your file name (your file name must end with `_<date time format>.csv`). Ensure at least one matching file exists in the folder, then click **Fetch file(s)**. If the connection and format are correct, MoEngage shows a preview of the top 5 rows.
+
+If MoEngage cannot fetch the file, you may see:
+
+<Tabs>
+  <Tab title="Amazon S3">
+    - **Given S3 Access Key is not valid**: Verify your S3 marketplace connection details.
+    - **Please check the folder path and try again**: Verify the folder path and that compatible files exist in it.
+    - **Found zero data rows in the file**: The file has no rows after the header. MoEngage expects at least 2 rows (1 header + 1 data row).
+  </Tab>
+  <Tab title="SFTP">
+    - **Given credentials are not correct**: Enter the correct SFTP credentials and fetch again.
+    - **Please check the folder path and try again**: Verify the folder path and that compatible files exist in it.
+    - **Found zero data rows in the file**: The file has no rows after the header. MoEngage expects at least 2 rows (1 header + 1 data row).
+  </Tab>
+</Tabs>
+
+Click **Next** to continue to mapping.
+
+## Step 2: Map Your Columns to MoEngage Attributes
+
+Map each file column to a MoEngage attribute. For every column you see the column name with a sample value, the **Map attribute** selector (pick the data type, and for DateTime columns the format), and a **Skip** action. To create a new attribute, click **+ Create attribute**. You can also click **+ Add Field** to enter a mapping manually.
+
+Mandatory mappings depend on the import type:
+
+- **User imports (Registered)**: map your identifier column to **User ID**.
+- **User imports (Anonymous)**: map your identifier column to **Anonymous ID**.
+- **Event imports**: map your identifier column to **User ID**, and map your timestamp column to **Event Time**.
+
+<Tabs>
+  <Tab title="Amazon S3">
+    For events, map either **Event Time (UTC)** or **Event Time (App Timezone)**. If you choose Event Time (UTC), the event time is converted to the timezone configured in your MoEngage dashboard settings.
+  </Tab>
+  <Tab title="SFTP">
+    For events, map either **Event Time (UTC)** or **Event Time (App Timezone)**. If you choose Event Time (UTC), the event time is converted to the timezone configured in your MoEngage dashboard settings.
+  </Tab>
+</Tabs>
+
+Once a mandatory mapping is marked, you can no longer skip that column.
+
+### Mapping Files
+
+Optionally, auto-map your columns by uploading a mapping file. Click **Upload mapping file** at the top-right of the mapping table and select your file. Mappings are auto-configured; a modal lets you create any attributes referenced in the mapping file that don't yet exist. Columns in the mapping file but not in your file are ignored; columns in your file but missing from the mapping file are left blank for manual mapping.
+
+For a fresh import, MoEngage provides a sample mapping file you can use as a reference. If you duplicate an existing import, its mapping file is pre-attached and available to download. If a mapping file maps a column to an attribute that doesn't exist in MoEngage, the mapping is left blank, create the attribute from the UI first, then map the column to it.
+
+<MappingFileConcept />
+
+### Portfolio Support (Project-Level Routing)
+
+<PortfolioRouting />
+
+### Send Import Notifications
+
+Turn on notifications and select up to **10 email recipients** to be alerted when an import is created, succeeds, or fails. When your mappings are complete, click **Next**.
+
+## Step 3: Select the Import Frequency
+
+Define when MoEngage retrieves your files:
+
+- **One-Time Imports**: Run immediately or schedule for a future date and time.
+- **Periodic Imports**: Run hourly, daily, weekly, or monthly, with intervals and advanced configurations.
+
+For each run, MoEngage fetches files matching the configured DateTime format, so ensure your file names are correct. Optionally, set the import to end after a number of occurrences or on a specific date. Click **Done**.
+
+<ReachabilityNote />
+
+# Duplicate Imports
+
+You can configure only one unique import at a time. An import is a duplicate when **all** of these match an existing active import:
+
+<Tabs>
+  <Tab title="Amazon S3">
+    1. **Import type**: Users or Events.
+    2. **Import sub-type**: Event name, or Registered / Anonymous.
+    3. **S3 folder path**.
+    4. **Bucket name**.
+  </Tab>
+  <Tab title="SFTP">
+    1. **Import type**: Users or Events.
+    2. **Import sub-type**: Event name, or Registered / Anonymous.
+    3. **SFTP folder path**, the complete folder path, including hostname.
+  </Tab>
+</Tabs>
+
+If any one parameter differs, the import is unique.
+
+# Import Failure Policy
+
+MoEngage retries a failed file automatically, up to 30 attempts, before marking it permanently FAILED. You can configure an email alert on failure during setup. A file-level failure does not stop the schedule, future scheduled runs continue independently.
+
+# Supported Datetime Formats
+
+Use these in the `datetime_format` field of your mapping file, or when configuring DateTime columns during mapping.
+
+<DatetimeFormats />
+
+# Manage Your Imports
+
+To monitor your imports, understand import statuses, or trigger a run manually or via API, see [How Imports Work](/user-guide/data/imports/overview-imports#how-imports-work) on the Imports Overview.
+
+# Frequently Asked Questions
+
+<UniversalImportFaqs />
+
+<FileImportFaqs />
+

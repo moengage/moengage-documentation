@@ -45,10 +45,11 @@ paths:
           <Note>
           - For more information about trackable user attributes, reserved keys, and general data information, refer to the [Data Overview](https://www.moengage.com/docs/api/data/data-overview).
           - If you have [Portfolio](/user-guide/settings/account/portfolio/portfolio) enabled for your workspace, you must pass `project_code` in the API endpoint. This identifies which project a user or event belongs to. For more information, refer to [Portfolio: Data Ingestion and Management](/user-guide/data/key-concepts/portfolio-data-ingestion-and-management).
+          - [Unsetting Attributes](/user-guide/data/user-data/unset-user-attributes) is an Early Access feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
           </Note>
 
           #### Rate Limit
-          A single API request contains one or more user updates. Maintain a rate limit of 10,000 user updates per minute.     
+          A single API request contains one or more user updates. Maintain a rate limit of 10,000 user updates per minute.
           
       description: "This API adds or updates users and user properties in MoEngage. You can create a new user, create new user property, or update existing user properties of users."
       
@@ -116,6 +117,17 @@ paths:
                     platforms:
                       - platform: "iOS"
                         active: "true"
+              Unsetting Attributes:
+                summary: Clear Attributes
+                value:
+                  type: "customer"
+                  customer_id: "user123"
+                  unset_attributes:
+                    - type: "equals"
+                      attr: "first_name"
+                      case_sensitive: false
+                    - type: "prefix"
+                      attr: "temp_"
       responses:
         '200':
           description: This response is returned when the request is processed successfully.
@@ -301,37 +313,6 @@ paths:
                       message: "Payload size exceeds 128 KB"
                       type: "PayloadTooLarge"
                       request_id: "VFzDwhwt"
-        '415':
-          description: This response is returned when the content type is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "Unsupported Media Type"
-                      type: "MediaTypeError"
-                      request_id: "SgBQfKJh"
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -403,8 +384,9 @@ paths:
       x-mint:
         content: |
           <Note>
-           - Get User API must be enabled for your workspace before use. Contact your CSM or MoEngage support to request enablement.
+           - Access to Get User is gated because the endpoint can return PII. To enable it for your workspace, contact your CSM or raise a ticket with MoEngage Support. The request creates an audit trail of who asked for access. Workspaces already using the API before gating was introduced were enabled automatically.
            - Get User is a **single-lookup** API, you pass one or more identifiers and get back the matching user profile(s), up to the payload limit below. It does not support a "retrieve all users" mode; there's no parameter on this endpoint to export your entire user base. If you need to export all users, use a separate bulk/file export flow instead.
+           - You can optionally IP-whitelist the callers permitted to invoke this endpoint.
           </Note>
           #### Rate Limit
           The rate limit is 20 users per payload and 1000 users per minute.
@@ -706,39 +688,6 @@ paths:
                       message: "Payload size exceeds 128 KB"
                       type: "PayloadTooLarge"
                       request_id: "VFzDwhwt"
-        '415':
-          description: This response is returned when the content type is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    description: This field contains the status of the request and specifies whether the request was a failure.
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
- 
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "Unsupported Media Type"
-                      type: "MediaTypeError"
-                      request_id: "SgBQfKJh"
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -950,14 +899,6 @@ paths:
                       message: "merged_user is expected to be String or Unicode String."
                       type: "MissingAttributeError"
                       request_id: "dBSEscwl"  
-                missing_contenttype:
-                  summary: Content type header is missing in the request
-                  value:
-                    status: "fail"
-                    error:
-                      message: "The Content-Type Header is required."
-                      type: "Missing header value"
-                      request_id: "pIvbWnGT" 
                 suspended_account:
                   summary: Suspended MoEngage account used in the request
                   value:
@@ -1167,38 +1108,6 @@ paths:
                       message: "The payload can not exceed 128KB"
                       type: "PayloadTooLarge"
                       request_id: "VFzDwhwt"
-        '415':
-          description: This response is returned when the header “Content-Type” is not provided/is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    description: This field contains the status of the request and specifies whether the request was a failure.
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported Media Type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "The header 'Content-Type' is missing. Kindly provide the header 'Content-Type' and set it as 'application/json'"
-                      type: "MediaTypeError"
-                      request_id: "SgBQfKJh"
         '429':
           description: This response is returned when the number of requests per minute has exceeded the rate limit.
           content:
@@ -1301,7 +1210,7 @@ paths:
              properties:
                identity_type:
                  type: string
-                 enum: [customer_id, id]
+                 enum: [customer_id, moengage_id]
                  description: This field specifies the identifier type. Identifier types can either be customer_id (ID field in the User Profile) or moengage_id (the MoEngageID of the user in the User Profile). Allowed values are "moengage_id", "customer_id".
                  example: customer_id
                identity_value:
@@ -1773,37 +1682,6 @@ paths:
                       message: "Payload size exceeds 128 KB"
                       type: "PayloadTooLarge"
                       request_id: "VFzDwhwt"              
-        '415':
-          description: This response is returned when the content type is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "Content type is not supported"
-                      type: "Unsupported media type"
-                      request_id: "SgBQfKJh"              
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -2102,37 +1980,6 @@ paths:
                       message: "Payload size exceeds 128 KB"
                       type: "PayloadTooLarge"
                       request_id: "VFzDwhwt"              
-        '415':
-          description: This response is returned when the content type is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "Content type is not supported"
-                      type: "Unsupported media type"
-                      request_id: "SgBQfKJh"              
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -2421,37 +2268,6 @@ paths:
                       message: "Payload cannot exceed 128KB"
                       type: "Payload too large"
                       request_id: "VFzDwhwt"
-        '415':
-          description: This response is returned when the content type is not supported.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  error:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        description: "A descriptive error message explaining why the request failed."
-                      type:
-                        type: string
-                        description: "The type or category of the error (e.g., Unsupported media type)."
-                      request_id:
-                        type: string
-                        description: "A unique identifier for the request, useful for debugging."
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    status: "fail"
-                    error:
-                      message: "Content type is not supported"
-                      type: "Unsupported media type"
-                      request_id: "SgBQfKJh"
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -2608,10 +2424,6 @@ paths:
           description: |
             **Payload Size Exceeded**
             This response is returned when the payload size exceeds 128 KB.
-        '415':
-          description: |
-            **Unsupported Media Type**
-            This response is returned when the content type is not supported.
         '429':
           description: |
             **Rate Limit Breach**
@@ -3121,26 +2933,6 @@ paths:
                   value:
                     status: "fail"
                     data: "Resource not found."            
-        '415':
-          description: This response is returned when the APP Key is invalid or missing, the password is incorrect, or there are other such authorization-related errors in the request.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  title:
-                    type: string
-                    example: fail
-                    description: This field denotes the error title.
-                  description: 
-                    type: string
-                    description: This field denotes the error description.
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    title: "Unsupported media type"
-                    description: "Content type is not supported"            
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit.
           content:
@@ -3317,24 +3109,6 @@ paths:
                   value:
                     status: "fail"
                     data: "Resource not found."            
-        '415':
-          description: This response is returned when the APP Key is invalid or missing, the password is incorrect, or there are other such authorization-related errors in the request.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  title:
-                    type: string
-                    example: fail
-                  error_description: 
-                    type: string
-              examples:
-                unsupported_media_type:
-                  summary: Unsupported media type
-                  value:
-                    title: "Unsupported media type"
-                    error_description: "Content type is not supported"            
         '429':
           description: This response is returned when the number of requests has exceeded the rate limit..
           content:
@@ -3937,6 +3711,41 @@ components:
           description: "List of dictionaries with the associated platforms out of ANDROID, iOS, and web and their status."
           items:
             $ref: '#/components/schemas/PlatformObject'
+        unset_attributes:
+          type: array
+          description: |
+            Use this field to clear one or more existing user attributes, matched either by exact name or by pattern. Attributes matched by any rule in the array are removed from the user profile.
+
+            ```json
+             {
+               "customer_id": "user123",
+               "unset_attributes": [
+                 { "type": "equals", "attr": "first_name", "case_sensitive": false },
+                 { "type": "prefix", "attr": "temp_" }
+               ]
+             }
+            ```
+            * System/reserved attributes are protected and can't be unset this way.
+          items:
+            $ref: '#/components/schemas/UnsetAttributeRule'
+    UnsetAttributeRule:
+      type: object
+      required:
+        - type
+        - attr
+      properties:
+        type:
+          type: string
+          enum: [equals, prefix, suffix, contains]
+          description: 'This field specifies how `attr` is matched against existing user attribute names.'
+        attr:
+          type: string
+          description: 'This field specifies the attribute name (for `equals`) or the pattern (for `prefix`, `suffix`, `contains`) to match against.'
+        case_sensitive:
+          type: boolean
+          default: true
+          description: 'This field specifies whether the match is case-sensitive. Optional, defaults to true.'
+
     IdentifierObject:
       type: object
       properties:
@@ -4237,6 +4046,7 @@ components:
         platform:
           type: string
           enum: [ANDROID, iOS, web, TV]
+          example: ANDROID
           description: This field denotes the platforms where the device is supported. Using unsupported values may result in an API response of 400.
         push_id:
           type: string

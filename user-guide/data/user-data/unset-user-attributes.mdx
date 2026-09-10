@@ -1,0 +1,87 @@
+---
+title: "Unset User Attributes"
+description: "Remove a value from a standard or custom user attribute entirely, restoring it to a null or non-existent state for accurate segmentation and data hygiene."
+---
+
+## Overview
+
+<Info>
+**Early Access**
+
+This is an Early Access feature. To enable it for your account, contact your MoEngage Customer Success Manager (CSM) or the Support team.
+</Info>
+
+The Unset User Attribute feature lets you remove a value from a specific user attribute, effectively restoring it to a "null" or "non-existent" state. Prior to this feature, if you wanted to clear the value of a user attribute, you might have set a value to 0, N/A, or an empty string. However, MoEngage still considers these "values". Unsetting ensures the user attribute value is removed entirely, enabling more accurate segmentation and data hygiene.
+
+<Info>
+**Information**
+
+- This feature applies only to standard and custom user attributes, not for derived user attributes and ID (customer_id).
+- This feature is not supported for event or device attributes.
+- The unset attribute functionality is supported only through data APIs, specifically the Track User API and the Bulk Import API (only for user attributes, not for event or device attributes).
+- The unset attribute functionality is not supported through SDKs, Warehouse Imports, and File based Imports.
+- You can unset PII encrypted and masked user attributes.
+</Info>
+
+## Use Cases
+
+**Enhanced segmentation accuracy:** Enable precise targeting by removing obsolete status flags (for example, expired Loyalty Tier) from user profiles. This ensures that users correctly qualify for 'Does Not Exist' segments, eliminating data noise caused by residual empty or null values.
+
+**Precise data removal:** Unlike setting a value to 0 or null (which keeps the attribute key present on the profile), unsetting the attribute removes the attribute value. This allows you to precisely delete individual attributes (such as PII or outdated contact details) to maintain data hygiene without impacting the broader user profile.
+
+**Data compliance and GDPR:** Satisfy partial data deletion requests (for example, removing a phone number or specific PII due to a user request or GDPR compliance) by erasing specific user attributes while preserving the remainder of the user's profile and historical data.
+
+## Supported Data Types
+
+You can unset attributes of the following data types:
+
+- String (Text)
+- Numeric (Integers, Decimals)
+- DateTime
+- Boolean (True/False)
+- All Array types
+  By default, when an array is to be unset, all the attribute elements inside the array are unset. If you want to partially remove a specific element from an array, you should use the removeValueFromArrayField functionality. For more information, refer to ``User Property as Array`` cURL in the [Track User](/api/user/track-user) API.
+
+## Unsetting the User Attributes
+
+To unset an attribute, pass an `unset_attributes` object within your JSON payload of the supported Data APIs. MoEngage uses a condition-based approach to identify which attributes to remove.
+
+The `unset_attributes` object must contain the following unset attribute details:
+
+| Key | Data Type | Required | Description |
+|-----|-----------|----------|--------------|
+| type | String | Yes | Denotes the matching logic used to identify attributes for removal. Supported values are:<br />`equals`: Unsets the attribute that matches the exact name provided in `attr`.<br />`prefix`: Unsets all attributes that start with the string provided in `attr`.<br />`suffix`: Unsets all attributes that end with the string provided in `attr`.<br />`contains`: Unsets all attributes that contain the string provided in `attr`. |
+| attr | String | Yes | The target string used for matching. This acts as the specific attribute name (for `equals`) or the search pattern (for `prefix`/`suffix`/`contains`) |
+| case_sensitive | Boolean | No | Determines if capitalization matters during the matching process. Defaults to `true` if not specified. Supported values are:<br />`true`<br />`false` |
+
+### Sample cURL
+
+Below is a sample JSON payload for the [Track User API](/api/user/track-user). For the [Bulk Import API](/api/bulk/bulk-import-users-and-events), the logic remains the same to unset an attribute, but applies only to the Customer payload (`type: customer`):
+
+```bash
+curl --location --request POST 'https://api-0X.moengage.com/v1/customer/{{appId}}?app_id={{appId}}' \
+--header 'Content-Type: application/json' \
+--header {"Authorization": "Basic Base64_ENCODED_APPKEY_APIKEY"} \
+--data '{
+    "type": "customer",
+    "customer_id": "Customer01",
+    "attributes": {
+    },
+    "unset_attributes": [
+        {
+            "type": "equals",
+            "attr": "custom_userattribute_1",
+            "case_sensitive": true
+        }
+    ]
+}'
+```
+
+<Info>
+**Information**
+
+- Requests to unset attributes that are Blocked in the Data Management dashboard are ignored.
+- Requests to unset Hidden attributes in the Data Management dashboard are processed successfully.
+- If an attribute is defined in both the `attributes` and `unset_attributes` object within the same API payload, the Unset operation takes precedence. The attribute value is removed.
+- The unset operation can only be performed on attributes that are already registered or present within the workspace.
+</Info>

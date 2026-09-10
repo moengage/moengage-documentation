@@ -12,13 +12,17 @@ MoEngage supports the following ways of creating email content using the Custom 
   If custom fonts are enabled for your workspace, this editor's functionality changes accordingly. For more information, refer to [Custom Fonts](/user-guide/campaigns-and-channels/email/getting-started-with-email/custom-fonts).
 </Info>
 
-# Edit/Paste HTML Template
+<Warning>
+The Custom HTML Editor has a few known rendering, personalization, and editor-specific limitations. Review the [Known Limitations](#known-limitations) section below before building complex templates.
+</Warning>
+
+## Edit/Paste HTML Template
 
 You can craft email content using the HTML editor. The side-by-side view of the editor helps you visualize the impact of any changes made to the HTML code, regardless of its complexity.
 
 With HTML editor, you can perform the following actions:
 
-## Add HTML Code
+### Add HTML Code
 
 <Info>
   If you have turned on the **Auto-format HTML code** toggle in the [Email settings](https://moengage-user-guide.mintlify.app/user-guide/campaigns-and-channels/email/getting-started-with-email/configure-email-channel#general-settings-tab), Custom HTML editor of MoEngage performs some actions in the HTML templates. This offers a significant advantage through automatic HTML cleanup, ensuring semantic correctness and reliable rendering across browsers. For more information on these actions, refer to [Automatic Edits MoEngage Performs on an HTML Template](/user-guide/campaigns-and-channels/email/faqs-email/what-are-the-auto-formats-moengage-performs-on-an-html-template-added-in-the-moengage-email-editor-custom-html-editor).
@@ -36,7 +40,7 @@ You can add an HTML code that you have prepared previously or create it with the
 Do not embed base64-encoded image data in your HTML (for example, `<img src="data:image/png;base64,...">`) or paste it into a link or URL field. Reference images with a hosted URL or upload them instead. A large base64 image can exceed the message-size limit during sending and cause the campaign to fail silently, with a Sent count of 0.
 </Warning>
 
-## Preview the Email Design
+### Preview the Email Design
 
 The side-by-side view helps you preview any changes made to the HTML code in real-time, enabling you to see the immediate impact of any changes made. Additionally, you can preview your email design on both desktop and mobile resolutions to ensure that it looks good and functions properly on different devices.
 
@@ -46,19 +50,19 @@ MoEngage provides a**View advanced preview** option that allows you to have a [*
 
 ![2024-09-13\_13-00-10.gif](/images/moengage_5d534a.png)
 
-## Add Dynamic Content
+### Add Dynamic Content
 
 You can personalize your email content with attributes. Link and image personalisation is available in the HTML editor. For more information, refer to [Personalization using the Custom HTML Editor](https://moengage-user-guide.mintlify.app/user-guide/campaigns-and-channels/email/create/personalize-email-content#personalization-images-using-the-custom-html-editor).
 
-## Save as Template
+### Save as Template
 
 You can save an HTML code as a template in the template library under **My saved templates** and use it later in your campaigns. Click **Save template** under **Template actions** to save your template.
 
-# Upload an HTML Template in ZIP Format
+## Upload an HTML Template in ZIP Format
 
 You can craft your email content by uploading a ZIP file (containing an HTML file and images). MoEngage converts this ZIP file and displays your design in the Custom HTML Editor. You can then make further changes or [personalize the message](/user-guide/campaigns-and-channels/email/create/personalize-email-content).
 
-## ZIP File Format
+### ZIP File Format
 
 To upload a ZIP file, make sure to follow the specifications below:
 
@@ -68,7 +72,7 @@ To upload a ZIP file, make sure to follow the specifications below:
 - Make sure the images are in the JPG, JPEG, PNG, or GIF formats.
 - All images should be located on the relative path mentioned in HTML (with case sensitivity). If you encounter an error regarding the image location, ensure that all images are placed in the correct folders inside the ZIP.
 
-## Steps to Upload an Email Template in ZIP Format
+### Steps to Upload an Email Template in ZIP Format
 
 1. Log in to the MoEngage dashboard.
 2. On the **All campaigns** page, click **\+ Create campaign** \> **Email**\> the required delivery type.
@@ -93,3 +97,26 @@ To upload a ZIP file, make sure to follow the specifications below:
 This will load your template in the Drag and Drop editor. If you see an error, follow the guidelines in the [ZIP File Format](#zip-file-format) section.
 
 For further assistance, please contact your MoEngage Customer Success Manager (CSM) or the Support team.
+
+## Known Limitations
+
+### Gmail-Specific CSS Behavior
+
+- Gmail ignores `@media` hide/show queries on both mobile and desktop clients — build responsive layout with fluid-hybrid tables (percentage- or max-width-based) instead of relying on media-query toggles alone.
+- Gmail does not honor `prefers-color-scheme` dark-mode CSS — it applies its own automatic color inversion instead. Inline SVG is also stripped or mangled by Gmail and by the editor's HTML parser. Use a single transparent PNG with a white stroke (invisible in light mode, visible once Gmail auto-inverts) instead of trying to detect dark mode, and avoid inline SVG — use the raw-HTML/Ace editor if exact attribute casing matters.
+
+### Personalization (Jinja) Syntax
+
+- Never place Jinja loop/templating syntax as a direct child of a `<tr>` element — HTML parsers will hoist it out of the table structure and scramble the logic, causing "item is not defined" failures at send time even though the personalized preview looks correct. Unroll loops into fixed `<td>` cells with index-based access and fallbacks, or use Display Conditions for list-length-based variants.
+
+### Fonts
+
+- Custom or branded web fonts (Google Fonts, `@import`, etc.) will not render in most inbox clients — this is an email-client limitation, not a MoEngage gap. Custom fonts only display in "View in Browser," and the font `<link>`/`@import` must be added manually for View in Browser to pick it up. Design with web-safe fonts and a solid fallback stack for the inbox itself.
+
+### Editor Behavior Quirks
+
+- The rich-text editor can silently append trailing newline characters to a pasted link URL, breaking the click-through with nothing visibly wrong in the UI. If links start failing silently after editing, check the raw href in code view; switching to the raw-HTML editor avoids the mangling since it passes HTML through untouched.
+- The rich-text editor restructures imported HTML — head-level markup (like Gmail annotation schema) can get relocated into the body and broken, and `<script>` tags are rejected outright as a security measure. For head-level structured data, author it once and load it through the raw-HTML editor (plain HTML passthrough, no DOM restructuring).
+- Keep the entire `<html>`/`<body>` structure inside one place — never split opening tags in the template from closing tags inside a separately managed content block referenced via a merge tag. The editor can't resolve unresolved merge tags at edit time and may wipe out body content.
+- Pasting raw HTML into the rich-text (WYSIWYG) view instead of the code view gets escaped as literal text and can shift formatting elsewhere in the email. Add HTML only through the code view, or paste plain text in the rich-text view and apply links via the toolbar's "Insert Link."
+- If a link-edit popup won't open, suspect a browser extension (DLP/"safe-link" tooling) before assuming a template or platform problem — test in incognito or a clean browser profile before escalating.
