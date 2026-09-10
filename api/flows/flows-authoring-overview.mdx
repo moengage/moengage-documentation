@@ -24,17 +24,28 @@ The Flows authoring API is a collection of the following endpoints:
 <ApiAuthentication />
 
 <Note>
-  When creating an API key for this API, ensure the **Campaigns** check box is selected under **Select APIs for access** (Flows reuse the Campaigns permissions). Both endpoints require the **Create & Manage** permission.
+  When creating an API key for this API, ensure the **Campaigns** checkbox is selected under **Select APIs for access** (Flows reuse the Campaigns permissions). Both endpoints require the **Create & Manage** permission.
 </Note>
 
 MoEngage resolves the workspace from the Basic Auth credentials in the `Authorization` header.
 
 Requests go to your data center's host, `https://api-{dc}.moengage.com`. For the full list of data centers and their identifiers, refer to [Data Centers](/api/introduction#data-centers).
 
+## Rate Limits
+
+Rate limits apply at the workspace level and differ by endpoint.
+
+| Endpoint | Method | Rate limit |
+| :--- | :--- | :--- |
+| `/v5/flows` — Create a Flow | POST | 10 requests per minute |
+| `/v5/flows/{flow_id}` — Update a Flow | PATCH | 20 requests per minute |
+
+Exceeding a limit rejects the request with a `429` response.
+
 ## Conventions
 
 - IDs are 24-character identifiers. `flow_id` identifies the flow; `version_id` identifies one of its versions.
-- Every successful response uses the format `{response_id, type, data}`.
+- Every successful response uses the envelope `{response_id, type, data}`.
 - Dates and times are in ISO 8601 UTC format (`YYYY-MM-DDThh:mm:ssZ`).
 - MoEngage rejects any field it does not recognize with a `400` response. A flow you fetched with a GET request therefore posts back only after you remove the read-only fields.
 
@@ -48,7 +59,7 @@ Both endpoints accept the following headers in addition to `Authorization`.
 | `Idempotency-Key` | A UUID that protects against duplicate writes. Required on both endpoints. |
 | `Content-Type` | Must be `application/json`. Any other media type returns a `415` response. |
 
-### How the Idempotency Key Behaves
+### Idempotency
 
 MoEngage honors an `Idempotency-Key` at most once for 24 hours and never replays a response.
 
@@ -82,7 +93,7 @@ Use the stored IDs in every later update request. A GET request also returns `st
 
 `tags` holds tag names, up to 12. An unknown name returns a `400` response.
 
-### Action Nodes Are Skeletons
+### Action Node Content
 
 An `ACTION` node fixes the channel and the node's place in the graph. You author the message content in the dashboard, so `config.campaign_id` returns a `400` response.
 
@@ -113,13 +124,13 @@ A node's kind is fixed. To change the `type` or `sub_type` of a node, remove it 
 
 New nodes carry IDs that you choose and MoEngage replaces, as on create. The update response does not return the mapping, so send a GET request to learn the stored IDs of the nodes you added.
 
-### Which Version MoEngage Changes
+### Version Selection
 
 `version_no` selects the version to change. The default is the active version.
 
 `flow_draft_uuid` is an optional lock. Send the value that **Create a Flow** returned, and MoEngage refuses the update with a `409` response if the flow changed in the meantime. MoEngage generates a new value on every successful update.
 
-### Editing a Draft Compared to a Live Flow
+### Drafts Compared to Live Flows
 
 MoEngage edits a draft version in place. On a live version, what happens depends on what you change.
 
