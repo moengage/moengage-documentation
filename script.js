@@ -360,17 +360,22 @@
     maintenance: 'degraded'
   };
 
-  /* Short labels keep the navbar tight. The API's own status.description is
-     human-authored and longer ("Partial System Outage"), so it goes in the
-     tooltip instead, where it can never contradict the status page. */
+  /* The pill shows the API's own status.description verbatim, so the navbar can
+     never word things differently from the status page itself. These are only
+     the fallbacks for a missing description, and they match Statuspage's own
+     default wording. 'unavailable' has no API text by definition. */
   const LABELS = {
-    operational: 'Operational',
-    degraded: 'Degraded',
-    major: 'Major Outage',
+    operational: 'All Systems Operational',
+    degraded: 'Degraded Performance',
+    major: 'Major System Outage',
     unavailable: 'Status Unavailable'
   };
 
-  const UNKNOWN = { state: 'unavailable', label: LABELS.unavailable, detail: 'Could not reach the status page' };
+  const UNKNOWN = {
+    state: 'unavailable',
+    label: LABELS.unavailable,
+    detail: 'Could not reach the status page'
+  };
 
   let current = null;
   let observerTimeout = null;
@@ -412,11 +417,8 @@
     const status = payload && payload.status;
     if (!status || !INDICATORS[status.indicator]) return null;
     const state = INDICATORS[status.indicator];
-    return {
-      state: state,
-      label: LABELS[state],
-      detail: (status.description || '').trim() || LABELS[state]
-    };
+    const description = (status.description || '').trim() || LABELS[state];
+    return { state: state, label: description, detail: description };
   }
 
   function fetchStatus() {
