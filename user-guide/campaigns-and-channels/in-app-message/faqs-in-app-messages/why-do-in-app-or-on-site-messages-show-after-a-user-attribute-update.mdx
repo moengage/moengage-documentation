@@ -1,0 +1,39 @@
+---
+title: "Why do in-app or on-site messages show after a user attribute update?"
+description: "Why an in-app or on-site campaign can still display after the user attribute that should exclude the user changes, and how to force a real-time eligibility check."
+keywords: "in-app eligibility, cached segment, user attribute update, re-evaluate campaign eligibility, MOE_NOT_SEND, on-site messaging"
+---
+
+## Problem
+
+You update a user attribute that should remove a user from the target segment of a campaign, but the user continues to see the in-app or on-site message.
+
+## Why This Happens
+
+For campaigns that target a user-attribute-based segment, MoEngage evaluates in-app and on-site message eligibility against a cached segment state rather than against the live attribute value. A recent attribute change is not reflected in real time, so a user can stay eligible for a period after the update.
+
+This is expected behavior for the default configuration.
+
+## Get Real-Time Eligibility for In-App Campaigns
+
+Turn on **Re-evaluate campaign eligibility before displaying** when you create the in-app campaign. With this toggle on, the SDK checks the current attributes of the user with the backend at the moment the campaign is triggered, and drops the campaign if the user is no longer eligible.
+
+For more information, refer to [Re-evaluate Campaign Eligibility](/user-guide/campaigns-and-channels/in-app-message/create/create-in-app-campaign#re-evaluate-campaign-eligibility).
+
+<Info>
+  You can turn on re-evaluation for a maximum of five in-app campaigns at a time.
+</Info>
+
+## Suppress the Message With Jinja
+
+Use this approach when re-evaluation is not available for your campaign — for example, when you have reached the limit of five campaigns.
+
+Target the campaign at all users, and use Jinja on the user attribute to decide whether the content displays:
+
+```text wrap
+{% if User.plan == 'free' %}Upgrade to Pro today{% else %}MOE_NOT_SEND{% endif %}
+```
+
+When the condition resolves to `MOE_NOT_SEND`, MoEngage does not deliver the message. Jinja is evaluated when the message renders, so it reads the current attribute value instead of the cached segment. This approach works in both HTML and non-HTML campaigns.
+
+For more information, refer to [Personalize Content Using the Jinja Templating Language](/user-guide/campaigns-and-channels/getting-started/message-personalization/overview#personalize-content-using-the-jinja-templating-language).
