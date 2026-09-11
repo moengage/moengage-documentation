@@ -1,0 +1,2970 @@
+openapi: 3.0.0
+info:
+  title: Flows Authoring
+  version: '5.0'
+  description: |
+    Use the Flows authoring endpoints to create a flow as a draft and to update an existing
+    flow. These endpoints build and change flows; to list, read or change the status of a flow,
+    refer to [Flows](/api/flows/flows-overview).
+
+    <Note>
+      The Flows authoring endpoints are in early access. MoEngage enhances these endpoints based on feedback during this period, but does not make breaking changes.
+    </Note>
+
+    The API exposes the following endpoints:
+
+    - `POST /v5/flows` — create a flow. The flow is created as version 1 in `DRAFT` status. You
+      publish it from the dashboard.
+    - `PATCH /v5/flows/{flow_id}` — update a flow. The request body is sparse: MoEngage changes
+      only what you send and leaves out everything else unchanged.
+
+    **Conventions**
+
+    - IDs are 24-character identifiers. `flow_id` identifies the flow; `version_id` identifies one
+      of its versions.
+    - Every successful response uses the format `{response_id, type, data}`. The `response_id`
+      echoes the `request_id` you send; if you omit it, the server uses the first 12 characters
+      of a system-generated UUID.
+    - Dates and times are in ISO 8601 UTC format (`YYYY-MM-DDThh:mm:ssZ`).
+    - `stage_id` identifies a node inside `structure.nodes`. On create you choose these IDs, and
+      MoEngage returns the IDs it stored them under in `assigned_stage_ids`. Use the returned IDs
+      in later update requests.
+    - MoEngage rejects any field it does not recognize with a `400` response.
+
+    For more information about the node graph, the difference between editing a draft and a live
+    flow, and the validation codes, refer to
+    [Flows Authoring Overview](/api/flows/flows-authoring-overview).
+
+    **Permissions**
+
+    Flows reuse the `campaigns` permission for scope checks. Both endpoints require the
+    `campaigns:create_manage` permission.
+
+    **Rate Limits**: The rate limits are at the workspace level and differ by endpoint. Create a Flow
+    allows a maximum of 10 requests per minute, and Update a Flow allows a maximum of 20 requests
+    per minute.
+
+     <Note>
+       Breaching any limit rejects the request with a `429` response.
+     </Note>
+servers:
+- url: https://api-{dc}.moengage.com
+  variables:
+    dc:
+      default: '01'
+      description: Your MoEngage data center number. For more information, refer to [Data Centers in MoEngage](/user-guide/data/key-concepts/data-centers-in-moengage).
+paths:
+  /v5/flows:
+    post:
+      tags:
+      - Flows
+      summary: Create a Flow
+      operationId: createFlowV5
+      description: |
+        This API creates a flow as a draft. MoEngage stores it as version 1 in `DRAFT` status and does not publish, schedule, or send anything; you publish the flow from the dashboard. Requires the `campaigns:create_manage` permission.
+      x-mint:
+        content: |
+          #### Rate Limits
+
+          The rate limits are at the workspace level. A maximum of 10 requests per minute are allowed per workspace.
+      parameters:
+      - $ref: '#/components/parameters/Authorization'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlowCreateV5Request'
+            examples:
+              minimal_event_triggered:
+                summary: Smallest valid flow — event entry straight to exit
+                value:
+                  name: Welcome series
+                  created_by: agent@example.com
+                  settings:
+                    on_failure: move
+                  structure:
+                    nodes:
+                    - stage_id: t1
+                      type: TRIGGER
+                      sub_type: EVENT
+                      label: App opened
+                      config:
+                        schedule:
+                          delivery: soon
+                          timezone: Asia/Kolkata
+                        segmentation:
+                          audience_type: allusers
+                          filters:
+                            filter_operator: and
+                            filters:
+                            - filter_type: custom_segments
+                              name: All Users
+                              id: moe_all_users
+                        trigger:
+                          primary_conditions:
+                            filter_operator: or
+                            filters:
+                            - filter_type: actions
+                              action_name: MOE_APP_OPENED
+                              executed: true
+                              execution:
+                                type: atleast
+                                count: 1
+                              attributes:
+                                filter_operator: and
+                                filters: []
+                    - stage_id: x1
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: t1
+              minimal_with_team_and_tags:
+                summary: Same flow on a teams-enabled workspace, with tags and a body request_id
+                value:
+                  request_id: 7d1f3c2e-create-0001
+                  name: Welcome series
+                  created_by: agent@example.com
+                  team: Growth
+                  tags:
+                  - onboarding
+                  - lifecycle
+                  global_control_group_enabled: false
+                  settings:
+                    on_failure: move
+                  structure:
+                    nodes:
+                    - stage_id: t1
+                      type: TRIGGER
+                      sub_type: EVENT
+                      label: App opened
+                      config:
+                        schedule:
+                          delivery: soon
+                          timezone: Asia/Kolkata
+                        segmentation:
+                          audience_type: allusers
+                          filters:
+                            filter_operator: and
+                            filters:
+                            - filter_type: custom_segments
+                              name: All Users
+                              id: moe_all_users
+                        trigger:
+                          primary_conditions:
+                            filter_operator: or
+                            filters:
+                            - filter_type: actions
+                              action_name: MOE_APP_OPENED
+                              executed: true
+                              execution:
+                                type: atleast
+                                count: 1
+                              attributes:
+                                filter_operator: and
+                                filters: []
+                    - stage_id: x1
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: t1
+              event_trigger_with_delay_wait_email:
+                summary: Event entry 2 hours after Purchase, wait 48 hours, email skeleton, exit — with
+                  control group, attribution window and conversion goal
+                value:
+                  name: Post-purchase follow-up
+                  created_by: agent@example.com
+                  tags:
+                  - lifecycle
+                  settings:
+                    on_failure: move
+                    control_group:
+                      enabled: true
+                      percentage: 10
+                      stickiness: true
+                    frequency_capping:
+                      ignore: false
+                    bypass_dnd: false
+                  attribution_window:
+                    value: 2
+                    unit: days
+                  conversion_goal_details:
+                    primary_goal:
+                      event: Repeat Purchase
+                      goal_name: Bought again
+                    exit_on_conversion: true
+                  structure:
+                    nodes:
+                    - stage_id: entry
+                      type: TRIGGER
+                      sub_type: EVENT
+                      label: Purchase made
+                      config:
+                        user_entry_settings:
+                          enabled: false
+                        schedule:
+                          delivery: soon
+                          timezone: Asia/Kolkata
+                        segmentation:
+                          audience_type: allusers
+                          filters:
+                            filter_operator: and
+                            filters:
+                            - filter_type: custom_segments
+                              name: All Users
+                              id: moe_all_users
+                        trigger:
+                          primary_conditions:
+                            filter_operator: or
+                            filters:
+                            - filter_type: actions
+                              action_name: Purchase
+                              executed: true
+                              execution:
+                                type: atleast
+                                count: 1
+                              attributes:
+                                filter_operator: and
+                                filters: []
+                          relation: after
+                          relative_to: If Action
+                          delay:
+                            value: 2
+                            unit: hours
+                    - stage_id: wait_2d
+                      type: CONTROL
+                      sub_type: WAIT_FOR_TIMER
+                      label: Wait two days
+                      parent_stage_id: entry
+                      config:
+                        wait_type: fixed
+                        duration: 48
+                        duration_unit: hours
+                    - stage_id: thanks_email
+                      type: ACTION
+                      sub_type: EMAIL
+                      label: Thank-you email
+                      parent_stage_id: wait_2d
+                    - stage_id: exit
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: thanks_email
+              scheduled_periodic_ab_split:
+                summary: Periodic scheduled entry (Mon/Wed/Fri) with an entry throttle, a 50/50 A/B split
+                  into two push skeletons, deduplication on
+                value:
+                  name: Weekly deals digest
+                  created_by: agent@example.com
+                  settings:
+                    on_failure: exit
+                    deduplication:
+                      enabled: true
+                  structure:
+                    nodes:
+                    - stage_id: entry
+                      type: TRIGGER
+                      sub_type: SCHEDULED
+                      label: Every Monday, Wednesday and Friday
+                      config:
+                        schedule:
+                          delivery: periodic
+                          start_time: '2026-10-05T09:00:00Z'
+                          timezone: Asia/Kolkata
+                          recurrence:
+                            frequency: WEEKLY
+                            every: 1
+                            weekdays:
+                            - 0
+                            - 2
+                            - 4
+                        segmentation:
+                          audience_type: allusers
+                          filters:
+                            filter_operator: and
+                            filters:
+                            - filter_type: custom_segments
+                              name: All Users
+                              id: moe_all_users
+                        throttle_entries_per_minute: 5000
+                    - stage_id: split
+                      type: SPLIT
+                      sub_type: AB_SPLIT
+                      label: Creative test
+                      parent_stage_id: entry
+                    - stage_id: variant_a
+                      type: BRANCH
+                      sub_type: AB_SPLIT
+                      label: Variant A
+                      parent_stage_id: split
+                      config:
+                        percentage: 50
+                    - stage_id: variant_b
+                      type: BRANCH
+                      sub_type: AB_SPLIT
+                      label: Variant B
+                      parent_stage_id: split
+                      config:
+                        percentage: 50
+                    - stage_id: push_a
+                      type: ACTION
+                      sub_type: PUSH
+                      label: Deals push A
+                      parent_stage_id: variant_a
+                    - stage_id: push_b
+                      type: ACTION
+                      sub_type: PUSH
+                      label: Deals push B
+                      parent_stage_id: variant_b
+                    - stage_id: exit_a
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: push_a
+                    - stage_id: exit_b
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: push_b
+      responses:
+        '201':
+          description: Flow created as version 1 in status `DRAFT`. `assigned_stage_ids` maps every caller
+            `stage_id` to the server id to use from now on; `warnings[]` lists non-blocking findings persisted
+            onto the draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFlowV5SuccessResponse'
+              example:
+                response_id: abc-800
+                type: flow
+                data:
+                  flow_id: 69f1de84f9e401a2d7d9a931
+                  version_id: 69f1de84f9e401a2d7d9a931
+                  version_name: Version 1
+                  version_no: 1
+                  status: DRAFT
+                  flow_draft_uuid: e8954fc4-ec9e-469c-baeb-313c991d4e88
+                  assigned_stage_ids:
+                    entry: 7LVnb4eJe
+                    wait_2d: loWYqyTFp
+                    thanks_email: aB7cD9eFg
+                    exit: pQ4rS5tU6
+                  warnings:
+                  - stage_id: aB7cD9eFg
+                    messages:
+                    - No campaign is attached to this stage, so it cannot send anything. Author its content
+                      in the dashboard.
+        '400':
+          $ref: '#/components/responses/V5FlowValidationError'
+        '401':
+          $ref: '#/components/responses/V5Unauthorized'
+        '403':
+          $ref: '#/components/responses/V5Forbidden'
+        '409':
+          $ref: '#/components/responses/V5IdempotencyConflict'
+        '415':
+          $ref: '#/components/responses/V5UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/V5RateLimited'
+        '500':
+          $ref: '#/components/responses/V5InternalError'
+  /v5/flows/{flow_id}:
+    patch:
+      tags:
+      - Flows
+      summary: Update a Flow
+      operationId: updateFlowV5
+      description: |
+        This API updates an existing flow. The request body is sparse, so MoEngage changes only the members you send and leaves the rest of the flow unchanged. Requires the `campaigns:create_manage` permission.
+      x-mint:
+        content: |
+          #### Rate Limits
+
+          The rate limits are at the workspace level. A maximum of 20 requests per minute are allowed per workspace.
+      parameters:
+      - $ref: '#/components/parameters/Authorization'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/FlowIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlowUpdateV5Request'
+            examples:
+              rename_and_settings:
+                summary: Rename, retag and change settings (a draft — these are inline-class on a live
+                  flow)
+                value:
+                  updated_by: agent@example.com
+                  name: Welcome journey v2
+                  tags:
+                  - onboarding
+                  - q4
+                  settings:
+                    control_group:
+                      enabled: true
+                      percentage: 10
+                      stickiness: true
+                    bypass_dnd: false
+              edit_wait_node:
+                summary: Rewrite a wait node (WAIT_FOR_TIMER config is replaced whole)
+                value:
+                  updated_by: agent@example.com
+                  structure:
+                    nodes:
+                    - stage_id: loWYqyTFp
+                      type: CONTROL
+                      sub_type: WAIT_FOR_TIMER
+                      label: Wait two days
+                      parent_stage_id: 7LVnb4eJe
+                      config:
+                        wait_type: fixed
+                        duration: 48
+                        duration_unit: hours
+              remove_split_keep_branch:
+                summary: Remove a split, keeping one branch's subtree spliced to the split's parent
+                value:
+                  updated_by: agent@example.com
+                  structure:
+                    nodes:
+                    - stage_id: gdr4-jMMBQ
+                      operation: remove
+                      keep_stage_id: jZvREk-yz
+              add_condition_with_yes_no_branches:
+                summary: Insert a HAS_DONE_EVENT condition after the wait, re-parent the existing email
+                  under YES, add a push and exit under NO
+                value:
+                  updated_by: agent@example.com
+                  structure:
+                    nodes:
+                    - stage_id: cond_opened
+                      type: CONDITION
+                      sub_type: HAS_DONE_EVENT
+                      label: Opened the app?
+                      parent_stage_id: loWYqyTFp
+                      config:
+                        condition:
+                          filter_operator: and
+                          filters:
+                          - filter_type: actions
+                            action_name: MOE_APP_OPENED
+                            executed: true
+                            execution:
+                              type: atleast
+                              count: 1
+                            attributes:
+                              filter_operator: and
+                              filters: []
+                        evaluation_timing: SINCE_PREVIOUS_STAGE
+                        wait:
+                          duration: 1
+                          unit: days
+                    - stage_id: cond_opened_yes
+                      type: BRANCH
+                      sub_type: HAS_DONE_EVENT
+                      parent_stage_id: cond_opened
+                      config:
+                        outcome: 'YES'
+                    - stage_id: cond_opened_no
+                      type: BRANCH
+                      sub_type: HAS_DONE_EVENT
+                      parent_stage_id: cond_opened
+                      config:
+                        outcome: 'NO'
+                    - stage_id: aB7cD9eFg
+                      parent_stage_id: cond_opened_yes
+                    - stage_id: nudge_push
+                      type: ACTION
+                      sub_type: PUSH
+                      label: Come back push
+                      parent_stage_id: cond_opened_no
+                    - stage_id: exit_no
+                      type: CONTROL
+                      sub_type: EXIT
+                      parent_stage_id: nudge_push
+              targeted_version_with_lock:
+                summary: Edit version 1 under an optimistic lock, changing the attribution window
+                value:
+                  updated_by: agent@example.com
+                  version_no: 1
+                  flow_draft_uuid: e8954fc4-ec9e-469c-baeb-313c991d4e88
+                  attribution_window:
+                    value: 72
+                    unit: hours
+      responses:
+        '200':
+          description: Update applied. `version_id` / `version_no` name the version actually written —
+            the target itself when it was a draft, or the pending draft version the change was staged
+            into when the target was live.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateFlowV5SuccessResponse'
+              examples:
+                DraftEditedInPlace:
+                  summary: Target version was a draft — edited in place
+                  value:
+                    response_id: abc-810
+                    type: flow
+                    data:
+                      flow_id: 69f1de84f9e401a2d7d9a931
+                      version_id: 69f1de84f9e401a2d7d9a931
+                      version_name: Version 1
+                      version_no: 1
+                      status: DRAFT
+                      warnings: []
+                StagedIntoPendingDraft:
+                  summary: Target version was live — change staged into the pending draft version
+                  value:
+                    response_id: abc-811
+                    type: flow
+                    data:
+                      flow_id: 69f1de84f9e401a2d7d9a931
+                      version_id: 8b13f0a6f9e401a2d7d9ab53
+                      version_name: Version 3
+                      version_no: 3
+                      status: DRAFT
+                      warnings:
+                      - stage_id: rT8uV1wX2
+                        messages:
+                        - No campaign is attached to this stage, so it cannot send anything. Author its
+                          content in the dashboard.
+        '400':
+          $ref: '#/components/responses/V5FlowValidationError'
+        '401':
+          $ref: '#/components/responses/V5Unauthorized'
+        '403':
+          $ref: '#/components/responses/V5Forbidden'
+        '404':
+          $ref: '#/components/responses/V5NotFound'
+        '409':
+          $ref: '#/components/responses/V5Conflict'
+        '415':
+          $ref: '#/components/responses/V5UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/V5RateLimited'
+        '500':
+          $ref: '#/components/responses/V5InternalError'
+components:
+  parameters:
+    Authorization:
+      name: Authorization
+      in: header
+      required: true
+      description: Basic base64(appkey:apisecret)
+      schema:
+        type: string
+    FlowIdPath:
+      name: flow_id
+      in: path
+      required: true
+      description: |
+        The flow's canonical (base) id — a raw 24-char ObjectId. Must address
+        the flow itself, not one of its versions; passing a version id returns
+        `400`.
+      schema:
+        type: string
+        pattern: ^[a-f0-9]{24}$
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Required on the three mutating operations — `POST /v5/flows`,
+        `PATCH /v5/flows/{flow_id}` and `PATCH /v5/flows/{flow_id}/status`. Not
+        required on search or the GETs (ignored if sent). Must be a UUID; a
+        missing or non-UUID value is rejected with `400` (`target: headers`,
+        detail `Idempotency-Key`).
+
+        Semantics on create and update are **at-most-once, not replay**. The key
+        is claimed for the workspace for 24 hours before the request is
+        processed; sending the same key again within that window returns `409`
+        (`code: BAD_REQUEST`, see `V5IdempotencyConflict`) and the request is
+        **not** performed — the original response is not replayed, so fetch the
+        flow to confirm what the first request did. A request that fails
+        (4xx/5xx) releases its key, so a `400` does not burn it and the same key
+        may be retried once the request is fixed.
+
+        On the status PATCH the header is validated (presence + UUID) but not
+        claimed: a repeated key is processed again and answered by the normal
+        transition rules (typically `409 V5Conflict`).
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-MOE-Request-Id
+      in: header
+      required: true
+      description: |
+        Caller-chosen request identifier, echoed verbatim as `response_id` on
+        every response. No format constraint. Either this header or `request_id`
+        in the body must be supplied (`400` otherwise); when both are present
+        the header wins.
+      schema:
+        type: string
+  schemas:
+    ActionConditionConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of every other `CONDITION` sub_type — the message-outcome checks
+        (`ON_DELIVERY`, `ON_CLICK`, `ON_EMAIL_OPEN`, `ON_SMS_DELIVERED`,
+        `ON_WHATSAPP_READ`, `MOE_IN_APP_SHOWN`, …). `wait` is the only control
+        the builder exposes ("check for event occurrence within N hours") and is
+        required; there is no `condition` member. Exactly two `BRANCH` children
+        (`YES` / `NO`).
+      required:
+      - wait
+      properties:
+        wait:
+          allOf:
+          - $ref: '#/components/schemas/ConditionWait'
+          description: How long to wait for the outcome before routing the user down the `NO` branch.
+            Required.
+        evaluation_timing:
+          $ref: '#/components/schemas/EvaluationTiming'
+        past_window:
+          $ref: '#/components/schemas/PastWindow'
+    ActionSubType:
+      type: string
+      description: |
+        `sub_type` values accepted for an `ACTION` node -- the channel the node
+        sends on, or `NBA` (Next Best Action composite). An ACTION node is
+        authored as a skeleton: its channel and its place in the graph. Content
+        is authored in the dashboard, so `config.campaign_id` is refused
+        (400 `contract.campaign_id_not_allowed_at_create`).
+      enum:
+      - CARDS
+      - CONNECTED_APPS
+      - CONNECTOR
+      - EMAIL
+      - FB_AUDIENCE
+      - GOOGLE_ADS_AUDIENCE
+      - INAPP
+      - NBA
+      - ONSITE
+      - PUSH
+      - RCS
+      - SMS
+      - WHATSAPP
+    AttributionUnit:
+      type: string
+      description: Unit of an `AttributionWindow.value`.
+      enum:
+      - hours
+      - days
+    AttributionWindow:
+      type: object
+      additionalProperties: false
+      nullable: true
+      required:
+      - value
+      - unit
+      description: |
+        How long after a send a conversion still counts, as a number and its
+        unit. One window covers both clicks and impressions (the dashboard's
+        single "Track above goal for" input). The ceiling is one ceiling stated
+        two ways: at most 240 `hours` or 10 `days`. A bare number is not
+        accepted, nor are the retired spellings `attribution`,
+        `impression_track_hours` and `click_track_hours` (400). Null on read
+        when the flow declares no window.
+      properties:
+        value:
+          type: integer
+          minimum: 1
+          description: How many `unit`s the window lasts. At most 240 hours or 10 days.
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/AttributionUnit'
+          description: '`hours` or `days`. Required -- there is no default, because a bare number cannot
+            say which it means.'
+    BTSDefaultTime:
+      type: string
+      description: |
+        Fallback for best-time-to-send when no send-time prediction exists for a
+        user: send at once, send at the app's overall best time, or do not send.
+      enum:
+      - SEND_IMMEDIATELY
+      - APP_BEST_TIME
+      - DO_NOT_SEND
+    BestTimeToSend:
+      type: object
+      additionalProperties: false
+      description: |
+        Send-time optimisation for a Next Best Action. Presence of this block
+        switches optimisation **on**, so `default_time` is required — `{}` is
+        refused. To disable optimisation omit `best_time_to_send` entirely.
+      required:
+      - default_time
+      properties:
+        default_time:
+          $ref: '#/components/schemas/BTSDefaultTime'
+    ChannelActionConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a channel `ACTION` node (every `ACTION` sub_type except `NBA`).
+        The message content itself is authored in the dashboard, not through this
+        API; a channel node under a Next Best Action is marked by the node-level
+        `is_nba_candidate: true`, and its `sub_type` is the channel.
+      properties:
+        campaign_id:
+          type: string
+          readOnly: true
+          description: |
+            Id of the child campaign holding this node's content. Returned on
+            read; **refused on POST and PATCH** with `400`
+            `contract.campaign_id_not_allowed_at_create`.
+        channel:
+          type: string
+          readOnly: true
+          description: Derived from the node's `sub_type` and returned on read. Accepted on write so a
+            fetched flow posts back unchanged, but never used as input.
+        campaign_name:
+          type: string
+          description: Display name for the campaign this node sends. Defaults to the node's `label`.
+    CheckUserAttributeConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `CONDITION` / `CHECK_USER_ATTRIBUTE` node: does the user's
+        profile match? `condition` is required. `evaluation_timing: IN_THE_PAST`
+        is **not supported** for this kind. The node requires a `label` of 5–256
+        characters and exactly two `BRANCH` children (`YES` / `NO`).
+      required:
+      - condition
+      properties:
+        condition:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: Filter block describing the user-attribute check. `condition.filters` must be a
+            non-empty list; sending `condition` replaces the whole block.
+        evaluation_timing:
+          allOf:
+          - $ref: '#/components/schemas/EvaluationTiming'
+          description: '`ON_ENTRY` or `SINCE_PREVIOUS_STAGE`; `IN_THE_PAST` is refused for this kind.'
+        wait:
+          allOf:
+          - $ref: '#/components/schemas/ConditionWait'
+          description: How long to wait for the attribute to match before routing the user down the `NO`
+            branch.
+        past_window:
+          $ref: '#/components/schemas/PastWindow'
+    ConditionSubType:
+      type: string
+      description: |
+        `sub_type` values accepted for a `CONDITION` node. `HAS_DONE_EVENT` and
+        `CHECK_USER_ATTRIBUTE` evaluate the user; every other value is an
+        action-outcome condition on the preceding channel step.
+      enum:
+      - CHECK_USER_ATTRIBUTE
+      - HAS_CLICKED_CAMPAIGN_MESSAGE
+      - HAS_CLICKED_ON_CARDS
+      - HAS_DONE_EVENT
+      - HAS_RECEIVED_CARDS
+      - HAS_SEEN_CARDS
+      - MOE_IN_APP_CLICKED
+      - MOE_IN_APP_DISMISSED
+      - MOE_IN_APP_SHOWN
+      - MOE_ONSITE_MESSAGE_CLICKED
+      - MOE_ONSITE_MESSAGE_DISMISSED
+      - MOE_ONSITE_MESSAGE_SHOWN
+      - ON_CAMPAIGN_SENT
+      - ON_CLICK
+      - ON_CONNECTED_APPS_AUDIENCE_SYNC
+      - ON_DELIVERY
+      - ON_DISMISS
+      - ON_EMAIL_CLICK
+      - ON_EMAIL_DROP
+      - ON_EMAIL_HARD_BOUNCE
+      - ON_EMAIL_OPEN
+      - ON_EMAIL_SENT
+      - ON_EMAIL_SPAM
+      - ON_EMAIL_UNSUBSCRIBE
+      - ON_FB_SYNC
+      - ON_GOOGLE_ADS_SYNC
+      - ON_RCS_CLICKED
+      - ON_RCS_DELIVERED
+      - ON_RCS_READ
+      - ON_RCS_SENT
+      - ON_SEND_CARDS
+      - ON_SMS_CLICKED
+      - ON_SMS_DELIVERED
+      - ON_SMS_SENT
+      - ON_WEBHOOK_SUCCESS
+      - ON_WHATSAPP_DELIVERED
+      - ON_WHATSAPP_DELIVERY_FAILURE
+      - ON_WHATSAPP_READ
+      - ON_WHATSAPP_SENT
+    ConditionWait:
+      type: object
+      additionalProperties: false
+      description: |
+        An evaluation window. `duration: 0` evaluates immediately; otherwise the
+        window must be at least 5 minutes and at most 30 days once combined with
+        `unit`.
+      required:
+      - duration
+      - unit
+      properties:
+        duration:
+          type: integer
+          minimum: 0
+          description: How long to wait, in `unit`. `0` = evaluate immediately.
+        unit:
+          $ref: '#/components/schemas/TimeUnit'
+    ConditionalBranchConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `BRANCH` whose parent is a `SPLIT` / `CONDITIONAL_SPLIT`.
+        `condition` is omitted on the default (last) branch. The retired members
+        `name`, `branch_type` and `branch_index` are refused with `400`
+        `schema.not_allowed` — a branch's display name is its node `label`, and
+        its position and default-ness come from the parent's `branch_order`.
+      properties:
+        condition:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: Filter block this branch matches on. Omitted on the default branch.
+    ConditionalSplitConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `SPLIT` / `CONDITIONAL_SPLIT` node — each `BRANCH` child
+        carries a `condition`; branches are evaluated in `branch_order` and the
+        first match wins, the last branch being the default. `evaluation_timing`
+        is required; `past_window` is required when it is `IN_THE_PAST`. 2–25
+        branches; at most 10 splits of any kind per flow. The split and each
+        branch need a `label` of 5–256 characters.
+      required:
+      - evaluation_timing
+      properties:
+        evaluation_timing:
+          $ref: '#/components/schemas/EvaluationTiming'
+        branch_order:
+          type: array
+          description: '`stage_id`s of the `BRANCH` children in evaluation order. Branches are checked
+            top to bottom and the first match wins, so order is behaviour; the last entry is the default
+            branch.'
+          items:
+            type: string
+        wait:
+          allOf:
+          - $ref: '#/components/schemas/ConditionWait'
+          description: Delay before evaluating. `0` evaluates immediately.
+        past_window:
+          $ref: '#/components/schemas/PastWindow'
+    ControlGroup:
+      type: object
+      additionalProperties: false
+      description: |
+        The flow's own holdout control group (distinct from the workspace-wide
+        global control group toggled by `global_control_group_enabled`).
+
+        Rules on write:
+        - `enabled: true` requires `percentage`.
+        - `percentage` or `stickiness` sent without `enabled` is a 400: a
+          `control_group` member replaces the whole block, so send `enabled`
+          (and `percentage`) with it or they are cleared. Send `enabled: false`
+          to keep a percentage without applying the group.
+      properties:
+        enabled:
+          type: boolean
+          nullable: true
+          description: Whether a holdout control group is applied to this flow.
+        percentage:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 95
+          description: Percentage of the audience held back from the flow, 1-95.
+        stickiness:
+          type: boolean
+          nullable: true
+          description: |
+            Keep the same users in the control group across re-entry. Distinct
+            from a split's own stickiness, which is per-split.
+    ControlSubType:
+      type: string
+      description: |
+        `sub_type` values accepted for a `CONTROL` node. `EXIT` takes no
+        `config` (omit it; any key inside it is a 400).
+      enum:
+      - EXIT
+      - GO_TO
+      - WAIT_FOR_TIMER
+    ConversionGoal:
+      type: object
+      additionalProperties: false
+      description: One conversion goal. A goal is identified by the event it tracks, so `goal_name` without
+        `event` is a 400.
+      properties:
+        event:
+          type: string
+          nullable: true
+          description: Name of the event that counts as a conversion.
+        goal_name:
+          type: string
+          nullable: true
+          description: Display name for this goal.
+        attributes:
+          type: object
+          additionalProperties: true
+          description: |
+            Raw attribute conditions narrowing the goal event -- the modal's
+            "With Attribute" row. Same shape as any other attribute filter block
+            and passed through untranslated, so send what the canvas stores
+            rather than what it displays: `name` is the internal attribute name
+            (`appVersion`, not `App Version`), the dropdown's "is" is
+            `operator: in` with `value` as a list, and `filter_type` is
+            `user_attributes` even on an event attribute. Omit it for a goal
+            with no condition. Write-only: not returned by GET.
+    ConversionGoalDetails:
+      type: object
+      additionalProperties: false
+      nullable: true
+      description: |
+        Conversion-goal configuration. Null on read when the flow has no
+        conversion goal. At most 5 goals in total (primary plus secondaries).
+
+        Rules on write:
+        - `secondary_goals`, `revenue_tracking`, `revenue_attribute`,
+          `revenue_currency` and `exit_on_conversion` all need a `primary_goal`
+          with an `event`.
+        - `revenue_tracking: true` requires both `revenue_attribute` and
+          `revenue_currency`; either of them without `revenue_tracking: true` is
+          a 400.
+        - `object_type_revenue_attr` is not a request field -- put the whole
+          path on `revenue_attribute`.
+      properties:
+        primary_goal:
+          allOf:
+          - $ref: '#/components/schemas/ConversionGoal'
+          nullable: true
+        secondary_goals:
+          type: array
+          nullable: true
+          maxItems: 4
+          description: Secondary goals. Require a `primary_goal` with an event; the total goal count is
+            capped at 5.
+          items:
+            $ref: '#/components/schemas/ConversionGoal'
+        revenue_tracking:
+          type: boolean
+          nullable: true
+          description: Track revenue against the primary goal.
+        revenue_attribute:
+          type: string
+          nullable: true
+          description: |
+            Attribute of the primary goal's event that holds the revenue number.
+            Only meaningful when `revenue_tracking` is true. A nested attribute
+            is a path joined with `[{~}]` -- e.g. `Object[{~}]order[{~}]amount`
+            -- not a dot, because attribute names may carry dots and spaces.
+            Every segment is resolved against the event's metadata and the leaf
+            must hold a number, so a wrong segment is named rather than the
+            whole path refused. A path through an array of objects is refused
+            (there would be no single value to attribute revenue to).
+        revenue_currency:
+          type: string
+          nullable: true
+          description: |
+            Currency of `revenue_attribute` as an ISO 4217 code the dashboard
+            offers (e.g. `USD`, `INR`). Only meaningful when `revenue_tracking`
+            is true.
+        exit_on_conversion:
+          type: boolean
+          nullable: true
+          description: Remove a user from the flow once they convert.
+    CreateFlowV5SuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/V5SuccessEnvelope'
+      - type: object
+        properties:
+          data:
+            type: object
+            required:
+            - flow_id
+            - version_id
+            - version_name
+            - version_no
+            - status
+            - assigned_stage_ids
+            - warnings
+            description: The created draft. `version_id` equals `flow_id` for the first version.
+            properties:
+              flow_id:
+                type: string
+                pattern: ^[a-f0-9]{24}$
+                description: The flow's canonical (base) id.
+              version_id:
+                type: string
+                pattern: ^[a-f0-9]{24}$
+                description: Id of the created version (same as `flow_id` for `Version 1`).
+              version_name:
+                type: string
+                description: Display name of the created version, e.g. `Version 1`.
+              version_no:
+                type: integer
+                description: Numeric version of the created draft (`1`).
+              status:
+                allOf:
+                - $ref: '#/components/schemas/FlowStatus'
+                description: Status of the created version -- always `DRAFT`.
+              flow_draft_uuid:
+                type: string
+                format: uuid
+                nullable: true
+                description: |
+                  Optimistic-lock token of the draft. Pass it as
+                  `FlowUpdateV5Request.flow_draft_uuid` to have an update refused
+                  (409) if the draft changed in between. Only this response
+                  carries it.
+              assigned_stage_ids:
+                type: object
+                description: |
+                  Map from each caller `stage_id` in the request to the id the
+                  server stored the node under. Use the server id in later
+                  `PATCH` bodies and to read `warnings[].stage_id`.
+                additionalProperties:
+                  type: string
+              warnings:
+                type: array
+                description: Non-blocking findings, sorted by `stage_id`. Empty when there are none.
+                items:
+                  $ref: '#/components/schemas/FlowWarning'
+      example:
+        response_id: 3f9c1e2ab7d4
+        type: flow
+        data:
+          flow_id: 66a1f0c2e4b0a1d2c3e4f501
+          version_id: 66a1f0c2e4b0a1d2c3e4f501
+          version_name: Version 1
+          version_no: 1
+          status: DRAFT
+          flow_draft_uuid: 8b1c6f4e-2d3a-4f5b-9c7d-1e2f3a4b5c6d
+          assigned_stage_ids:
+            welcome_trigger: aZ3kQ9pL_x
+            welcome_email: Qm7Rt2Vb-c
+          warnings:
+          - stage_id: Qm7Rt2Vb-c
+            messages:
+            - No campaign is attached to this stage, so it cannot send anything. Author its content in
+              the dashboard.
+    Deduplication:
+      type: object
+      additionalProperties: false
+      required:
+      - enabled
+      description: |
+        Deduplicate sends across users sharing a channel identifier. `SCHEDULED`
+        triggers only, and subject to the workspace having the feature. Takes
+        effect on EMAIL, SMS, WhatsApp and Webhook sends only -- the runtime
+        ignores it for other channels, so a push-only flow gains nothing from it.
+        Presence of the block is what asks for deduplication: omit it to leave
+        deduplication off. Null on read when the flow has none.
+      properties:
+        enabled:
+          type: boolean
+          description: |
+            Stop sending to users who share a channel identifier -- the same
+            mobile number or email address -- so only one of them is messaged.
+            Required; there is no default, so an empty block states nothing.
+    EntryFrequency:
+      type: string
+      description: Length of the window that `number_per_frequency` applies to in user-entry limits.
+      enum:
+      - daily
+      - weekly
+      - monthly
+      - yearly
+    EvaluationTiming:
+      type: string
+      description: |
+        When a condition (or a conditional split's branch conditions) starts being
+        evaluated. `ON_ENTRY` checks on arrival at the node; `SINCE_PREVIOUS_STAGE`
+        checks activity since the previous stage; `IN_THE_PAST` looks back over a
+        `past_window`.
+      enum:
+      - ON_ENTRY
+      - SINCE_PREVIOUS_STAGE
+      - IN_THE_PAST
+    Expiry:
+      type: object
+      additionalProperties: false
+      description: |
+        When the schedule stops admitting users. Omit for never. `AFTER_N_INSTANCES`
+        requires `max_instances` and a periodic schedule (a `recurrence`) — there
+        are no instances to count otherwise; `ON_DATE` requires `end_time`.
+      required:
+      - type
+      properties:
+        type:
+          $ref: '#/components/schemas/ExpiryType'
+        max_instances:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Number of runs to stop after, 1–100. Required when `type` is `AFTER_N_INSTANCES`.
+        end_time:
+          type: string
+          description: When the flow stops admitting users, ISO-8601. Required when `type` is `ON_DATE`.
+    ExpiryType:
+      type: string
+      description: How a schedule stops admitting users — after a number of runs (`AFTER_N_INSTANCES`)
+        or at a date (`ON_DATE`).
+      enum:
+      - AFTER_N_INSTANCES
+      - ON_DATE
+    FilterBlock:
+      type: object
+      additionalProperties: true
+      description: |
+        A raw segmentation filter block, exactly as the flow builder stores it —
+        passed through untranslated, so send stored (internal) attribute and event
+        names, not dashboard labels. `filter_operator` combines the entries in
+        `filters`; each entry is a leaf filter (e.g. `filter_type: custom_segments`,
+        `user_attributes`, or an event filter carrying `action_name`) or a nested
+        block of the same shape. Used for audiences, trigger conditions, condition
+        checks, conditional-split branches and exit conditions.
+
+        For "everyone" send the All Users segment shown in the example.
+      properties:
+        filter_operator:
+          type: string
+          description: How the entries in `filters` combine.
+          enum:
+          - and
+          - or
+        filters:
+          type: array
+          description: Leaf filters and/or nested blocks.
+          items:
+            type: object
+            additionalProperties: true
+      example:
+        filter_operator: and
+        filters:
+        - filter_type: custom_segments
+          name: All Users
+          id: moe_all_users
+    FlowCreateV5Request:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - created_by
+      - structure
+      description: |
+        Body of `POST /v5/flows`. Creates a flow as a `DRAFT` (`Version 1`)
+        synchronously; the response is `201` with
+        `CreateFlowV5SuccessResponse`.
+
+        - Every object is closed: an unknown key anywhere is a 400
+          `schema.extra_forbidden`. Retired spellings are refused by name:
+          `team_id`, `attribution`, `impression_track_hours`,
+          `click_track_hours`, `settings.inactive_eviction_days`.
+        - The read-only keys a GET returns (`flow_id`, `versions`, `status`,
+          `archived`, `delivery_type`, `created_at`, `updated_at`,
+          `published_at`, `published_by`, `approvers`, `active_version_name`)
+          are dropped by name so a fetched flow can be posted back unchanged.
+        - Validation failures are 400 `VALIDATION_FAILED` with one `details[]`
+          entry per finding (`target` = the field path, `message` prefixed with
+          the `[<error_type>]`). Warnings never block: they are echoed in the
+          response and persisted as canvas badges on the draft.
+      properties:
+        request_id:
+          type: string
+          description: Optional if supplied via the `X-MOE-Request-Id` header; echoed in `response_id`.
+            Never persisted as flow data.
+        name:
+          type: string
+          minLength: 5
+          maxLength: 256
+          description: Flow name, 5-256 characters after trimming.
+        created_by:
+          type: string
+          format: email
+          description: |
+            Email of the user the flow is created on behalf of. Must be a user
+            provisioned for this workspace, else 400. Recorded as the flow's
+            creator.
+        team:
+          type: string
+          description: |
+            Name of the owning team. Required when the workspace has the
+            Flows-teams feature (400 "team is required when the team feature is
+            enabled" if absent); must be absent when it does not (400 "Team
+            feature is not enabled for this workspace"). An unknown name is a
+            400; `created_by` not being a member of the team is a 403.
+            `team_id` is not a request field (400).
+        tags:
+          type: array
+          maxItems: 12
+          description: Tag names, at most 12. An unknown tag name is a 400. Omitted means no tags.
+          items:
+            type: string
+        global_control_group_enabled:
+          type: boolean
+          default: false
+          description: |
+            Hold this flow's audience back from the workspace-wide global control
+            group, distinct from the flow's own `settings.control_group`.
+        settings:
+          allOf:
+          - $ref: '#/components/schemas/FlowSettings'
+          description: |
+            Flow-level settings. `settings.on_failure` is required on create
+            unless `bypass_dnd` is `true` **and** `frequency_capping.ignore` is
+            `true`.
+        attribution_window:
+          $ref: '#/components/schemas/AttributionWindow'
+        conversion_goal_details:
+          $ref: '#/components/schemas/ConversionGoalDetails'
+        structure:
+          type: object
+          additionalProperties: false
+          required:
+          - nodes
+          description: The flow graph as a flat node list. Exactly one `TRIGGER`; adjacency via `parent_stage_id`.
+          properties:
+            nodes:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/FlowNodeInput'
+        flow_id:
+          type: string
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        versions:
+          type: array
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+          items:
+            $ref: '#/components/schemas/FlowVersion'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FlowStatus'
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET). A created flow is always `DRAFT`.
+        archived:
+          type: boolean
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        delivery_type:
+          allOf:
+          - $ref: '#/components/schemas/FlowDeliveryType'
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET); derived from the `TRIGGER` node.
+        created_at:
+          type: string
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        updated_at:
+          type: string
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        published_at:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        published_by:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+        approvers:
+          type: array
+          nullable: true
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+          items:
+            type: string
+        active_version_name:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Ignored on write (read-only key returned by GET).
+    FlowDeliveryType:
+      type: string
+      description: |
+        How users enter the flow. Read-only: derived from the entry (`TRIGGER`)
+        node's `sub_type`, never sent on create/update; accepted as a search
+        filter. `BUSINESS_EVENT_TRIGGERED` has no creatable TRIGGER `sub_type`,
+        so it appears only on flows authored in the dashboard.
+      enum:
+      - ONE_TIME
+      - PERIODIC
+      - ON_FLOW_EXIT
+      - EVENT_TRIGGERED
+      - BUSINESS_EVENT_TRIGGERED
+    FlowNodeConfig:
+      description: |
+        Type-specific configuration of a node. Which schema applies is decided by
+        the node's `type` and `sub_type` — and for a `BRANCH`, by the **parent**
+        node's kind — never by the config's own keys. It is therefore an `anyOf`:
+        several configs are all-optional, so `{}` satisfies more than one.
+
+        | `type` | `sub_type` | Schema |
+        |---|---|---|
+        | `TRIGGER` | `EVENT` | `TriggerEventConfig` |
+        | `TRIGGER` | `SCHEDULED` | `TriggerScheduledConfig` |
+        | `ACTION` | `NBA` | `NBAActionConfig` |
+        | `ACTION` | any channel (`EMAIL`, `PUSH`, `SMS`, `WHATSAPP`, `RCS`, `INAPP`, `ONSITE`, `CARDS`, `CONNECTOR`, `CONNECTED_APPS`, `FB_AUDIENCE`, `GOOGLE_ADS_AUDIENCE`) | `ChannelActionConfig` |
+        | `CONDITION` | `HAS_DONE_EVENT` | `HasDoneEventConfig` |
+        | `CONDITION` | `CHECK_USER_ATTRIBUTE` | `CheckUserAttributeConfig` |
+        | `CONDITION` | every other sub_type (message-outcome conditions such as `ON_DELIVERY`, `ON_CLICK`, `ON_EMAIL_OPEN`, `ON_SMS_DELIVERED`, …) | `ActionConditionConfig` |
+        | `CONTROL` | `WAIT_FOR_TIMER` | `WaitForTimerConfig` |
+        | `CONTROL` | `GO_TO` | `GoToConfig` |
+        | `CONTROL` | `EXIT` | **none** — an exit node takes no `config` key at all. Sending one, even `{}`, is `400` `schema.not_allowed`. |
+        | `SPLIT` | `AB_SPLIT` | `RandomSplitConfig` |
+        | `SPLIT` | `IPO` | `IntelligentSplitConfig` |
+        | `SPLIT` | `CONDITIONAL_SPLIT` | `ConditionalSplitConfig` |
+        | `BRANCH` | parent is a `CONDITION` | `OutcomeBranchConfig` |
+        | `BRANCH` | parent is `SPLIT` / `CONDITIONAL_SPLIT` | `ConditionalBranchConfig` |
+        | `BRANCH` | parent is `SPLIT` / `AB_SPLIT` or `IPO` | `RandomBranchConfig` |
+
+        Every schema here is closed: an unrecognised key is refused with `400`
+        `schema.extra_forbidden` ("Unexpected field in request body."). Unset
+        members are omitted — GET never emits `null` inside `config`, and on
+        POST / PATCH a member should be omitted rather than sent as `null`.
+        Members marked read-only are returned by GET and, on write, either
+        ignored or refused as each description states.
+      anyOf:
+      - $ref: '#/components/schemas/TriggerEventConfig'
+      - $ref: '#/components/schemas/TriggerScheduledConfig'
+      - $ref: '#/components/schemas/ChannelActionConfig'
+      - $ref: '#/components/schemas/NBAActionConfig'
+      - $ref: '#/components/schemas/HasDoneEventConfig'
+      - $ref: '#/components/schemas/CheckUserAttributeConfig'
+      - $ref: '#/components/schemas/ActionConditionConfig'
+      - $ref: '#/components/schemas/WaitForTimerConfig'
+      - $ref: '#/components/schemas/GoToConfig'
+      - $ref: '#/components/schemas/RandomSplitConfig'
+      - $ref: '#/components/schemas/IntelligentSplitConfig'
+      - $ref: '#/components/schemas/ConditionalSplitConfig'
+      - $ref: '#/components/schemas/OutcomeBranchConfig'
+      - $ref: '#/components/schemas/ConditionalBranchConfig'
+      - $ref: '#/components/schemas/RandomBranchConfig'
+    FlowNodeInput:
+      type: object
+      additionalProperties: false
+      required:
+      - stage_id
+      - type
+      description: |
+        One node of the graph as sent on create. Adjacency is written only via
+        `parent_stage_id`; the server derives children.
+
+        - `sub_type` is required for every `type` except `BRANCH` (400
+          otherwise). A `BRANCH` exists only under a `SPLIT` or a `CONDITION`;
+          when sent, its `sub_type` mirrors the parent's.
+        - `config` is validated against the kind's own schema once
+          `type`/`sub_type` are resolved; a `BRANCH` config is chosen by the
+          parent's kind (`CONDITION` -> `outcome`, `AB_SPLIT` -> `percentage`,
+          `CONDITIONAL_SPLIT` -> `condition`, `IPO` -> none). `CONTROL:EXIT`
+          takes no `config`. An unknown config key is a 400.
+        - `ACTION` nodes are created as skeletons (channel and placement) --
+          their content is authored in the dashboard, so `config.campaign_id`
+          (and NBA `config.channels[].campaign_id`) is refused with 400
+          `contract.campaign_id_not_allowed_at_create`. An unattached ACTION is
+          reported as a warning, not an error.
+      properties:
+        stage_id:
+          type: string
+          minLength: 1
+          description: |
+            Caller-assigned id, unique within the request and referenced by
+            `parent_stage_id` (and by `config.target_stage_id`, `branch_order`,
+            `branches[].stage_id`). The server assigns its own storage id to
+            every node and returns the mapping in `assigned_stage_ids`. A
+            duplicate is a 400 `schema.conflicting_entries`.
+        type:
+          $ref: '#/components/schemas/NodeType'
+        sub_type:
+          description: |
+            Kind within `type`. Required unless `type` is `BRANCH`. Accepted
+            values by type: `TriggerSubType`, `ActionSubType`,
+            `ConditionSubType`, `ControlSubType`, `SplitSubType`. For a
+            `BRANCH`, omit it or mirror the parent's `sub_type`.
+          anyOf:
+          - $ref: '#/components/schemas/TriggerSubType'
+          - $ref: '#/components/schemas/ActionSubType'
+          - $ref: '#/components/schemas/ConditionSubType'
+          - $ref: '#/components/schemas/ControlSubType'
+          - $ref: '#/components/schemas/SplitSubType'
+        parent_stage_id:
+          type: string
+          nullable: true
+          description: |
+            `stage_id` of this node's parent -- the authoritative adjacency.
+            Absent on the `TRIGGER`, which is the entry point and accepts no
+            incoming edge.
+        is_nba_candidate:
+          type: boolean
+          description: |
+            True when this `ACTION` is one of the channels its parent Next Best
+            Action may pick, rather than a step that follows the composite. Both
+            sit under the NBA node, so this flag -- not the parent pointer --
+            tells them apart; the candidate's `sub_type` is the channel. Not
+            accepted on update (400 `schema.not_updatable`).
+        label:
+          type: string
+          nullable: true
+          maxLength: 256
+          description: |
+            Human-readable node name, up to 256 characters. Required and at
+            least 5 characters (after trimming) for the kinds whose dashboard
+            modal enforces one: `WAIT_FOR_TIMER`, `HAS_DONE_EVENT`,
+            `CHECK_USER_ATTRIBUTE`, `CONDITIONAL_SPLIT`, `NBA`, and a `BRANCH`
+            under a `CONDITIONAL_SPLIT`. `AB_SPLIT`/`IPO` nodes and their
+            branches need a name of at most 50 characters. A `CONDITION`'s
+            outcome branches carry no name of their own (`Yes`/`No` or absent),
+            nor does an `EXIT` (`Exit` or absent). Other kinds may omit it.
+        config:
+          allOf:
+          - $ref: '#/components/schemas/FlowNodeConfig'
+          description: Per-kind configuration; see `FlowNodeConfig`. Omit for `CONTROL:EXIT`.
+    FlowNodeRemoval:
+      type: object
+      additionalProperties: false
+      required:
+      - stage_id
+      - operation
+      description: |
+        A removal entry of `FlowUpdateV5Request.structure.nodes[]`. Carries only
+        `stage_id`, `operation` and `keep_stage_id`; anything else is a 400
+        `schema.not_updatable`. Removing an id the flow does not have is a
+        no-op, not an error. Other entries in the same request may not still
+        reference the removed id (400 `schema.conflicting_entries`).
+      properties:
+        stage_id:
+          type: string
+          minLength: 1
+          description: The `stage_id` to remove.
+        operation:
+          $ref: '#/components/schemas/NodeOperation'
+        keep_stage_id:
+          type: string
+          minLength: 1
+          description: |
+            Required when the removed node has more than one child branch (400
+            without it): the direct child whose subtree survives, spliced onto
+            the removed node's parent; every other branch's subtree is deleted
+            with it. Must be a direct child of the removed node. On an NBA node
+            it names the one channel promoted into the composite's place; there,
+            omitting it is legal and dissolves the whole composite.
+    FlowNodeUpsert:
+      type: object
+      additionalProperties: false
+      required:
+      - stage_id
+      description: |
+        An upsert entry of `FlowUpdateV5Request.structure.nodes[]`: a sparse
+        delta merged onto the stored node with this `stage_id`, or a new node
+        when the id is not in the flow.
+
+        - Omitted members are unchanged. A sent `config` **member** replaces
+          that member whole (deep members are not merged); a `WAIT_FOR_TIMER`
+          config is replaced as a whole. Deletion is never implied -- see
+          `FlowNodeRemoval`.
+        - `type`/`sub_type` may be omitted for an existing `stage_id` (backfilled
+          from the stored node). A new non-`BRANCH` node must state `sub_type`
+          (400 `schema.missing`). A node's kind is fixed: changing `type` or
+          `sub_type` of an existing node is a 400 -- remove it and add the new
+          node.
+        - `parent_stage_id` is the only way to rewire; `child_stage_ids` is a
+          400 `schema.not_updatable`. The `TRIGGER` is never re-parented.
+        - Members the server derives are refused with 400 `schema.not_updatable`:
+          on `ACTION` `config.channel`, `config.campaign_name`,
+          `config.channels`; on `BRANCH` `config.name` (use `label`),
+          `config.branch_index`, `config.branch_type`; on `SPLIT`
+          `config.branches[]` carries `stage_id` only (`name`/`percentage` belong
+          on the branch node). A branch config member of the wrong kind for its
+          parent is a 400 (`CONDITION` -> `outcome`, `AB_SPLIT` -> `percentage`,
+          `CONDITIONAL_SPLIT` -> `condition`, `IPO` -> none).
+        - Next Best Action stages cannot be added or edited through the API yet
+          -- only removed, or continued below the composite (400 otherwise).
+        - `ACTION` content stays dashboard-authored: `config.campaign_id` is
+          refused (400).
+      properties:
+        stage_id:
+          type: string
+          minLength: 1
+          description: |
+            Stored id of the node to change, or a caller-chosen id for a new
+            node (the server assigns the storage id; this response does not
+            return the mapping). The same id may not appear twice, nor be both
+            upserted and removed, in one request (400
+            `schema.conflicting_entries`).
+        type:
+          allOf:
+          - $ref: '#/components/schemas/NodeType'
+          description: Optional for an existing node; required for a new one.
+        sub_type:
+          description: |
+            Optional for an existing node (backfilled from the stored kind);
+            required for a new node unless `type` is `BRANCH`. Same vocabularies
+            as on create.
+          anyOf:
+          - $ref: '#/components/schemas/TriggerSubType'
+          - $ref: '#/components/schemas/ActionSubType'
+          - $ref: '#/components/schemas/ConditionSubType'
+          - $ref: '#/components/schemas/ControlSubType'
+          - $ref: '#/components/schemas/SplitSubType'
+        parent_stage_id:
+          type: string
+          description: New parent. The only way to rewire a node.
+        label:
+          type: string
+          maxLength: 256
+          description: |
+            New display name (same length rules as on create). On a live flow a
+            label change is an inline edit and is refused with 409.
+        config:
+          allOf:
+          - $ref: '#/components/schemas/FlowNodeConfig'
+          description: Sparse config delta; each member sent replaces that member whole.
+    FlowSettings:
+      type: object
+      additionalProperties: false
+      description: |
+        Flow-level settings. Returned by GET and accepted by create and update.
+        On read, unset members are null (or omitted). On write, nothing under
+        `settings` creates a new version: on a live flow these are inline edits
+        and the update is refused with 409 (edit them from the dashboard).
+
+        `inactive_eviction_days` is retired -- it is server-managed and sending
+        it is a 400.
+      properties:
+        control_group:
+          allOf:
+          - $ref: '#/components/schemas/ControlGroup'
+          nullable: true
+        frequency_capping:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyCapping'
+          nullable: true
+        send_to_opted_out_users:
+          allOf:
+          - $ref: '#/components/schemas/PreferenceManagement'
+          nullable: true
+        deduplication:
+          allOf:
+          - $ref: '#/components/schemas/Deduplication'
+          nullable: true
+        on_failure:
+          allOf:
+          - $ref: '#/components/schemas/OnFailure'
+          nullable: true
+          description: |
+            What happens to a user when a stage cannot deliver its message.
+            Required on create and not defaulted -- unless the dashboard would
+            not ask either: when `bypass_dnd` is `true` **and**
+            `frequency_capping.ignore` is `true`, it may be omitted and `move`
+            is stored. Optional on update so the rest of `settings` can be sent
+            without restating it. Null on read when unset; an explicit `null` on
+            write is a 400 (send `exit` or `move`).
+        bypass_dnd:
+          type: boolean
+          nullable: true
+          description: |
+            Send regardless of do-not-disturb windows. Null on read when unset;
+            an explicit `null` on write is a 400 -- omit it to accept the
+            default.
+    FlowStatus:
+      type: string
+      description: |
+        Public lifecycle status of a flow (or of a specific version). Independent
+        of the `archived` flag, which is surfaced separately.
+      enum:
+      - DRAFT
+      - ACTIVE
+      - SCHEDULED
+      - PAUSED
+      - STOPPED
+      - COMPLETED
+      - RETIRED
+      - PUBLISHED
+      - UNDER_REVIEW
+      - REJECTED
+    FlowUpdateV5Request:
+      type: object
+      additionalProperties: false
+      required:
+      - updated_by
+      description: |
+        Body of `PATCH /v5/flows/{flow_id}`. A **sparse merge onto the stored
+        flow**, applied synchronously; the response is `200` with
+        `UpdateFlowV5SuccessResponse`.
+
+        **Merge semantics.** Every key omitted is unchanged. Flow-level members
+        (`settings`, `attribution_window`, `conversion_goal_details`, ...) merge
+        member-wise the same way. Nodes are addressed by `stage_id` in
+        `structure.nodes[]`: an entry without `operation` is an upsert
+        (`FlowNodeUpsert`), one with `operation: remove` is a removal
+        (`FlowNodeRemoval`). Nothing is ever deleted implicitly -- a node
+        absent from the body stays. A sent config member replaces that member
+        whole; `WAIT_FOR_TIMER` config is replaced as a whole. `parent_stage_id`
+        is the only way to rewire.
+
+        **Closed vocabulary.** Server-owned keys (`flow_id`, `versions`,
+        `status`, `archived`, `delivery_type`, `created_at`, `updated_at`,
+        `active_version_name`, `created_by`, `team_id`, `child_stage_ids`,
+        retired `attribution`/`inactive_eviction_days`) are a 400
+        `schema.not_updatable`; any other unknown key is a 400
+        `schema.unknown_field` / `schema.extra_forbidden`.
+
+        **Which version is edited.** `version_no` selects the target (default:
+        the active version; unknown -> 404). An archived flow is a 409
+        ("unarchive it first"); a target in `STOPPED` or `COMPLETED` is a 409.
+        - Target is a `DRAFT` -> edited in place; a new `flow_draft_uuid` is
+          minted.
+        - Target is live (`ACTIVE`, `PAUSED`, `SCHEDULED`, `RETIRED`; a one-time
+          scheduled flow only while `SCHEDULED`) -> a **version-class** change
+          is staged into the flow's pending draft version (reused if one
+          exists, else created as `version_no + 1` with its own
+          `flow_draft_uuid`); the live version is untouched. Version-class
+          changes: any structure edit (add/remove/rewire/config),
+          `attribution_window`, `conversion_goal_details`, a `team` change, and
+          the trigger's `segmentation`, `trigger` and `exit_conditions`
+          (plus `user_entry_settings` while `ACTIVE`).
+        - An **inline-class** change on a live flow -- `name`, `tags`, a node
+          `label`, anything under `settings`, `global_control_group_enabled` --
+          would reach users already in the flow and is refused with 409 ("Edit
+          it from the dashboard"). Make it on the draft, or in the dashboard.
+
+        **Validation.** Same rules as create, but findings that already exist on
+        the stored version are demoted to warnings: a pre-existing draft
+        imperfection never fails an unrelated patch. Findings on nodes the body
+        did not name are addressed as `structure.nodes[stage_id='<id>'].<path>`.
+      properties:
+        request_id:
+          type: string
+          description: Optional if supplied via the `X-MOE-Request-Id` header; echoed in `response_id`.
+        updated_by:
+          type: string
+          format: email
+          description: |
+            Email of the acting user. Must be a user provisioned for this
+            workspace, else 400. Recorded as the last editor.
+        version_no:
+          type: integer
+          minimum: 1
+          description: |
+            Version to edit. Defaults to the active version. A version the flow
+            does not have is a 404; a non-integer is a 400.
+        flow_draft_uuid:
+          type: string
+          format: uuid
+          description: |
+            Optional optimistic lock: the value returned by `POST /v5/flows`
+            (create) for this draft. When sent and it no longer matches the
+            target version's current token, the update is refused with 409
+            ("This flow changed since you last read it"). Every accepted update
+            mints a new token, so a value from before another update is stale.
+            Omit it to skip the check.
+        team:
+          type: string
+          description: |
+            Move the flow to another team (by name). Only on teams-enabled
+            workspaces (400 otherwise); an unknown name is a 400. When omitted,
+            the stored team is kept and `updated_by` must be one of its members
+            (403 otherwise). `team_id` is not a request field (400). A team
+            change is a version-class edit.
+        name:
+          type: string
+          minLength: 5
+          maxLength: 256
+          description: New flow name, 5-256 characters. Inline-class (409 on a live flow).
+        tags:
+          type: array
+          maxItems: 12
+          description: Replaces the flow's tags; `[]` clears them. Unknown names are a 400. Inline-class
+            (409 on a live flow).
+          items:
+            type: string
+        global_control_group_enabled:
+          type: boolean
+          description: Inline-class (409 on a live flow).
+        settings:
+          allOf:
+          - $ref: '#/components/schemas/FlowSettings'
+          description: |
+            Sparse: only the members sent change, except that a `control_group`
+            member replaces the whole block. `on_failure` need not be restated.
+            Inline-class (409 on a live flow).
+        attribution_window:
+          allOf:
+          - $ref: '#/components/schemas/AttributionWindow'
+          description: Replaces the window. Version-class.
+        conversion_goal_details:
+          allOf:
+          - $ref: '#/components/schemas/ConversionGoalDetails'
+          description: Merged member-wise onto the stored goal configuration. Version-class.
+        structure:
+          type: object
+          additionalProperties: false
+          description: Node upserts and removals. Only `nodes` is a field of `structure`. Version-class.
+          properties:
+            nodes:
+              type: array
+              items:
+                anyOf:
+                - $ref: '#/components/schemas/FlowNodeUpsert'
+                - $ref: '#/components/schemas/FlowNodeRemoval'
+    FlowVersion:
+      type: object
+      description: One version of a flow, as listed in a detail response's `versions[]`.
+      properties:
+        version_id:
+          type: string
+          pattern: ^[a-f0-9]{24}$
+        version_name:
+          type: string
+          description: Display name, e.g. `Version 2`.
+        version_no:
+          type: integer
+          nullable: true
+          description: Numeric version, parsed from the trailing integer of `version_name`.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FlowStatus'
+          description: This version's own lifecycle status.
+    FlowWarning:
+      type: object
+      required:
+      - stage_id
+      - messages
+      description: |
+        Non-blocking findings for one stage, persisted on the saved draft as
+        canvas badges and echoed here. Flow-level warnings use the pseudo
+        `stage_id` `journeySetting`. Node warnings are keyed by the **server**
+        stage id (on create, map it back through `assigned_stage_ids`).
+      properties:
+        stage_id:
+          type: string
+          description: Server stage id, or `journeySetting` for flow-level warnings.
+        messages:
+          type: array
+          items:
+            type: string
+    FrequencyCapping:
+      type: object
+      additionalProperties: false
+      description: |
+        Frequency-capping overrides for this flow. On read a member is null when
+        unset; on write an explicit `null` is a 400 -- omit the key to accept the
+        default.
+      properties:
+        ignore:
+          type: boolean
+          nullable: true
+          description: Send even when the user has hit their frequency cap.
+        ignore_and_count:
+          type: boolean
+          nullable: true
+          description: |
+            Send even when capped, but still count this send toward the cap.
+            Valid only when `ignore` is true (`true` with `ignore` absent or
+            false is a 400).
+    GoToConfig:
+      type: object
+      additionalProperties: false
+      description: Config of a `CONTROL` / `GO_TO` node — jumps users to another node of the same flow.
+      properties:
+        target_stage_id:
+          type: string
+          description: '`stage_id` of the node users jump to. Must reference a node in the same flow.'
+    HasDoneEventConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `CONDITION` / `HAS_DONE_EVENT` node: has the user performed
+        an event? `condition` and `evaluation_timing` are required;
+        `past_window` is required when `evaluation_timing` is `IN_THE_PAST`. The
+        node requires a `label` of 5–256 characters and exactly two `BRANCH`
+        children carrying `outcome: YES` and `outcome: NO`.
+      required:
+      - condition
+      - evaluation_timing
+      properties:
+        condition:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: Filter block selecting the event to check for. `condition.filters` must be a non-empty
+            list; sending `condition` replaces the whole block.
+        evaluation_timing:
+          $ref: '#/components/schemas/EvaluationTiming'
+        wait:
+          allOf:
+          - $ref: '#/components/schemas/ConditionWait'
+          description: How long to wait for the event before routing the user down the `NO` branch.
+        past_window:
+          $ref: '#/components/schemas/PastWindow'
+    IntelligentSplitConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `SPLIT` / `IPO` (intelligent path optimiser) node — the
+        optimiser allocates traffic, so `BRANCH` children carry no `percentage`.
+        `optimization_metric` is required. 2–5 branches; at most 10 splits of any
+        kind per flow. The split and each of its branches need a `label` of at
+        most 50 characters. GET omits `branches` for this kind.
+      required:
+      - optimization_metric
+      properties:
+        branches:
+          type: array
+          readOnly: true
+          description: Derived from the `BRANCH` children when present on read. Accepted but ignored as
+            input.
+          items:
+            $ref: '#/components/schemas/SplitBranchSummary'
+        optimization_metric:
+          $ref: '#/components/schemas/OptimizationMetric'
+        stickiness:
+          type: boolean
+          description: Keep a user in the same branch across re-entry. Distinct from the flow-level control-group
+            stickiness in `settings`.
+    MonthView:
+      type: string
+      description: How a `MONTHLY` recurrence picks its days — by calendar day (`DAYS`, uses `days_of_month`)
+        or by week of the month (`WEEKS`, uses `weeks_of_month`).
+      enum:
+      - DAYS
+      - WEEKS
+    NBAActionConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of an `ACTION` / `NBA` (Next Best Action) node. The candidate
+        channels are **not** listed here — each is its own channel `ACTION` node
+        with `parent_stage_id` = this node and `is_nba_candidate: true`. A
+        `channels` key is refused with `400` `schema.not_allowed`. The node
+        requires a `label` of 5–256 characters.
+      properties:
+        fallback_channel:
+          $ref: '#/components/schemas/NBAChannel'
+        best_time_to_send:
+          $ref: '#/components/schemas/BestTimeToSend'
+    NBAChannel:
+      type: string
+      description: Channels a Next Best Action may fall back to. Accepted case-insensitively; canonical
+        form is uppercase.
+      enum:
+      - EMAIL
+      - PUSH
+      - SMS
+      - WHATSAPP
+    NodeOperation:
+      type: string
+      description: |
+        The only node operation. Its presence on an entry of
+        `FlowUpdateV5Request.structure.nodes[]` marks that entry as a removal;
+        an entry without it is an upsert. Any other token is a 400
+        `schema.unknown_operation`.
+      enum:
+      - remove
+    NodeType:
+      type: string
+      description: |
+        Node category. Every node except a `BRANCH` also carries a `sub_type`
+        that, together with `type`, identifies its kind and therefore the shape
+        of its `config`.
+      enum:
+      - TRIGGER
+      - ACTION
+      - CONDITION
+      - CONTROL
+      - SPLIT
+      - BRANCH
+    OnFailure:
+      type: string
+      description: |
+        What happens to a user when a stage cannot deliver its message: `exit`
+        drops them out of the flow, `move` skips the message and sends them to
+        the next stage. A closed, case-sensitive set -- `EXIT` or `Move` is a
+        400.
+      enum:
+      - exit
+      - move
+    OptimizationMetric:
+      type: string
+      description: What an intelligent (`IPO`) split optimises for.
+      enum:
+      - CONVERSION
+      - ENGAGEMENT
+      - BOTH
+    Outcome:
+      type: string
+      description: Which path out of a parent condition a branch is.
+      enum:
+      - 'YES'
+      - 'NO'
+    OutcomeBranchConfig:
+      type: object
+      additionalProperties: false
+      description: Config of a `BRANCH` whose parent is a `CONDITION` — the `YES` or `NO` path. Every
+        condition has exactly one of each.
+      required:
+      - outcome
+      properties:
+        outcome:
+          $ref: '#/components/schemas/Outcome'
+    PastWindow:
+      type: object
+      additionalProperties: false
+      description: |
+        Lookback window for `evaluation_timing: IN_THE_PAST`. Both members are
+        required when used, and the window must be between 5 minutes and 30 days
+        once combined.
+      properties:
+        value:
+          type: integer
+          minimum: 1
+          description: Lookback amount, in `unit`.
+        unit:
+          $ref: '#/components/schemas/TimeUnit'
+    PreferenceManagement:
+      type: object
+      additionalProperties: false
+      description: |
+        Per-channel "send to opted-out users" switches. Only `push`, `sms`,
+        `rcs` and `whatsapp` are preference-management channels; any other key
+        is a 400. Setting `push`, `sms` or `rcs` to `true` requires preference
+        management to be enabled for that channel in the workspace, else 400
+        (`settings.send_to_opted_out_users.<channel>`: "Preference management is
+        not enabled for <CHANNEL> in this workspace"). Null on read when no
+        switch is set.
+      properties:
+        push:
+          type: boolean
+          description: Send to users opted out of PUSH.
+        sms:
+          type: boolean
+          description: Send to users opted out of SMS.
+        rcs:
+          type: boolean
+          description: Send to users opted out of RCS. Shares the SMS preference.
+        whatsapp:
+          type: boolean
+          description: Send to users opted out of WhatsApp.
+    RandomBranchConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `BRANCH` whose parent is a `SPLIT` / `AB_SPLIT` or `IPO`.
+        `percentage` is required on `AB_SPLIT` (shares across the split's
+        branches sum to 100) and omitted on `IPO`, where the optimiser allocates —
+        GET returns `{}` for an `IPO` branch. The retired member `name` is refused
+        with `400` `schema.not_allowed`; the display name is the node `label`
+        (at most 50 characters).
+      properties:
+        percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Share of traffic down this branch, a whole number 0–100.
+    RandomSplitConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `SPLIT` / `AB_SPLIT` node — traffic is allocated by the fixed
+        `percentage` on each `BRANCH` child. 2–5 branches whose percentages sum to
+        100; at most 10 splits of any kind per flow. The split and each of its
+        branches need a `label` of at most 50 characters.
+      properties:
+        branches:
+          type: array
+          readOnly: true
+          description: Derived from the `BRANCH` children and returned on read — their `stage_id`s, in
+            order. Accepted but ignored as input.
+          items:
+            $ref: '#/components/schemas/SplitBranchSummary'
+        optimization_metric:
+          allOf:
+          - $ref: '#/components/schemas/OptimizationMetric'
+          description: Meaningless on `AB_SPLIT`, which allocates by fixed percentage; see `IntelligentSplitConfig`.
+        stickiness:
+          type: boolean
+          description: Keep a user in the same branch across re-entry. Distinct from the flow-level control-group
+            stickiness in `settings`.
+    Recurrence:
+      type: object
+      additionalProperties: false
+      description: |
+        Repeat rules for a `periodic` schedule (`SCHEDULED` trigger only).
+        Required members depend on `frequency`: `DAILY` → `every`; `WEEKLY` →
+        `every` + non-empty `weekdays`; `MONTHLY` → `every` + `month_view`, plus
+        non-empty `days_of_month` (when `month_view` is `DAYS`) or `weeks_of_month`
+        (when `WEEKS`). `every` is capped at 200 for `DAILY`, 30 for `WEEKLY` and
+        6 for `MONTHLY`.
+      required:
+      - frequency
+      properties:
+        frequency:
+          $ref: '#/components/schemas/RecurrenceFrequency'
+        every:
+          type: integer
+          minimum: 1
+          description: Repeat interval in `frequency` units, e.g. `2` with `WEEKLY` means every other
+            week.
+        weekdays:
+          type: array
+          description: Days of the week to run on, `0` = Monday through `6` = Sunday. Required and non-empty
+            when `frequency` is `WEEKLY`.
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        month_view:
+          $ref: '#/components/schemas/MonthView'
+        days_of_month:
+          type: array
+          description: Calendar days to run on, 1–31. Required and non-empty when `month_view` is `DAYS`.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 31
+        weeks_of_month:
+          type: object
+          additionalProperties: true
+          description: Which weeks of the month to run in, as the flow builder stores it. Required when
+            `month_view` is `WEEKS`.
+    RecurrenceFrequency:
+      type: string
+      description: Repeat unit of a periodic schedule.
+      enum:
+      - DAILY
+      - WEEKLY
+      - MONTHLY
+    Schedule:
+      type: object
+      additionalProperties: false
+      description: |
+        When the flow admits users. Both `delivery` and `timezone` are required on
+        every trigger kind. On a `SCHEDULED` trigger this block is the entry
+        condition itself.
+      required:
+      - delivery
+      - timezone
+      properties:
+        delivery:
+          type: string
+          description: |
+            Delivery mode. `soon` — start as soon as the flow goes live; `later` —
+            start at `start_time`; `periodic` — repeat per `recurrence`. `periodic`
+            is accepted on a `SCHEDULED` trigger only; an `EVENT` trigger takes
+            `soon` or `later`. The flow's `delivery_type` is derived from this.
+          enum:
+          - soon
+          - later
+          - periodic
+        start_time:
+          type: string
+          description: When the flow begins admitting users, ISO-8601 (e.g. `2026-08-01T00:00:00Z`).
+        timezone:
+          type: string
+          description: IANA timezone the schedule is interpreted in, e.g. `Asia/Kolkata`. Required.
+        recurrence:
+          $ref: '#/components/schemas/Recurrence'
+        expiry:
+          $ref: '#/components/schemas/Expiry'
+      example:
+        delivery: periodic
+        start_time: '2026-10-01T09:00:00Z'
+        timezone: Asia/Kolkata
+        recurrence:
+          frequency: WEEKLY
+          every: 1
+          weekdays:
+          - 0
+          - 2
+          - 4
+        expiry:
+          type: AFTER_N_INSTANCES
+          max_instances: 12
+    Segmentation:
+      type: object
+      additionalProperties: false
+      description: |
+        Which users are eligible for the flow. The include half is **required on
+        POST / PATCH** under `filters` (for everyone send the All Users segment —
+        see `FilterBlock`); GET returns the same block under `included_filters`.
+        `filters.filters` must be a non-empty list, and is mandatory whenever
+        `excluded_filters` is set or `audience_type` is anything other than
+        `allusers`.
+      properties:
+        audience_type:
+          type: string
+          description: Audience selector as the flow builder stores it, e.g. `allusers` or `custom_filters`.
+            Defaults to `allusers` when omitted.
+        filters:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          writeOnly: true
+          description: |
+            **Write name** of the include half — send this on POST / PATCH.
+            GET returns the same block as `included_filters`.
+        included_filters:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          readOnly: true
+          description: |
+            **Read name** of the include half — what GET returns. Not accepted on
+            POST / PATCH (`400` `schema.extra_forbidden`); send `filters` instead.
+        excluded_filters:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: Filter block removing users from the audience (the builder's "exclude users who…"
+            section). Requires a non-empty include half.
+    SpecificTime:
+      type: object
+      additionalProperties: false
+      description: The exact moment a `specific_time` wait releases users. `date` is required when `day`
+        is `specific_date` and must not be in the past.
+      required:
+      - day
+      - time
+      properties:
+        day:
+          $ref: '#/components/schemas/SpecificTimeDay'
+        time:
+          type: string
+          pattern: ^([0-1][0-9]|2[0-3]):[0-5][0-9]$
+          description: Time in 24-hour `HH:MM` format, e.g. `13:40` for 1:40 PM.
+        date:
+          type: string
+          pattern: ^\d{4}/\d{2}/\d{2}$
+          description: Date as `YYYY/MM/DD`. Required when `day` is `specific_date`; must not be in the
+            past.
+    SpecificTimeDay:
+      type: string
+      description: |
+        Target day of a `specific_time` wait, relative to now. `next_day` =
+        tomorrow; `next_<weekday>` = the next such weekday; `specific_date`
+        together with a `date`.
+      enum:
+      - next_day
+      - next_monday
+      - next_tuesday
+      - next_wednesday
+      - next_thursday
+      - next_friday
+      - next_saturday
+      - next_sunday
+      - specific_date
+    SplitBranchSummary:
+      type: object
+      additionalProperties: false
+      description: |
+        One entry of a split's read-only `branches[]`. Carries `stage_id` only —
+        a branch's share of traffic lives on its own node as
+        `RandomBranchConfig.percentage`, and a `percentage` here is refused with
+        `400` `schema.not_allowed`.
+      properties:
+        stage_id:
+          type: string
+          description: '`stage_id` of the `BRANCH` node.'
+    SplitSubType:
+      type: string
+      description: '`sub_type` values accepted for a `SPLIT` node.'
+      enum:
+      - AB_SPLIT
+      - CONDITIONAL_SPLIT
+      - IPO
+    TimeSlot:
+      type: object
+      additionalProperties: false
+      description: One release window of a `time_slot` wait.
+      required:
+      - start
+      - end
+      properties:
+        start:
+          allOf:
+          - $ref: '#/components/schemas/TimeSlotBoundary'
+          description: When the window opens.
+        end:
+          allOf:
+          - $ref: '#/components/schemas/TimeSlotBoundary'
+          description: When the window closes.
+    TimeSlotBoundary:
+      type: object
+      additionalProperties: false
+      description: One edge (start or end) of a time slot. `date` is required when `day` is `specific_days`.
+      required:
+      - day
+      - time
+      properties:
+        day:
+          $ref: '#/components/schemas/TimeSlotDay'
+        time:
+          type: string
+          pattern: ^([0-1][0-9]|2[0-3]):[0-5][0-9]$
+          description: Time in 24-hour `HH:MM` format, e.g. `09:30` or `14:00`.
+        date:
+          type: string
+          pattern: ^\d{4}/\d{2}/\d{2}$
+          description: Date as `YYYY/MM/DD`, e.g. `2026/02/14`. Required when `day` is `specific_days`.
+    TimeSlotDay:
+      type: string
+      description: |
+        Day or day-category of a time-slot boundary. `any_day` = every day,
+        `weekdays` = Mon–Fri, `weekends` = Sat–Sun, a weekday name for that day,
+        or `specific_days` together with a `date` for an exact calendar range.
+      enum:
+      - any_day
+      - weekdays
+      - weekends
+      - monday
+      - tuesday
+      - wednesday
+      - thursday
+      - friday
+      - saturday
+      - sunday
+      - specific_days
+    TimeUnit:
+      type: string
+      description: Unit for a duration, delay or lookback amount.
+      enum:
+      - mins
+      - hours
+      - days
+    TimezoneBasis:
+      type: string
+      description: |
+        The two relative clocks a wait may use: `workspace` — the workspace's own
+        timezone; `user` — personalised to each user's timezone. A fixed IANA zone
+        name is also accepted where this is used (see `WaitForTimerConfig.timezone_basis`).
+      enum:
+      - workspace
+      - user
+    TriggerCondition:
+      type: object
+      additionalProperties: false
+      description: |
+        What admits a user to an `EVENT`-triggered flow, and when they enter
+        relative to it.
+
+        - Omit `delay` (or send `delay.value: 0`) for immediate entry; then
+          `relation` and `relative_to` must **both** be absent.
+        - A non-zero `delay` requires **both** `relation` and `relative_to`;
+          neither is defaulted.
+        - `relative_to: "If Action"` measures from the entry event itself and
+          allows `relation: after` only.
+        - Any other `relative_to` names an attribute the delay is read off — a
+          MoEngage standard attribute or an attribute of the entry event (a nested
+          attribute is a dotted path, e.g. `Object.flowsrevampobj1.Date`); this
+          requires `primary_conditions` to name exactly **one** event.
+        - A non-empty `secondary_conditions` requires a non-zero `delay`: it is
+          evaluated over the window after the entry event, so entry cannot be
+          immediate.
+      properties:
+        primary_conditions:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: |
+            Filter block selecting the entry event(s); event entries carry
+            `action_name`. Its `filter_operator` must be `or`, and an event's own
+            attribute conditions (`attributes.filter_operator`) must be `and` —
+            the entry trigger offers no other choice (`trigger.operator_not_allowed`).
+            To enter users on either of two attribute values, send one event
+            filter per value.
+        secondary_conditions:
+          allOf:
+          - $ref: '#/components/schemas/FilterBlock'
+          description: |
+            Filter block further constraining entry, evaluated over the delay
+            window. A full block — it may hold event filters, not just
+            attributes. Its `filter_operator` must be `and`
+            (`trigger.operator_not_allowed`).
+        relation:
+          $ref: '#/components/schemas/TriggerRelation'
+        relative_to:
+          type: string
+          description: |
+            What the delay is measured from. `If Action` = the entry event itself;
+            otherwise the STORED name of an attribute (not its dashboard label).
+            Required with a non-zero `delay`, forbidden without one.
+        delay:
+          $ref: '#/components/schemas/TriggerDelay'
+      example:
+        primary_conditions:
+          filter_operator: or
+          filters:
+          - action_name: Purchase
+        relation: after
+        relative_to: If Action
+        delay:
+          value: 2
+          unit: hours
+    TriggerDelay:
+      type: object
+      additionalProperties: false
+      description: Wait between the anchor (`relative_to`) and entry. A `value` of `0` means immediate
+        entry, the same as omitting the block.
+      required:
+      - value
+      - unit
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          description: Delay amount, in `unit`.
+        unit:
+          $ref: '#/components/schemas/TimeUnit'
+    TriggerEventConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `TRIGGER` / `EVENT` node — a flow users enter when an event
+        happens. `schedule` and `segmentation` are required. `schedule.delivery`
+        must be `soon` or `later` and `schedule.recurrence` is refused here (both
+        belong to a `SCHEDULED` trigger); `throttle_entries_per_minute` is likewise
+        refused on an event trigger with `400`.
+      required:
+      - schedule
+      - segmentation
+      properties:
+        user_entry_settings:
+          $ref: '#/components/schemas/UserEntrySettings'
+        schedule:
+          $ref: '#/components/schemas/Schedule'
+        segmentation:
+          $ref: '#/components/schemas/Segmentation'
+        trigger:
+          $ref: '#/components/schemas/TriggerCondition'
+        exit_conditions:
+          type: array
+          maxItems: 5
+          description: |
+            Filter blocks that remove a user from the WHOLE flow when any one
+            matches. At most 5 conditions, each carrying at most 5 leaf filters.
+          items:
+            $ref: '#/components/schemas/FilterBlock'
+    TriggerRelation:
+      type: string
+      description: Whether a trigger delay is counted `before` or `after` its anchor (`relative_to`).
+      enum:
+      - before
+      - after
+    TriggerScheduledConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `TRIGGER` / `SCHEDULED` node — a one-time or periodic flow.
+        `schedule` (with `delivery`) and `segmentation` are required; the flow's
+        `delivery_type` is derived from `schedule.delivery`, and a `recurrence`
+        is what makes the flow periodic. There is no `trigger` member.
+      required:
+      - schedule
+      - segmentation
+      properties:
+        user_entry_settings:
+          $ref: '#/components/schemas/UserEntrySettings'
+        schedule:
+          $ref: '#/components/schemas/Schedule'
+        segmentation:
+          $ref: '#/components/schemas/Segmentation'
+        throttle_entries_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 10000000
+          description: |
+            Cap on how many users may ENTER the flow per minute, 1–10,000,000.
+            Omit for no throttle — there is no "disabled" value. Scheduled
+            triggers only. Write-only today: GET does not return it.
+        exit_conditions:
+          type: array
+          maxItems: 5
+          description: |
+            Filter blocks that remove a user from the WHOLE flow when any one
+            matches. At most 5 conditions, each carrying at most 5 leaf filters.
+          items:
+            $ref: '#/components/schemas/FilterBlock'
+    TriggerSubType:
+      type: string
+      description: |
+        `sub_type` values accepted for a `TRIGGER` node. `BUSINESS_EVENT` is a
+        read-only value (it appears on GET for flows built in the dashboard) and
+        cannot be created through the API.
+      enum:
+      - EVENT
+      - SCHEDULED
+    UpdateFlowV5SuccessResponse:
+      allOf:
+      - $ref: '#/components/schemas/V5SuccessEnvelope'
+      - type: object
+        properties:
+          data:
+            type: object
+            required:
+            - flow_id
+            - version_id
+            - version_name
+            - version_no
+            - status
+            - warnings
+            description: |
+              The version the change was written to: the targeted draft itself,
+              or the flow's pending draft version when the target was live. This
+              response carries neither `assigned_stage_ids` nor
+              `flow_draft_uuid`. Server ids of nodes added by this request can be
+              read back with `GET /v5/flows/{flow_id}`; the update minted a new
+              `flow_draft_uuid` that is not exposed, so a later update should
+              omit `flow_draft_uuid` rather than re-send the create-time value.
+            properties:
+              flow_id:
+                type: string
+                pattern: ^[a-f0-9]{24}$
+                description: The flow's canonical (base) id.
+              version_id:
+                type: string
+                pattern: ^[a-f0-9]{24}$
+                description: Id of the version that was written.
+              version_name:
+                type: string
+                description: Display name of the written version, e.g. `Version 2`.
+              version_no:
+                type: integer
+                description: Numeric version that was written (`version_no + 1` of the live target when
+                  a pending draft was created).
+              status:
+                allOf:
+                - $ref: '#/components/schemas/FlowStatus'
+                description: Status of the written version -- `DRAFT`.
+              warnings:
+                type: array
+                description: Non-blocking findings, sorted by `stage_id`, including baseline findings
+                  demoted from errors. Empty when there are none.
+                items:
+                  $ref: '#/components/schemas/FlowWarning'
+      example:
+        response_id: 9d2e7b41c0aa
+        type: flow
+        data:
+          flow_id: 66a1f0c2e4b0a1d2c3e4f501
+          version_id: 66b2a1d3f5c1b2e3d4f5a602
+          version_name: Version 2
+          version_no: 2
+          status: DRAFT
+          warnings:
+          - stage_id: journeySetting
+            messages:
+            - '[structural.split.conversion_goal_required] An intelligent split optimises on conversions;
+              set a primary conversion goal for it to learn from.'
+    UserEntryConfig:
+      type: object
+      additionalProperties: false
+      description: The entry limits. All three members are required when `UserEntrySettings.enabled` is
+        `true`.
+      properties:
+        number_per_frequency:
+          type: integer
+          description: How many times a user may enter within each `frequency` window.
+        frequency:
+          $ref: '#/components/schemas/EntryFrequency'
+        max_entries:
+          type: integer
+          description: Lifetime cap on entries per user.
+    UserEntrySettings:
+      type: object
+      additionalProperties: false
+      description: |
+        Whether, and how often, a user may (re-)enter the flow. `enabled: false`
+        means unlimited entry and takes no `config`; `enabled: true` requires
+        `config` with all three of `max_entries`, `frequency` and
+        `number_per_frequency`.
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Whether entry to this flow is limited. `false` = unlimited entry.
+        config:
+          $ref: '#/components/schemas/UserEntryConfig'
+    V5Error:
+      type: object
+      description: |
+        Error envelope for every non-2xx response. HTTP status to `error.code`:
+        400 `VALIDATION_FAILED`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404
+        `NOT_FOUND`, **409 `BAD_REQUEST`** (conflicts carry this code; there is
+        no dedicated `CONFLICT`), 415 `UNSUPPORTED_MEDIA_TYPE`, 422
+        `UNPROCESSABLE_ENTITY`, 429 `RATE_LIMITED`, 500 `INTERNAL_ERROR`.
+      required:
+      - error
+      - response_id
+      properties:
+        response_id:
+          type: string
+          description: |
+            Echo of the caller's `request_id` (`X-MOE-Request-Id` header or body
+            field). A random 12-char hex id only on errors raised before the
+            request id could be read (e.g. a missing tenant).
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+              enum:
+              - VALIDATION_FAILED
+              - BAD_REQUEST
+              - NOT_FOUND
+              - UNAUTHORIZED
+              - FORBIDDEN
+              - UNSUPPORTED_MEDIA_TYPE
+              - UNPROCESSABLE_ENTITY
+              - RATE_LIMITED
+              - INTERNAL_ERROR
+            message:
+              type: string
+              description: |
+                Human-readable summary. For flow validation failures it is
+                `Flow validation failed with N error(s)`; the per-finding text is
+                in `details[]`.
+            target:
+              type: string
+              description: |
+                The component / field group the error relates to: `request`,
+                `headers`, `flow`, or `X-MOE-Scopes`. Absent when the error is
+                not attributable to one (e.g. 500).
+            details:
+              type: array
+              description: |
+                One entry per problem. **Absent on 500.** Flow validation failures
+                (create/update) return one entry per finding: `target` is the
+                dotted public path — `structure.nodes[<i>].config.wait.duration`
+                for the node at request index `<i>`,
+                `structure.nodes[stage_id='<sid>'].parent_stage_id` for a stored
+                node that is not in the request (update only), or a flow-level
+                path such as `settings.control_group.percentage` — and `message`
+                is prefixed with the machine-readable code in brackets, e.g.
+                `[wait.below_minimum] ...` (see `V5FlowValidationError`). Every
+                other error returns a single entry.
+              items:
+                type: object
+                properties:
+                  target:
+                    type: string
+                  message:
+                    type: string
+    V5SuccessEnvelope:
+      type: object
+      description: |
+        Envelope for every 2xx response (search, get, get-version, status,
+        create, update). `type` is always `flow`; `data` is the
+        operation-specific body.
+      required:
+      - response_id
+      - type
+      - data
+      properties:
+        response_id:
+          type: string
+          description: |
+            Echo of the caller's `request_id` (`X-MOE-Request-Id` header or body
+            field, header wins). Always present on a 2xx because a request id is
+            mandatory.
+        type:
+          type: string
+          enum:
+          - flow
+        data:
+          type: object
+    WaitForTimerConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Config of a `CONTROL` / `WAIT_FOR_TIMER` node. Required members depend on
+        `wait_type`: `fixed` → `duration` + `duration_unit`; `time_slot` → `slots`
+        + `timezone_basis`; `specific_time` → `until` + `timezone_basis`.
+
+        On PATCH this config is replaced **whole** — send every member for the
+        chosen `wait_type`, not only the changed one (the only node kind with this
+        rule). The node requires a `label` of 5–256 characters.
+      required:
+      - wait_type
+      properties:
+        wait_type:
+          $ref: '#/components/schemas/WaitType'
+        duration:
+          type: integer
+          minimum: 1
+          description: How long to wait, in `duration_unit`. Required when `wait_type` is `fixed`. Minimum
+            5 minutes, maximum 30 days once combined with the unit.
+        duration_unit:
+          allOf:
+          - $ref: '#/components/schemas/TimeUnit'
+          description: Unit for `duration`. Required when `wait_type` is `fixed`.
+        timezone_basis:
+          description: |
+            Which clock the wait is read in. Required when `wait_type` is
+            `time_slot` or `specific_time`. Either a `TimezoneBasis` value
+            (`workspace` / `user`) or a fixed IANA zone name such as
+            `Asia/Kolkata` (the dashboard's `Asia/Kolkata UTC+0530` form is also
+            accepted). Legacy aliases the dashboard does not offer (`EST`, `HST`,
+            `MST`, `ROC`, `Etc/Zulu`, `Etc/Greenwich`) are refused.
+          anyOf:
+          - $ref: '#/components/schemas/TimezoneBasis'
+          - type: string
+            description: An IANA zone name, e.g. `Asia/Kolkata`.
+        slots:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: |
+            Windows during which users are released. Required when `wait_type` is
+            `time_slot`. Each slot names ONE day or day-category, so several days
+            means several slots; at most 5. A `specific_days` slot must start in
+            the future and within 90 days, and its date range must run forwards
+            and span fewer than 30 days.
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+        until:
+          $ref: '#/components/schemas/SpecificTime'
+      example:
+        wait_type: fixed
+        duration: 2
+        duration_unit: days
+    WaitType:
+      type: string
+      description: |
+        Kind of `WAIT_FOR_TIMER` wait. `fixed` waits a duration; `time_slot` waits
+        until the user falls inside one of the configured `slots`; `specific_time`
+        waits until the moment given in `until`.
+      enum:
+      - fixed
+      - time_slot
+      - specific_time
+  responses:
+    V5Conflict:
+      description: |
+        The request is well-formed but conflicts with the flow's current state.
+        HTTP `409`; the error `code` is `BAD_REQUEST` (there is no dedicated
+        `CONFLICT` code). `target` is `flow` except for the Idempotency-Key case.
+
+        | Operation | `details[0].target` | `message` |
+        |---|---|---|
+        | status | `action` | `Action 'resume' is not a valid transition from status 'ACTIVE'` — the action is not allowed from the version's current status (see the transition table in the API description) |
+        | status | `action` | `Action 'archive' is not allowed from status 'ACTIVE'` — `archive` is only allowed from a non-running status |
+        | status | `action` | `Action 'pause' is not allowed on an archived flow; unarchive it first` — any lifecycle action on an archived flow |
+        | status | `action` | `Flow is not archived` — `unarchive` on a flow that is not archived |
+        | update | `flow_id` | `An archived flow cannot be updated; unarchive it first` |
+        | update | `flow_id` | `A flow in status 'STOPPED' cannot be updated` — likewise `COMPLETED`; terminal versions are read-only |
+        | update | `flow_id` | `This change applies to the live version and would reach users already in the flow, which is not available through the API. Edit it from the dashboard.` — the target version is live (not a draft) and the change would apply inline (e.g. `name`, `tags`, `settings.*`, `global_control_group_enabled`) instead of staging a new version |
+        | update | `flow_draft_uuid` | `This flow changed since you last read it (flow_draft_uuid mismatch). Fetch it again and re-apply your change.` — the optional optimistic-lock token in the body no longer matches the stored one |
+        | create, update | `Idempotency-Key` (`target: headers`) | the key was already used in the last 24h — see `V5IdempotencyConflict` |
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          examples:
+            status_transition:
+              summary: Lifecycle action not allowed from the current status
+              value:
+                response_id: abc-603
+                error:
+                  code: BAD_REQUEST
+                  target: flow
+                  message: Action 'resume' is not a valid transition from status 'ACTIVE'
+                  details:
+                  - target: action
+                    message: Action 'resume' is not a valid transition from status 'ACTIVE'
+            update_archived:
+              summary: Update on an archived flow
+              value:
+                response_id: abc-604
+                error:
+                  code: BAD_REQUEST
+                  target: flow
+                  message: An archived flow cannot be updated; unarchive it first
+                  details:
+                  - target: flow_id
+                    message: An archived flow cannot be updated; unarchive it first
+            update_terminal_status:
+              summary: Update on a STOPPED / COMPLETED version
+              value:
+                response_id: abc-605
+                error:
+                  code: BAD_REQUEST
+                  target: flow
+                  message: A flow in status 'STOPPED' cannot be updated
+                  details:
+                  - target: flow_id
+                    message: A flow in status 'STOPPED' cannot be updated
+            update_inline_on_live:
+              summary: Inline change on a live version (dashboard only)
+              value:
+                response_id: abc-606
+                error:
+                  code: BAD_REQUEST
+                  target: flow
+                  message: This change applies to the live version and would reach users already in the
+                    flow, which is not available through the API. Edit it from the dashboard.
+                  details:
+                  - target: flow_id
+                    message: This change applies to the live version and would reach users already in
+                      the flow, which is not available through the API. Edit it from the dashboard.
+            update_stale_draft_uuid:
+              summary: flow_draft_uuid no longer matches
+              value:
+                response_id: abc-607
+                error:
+                  code: BAD_REQUEST
+                  target: flow
+                  message: This flow changed since you last read it (flow_draft_uuid mismatch). Fetch
+                    it again and re-apply your change.
+                  details:
+                  - target: flow_draft_uuid
+                    message: This flow changed since you last read it (flow_draft_uuid mismatch). Fetch
+                      it again and re-apply your change.
+    V5FlowValidationError:
+      description: |
+        The flow content in a create/update body failed validation. HTTP `400`,
+        `code: VALIDATION_FAILED`, `target: flow`, `message: Flow validation
+        failed with N error(s)`. Unlike every other error, `details` carries
+        **one entry per finding**:
+
+        - `target` — the public path of the offending field:
+          `structure.nodes[<i>].…` for the node at index `<i>` of the request,
+          `structure.nodes[stage_id='<sid>'].…` for a stored node the request
+          did not include (update only), or a flow-level path
+          (`settings.control_group.percentage`, `conversion_goal_details.…`,
+          `attribution_window.value`).
+        - `message` — `[<code>] <text>`; the dotted, machine-readable code is
+          embedded in brackets at the start of the string.
+
+        Only errors block; warnings never appear here — on success they come
+        back in the 2xx `data.warnings[]`. On update, findings that the stored
+        flow already had before the patch are demoted to warnings, so an
+        untouched imperfection never fails an unrelated change.
+
+        Code families: `schema.*` (shape: unknown/missing/not-updatable fields,
+        pydantic type errors), `structural.*` (graph: trigger, parent pointers,
+        edges, cycles, exit, limits, split/branch rules), `placement.*` (where a
+        node may sit), `wait.*`, `condition.*`, `trigger.*`, `filters.*`,
+        `schedule.*`, `label.*`, `exit_criteria.*`, `events.*`, `feature.*`
+        (workspace entitlements), `limit.*`, `conversion.*`, `control_group.*`,
+        `deduplication.*`, and the monolith-only
+        `contract.campaign_id_not_allowed_at_create`. Most common codes:
+
+        | Code | Meaning |
+        |---|---|
+        | `schema.extra_forbidden` | Unexpected field in request body (unknown key anywhere in the body) |
+        | `schema.missing` | A required field is absent, e.g. `sub_type` on a newly added non-BRANCH node |
+        | `schema.not_updatable` | A server-owned or retired field was sent on PATCH (`flow_id`, `status`, `archived`, `versions`, `delivery_type`, `team_id`, timestamps, the retired `attribution` block, …) |
+        | `schema.conflicting_entries` | The same `stage_id` appears twice in `structure.nodes[]` |
+        | `structural.trigger.missing` | The graph has no `TRIGGER` node (also `.multiple`, `.no_children`) |
+        | `structural.parent.unresolved` | `parent_stage_id` names a node that is not in the flow (also `.missing`, `.self_reference`) |
+        | `structural.edges.too_many_children` | A node that allows a single successor has several |
+        | `structural.termination.missing_exit` | A path through the flow never reaches an `EXIT` |
+        | `structural.cycle.detected` | `parent_stage_id` pointers form a loop |
+        | `placement.goto.illegal_target` | A `GO_TO` points at a node it may not jump to |
+        | `wait.below_minimum` | A timer or evaluation window is shorter than 5 minutes (0 = evaluate immediately is allowed on conditions) |
+        | `condition.wait_required` | A `CONDITION` needs a `wait` block |
+        | `trigger.entry_event_missing` | An `EVENT` trigger without an entry event |
+        | `filters.rejected` | A segmentation / condition filter failed workspace validation (unknown attribute, bad operator, missing value, …) |
+        | `schedule.start_time_in_the_past` | A scheduled start that has already passed (also `.timezone_required`, `.unknown_timezone`, `.end_time_before_start`) |
+        | `label.too_long` | Label above 256 characters (also `.too_short`, `.required`) |
+        | `feature.not_entitled` | The workspace lacks the feature the node or setting needs (also `.node_not_entitled`) |
+        | `conversion.unknown_goal_event` | The conversion goal names an event the workspace has never seen |
+        | `control_group.stickiness_not_supported` | `control_group.stickiness` on a flow users cannot re-enter |
+        | `deduplication.not_a_time_based_flow` | `settings.deduplication` on a flow that is not schedule-triggered |
+        | `contract.campaign_id_not_allowed_at_create` | An `ACTION` node carried `campaign_id`; channel content is authored in the dashboard and cannot be attached through this API (also refused on update) |
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-701
+            error:
+              code: VALIDATION_FAILED
+              target: flow
+              message: Flow validation failed with 2 error(s)
+              details:
+              - target: structure.nodes[1].config.wait.duration
+                message: '[wait.below_minimum] A wait node must wait at least 5 minutes; got 1 mins. Zero
+                  means immediately, which is a node that does nothing -- remove it instead.'
+              - target: structure.nodes[stage_id='sRT66M4c7'].parent_stage_id
+                message: '[structural.parent.unresolved] Node ''sRT66M4c7'' references parent ''wait_1'',
+                  which is not a node in this flow.'
+    V5Forbidden:
+      description: |
+        The caller is authenticated but may not perform this operation. Two
+        causes:
+
+        1. **Missing scope** — `target: X-MOE-Scopes`, detail
+           `Required scope: campaigns:<action>`. The required scope is
+           `campaigns:view` for search / get / get-version and
+           `campaigns:create_manage` for status / create / update
+           (`campaigns:create_manage_publish` implies both). Scopes are granted
+           to the API key and injected by the IAM gateway as `X-MOE-Scopes`; the
+           caller never sends that header — the body names it because it is
+           what the service checked.
+        2. **Team membership** (create / update only) — `target: flow`, detail
+           `team`. The teams feature is on and the acting user (`created_by` /
+           `updated_by`) is not a member of the flow's team:
+           `User is not part of team and cannot perform this action` (or
+           `Team does not exist`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          examples:
+            missing_scope:
+              summary: API key lacks the required scope
+              value:
+                response_id: abc-450
+                error:
+                  code: FORBIDDEN
+                  target: X-MOE-Scopes
+                  message: Caller does not have the required scope for this operation.
+                  details:
+                  - target: X-MOE-Scopes
+                    message: 'Required scope: campaigns:create_manage'
+            team_membership:
+              summary: Actor is not a member of the flow's team (create / update)
+              value:
+                response_id: abc-451
+                error:
+                  code: FORBIDDEN
+                  target: flow
+                  message: User is not part of team and cannot perform this action
+                  details:
+                  - target: team
+                    message: User is not part of team and cannot perform this action
+    V5IdempotencyConflict:
+      description: |
+        The `Idempotency-Key` was already used for this workspace within the
+        last 24 hours (`POST /v5/flows` and `PATCH /v5/flows/{flow_id}` only).
+        The request was **not** performed and the original response is **not**
+        replayed — fetch the flow to learn what the first request did. HTTP
+        `409`, `code: BAD_REQUEST`, `target: headers`. The key is claimed before
+        the request is processed and released if processing fails, so a request
+        that returned 4xx/5xx does not burn its key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-409
+            error:
+              code: BAD_REQUEST
+              target: headers
+              message: This Idempotency-Key has already been used. The request was not performed. Retry
+                with a new Idempotency-Key, or fetch the flow the original request created to confirm
+                its result.
+              details:
+              - target: Idempotency-Key
+                message: This Idempotency-Key has already been used. The request was not performed. Retry
+                  with a new Idempotency-Key, or fetch the flow the original request created to confirm
+                  its result.
+    V5InternalError:
+      description: |
+        Unhandled server-side failure. The body carries `code` and `message`
+        only — no `target` and **no `details`**.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-101
+            error:
+              code: INTERNAL_ERROR
+              message: An unexpected error occurred. Please contact MoEngage support.
+    V5NotFound:
+      description: |
+        `code: NOT_FOUND`, `target: flow`. Cases:
+
+        - `Flow not found` (detail `flow_id`) — no flow with this base id in the
+          workspace, or the id is malformed / not a flow.
+        - `Flow version not found` (detail `version_id`) —
+          `GET /v5/flows/{flow_id}/versions/{version_id}` with a version that
+          does not belong to this flow.
+        - `version_no 'N' does not exist for this flow` (detail `version_no`) —
+          the `version_no` of a GET query, a status body or an update body names
+          a version number the flow does not have.
+
+        Passing a **version** id where a **flow** id is required is a `400`
+        (`flow_id must be a flow id, not a version id`), not a 404.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          examples:
+            flow_not_found:
+              summary: Unknown flow id
+              value:
+                response_id: abc-100
+                error:
+                  code: NOT_FOUND
+                  target: flow
+                  message: Flow not found
+                  details:
+                  - target: flow_id
+                    message: Flow not found
+            version_no_not_found:
+              summary: version_no the flow does not have
+              value:
+                response_id: abc-102
+                error:
+                  code: NOT_FOUND
+                  target: flow
+                  message: version_no '7' does not exist for this flow
+                  details:
+                  - target: version_no
+                    message: version_no '7' does not exist for this flow
+    V5RateLimited:
+      description: Per-app rate limit exceeded. Retry after the window indicated in `Retry-After` (seconds).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-101
+            error:
+              code: RATE_LIMITED
+              message: Rate limit exceeded for app key.
+              details: []
+    V5Unauthorized:
+      description: Authentication failure at the gateway (missing or invalid `Authorization` credentials).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-101
+            error:
+              code: UNAUTHORIZED
+              message: Invalid or missing credentials.
+              details: []
+    V5UnsupportedMediaType:
+      description: |
+        The request declared a `Content-Type` whose media type is not
+        `application/json`. Parameters such as `; charset=utf-8` are fine and the
+        comparison is case-insensitive; an absent `Content-Type` is accepted.
+        Applies to the body-bearing operations (search, status, create, update).
+        HTTP `415`, `code: UNSUPPORTED_MEDIA_TYPE`, `target: headers`, detail
+        `Content-Type`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/V5Error'
+          example:
+            response_id: abc-415
+            error:
+              code: UNSUPPORTED_MEDIA_TYPE
+              target: headers
+              message: Content-Type must be 'application/json'; got 'application/x-www-form-urlencoded'.
+              details:
+              - target: Content-Type
+                message: Content-Type must be 'application/json'; got 'application/x-www-form-urlencoded'.
