@@ -344,6 +344,9 @@
     cacheKey: 'moe-system-status',
     cacheTtl: 60 * 1000,
     refreshInterval: 5 * 60 * 1000,
+    /* How long a reading stays usable once we can no longer refresh it.
+       Three missed polls. */
+    staleCeiling: 15 * 60 * 1000,
     requestTimeout: 5000,
     debounceDelay: 100
   };
@@ -378,6 +381,7 @@
   };
 
   let current = null;
+  let lastGoodAt = 0;
   let observerTimeout = null;
   let inFlight = false;
 
@@ -389,6 +393,7 @@
       if (!raw) return null;
       const cached = JSON.parse(raw);
       if (!cached || Date.now() - cached.at > CONFIG.cacheTtl) return null;
+      lastGoodAt = cached.at;
       return cached.status;
     } catch (e) {
       return null;
@@ -428,20 +433,31 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeout);
 
-    return fetch(CONFIG.apiUrl, { signal: controller.signal, mode: 'cors' })
+    /* no-store because the endpoint sends stale-if-error=3600: without it the
+       browser can keep serving an hour-old reading whenever the origin errors,
+       which is the one case we most need to notice. */
+    return fetch(CONFIG.apiUrl, { signal: controller.signal, mode: 'cors', cache: 'no-store' })
       .then(response => (response.ok ? response.json() : null))
       .then(payload => {
         const status = normalize(payload);
-        if (status) writeCache(status);
+        if (status) {
+          writeCache(status);
+          lastGoodAt = Date.now();
+        }
         return status;
       })
       .catch(() => null)
       .then(status => {
         clearTimeout(timer);
         inFlight = false;
-        /* Prefer the last known good reading over grey: a single dropped poll on
-           the reader's flaky wifi should not start claiming we are unreachable. */
-        return status || current || UNKNOWN;
+        if (status) return status;
+        /* One dropped poll on flaky wifi should not repaint a healthy site as
+           unknown, so the last good reading stands for a few missed polls. Past
+           that it is no longer evidence of anything, and grey is the honest
+           answer: a stale green pill during a real outage is a worse failure
+           than admitting we cannot tell. */
+        if (current && Date.now() - lastGoodAt < CONFIG.staleCeiling) return current;
+        return UNKNOWN;
       });
   }
 
