@@ -1114,8 +1114,291 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
+  /v5/offers/templates/{template_id}:
+    get:
+      operationId: getPublicOfferTemplate
+      summary: Get Offer Template
+      description: |
+        Retrieve a single personalization template by its ID. The response returns the
+        template's full field schema — every field, its type, whether it's required, and
+        the valid options for dropdown fields — along with the template's preview HTML.
+
+        Use this before building template-type offering content: fetch the template to see
+        exactly which fields it needs and what values are valid, then supply those values in
+        [Create Offering](/api/public-offerings/create-offering). To find template IDs, use
+        [List Offer Templates](/api/public-offerings/list-offer-templates).
+
+        This endpoint is read-only — to change a template, edit it in the dashboard. Responses
+        are always current, as the template is not cached. It does not validate values: a
+        dropdown value that doesn't match an option is rejected by Create Offering, not here.
+      x-mint:
+        content: |
+          #### Rate Limit
+          The rate limit is 150 requests per minute, 500 requests per hour, and 1000 requests per day per consumer.
+      x-moe-mcp:
+        expose:
+          external: true
+          internal: true
+        tool_description: |
+          Retrieve one personalization template's full field schema and preview HTML by ID.
+          This tool is a thin pass-through to GET /v5/offers/templates/{template_id}.
+        param_overrides:
+          template_id:
+            description: |
+              The ID of the template to retrieve (e.g. app_small). Obtain this from
+              list_offer_templates — it is the 'id' field in the data array.
+      tags:
+        - Public Offerings
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+        - name: X-MOE-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Client-supplied trace ID (UUID v4). Echoed back in the X-MOE-Request-Id response
+            header and in server logs. If omitted, the server generates a trace ID automatically.
+      responses:
+        '200':
+          description: Template retrieved successfully.
+          headers:
+            X-MOE-Request-Id:
+              schema:
+                type: string
+              description: Trace ID echoed from the gateway.
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+                example: 150
+              description: Maximum requests allowed in the current window.
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in the current window before rate limiting applies.
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: UTC epoch second when the current rate-limit window resets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferTemplateGetResponse'
+              example:
+                response_id: resp_<trace-id>
+                type: template
+                data:
+                  id: app_small
+                  value: app_small
+                  label: App small
+                  template_config:
+                    title:
+                      label: Title
+                      outputKeyName: title
+                      value: "Life happens. Stay covered."
+                      dataType: md
+                      validations:
+                        REQUIRED: true
+                    lightMode:
+                      label: Light Mode
+                      outputKeyName: lightMode
+                      value: "https://image.moengage.com/.../light-mode.jpg"
+                      dataType: string
+                      validations:
+                        REQUIRED: true
+                    aspectRatio:
+                      label: Aspect Ratio
+                      outputKeyName: aspectRatio
+                      value: "4x3"
+                      dataType: dropdown
+                      validations:
+                        REQUIRED: true
+                      options:
+                        - id: "4x3"
+                          value: "4x3"
+                          label: "4x3"
+                        - id: "16x9"
+                          value: "16x9"
+                          label: "16x9"
+                  template_html: "<!DOCTYPE html> ... ${config.lightMode.value} ... </html>"
+                  template_meta: {}
+        '401':
+          $ref: '#/components/responses/GatewayAuthError'
+        '404':
+          description: |
+            Template not found (`TEMPLATE_NOT_FOUND`). The `template_id` does not exist or does
+            not belong to the authenticated workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: TEMPLATE_NOT_FOUND
+                  message: Template not found.
+                  target: offering
+                  details:
+                    - code: TEMPLATE_NOT_FOUND
+                      target: template_id
+                      message: Template not found.
+                  doc_url: "https://www.moengage.com/docs/api/offerings/offerings-overview#errors"
+                response_id: resp_<trace-id>
+        '429':
+          description: |
+            The rate limit for this endpoint has been exceeded. Retry after the window
+            indicated in the `Retry-After` response header (in seconds).
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error. An unexpected condition prevented the request from being completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
 components:
+  parameters:
+    TemplateId:
+      name: template_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: >
+        The ID of the personalization template to retrieve (for example, `app_small`).
+        This is the template's natural key, not a prefixed ObjectId. You can fetch template
+        IDs using the [List Offer Templates API](/api/public-offerings/list-offer-templates).
   schemas:
+    OfferTemplateGetResponse:
+      description: Full detail for a single personalization template.
+      type: object
+      required: [response_id, type, data]
+      properties:
+        response_id:
+          type: string
+          description: >
+            Stable trace identifier for this response. Format: "resp_" + X-MOE-Request-Id.
+            Identical on retries that carry the same X-MOE-Request-Id header, enabling
+            client-side deduplication and cross-log correlation.
+          example: resp_<trace-id>
+        type:
+          type: string
+          enum: [template]
+          description: Object type of the response. Always `template` for this endpoint.
+        data:
+          $ref: '#/components/schemas/OfferTemplateDetail'
+
+    OfferTemplateDetail:
+      description: >
+        A personalization template's identity, its field-level configuration, and its
+        preview HTML.
+      type: object
+      required: [id, value, label, template_config, template_html, template_meta]
+      properties:
+        id:
+          type: string
+          description: >
+            The template's ID (natural key). Use this value as `meta.templateId` in
+            template-type offering content when calling Create Offering.
+          example: app_small
+        value:
+          type: string
+          description: Returned alongside `id`; identical to `id` in observed responses.
+          example: app_small
+        label:
+          type: string
+          description: Human-readable display name of the template.
+          example: App small
+        template_config:
+          type: object
+          description: >
+            The template's fields, keyed by field name. Each entry describes one field —
+            its label, type, current value, whether it's required, and (for dropdowns) the
+            valid options. A template with no configured fields returns an empty object `{}`.
+          additionalProperties:
+            $ref: '#/components/schemas/TemplateConfigField'
+        template_html:
+          type: string
+          description: >
+            The template's HTML, used to render the preview on the dashboard. Field values
+            are interpolated with `${config.<fieldName>.value}`. Empty string if the template
+            has no HTML.
+        template_meta:
+          type: object
+          description: >
+            Optional metadata set by the template's creator. Currently an empty object `{}`
+            for all templates; its contents depend on how the template was configured.
+
+    TemplateConfigField:
+      description: >
+        A single field within a template's `template_config`. Describes the field's type,
+        current value, requirement, and — for dropdowns — its valid options.
+      type: object
+      properties:
+        label:
+          type: string
+          description: Human-readable label for the field.
+          example: Aspect Ratio
+        outputKeyName:
+          type: string
+          description: The field's key name.
+          example: aspectRatio
+        value:
+          type: string
+          description: The field's current value. Empty string if no value is set.
+          example: 4x3
+        dataType:
+          type: string
+          description: >
+            The field's type. Values seen in responses: `string`, `md`, and `dropdown`.
+            A `dropdown` field lists its allowed choices in `options`. Other values may appear.
+          example: dropdown
+        validations:
+          type: object
+          description: >
+            Validation rules for the field. `REQUIRED: true` means you must provide this
+            field when creating an offering.
+          additionalProperties:
+            type: boolean
+          example:
+            REQUIRED: true
+        options:
+          type: array
+          description: >
+            The selectable options for a `dropdown` field. When submitting a value in Create
+            Offering, use the option's `value` — not its `label` or `id`.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Option identifier. Identical to `value` for these templates.
+              value:
+                type: string
+                description: The value to submit when this option is selected.
+              label:
+                type: string
+                description: Display text for the option. Not for submission — may contain spaces.
+          example:
+            - id: 4x3
+              value: 4x3
+              label: 4x3
+            - id: 16x9
+              value: 16x9
+              label: 16x9
+
     OfferTemplateListItem:
       description: >
         Summary representation of a personalization template returned in
@@ -1646,7 +1929,8 @@ components:
             - **`template`** — value is a JSON **object** (not a string) whose keys are the field
               names defined by the template schema. Retrieve available templates and required fields
               from `GET /v5/offers/templates`. Omitting a required template field returns
-              `400 MISSING_TEMPLATE_FIELD`.
+              `400 MISSING_TEMPLATE_FIELD`. For a dropdown field, use the option's `value` — not its
+              `label` or `id`.
           oneOf:
             - type: string
               description: For `json` and `content_block` types. For `json`, must be a serialised JSON string — not an inline object.
