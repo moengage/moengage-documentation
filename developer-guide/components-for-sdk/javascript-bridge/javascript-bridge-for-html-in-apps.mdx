@@ -31,15 +31,15 @@ The below table lists all the JS Bridge methods and in the subsequent sections, 
 | moengage.setUserName("value")                                     | Use this method to capture the Name of your users. This will be saved in user profile automatically.   You can use this method with your lead generation / signup forms.   "value" : This is the username of the user                                                                                         |
 | moengage.setFirstName("value")                                    | Use this method to capture the First Name of your users. This will be saved in user profile automatically.   You can use this method with your lead generation / signup forms.   "value" : This is the first name of the user                                                                                 |
 | moengage.setLastName("value")                                     | Use this method to capture the Last Name of your users. This will be saved in user profile automatically.   You can use this method with your lead generation / signup forms.   "value" : This is the last name of the user                                                                                   |
-| moengage.setUniqueId()                                            | Use this method to set the Client ID of your users.                                                                                                                                                                                                                                                           |
-| moengage.setAlias()                                               | Use this method to update the existing Client ID of your users.                                                                                                                                                                                                                                               |
-| moengage.setGender()                                              | Use this method to set the Gender of your users.                                                                                                                                                                                                                                                              |
-| moengage.setBirthDate()                                           | Use this method to set the Birthdate of your users.                                                                                                                                                                                                                                                           |
-| moengage.setUserLocation(lat, lng)                                | Use this method to set the Location (lat,lng) of your users.                                                                                                                                                                                                                                                  |
+| moengage.setUniqueId("value")                                     | Use this method to set the Client ID of your users.   "value" : This is the Client ID of the user                                                                                                                                                                                                             |
+| moengage.setAlias("value")                                        | Use this method to update the existing Client ID of your users.   "value" : This is the new Client ID of the user                                                                                                                                                                                             |
+| moengage.setGender("value")                                       | Use this method to set the Gender of your users.   "value" : "male", "female", or "other"                                                                                                                                                                                                                     |
+| moengage.setBirthDate("value")                                    | Use this method to set the Birthdate of your users.   "value" : Date of birth in ISO 8601 format                                                                                                                                                                                                              |
+| moengage.setUserLocation(lat, lng)                                | Use this method to set the Location (lat,lng) of your users.   lat : Latitude of the user   lng : Longitude of the user                                                                                                                                                                                       |
 | moengage.setUserAttribute(name,value)                             | Use this method to set custom attributes of your users when data type of the attribute is string, numeric or boolean.   name : Name of the user attribute to be tracked   value : Value of the tracked user attribute.                                                                                        |
 | moengage.setUserAttributeDate(name,value)                         | Use this method to set custom attributes of your users when data type of the attribute is date   name : Name of the user attribute to be tracked   value : Value of the tracked user attribute in ISO 8601 format                                                                                             |
 | moengage.setUserAttributeLocation(name,lat,lng)                   | Use this method to set custom attributes of your users when data type of the attribute is location   name : Name of the user attribute to be tracked   lat,lng : Location of the user                                                                                                                         |
-| moengage.trackRating()                                            | Use this method to capture the rating of your users from a rating template.                                                                                                                                                                                                                                   |
+| moengage.trackRating(rating)                                      | Use this method to capture the rating of your users from a rating template.   rating : Rating value submitted by the user                                                                                                                                                                                     |
 
 The subsequent sections provide more details on how to use each API. The provided JS Methods are classified into two categories - JS Methods for Actions and JS Methods for Data Tracking
 
@@ -297,8 +297,52 @@ The trackEvent() takes in up to six parameters.
   Apart from the `eventName` parameter, other parameters are non-mandatory you can pass `{}`.\
   It is important to maintain the order in which parameters are passed, i.e. if you want to pass only the location attributes general attribute should be passed `{}`.
 
-  For general cases, you would just be passing the event-name and event-attributes JSON and in this case you can skip the other params. A method for this case would be like - **`moengage.trackEvent("Response_Submitted", {"response1":"johndoe@gmail.com","response2":"approved"})`**
+  For general cases, you would just be passing the event-name and event-attributes JSON and in this case you can skip the other params.
 </Info>
+
+The following example shows all six parameters in order, and how to pass `{}` for the attribute types you skip.
+
+<CodeGroup>
+
+```javascript JavaScript
+// All six parameters
+moengage.trackEvent(
+  "Order_Placed",
+  {
+    "product_name": "Running Shoes",
+    "quantity": 2,
+    "amount": 4599.00,
+    "is_gift": false
+  },
+  {
+    "store_location": {
+      "latitude": 12.9716,
+      "longitude": 77.5946
+    }
+  },
+  {
+    "delivery_date": "2026-09-15T10:30:00.000Z"
+  },
+  false,
+  true
+);
+
+// Event name and general attributes only
+moengage.trackEvent("Response_Submitted", {
+  "response1": "johndoe@gmail.com",
+  "response2": "approved"
+});
+
+// Location attributes only - pass {} for the general attributes you skip
+moengage.trackEvent("Store_Located", {}, {
+  "store_location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946
+  }
+});
+```
+
+</CodeGroup>
 
 ## Track Click Event
 
@@ -316,7 +360,7 @@ moengage.trackClick(10);
 
 ## Track Dismiss
 
-To track in-app dismissal events, use `moengage.trackDismiss(widgetId)` API. The `<widgetId>` can be int or string. If not passed, the dismiss event will be tracked without widgetID. If not passed, the event will get tracked without `<widgetId>`
+To track in-app dismissal events, use `moengage.trackDismiss(widgetId)` API. The `<widgetId>` can be int or string. If not passed, the event is tracked without a `<widgetId>`.
 
 <CodeGroup>
 
@@ -327,93 +371,90 @@ moengage.trackDismiss(1);
 
 </CodeGroup>
 
-## Track Dismiss(Deprecated - Use Above API with widget ID instead)
+<Accordion title="Deprecated: trackDismiss() Without a Widget ID">
+  Calling `moengage.trackDismiss()` with no argument is deprecated. The dismissal is still tracked, but without a `<widgetId>` the click distribution table is not populated. Pass a `<widgetId>` as shown above instead.
 
-To track the in-app dismissal use `moengage.trackDismiss()` API.
+  <CodeGroup>
 
-<CodeGroup>
+  ```javascript JavaScript
+  moengage.trackDismiss();
+  ```
 
-```javascript JavaScript
-moengage.trackDismiss();
-```
-
-</CodeGroup>
+  </CodeGroup>
+</Accordion>
 
 ## Track Default User Attributes
 
 The following JavaScript methods are available for tracking default user attributes.
 
-| API name                     | API Description                                                              |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| moengage.setAlias()          | Update user's unique id which was previously set by \`moengage.setUniqueId() |
-| moengage.setUniqueId()       | Set user UniqueId                                                            |
-| moengage.setUserName()       | Set user name                                                                |
-| moengage.setFirstName()      | Set user first name                                                          |
-| moengage.setLastName()       | Set user last name                                                           |
-| moengage.setEmailId()        | Set user email-id                                                            |
-| moengage.setMobileNumber()   | Set user mobile number                                                       |
-| moengage.setGender()         | Set user gender ("male"/"female"/"other")                                    |
-| moengage.setBirthDate()      | Set user birthday   NOTE: the value must be ISO-8601 format dates.           |
-| moengage.setUserLocation(, ) | Set user location                                                            |
-| moengage.trackRating()       | Track user input action rating                                               |
+| API name                           | API Description                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| moengage.setAlias(value)           | Update user's unique id which was previously set by `moengage.setUniqueId()` |
+| moengage.setUniqueId(value)        | Set user UniqueId                                                            |
+| moengage.setUserName(value)        | Set user name                                                                |
+| moengage.setFirstName(value)       | Set user first name                                                          |
+| moengage.setLastName(value)        | Set user last name                                                           |
+| moengage.setEmailId(value)         | Set user email-id                                                            |
+| moengage.setMobileNumber(value)    | Set user mobile number                                                       |
+| moengage.setGender(value)          | Set user gender ("male"/"female"/"other")                                    |
+| moengage.setBirthDate(value)       | Set user birthday. The value must be an ISO-8601 format date.                |
+| moengage.setUserLocation(lat, lng) | Set user location                                                            |
+| moengage.trackRating(rating)       | Track user input action rating                                               |
 
 Example:
 
 <CodeGroup>
 
 ```javascript JavaScript
-// Set alias            
-moengage.setAlias("user-alias");
-// Set UniqueId
+// Set the Client ID
 moengage.setUniqueId("unique-id");
-// Set user name        
-moengage.setUserName("John Doe");
-// Set user first name
+// Update a Client ID that was set earlier
+moengage.setAlias("new-unique-id");
+// Set the user's name
+moengage.setUserName("Jane Doe");
 moengage.setFirstName("Jane");
-//Set user last name                     
 moengage.setLastName("Doe");
-// Set Email id                    
-moengage.setEmailId("abc@abc.com");
-// Set mobile number
+// Set the user's contact details
+moengage.setEmailId("jane.doe@example.com");
 moengage.setMobileNumber("1234567890");
-// Set User gender
+// Set the gender - accepted values are "male", "female", and "other"
 moengage.setGender("female");
-// Set user birthday    
+// Set the date of birth in ISO-8601 format
 moengage.setBirthDate("2017-08-02T06:05:30.000Z");
-//Set user location       
-moengage.setUserLocation(3.0539652, 77.672683);     
-// Set rating value       
+// Set the user's location as latitude, longitude
+moengage.setUserLocation(12.9716, 77.5946);
+// Track a rating submitted from a rating template
 moengage.trackRating(4.5);
 ```
 
 </CodeGroup>
 
-## Track Custom user attributes
+## Track Custom User Attributes
 
 The following JavaScript methods are available for tracking custom user attributes.
 
-| API name                                | API description           |
-| --------------------------------------- | ------------------------- |
-| moengage.setUserAttribute(, )           | Set custom user attribute |
-| moengage.setUserAttributeDate(, )       | Set custom user date      |
-| moengage.setUserAttributeLocation(, , ) | Set custom user location  |
+| API name                                          | API description           |
+| ------------------------------------------------- | ------------------------- |
+| moengage.setUserAttribute(name, value)            | Set custom user attribute |
+| moengage.setUserAttributeDate(name, value)        | Set custom user date      |
+| moengage.setUserAttributeLocation(name, lat, lng) | Set custom user location  |
 
 Example:
 
 <CodeGroup>
 
 ```javascript JavaScript
-// Set custom user attribute
-moengage.setUserAttribute("int", 100);
-moengage.setUserAttribute("float", 10.5);
-moengage.setUserAttribute("String", "test");
-moengage.setUserAttribute("Boolean", true);
+// Set string, numeric, and boolean attributes
+moengage.setUserAttribute("loyalty_tier", "gold");
+moengage.setUserAttribute("orders_placed", 12);
+moengage.setUserAttribute("wallet_balance", 250.75);
+moengage.setUserAttribute("newsletter_opted_in", true);
 
-//Set custom date attribute
-moengage.setUserAttributeDate("Date1", "2017-08-02T06:05:30.000Z");
+// Set a date attribute in ISO-8601 format
+moengage.setUserAttributeDate("last_purchase_date", "2017-08-02T06:05:30.000Z");
 
-//Set custom user location
-moengage.setUserAttributeLocation("Location 1", 3.0539652, 77.672683);
+// Set a location attribute as latitude, longitude
+moengage.setUserAttributeLocation("preferred_store", 12.9716, 77.5946);
 ```
 
 </CodeGroup>
